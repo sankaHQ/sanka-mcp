@@ -1,7 +1,7 @@
 {
   "name": "sanka-sdk",
   "version": "0.0.1",
-  "description": "Generated TypeScript SDK workspace backing the hosted Sanka MCP server",
+  "description": "Workspace for the hosted Sanka MCP server and its internal API client",
   "author": "Sanka <>",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
@@ -15,14 +15,11 @@
   "files": [
     "**/*"
   ],
-  "private": false,
-  "publishConfig": {
-    "access": "public"
-  },
+  "private": true,
   "scripts": {
     "test": "./scripts/test",
     "build": "./scripts/build",
-    "prepublishOnly": "echo 'to publish, run pnpm build && (cd dist; pnpm publish)' && exit 1",
+    "generate:openapi-types": "./scripts/generate-openapi-types",
     "format": "./scripts/format",
     "prepare": "if ./scripts/utils/check-is-in-git-install.sh; then ./scripts/build && ./scripts/utils/git-swap.sh; fi",
     "tsn": "ts-node -r tsconfig-paths/register",

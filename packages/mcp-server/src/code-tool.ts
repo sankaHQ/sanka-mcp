@@ -7,14 +7,11 @@ import {
   Metadata,
   ToolCallResult,
   asErrorResult,
-  asTextContentResult,
 } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { readEnv } from './util';
-import { WorkerInput, WorkerOutput } from './code-tool-types';
+import { WorkerOutput } from './code-tool-types';
 import { getLogger } from './logger';
 import { SdkMethod } from './methods';
-import { McpCodeExecutionMode } from './options';
 import { ClientOptions } from 'sanka-sdk';
 
 const prompt = `Runs JavaScript code to interact with the Sanka API.
@@ -49,16 +46,8 @@ Always type dynamic key-value stores explicitly as Record<string, YourValueType>
  * @param blockedMethods - The methods to block for code execution. Blocking is done by simple string
  * matching, so it is not secure against obfuscation. For stronger security, block in the downstream API
  * with limited API keys.
- * @param codeExecutionMode - Whether to execute code in a local Deno environment or in a remote
- * sandbox environment hosted by Stainless.
  */
-export function codeTool({
-  blockedMethods,
-  codeExecutionMode,
-}: {
-  blockedMethods: SdkMethod[] | undefined;
-  codeExecutionMode: McpCodeExecutionMode;
-}): McpTool {
+export function codeTool({ blockedMethods }: { blockedMethods: SdkMethod[] | undefined }): McpTool {
   const metadata: Metadata = { resource: 'all', operation: 'write', tags: [] };
   const tool: Tool = {
     name: 'execute',
@@ -108,17 +97,12 @@ export function codeTool({
     let result: ToolCallResult;
     const startTime = Date.now();
 
-    if (codeExecutionMode === 'local') {
-      logger.debug('Executing code in local Deno environment');
-      result = await localDenoHandler({ reqContext, args });
-    } else {
-      logger.debug('Executing code in remote Stainless environment');
-      result = await remoteStainlessHandler({ reqContext, args });
-    }
+    logger.debug('Executing code in local Deno environment');
+    result = await localDenoHandler({ reqContext, args });
 
     logger.info(
       {
-        codeExecutionMode,
+        codeExecutionMode: 'local',
         durationMs: Date.now() - startTime,
         isError: result.isError,
         contentRows: result.content?.length ?? 0,
@@ -130,68 +114,6 @@ export function codeTool({
 
   return { metadata, tool, handler };
 }
-
-const remoteStainlessHandler = async ({
-  reqContext,
-  args,
-}: {
-  reqContext: McpRequestContext;
-  args: any;
-}): Promise<ToolCallResult> => {
-  const code = args.code as string;
-  const intent = args.intent as string | undefined;
-  const client = reqContext.client;
-
-  const codeModeEndpoint = readEnv('CODE_MODE_ENDPOINT_URL') ?? 'https://api.stainless.com/api/ai/code-tool';
-
-  const localClientEnvs = {
-    SANKA_API_KEY: readEnv('SANKA_API_KEY') ?? client.apiKey ?? undefined,
-    SANKA_BASE_URL: readEnv('SANKA_BASE_URL') ?? client.baseURL ?? undefined,
-  };
-  // Merge any upstream client envs from the request header, with upstream values taking precedence.
-  const mergedClientEnvs = { ...localClientEnvs, ...reqContext.upstreamClientEnvs };
-
-  // Setting a Stainless API key authenticates requests to the code tool endpoint.
-  const res = await fetch(codeModeEndpoint, {
-    method: 'POST',
-    headers: {
-      ...(reqContext.stainlessApiKey && { Authorization: reqContext.stainlessApiKey }),
-      'Content-Type': 'application/json',
-      'x-stainless-mcp-client-envs': JSON.stringify(mergedClientEnvs),
-    },
-    body: JSON.stringify({
-      project_name: 'sanka',
-      code,
-      intent,
-      client_opts: {},
-    } satisfies WorkerInput),
-  });
-
-  if (!res.ok) {
-    if (res.status === 404 && !reqContext.stainlessApiKey) {
-      throw new Error(
-        'Could not access code tool for this project. You may need to provide a Stainless API key via the STAINLESS_API_KEY environment variable, the --stainless-api-key flag, or the x-stainless-api-key HTTP header.',
-      );
-    }
-    throw new Error(
-      `${res.status}: ${
-        res.statusText
-      } error when trying to contact Code Tool server. Details: ${await res.text()}`,
-    );
-  }
-
-  const { is_error, result, log_lines, err_lines } = (await res.json()) as WorkerOutput;
-  const hasLogs = log_lines.length > 0 || err_lines.length > 0;
-  const output = {
-    result,
-    ...(log_lines.length > 0 && { log_lines }),
-    ...(err_lines.length > 0 && { err_lines }),
-  };
-  if (is_error) {
-    return asErrorResult(typeof result === 'string' && !hasLogs ? result : JSON.stringify(output, null, 2));
-  }
-  return asTextContentResult(output);
-};
 
 const localDenoHandler = async ({
   reqContext,
@@ -268,9 +190,7 @@ const localDenoHandler = async ({
     printOutput: true,
     spawnOptions: {
       cwd: path.dirname(workerPath),
-      // Merge any upstream client envs into the Deno subprocess environment,
-      // with the upstream env vars taking precedence.
-      env: { ...process.env, ...reqContext.upstreamClientEnvs },
+      env: { ...process.env },
     },
   });
 
@@ -280,13 +200,11 @@ const localDenoHandler = async ({
         reject(new Error(`Worker exited with code ${exitCode}`));
       });
 
-      // Strip null/undefined values so that the worker SDK client can fall back to
-      // reading from environment variables (including any upstreamClientEnvs).
       const opts = {
         ...(client.baseURL != null ? { baseURL: client.baseURL } : undefined),
         ...(client.apiKey != null ? { apiKey: client.apiKey } : undefined),
         defaultHeaders: {
-          'X-Stainless-MCP': 'true',
+          'X-Sanka-MCP': 'true',
         },
       } satisfies Partial<ClientOptions> as ClientOptions;
 

@@ -12,15 +12,19 @@ $ pnpm build
 
 This will install all the required dependencies and build output files to `dist/`.
 
-## Modifying/Adding code
+## Repository model
 
-Most of the SDK is generated code. Modifications to code will be persisted between generations, but may
-result in merge conflicts between manual patches and changes from the generator. The generator will never
-modify the contents of the `src/lib/` and `examples/` directories.
+This repository is maintained directly. It is no longer treated as generated infrastructure.
+
+- `src/` is the internal API client used by the MCP server.
+- `packages/mcp-server/` contains the MCP transport, tool wiring, and Docker entrypoint.
+- When the Sanka OpenAPI contract changes, update this repo intentionally instead of assuming a hosted generator will rewrite it for you.
+
+See [docs/openapi-maintenance.md](/Users/haegwan/Sites/sanka/sanka-mcp/docs/openapi-maintenance.md) for the preferred update workflow.
 
 ## Adding and running examples
 
-All files in the `examples/` directory are not modified by the generator and can be freely edited or added to.
+If you add examples or local verification scripts, keep them runnable against the current hosted/local MCP service.
 
 ```ts
 // add an example to examples/<your-example>.ts
@@ -37,31 +41,7 @@ $ pnpm tsn -T examples/<your-example>.ts
 
 ## Using the repository from source
 
-If you’d like to use the repository from source, you can either install from git or link to a cloned repository:
-
-To install via git:
-
-```sh
-$ npm install git+ssh://git@github.com:sankaHQ/sanka-node.git
-```
-
-Alternatively, to link a local copy of the repo:
-
-```sh
-# Clone
-$ git clone https://www.github.com/sankaHQ/sanka-node
-$ cd sanka-node
-
-# With yarn
-$ yarn link
-$ cd ../my-package
-$ yarn link sanka-sdk
-
-# With pnpm
-$ pnpm link --global
-$ cd ../my-package
-$ pnpm link --global sanka-sdk
-```
+The main production artifact is the hosted MCP endpoint at `https://mcp.sanka.com/mcp`, not an SDK package published from this repo.
 
 ## Running tests
 

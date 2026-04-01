@@ -1,21 +1,26 @@
 # Sanka MCP Server
 
-This repository packages the Stainless-generated Sanka TypeScript SDK together with the generated MCP server in `packages/mcp-server`.
+This repository contains the hosted Sanka MCP service and the internal TypeScript API client it depends on. It is now maintained as a normal TypeScript workspace, not as a Stainless-managed repository.
 
-The hosted deployment target is a remote Streamable HTTP server for MCP clients. The server exposes:
+The production service is a remote Streamable HTTP MCP endpoint:
 
-- `POST /mcp` as the primary MCP endpoint
+- `POST /mcp` as the primary endpoint
 - `POST /sse` as a compatibility alias for clients that still expect an SSE-style path
 - `POST /` as a compatibility alias
-- `GET /health` for Fly health checks
+- `GET /health` for health checks
 
-Current live URL:
-
-- `https://sanka-mcp.fly.dev/mcp`
-
-Planned custom domain after DNS cutover:
+Live endpoints:
 
 - `https://mcp.sanka.com/mcp`
+- `https://mcp.sanka.com/sse`
+
+## Repository layout
+
+- `src/`: internal Sanka API client used by the MCP service
+- `packages/mcp-server/`: the MCP server application and Docker entrypoint
+- `.github/workflows/`: CI plus Fly deployment on `main`
+- `fly.toml`: production Fly app configuration
+- `docs/openapi-maintenance.md`: guidance for keeping API coverage current without Stainless
 
 ## Auth
 
@@ -26,34 +31,41 @@ Remote clients authenticate with either:
 
 The server forwards those credentials to the Sanka public API.
 
-## Local Development
+## Local development
 
 ```sh
 pnpm install
 pnpm build
-node packages/mcp-server/dist/index.js --transport=http --port=8080 --docs-search-mode=local --code-execution-mode=local
+node packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
 
 Then verify:
 
 ```sh
 curl http://127.0.0.1:8080/health
+curl -sS -D - http://127.0.0.1:8080/mcp \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
 ```
 
-## Fly Deployment
+## Deployment
 
-This repo includes a root `fly.toml` that builds from `packages/mcp-server/Dockerfile` and runs one always-on machine in HTTP mode.
+This repo deploys to Fly from `packages/mcp-server/Dockerfile`.
 
-Deploy with:
+- Manual deploy: `fly deploy -c fly.toml`
+- Automatic deploy: push to `main`
+
+## Maintenance direction
+
+This repository no longer depends on Stainless project access at runtime or for ongoing development. API coverage should be maintained directly in this repo.
+
+The recommended next step is to adopt open-source OpenAPI tooling for updates to the internal client, rather than reintroducing a hosted generator dependency. See [openapi-maintenance.md](/Users/haegwan/Sites/sanka/sanka-mcp/docs/openapi-maintenance.md).
+
+The repo now includes a starter typegen command:
 
 ```sh
-fly deploy -c fly.toml
+pnpm generate:openapi-types
 ```
 
-Pushes to `main` also deploy automatically through GitHub Actions once the `FLY_API_TOKEN` repository secret is set.
-
-## Notes
-
-- The MCP server code is generated from the Sanka OpenAPI contract with Stainless.
-- The bundled runtime currently defaults to local docs search and local code execution inside the Fly machine, so it does not require a Stainless API key at runtime.
-- If we later want Stainless-hosted sandboxes or hosted docs search, we can switch the container args and add the appropriate Stainless credentials.
+By default it reads the sibling Sanka spec at `../sanka-sdks/openapi.json`.

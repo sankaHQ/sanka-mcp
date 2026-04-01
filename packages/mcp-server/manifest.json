@@ -8,9 +8,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sankaHQ/sanka-node.git"
+    "url": "git+https://github.com/sankaHQ/sanka-mcp.git"
   },
-  "homepage": "https://github.com/sankaHQ/sanka-node/tree/main/packages/mcp-server#readme",
+  "homepage": "https://github.com/sankaHQ/sanka-mcp#readme",
   "documentation": "https://docs.sanka.com/en/developers/api",
   "server": {
     "type": "node",
@@ -32,7 +32,7 @@
     }
   },
   "tools": [],
-  "tools_generated": true,
+  "tools_generated": false,
   "compatibility": {
     "runtimes": {
       "node": ">=18.0.0"

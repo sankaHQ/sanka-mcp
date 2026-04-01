@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+DEFAULT_SPEC_PATH="../sanka-sdks/openapi.json"
+SPEC_PATH="${1:-${OPENAPI_SPEC_PATH:-$DEFAULT_SPEC_PATH}}"
+OUT_PATH="${2:-src/generated/openapi.d.ts}"
+
+mkdir -p "$(dirname "$OUT_PATH")"
+
+pnpm dlx openapi-typescript "$SPEC_PATH" -o "$OUT_PATH"
+
+echo "Generated $OUT_PATH from $SPEC_PATH"

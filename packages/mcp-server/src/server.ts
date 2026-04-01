@@ -19,10 +19,8 @@ import { blockedMethodsForCodeTool } from './methods';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 
 export const newMcpServer = async ({
-  stainlessApiKey,
   customInstructionsPath,
 }: {
-  stainlessApiKey?: string | undefined;
   customInstructionsPath?: string | undefined;
 }) =>
   new McpServer(
@@ -31,7 +29,7 @@ export const newMcpServer = async ({
       version: '0.0.1',
     },
     {
-      instructions: await getInstructions({ stainlessApiKey, customInstructionsPath }),
+      instructions: await getInstructions({ customInstructionsPath }),
       capabilities: { tools: {}, logging: {} },
     },
   );
@@ -44,8 +42,6 @@ export async function initMcpServer(params: {
   server: Server | McpServer;
   clientOptions?: ClientOptions;
   mcpOptions?: McpOptions;
-  stainlessApiKey?: string | undefined;
-  upstreamClientEnvs?: Record<string, string> | undefined;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
 }) {
@@ -66,11 +62,9 @@ export async function initMcpServer(params: {
     error: logAtLevel('error'),
   };
 
-  if (params.mcpOptions?.docsSearchMode === 'local') {
-    const docsDir = params.mcpOptions?.docsDir;
-    const localSearch = await LocalDocsSearch.create(docsDir ? { docsDir } : undefined);
-    setLocalSearch(localSearch);
-  }
+  const docsDir = params.mcpOptions?.docsDir;
+  const localSearch = await LocalDocsSearch.create(docsDir ? { docsDir } : undefined);
+  setLocalSearch(localSearch);
 
   let _client: Sanka | undefined;
   let _clientError: Error | undefined;
@@ -85,7 +79,7 @@ export async function initMcpServer(params: {
           ...params.clientOptions,
           defaultHeaders: {
             ...params.clientOptions?.defaultHeaders,
-            'X-Stainless-MCP': 'true',
+            'X-Sanka-MCP': 'true',
           },
         });
         if (_logLevel) {
@@ -134,8 +128,6 @@ export async function initMcpServer(params: {
       handler: mcpTool.handler,
       reqContext: {
         client,
-        stainlessApiKey: params.stainlessApiKey ?? params.mcpOptions?.stainlessApiKey,
-        upstreamClientEnvs: params.upstreamClientEnvs,
         mcpSessionId: params.mcpSessionId,
         mcpClientInfo: params.mcpClientInfo,
       },
@@ -182,7 +174,6 @@ export function selectTools(options?: McpOptions): McpTool[] {
     includedTools.push(
       codeTool({
         blockedMethods: blockedMethodsForCodeTool(options),
-        codeExecutionMode: options?.codeExecutionMode ?? 'stainless-sandbox',
       }),
     );
   }

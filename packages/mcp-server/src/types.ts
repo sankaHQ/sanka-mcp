@@ -44,8 +44,6 @@ export type ToolCallResult = {
 
 export type McpRequestContext = {
   client: Sanka;
-  stainlessApiKey?: string | undefined;
-  upstreamClientEnvs?: Record<string, string> | undefined;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
 };
