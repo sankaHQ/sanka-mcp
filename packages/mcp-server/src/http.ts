@@ -88,7 +88,7 @@ const newServer = async ({
   return server;
 };
 
-const STREAMABLE_HTTP_PATHS = ['/', '/mcp'];
+const STREAMABLE_HTTP_PATHS = ['/', '/mcp', '/sse'];
 
 const post =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>

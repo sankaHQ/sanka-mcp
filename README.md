@@ -5,8 +5,17 @@ This repository packages the Stainless-generated Sanka TypeScript SDK together w
 The hosted deployment target is a remote Streamable HTTP server for MCP clients. The server exposes:
 
 - `POST /mcp` as the primary MCP endpoint
+- `POST /sse` as a compatibility alias for clients that still expect an SSE-style path
 - `POST /` as a compatibility alias
 - `GET /health` for Fly health checks
+
+Current live URL:
+
+- `https://sanka-mcp.fly.dev/mcp`
+
+Planned custom domain after DNS cutover:
+
+- `https://mcp.sanka.com/mcp`
 
 ## Auth
 
@@ -40,6 +49,8 @@ Deploy with:
 ```sh
 fly deploy -c fly.toml
 ```
+
+Pushes to `main` also deploy automatically through GitHub Actions once the `FLY_API_TOKEN` repository secret is set.
 
 ## Notes
 

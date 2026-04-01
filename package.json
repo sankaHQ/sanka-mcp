@@ -1,14 +1,14 @@
 {
   "name": "sanka-sdk",
   "version": "0.0.1",
-  "description": "The official TypeScript library for the Sanka API",
+  "description": "Generated TypeScript SDK workspace backing the hosted Sanka MCP server",
   "author": "Sanka <>",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sankaHQ/sanka-node.git"
+    "url": "git+https://github.com/sankaHQ/sanka-mcp.git"
   },
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.30.1",
