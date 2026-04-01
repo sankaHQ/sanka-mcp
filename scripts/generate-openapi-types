@@ -11,5 +11,6 @@ OUT_PATH="${2:-src/generated/openapi.d.ts}"
 mkdir -p "$(dirname "$OUT_PATH")"
 
 pnpm dlx openapi-typescript "$SPEC_PATH" -o "$OUT_PATH"
+pnpm exec prettier --write "$OUT_PATH"
 
 echo "Generated $OUT_PATH from $SPEC_PATH"

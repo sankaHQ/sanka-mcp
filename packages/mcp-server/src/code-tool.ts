@@ -1,13 +1,6 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-import {
-  ContentBlock,
-  McpRequestContext,
-  McpTool,
-  Metadata,
-  ToolCallResult,
-  asErrorResult,
-} from './types';
+import { ContentBlock, McpRequestContext, McpTool, Metadata, ToolCallResult, asErrorResult } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { WorkerOutput } from './code-tool-types';
 import { getLogger } from './logger';

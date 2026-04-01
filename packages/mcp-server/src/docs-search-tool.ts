@@ -63,11 +63,7 @@ async function searchLocal(args: Record<string, unknown>): Promise<unknown> {
   }).results;
 }
 
-export const handler = async ({
-  args,
-}: {
-  args: Record<string, unknown> | undefined;
-}) => {
+export const handler = async ({ args }: { args: Record<string, unknown> | undefined }) => {
   const body = args ?? {};
 
   if (!_localSearch) {
