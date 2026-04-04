@@ -22,8 +22,10 @@ import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './t
 
 export const newMcpServer = async ({
   customInstructionsPath,
+  toolProfile,
 }: {
   customInstructionsPath?: string | undefined;
+  toolProfile?: ToolProfile | undefined;
 }) =>
   new McpServer(
     {
@@ -31,7 +33,7 @@ export const newMcpServer = async ({
       version: '0.0.1',
     },
     {
-      instructions: await getInstructions({ customInstructionsPath }),
+      instructions: await getInstructions({ customInstructionsPath, toolProfile }),
       capabilities: { tools: {}, logging: {} },
     },
   );

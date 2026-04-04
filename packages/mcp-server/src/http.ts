@@ -30,7 +30,7 @@ const newServer = async ({
   toolProfile: ToolProfile;
 }): Promise<McpServer | null> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
-  const server = await newMcpServer({ customInstructionsPath });
+  const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
   // Parse client permission override headers.
   //

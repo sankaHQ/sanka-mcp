@@ -1,5 +1,6 @@
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 import { selectTools } from '../../packages/mcp-server/src/server';
+import { getInstructions } from '../../packages/mcp-server/src/instructions';
 
 describe('profile-aware tool selection', () => {
   beforeAll(() => {
@@ -18,5 +19,14 @@ describe('profile-aware tool selection', () => {
     const toolNames = selectTools(undefined, 'chatgpt').map((tool) => tool.tool.name);
 
     expect(toolNames).toEqual(['crm.list_companies', 'crm.list_contacts']);
+  });
+
+  it('returns chatgpt-specific instructions for the chatgpt profile', async () => {
+    const instructions = await getInstructions({ toolProfile: 'chatgpt' });
+
+    expect(instructions).toContain('crm.list_companies');
+    expect(instructions).toContain('crm.list_contacts');
+    expect(instructions).not.toContain('execute');
+    expect(instructions).not.toContain('search_docs');
   });
 });
