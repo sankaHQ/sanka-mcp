@@ -21,19 +21,7 @@ const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
 const CRM_METADATA_PATH = '/.well-known/oauth-protected-resource/mcp/crm';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse', CRM_STREAMABLE_PATH, CRM_STREAMABLE_SSE_PATH];
 
-type SessionState = {
-  server: McpServer;
-  transport: StreamableHTTPServerTransport;
-  toolProfile: ToolProfile;
-  sessionId: string;
-};
-
-const sessionStates = new Map<string, SessionState>();
-
-const headerSessionId = (req: express.Request): string | undefined =>
-  singleHeader(req.headers['mcp-session-id']);
-
-const createSessionState = async ({
+const createRequestTransport = async ({
   clientOptions,
   mcpOptions,
   req,
@@ -45,7 +33,7 @@ const createSessionState = async ({
   req: express.Request;
   res: express.Response;
   toolProfile: ToolProfile;
-}): Promise<SessionState | null> => {
+}): Promise<{ server: McpServer; transport: StreamableHTTPServerTransport } | null> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -97,23 +85,7 @@ const createSessionState = async ({
     throw error;
   }
 
-  const sessionId = crypto.randomUUID();
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => sessionId,
-    onsessioninitialized: async (initializedSessionId) => {
-      sessionStates.set(initializedSessionId, {
-        server,
-        transport,
-        toolProfile,
-        sessionId: initializedSessionId,
-      });
-    },
-    onsessionclosed: async (closedSessionId) => {
-      if (closedSessionId) {
-        sessionStates.delete(closedSessionId);
-      }
-    },
-  });
+  const transport = new StreamableHTTPServerTransport();
 
   await initMcpServer({
     server,
@@ -122,7 +94,6 @@ const createSessionState = async ({
       ...clientOptions,
       ...resolvedAuth.clientOptions,
     },
-    mcpSessionId: sessionId,
     mcpClientInfo:
       typeof req.body?.params?.clientInfo?.name === 'string' ?
         { name: req.body.params.clientInfo.name, version: String(req.body.params.clientInfo.version ?? '') }
@@ -135,8 +106,6 @@ const createSessionState = async ({
   return {
     server,
     transport,
-    toolProfile,
-    sessionId,
   };
 };
 
@@ -171,12 +140,9 @@ const requestProfile = (req: express.Request): ToolProfile => {
   const explicitProfile =
     normalizeToolProfile(singleHeader(req.headers['x-sanka-mcp-profile'])) ||
     normalizeToolProfile(queryProfile);
-  const sessionId = headerSessionId(req);
-  const sessionProfile = sessionId ? sessionStates.get(sessionId)?.toolProfile : undefined;
   const toolProfile = inferToolProfile({
     routeProfile,
     explicitProfile,
-    sessionProfile,
     clientInfoName:
       typeof req.body?.params?.clientInfo?.name === 'string' ? req.body.params.clientInfo.name : undefined,
     authorizationHeader: singleHeader(req.headers.authorization),
@@ -186,61 +152,16 @@ const requestProfile = (req: express.Request): ToolProfile => {
   return toolProfile;
 };
 
-const isInitializeRequestBody = (body: unknown): boolean => {
-  if (Array.isArray(body)) {
-    return body.some(
-      (message) =>
-        typeof message === 'object' &&
-        message !== null &&
-        'method' in message &&
-        (message as { method?: unknown }).method === 'initialize',
-    );
-  }
-
-  return (
-    typeof body === 'object' &&
-    body !== null &&
-    'method' in body &&
-    (body as { method?: unknown }).method === 'initialize'
-  );
-};
-
-const missingSessionResponse = (res: express.Response, sessionId: string | undefined) => {
-  res.status(sessionId ? 404 : 400).json({
-    jsonrpc: '2.0',
-    error: {
-      code: sessionId ? -32001 : -32000,
-      message: sessionId ? 'Session not found' : 'Bad Request: Mcp-Session-Id header is required',
-    },
-  });
-};
-
 const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
   async (req: express.Request, res: express.Response) => {
-    const sessionId = headerSessionId(req);
-    let state: SessionState | undefined = sessionId ? sessionStates.get(sessionId) : undefined;
-
-    if (!state) {
-      const toolProfile = requestProfile(req);
-      if (sessionId) {
-        missingSessionResponse(res, sessionId);
-        return;
-      }
-
-      const createdState = await createSessionState({ ...options, req, res, toolProfile });
-      if (createdState === null) {
-        return;
-      }
-
-      if (req.method !== 'POST' || !isInitializeRequestBody(req.body)) {
-        await createdState.transport.handleRequest(req, res, req.body);
-        return;
-      }
-      state = createdState;
+    const toolProfile = requestProfile(req);
+    const transportContext = await createRequestTransport({ ...options, req, res, toolProfile });
+    if (transportContext === null) {
+      return;
     }
 
-    await state.transport.handleRequest(req, res, req.body);
+    await transportContext.transport.handleRequest(req, res, req.body);
   };
 
 const redactHeaders = (headers: Record<string, any>) => {

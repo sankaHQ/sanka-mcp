@@ -102,7 +102,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('supports a session-bound GET stream after initialize', async () => {
+  it('supports stateless follow-up requests after initialize', async () => {
     const initializeResponse = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'POST',
       headers: {
@@ -125,16 +125,32 @@ describe('protected resource metadata route', () => {
     });
 
     expect(initializeResponse.status).toBe(200);
-    const sessionId = initializeResponse.headers.get('mcp-session-id');
-    expect(sessionId).toBeTruthy();
+    expect(initializeResponse.headers.get('mcp-session-id')).toBeNull();
     await initializeResponse.text();
+
+    const listResponse = await fetch(`${baseUrl}/mcp/crm`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/list',
+        params: {},
+      }),
+    });
+
+    expect(listResponse.status).toBe(200);
+    await listResponse.text();
 
     const streamResponse = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',
         'mcp-protocol-version': '2025-11-25',
-        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
     });
 
