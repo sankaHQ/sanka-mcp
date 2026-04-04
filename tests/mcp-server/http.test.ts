@@ -54,6 +54,18 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('serves the same metadata from the /mcp alias path', async () => {
+    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource/mcp`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      resource: `${baseUrl}/mcp`,
+      authorization_servers: ['https://app.sanka.com'],
+      scopes_supported: ['contacts:read', 'companies:read'],
+    });
+  });
+
   it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',

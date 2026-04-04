@@ -239,7 +239,7 @@ export const streamableHTTPApp = ({
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
   });
-  app.get('/.well-known/oauth-protected-resource', async (req: express.Request, res: express.Response) => {
+  const sendProtectedResourceMetadata = async (req: express.Request, res: express.Response) => {
     const origin = requestOrigin(req);
     res.status(200).json(
       buildProtectedResourceMetadata({
@@ -248,7 +248,9 @@ export const streamableHTTPApp = ({
         scopesSupported: mcpOptions.scopesSupported,
       }),
     );
-  });
+  };
+  app.get('/.well-known/oauth-protected-resource', sendProtectedResourceMetadata);
+  app.get('/.well-known/oauth-protected-resource/mcp', sendProtectedResourceMetadata);
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, get);
     app.post(routePath, post({ clientOptions, mcpOptions }));
