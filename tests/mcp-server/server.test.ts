@@ -15,15 +15,16 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).not.toContain('crm.list_companies');
   });
 
-  it('exposes only explicit CRM tools in the chatgpt profile', () => {
-    const toolNames = selectTools(undefined, 'chatgpt').map((tool) => tool.tool.name);
+  it('exposes only explicit CRM tools in the crm profile', () => {
+    const toolNames = selectTools(undefined, 'crm').map((tool) => tool.tool.name);
 
-    expect(toolNames).toEqual(['crm.list_companies', 'crm.list_contacts']);
+    expect(toolNames).toEqual(['crm.auth_status', 'crm.list_companies', 'crm.list_contacts']);
   });
 
-  it('returns chatgpt-specific instructions for the chatgpt profile', async () => {
-    const instructions = await getInstructions({ toolProfile: 'chatgpt' });
+  it('returns crm-specific instructions for the crm profile', async () => {
+    const instructions = await getInstructions({ toolProfile: 'crm' });
 
+    expect(instructions).toContain('crm.auth_status');
     expect(instructions).toContain('crm.list_companies');
     expect(instructions).toContain('crm.list_contacts');
     expect(instructions).not.toContain('execute');

@@ -1,8 +1,14 @@
-import { inferToolProfile, isChatGPTClientName, normalizeToolProfile } from '../../packages/mcp-server/src/profile';
+import {
+  inferPathProfile,
+  inferToolProfile,
+  isChatGPTClientName,
+  normalizeToolProfile,
+} from '../../packages/mcp-server/src/profile';
 
 describe('tool profile detection', () => {
   it('normalizes explicit profile overrides', () => {
-    expect(normalizeToolProfile('chatgpt')).toBe('chatgpt');
+    expect(normalizeToolProfile('chatgpt')).toBe('crm');
+    expect(normalizeToolProfile('crm')).toBe('crm');
     expect(normalizeToolProfile('FULL')).toBe('full');
     expect(normalizeToolProfile('unknown')).toBeUndefined();
   });
@@ -13,22 +19,28 @@ describe('tool profile detection', () => {
     expect(isChatGPTClientName('Claude Desktop')).toBe(false);
   });
 
+  it('locks the crm profile for the dedicated route path', () => {
+    expect(inferPathProfile('/mcp/crm')).toBe('crm');
+    expect(inferPathProfile('/.well-known/oauth-protected-resource/mcp/crm')).toBe('crm');
+    expect(inferPathProfile('/mcp')).toBeUndefined();
+  });
+
   it('prefers explicit profile overrides', () => {
     expect(
       inferToolProfile({
-        explicitProfile: 'chatgpt',
+        explicitProfile: 'crm',
         authorizationHeader: 'Bearer legacy-token',
       }),
-    ).toBe('chatgpt');
+    ).toBe('crm');
   });
 
   it('uses the remembered session profile when available', () => {
     expect(
       inferToolProfile({
-        sessionProfile: 'chatgpt',
+        sessionProfile: 'crm',
         authorizationHeader: 'Bearer legacy-token',
       }),
-    ).toBe('chatgpt');
+    ).toBe('crm');
   });
 
   it('routes api-key and legacy bearer traffic to the full profile', () => {
@@ -45,11 +57,11 @@ describe('tool profile detection', () => {
     ).toBe('full');
   });
 
-  it('routes recognized OpenAI clients to the chatgpt profile', () => {
+  it('routes recognized OpenAI clients to the crm profile', () => {
     expect(
       inferToolProfile({
         clientInfoName: 'ChatGPT',
       }),
-    ).toBe('chatgpt');
+    ).toBe('crm');
   });
 });

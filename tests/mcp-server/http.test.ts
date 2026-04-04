@@ -66,6 +66,18 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('serves CRM metadata from the dedicated CRM alias path', async () => {
+    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource/mcp/crm`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      resource: `${baseUrl}/mcp/crm`,
+      authorization_servers: ['https://app.sanka.com'],
+      scopes_supported: ['contacts:read', 'companies:read'],
+    });
+  });
+
   it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -91,7 +103,7 @@ describe('protected resource metadata route', () => {
   });
 
   it('supports a session-bound GET stream after initialize', async () => {
-    const initializeResponse = await fetch(`${baseUrl}/mcp?profile=chatgpt`, {
+    const initializeResponse = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
@@ -117,7 +129,7 @@ describe('protected resource metadata route', () => {
     expect(sessionId).toBeTruthy();
     await initializeResponse.text();
 
-    const streamResponse = await fetch(`${baseUrl}/mcp?profile=chatgpt`, {
+    const streamResponse = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',

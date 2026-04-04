@@ -9,11 +9,17 @@ import pinoHttp from 'pino-http';
 import { OAuthChallengeError, resolveClientAuth } from './auth';
 import { getLogger } from './logger';
 import { McpOptions } from './options';
-import { inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
+import { inferPathProfile, inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
 
-const STREAMABLE_HTTP_PATHS = ['/', '/mcp', '/sse'];
+const DEFAULT_STREAMABLE_PATH = '/mcp';
+const CRM_STREAMABLE_PATH = '/mcp/crm';
+const CRM_STREAMABLE_SSE_PATH = '/sse/crm';
+const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
+const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
+const CRM_METADATA_PATH = '/.well-known/oauth-protected-resource/mcp/crm';
+const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse', CRM_STREAMABLE_PATH, CRM_STREAMABLE_SSE_PATH];
 
 type SessionState = {
   server: McpServer;
@@ -70,8 +76,7 @@ const createSessionState = async ({
     }
   }
 
-  const resourceUrl = effectiveMcpOptions.resourceUrl || new URL('/mcp', requestOrigin(req)).toString();
-  const resourceMetadataUrl = new URL('/.well-known/oauth-protected-resource', requestOrigin(req)).toString();
+  const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, effectiveMcpOptions, toolProfile);
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
@@ -146,7 +151,22 @@ const requestOrigin = (req: express.Request): string => {
   return `${protocol}://${host}`;
 };
 
+const streamablePathForProfile = (toolProfile: ToolProfile): string =>
+  toolProfile === 'crm' ? CRM_STREAMABLE_PATH : DEFAULT_STREAMABLE_PATH;
+
+const metadataPathForProfile = (toolProfile: ToolProfile): string =>
+  toolProfile === 'crm' ? CRM_METADATA_PATH : DEFAULT_METADATA_PATH;
+
+const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions, toolProfile: ToolProfile) => ({
+  resourceUrl:
+    toolProfile === 'crm' ?
+      new URL(streamablePathForProfile(toolProfile), requestOrigin(req)).toString()
+    : (mcpOptions.resourceUrl || new URL(streamablePathForProfile(toolProfile), requestOrigin(req)).toString()),
+  resourceMetadataUrl: new URL(metadataPathForProfile(toolProfile), requestOrigin(req)).toString(),
+});
+
 const requestProfile = (req: express.Request): ToolProfile => {
+  const routeProfile = inferPathProfile(req.path);
   const queryProfile = Array.isArray(req.query['profile']) ? req.query['profile'][0] : req.query['profile'];
   const explicitProfile =
     normalizeToolProfile(singleHeader(req.headers['x-sanka-mcp-profile'])) ||
@@ -154,6 +174,7 @@ const requestProfile = (req: express.Request): ToolProfile => {
   const sessionId = headerSessionId(req);
   const sessionProfile = sessionId ? sessionStates.get(sessionId)?.toolProfile : undefined;
   const toolProfile = inferToolProfile({
+    routeProfile,
     explicitProfile,
     sessionProfile,
     clientInfoName:
@@ -281,17 +302,19 @@ export const streamableHTTPApp = ({
     res.status(200).send('OK');
   });
   const sendProtectedResourceMetadata = async (req: express.Request, res: express.Response) => {
-    const origin = requestOrigin(req);
+    const toolProfile = inferPathProfile(req.path) ?? 'full';
+    const { resourceUrl } = requestResourceUrls(req, mcpOptions, toolProfile);
     res.status(200).json(
       buildProtectedResourceMetadata({
-        resource: mcpOptions.resourceUrl || new URL('/mcp', origin).toString(),
+        resource: resourceUrl,
         authorizationServerUrl: mcpOptions.authorizationServerUrl || 'https://app.sanka.com',
         scopesSupported: mcpOptions.scopesSupported,
       }),
     );
   };
-  app.get('/.well-known/oauth-protected-resource', sendProtectedResourceMetadata);
-  app.get('/.well-known/oauth-protected-resource/mcp', sendProtectedResourceMetadata);
+  app.get(DEFAULT_METADATA_PATH, sendProtectedResourceMetadata);
+  app.get(DEFAULT_METADATA_ALIAS_PATH, sendProtectedResourceMetadata);
+  app.get(CRM_METADATA_PATH, sendProtectedResourceMetadata);
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, streamableHandler);

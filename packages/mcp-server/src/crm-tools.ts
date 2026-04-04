@@ -1,4 +1,5 @@
-import { McpTool, ToolCallResult } from './types';
+import { buildOAuthWwwAuthenticateHeader } from './auth';
+import { McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireScopes } from './tool-auth';
 
 const LIST_INPUT_SCHEMA = {
@@ -56,6 +57,22 @@ const LIST_OUTPUT_SCHEMA = {
     },
   },
   required: ['count', 'page', 'total', 'message', 'results'],
+};
+
+const AUTH_STATUS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    connected: { type: 'boolean' },
+    auth_mode: { type: 'string' },
+    tool_profile: { type: 'string' },
+    scopes: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    message: { type: 'string' },
+    resource_url: { type: 'string' },
+  },
+  required: ['connected', 'auth_mode', 'tool_profile', 'scopes', 'message'],
 };
 
 const readNumber = (value: unknown, fallback: number): number => {
@@ -139,11 +156,105 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   };
 };
 
+const buildAuthStatusChallenge = ({
+  message,
+  reqContext,
+}: {
+  message: string;
+  reqContext: McpRequestContext;
+}): ToolCallResult => {
+  const oauth = reqContext.auth?.oauth;
+  const wwwAuthenticate =
+    oauth ?
+      buildOAuthWwwAuthenticateHeader({
+        authorizationServerUrl: oauth.authorizationServerUrl,
+        description: message,
+        error: 'invalid_token',
+        resourceMetadataUrl: oauth.resourceMetadataUrl,
+      })
+    : undefined;
+
+  return {
+    content: [{ type: 'text', text: message }],
+    isError: true,
+    structuredContent: {
+      connected: false,
+      auth_mode: reqContext.auth?.authMode ?? 'none',
+      tool_profile: reqContext.toolProfile ?? 'full',
+      scopes: reqContext.auth?.oauth.scopes ?? [],
+      message,
+      resource_url: oauth?.resourceUrl,
+    },
+    ...(wwwAuthenticate
+      ? {
+          _meta: {
+            'mcp/www_authenticate': [wwwAuthenticate],
+          },
+        }
+      : undefined),
+  };
+};
+
+export const crmAuthStatusTool: McpTool = {
+  metadata: {
+    resource: 'auth',
+    operation: 'read',
+    tags: ['crm'],
+    operationId: 'crm.auth_status',
+  },
+  tool: {
+    name: 'crm.auth_status',
+    title: 'Check CRM authentication status',
+    description:
+      'Check whether the Sanka CRM connector is authenticated and ready before using CRM lookup tools.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'noauth' }],
+    annotations: {
+      title: 'Check CRM authentication status',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authMode = reqContext.auth?.authMode ?? 'none';
+    const scopes = reqContext.auth?.oauth.scopes ?? [];
+
+    if (authMode === 'none') {
+      return buildAuthStatusChallenge({
+        message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+        reqContext,
+      });
+    }
+
+    const message =
+      authMode === 'api_key' ?
+        'Sanka CRM is connected with an API key.'
+      : `Sanka CRM is connected with OAuth${scopes.length > 0 ? ` and scopes: ${scopes.join(', ')}.` : '.'}`;
+
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: {
+        connected: true,
+        auth_mode: authMode,
+        tool_profile: reqContext.toolProfile ?? 'full',
+        scopes,
+        message,
+        resource_url: reqContext.auth?.oauth.resourceUrl,
+      },
+    };
+  },
+};
+
 export const crmListCompaniesTool: McpTool = {
   metadata: {
     resource: 'companies',
     operation: 'read',
-    tags: ['crm', 'chatgpt'],
+    tags: ['crm'],
     httpMethod: 'get',
     httpPath: '/v1/public/companies',
     operationId: 'public.companies.list',
@@ -186,7 +297,7 @@ export const crmListContactsTool: McpTool = {
   metadata: {
     resource: 'contacts',
     operation: 'read',
-    tags: ['crm', 'chatgpt'],
+    tags: ['crm'],
     httpMethod: 'get',
     httpPath: '/v1/public/contacts',
     operationId: 'public.contacts.list',

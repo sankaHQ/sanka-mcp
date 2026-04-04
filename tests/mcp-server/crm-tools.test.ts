@@ -1,4 +1,8 @@
-import { crmListCompaniesTool, crmListContactsTool } from '../../packages/mcp-server/src/crm-tools';
+import {
+  crmAuthStatusTool,
+  crmListCompaniesTool,
+  crmListContactsTool,
+} from '../../packages/mcp-server/src/crm-tools';
 
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'api_key' | 'legacy_oauth_jwt' | 'resource_oauth_jwt';
@@ -8,18 +12,64 @@ const oauthContext = (overrides?: {
   clientOptions: {},
   oauth: {
     authorizationServerUrl: 'https://app.sanka.com',
-    resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-    resourceUrl: 'https://mcp.sanka.com/mcp',
+    resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource/mcp/crm',
+    resourceUrl: 'https://mcp.sanka.com/mcp/crm',
     scopes: overrides?.scopes ?? ['companies:read', 'contacts:read'],
   },
 });
 
 describe('ChatGPT CRM tools', () => {
-  it('advertises OAuth scopes on company and contact tools', () => {
+  it('advertises auth schemes on CRM tools', () => {
+    expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmListCompaniesTool.tool.securitySchemes).toEqual([
       { type: 'oauth2', scopes: ['companies:read'] },
     ]);
     expect(crmListContactsTool.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['contacts:read'] }]);
+  });
+
+  it('returns a reauth challenge when auth status is checked without authentication', async () => {
+    const result = await crmAuthStatusTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        toolProfile: 'crm',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual({
+      connected: false,
+      auth_mode: 'none',
+      tool_profile: 'crm',
+      scopes: [],
+      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      resource_url: 'https://mcp.sanka.com/mcp/crm',
+    });
+    expect(result._meta?.['mcp/www_authenticate']).toEqual([
+      expect.stringContaining('error="invalid_token"'),
+    ]);
+  });
+
+  it('reports connected auth status when OAuth scopes are present', async () => {
+    const result = await crmAuthStatusTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({ scopes: ['companies:read', 'contacts:read'] }),
+        toolProfile: 'crm',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      connected: true,
+      auth_mode: 'resource_oauth_jwt',
+      tool_profile: 'crm',
+      scopes: ['companies:read', 'contacts:read'],
+      message: 'Sanka CRM is connected with OAuth and scopes: companies:read, contacts:read.',
+      resource_url: 'https://mcp.sanka.com/mcp/crm',
+    });
   });
 
   it('returns reauth metadata when list companies is called without authentication', async () => {
@@ -33,7 +83,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'chatgpt',
+        toolProfile: 'crm',
       },
       args: { search: 'Acme' },
     });
@@ -56,7 +106,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['contacts:read'] }),
-        toolProfile: 'chatgpt',
+        toolProfile: 'crm',
       },
       args: {},
     });
@@ -89,7 +139,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['companies:read'] }),
-        toolProfile: 'chatgpt',
+        toolProfile: 'crm',
       },
       args: { limit: 5, page: 2, search: 'Acme', language: 'en' },
     });
@@ -132,7 +182,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['contacts:read'] }),
-        toolProfile: 'chatgpt',
+        toolProfile: 'crm',
       },
       args: { limit: 20 },
     });
