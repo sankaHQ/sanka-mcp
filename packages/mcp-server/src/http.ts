@@ -6,26 +6,31 @@ import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
-import { parseClientAuthHeaders } from './auth';
+import { OAuthChallengeError, resolveClientAuth } from './auth';
 import { getLogger } from './logger';
 import { McpOptions } from './options';
+import { inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
+import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
+
+const sessionProfiles = new Map<string, ToolProfile>();
+const STREAMABLE_HTTP_PATHS = ['/', '/mcp', '/sse'];
 
 const newServer = async ({
   clientOptions,
   mcpOptions,
   req,
   res,
+  toolProfile,
 }: {
   clientOptions: ClientOptions;
   mcpOptions: McpOptions;
   req: express.Request;
   res: express.Response;
+  toolProfile: ToolProfile;
 }): Promise<McpServer | null> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath });
-
-  const authOptions = parseClientAuthHeaders(req, false);
 
   // Parse client permission override headers.
   //
@@ -54,29 +59,86 @@ const newServer = async ({
     }
   }
 
+  const resourceUrl = effectiveMcpOptions.resourceUrl || new URL('/mcp', requestOrigin(req)).toString();
+  const resourceMetadataUrl = new URL('/.well-known/oauth-protected-resource', requestOrigin(req)).toString();
+  let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
+  try {
+    resolvedAuth = await resolveClientAuth({
+      mcpOptions: effectiveMcpOptions,
+      req,
+      resourceMetadataUrl,
+      resourceUrl,
+    });
+  } catch (error) {
+    if (error instanceof OAuthChallengeError) {
+      res.setHeader('WWW-Authenticate', error.wwwAuthenticate);
+      res.status(error.statusCode).json({
+        error: 'authentication_failed',
+        error_description: error.message,
+      });
+      return null;
+    }
+    throw error;
+  }
+
   await initMcpServer({
     server: server,
     mcpOptions: effectiveMcpOptions,
     clientOptions: {
       ...clientOptions,
-      ...authOptions,
+      ...resolvedAuth.clientOptions,
     },
     mcpSessionId: (req as any).mcpSessionId,
     mcpClientInfo:
       typeof req.body?.params?.clientInfo?.name === 'string' ?
         { name: req.body.params.clientInfo.name, version: String(req.body.params.clientInfo.version ?? '') }
       : undefined,
+    toolProfile,
+    auth: resolvedAuth,
   });
 
   return server;
 };
 
-const STREAMABLE_HTTP_PATHS = ['/', '/mcp', '/sse'];
+const singleHeader = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+const requestOrigin = (req: express.Request): string => {
+  const forwardedProto = singleHeader(req.headers['x-forwarded-proto'])?.split(',')[0]?.trim();
+  const forwardedHost = singleHeader(req.headers['x-forwarded-host'])?.split(',')[0]?.trim();
+  const protocol = forwardedProto || req.protocol;
+  const host = forwardedHost || req.get('host');
+  return `${protocol}://${host}`;
+};
+
+const requestProfile = (req: express.Request): ToolProfile => {
+  const queryProfile = Array.isArray(req.query['profile']) ? req.query['profile'][0] : req.query['profile'];
+  const explicitProfile =
+    normalizeToolProfile(singleHeader(req.headers['x-sanka-mcp-profile'])) ||
+    normalizeToolProfile(queryProfile);
+  const sessionId = (req as any).mcpSessionId as string | undefined;
+  const sessionProfile = sessionId ? sessionProfiles.get(sessionId) : undefined;
+  const toolProfile = inferToolProfile({
+    explicitProfile,
+    sessionProfile,
+    clientInfoName:
+      typeof req.body?.params?.clientInfo?.name === 'string' ? req.body.params.clientInfo.name : undefined,
+    authorizationHeader: singleHeader(req.headers.authorization),
+    apiKeyHeader: singleHeader(req.headers['x-sanka-api-key']),
+  });
+
+  if (sessionId) {
+    sessionProfiles.set(sessionId, toolProfile);
+  }
+
+  return toolProfile;
+};
 
 const post =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
   async (req: express.Request, res: express.Response) => {
-    const server = await newServer({ ...options, req, res });
+    const toolProfile = requestProfile(req);
+    const server = await newServer({ ...options, req, res, toolProfile });
     // If we return null, we already set the authorization error.
     if (server === null) return;
     const transport = new StreamableHTTPServerTransport();
@@ -95,6 +157,10 @@ const get = async (req: express.Request, res: express.Response) => {
 };
 
 const del = async (req: express.Request, res: express.Response) => {
+  const sessionId = (req as any).mcpSessionId as string | undefined;
+  if (sessionId) {
+    sessionProfiles.delete(sessionId);
+  }
   res.status(405).json({
     jsonrpc: '2.0',
     error: {
@@ -172,6 +238,16 @@ export const streamableHTTPApp = ({
 
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
+  });
+  app.get('/.well-known/oauth-protected-resource', async (req: express.Request, res: express.Response) => {
+    const origin = requestOrigin(req);
+    res.status(200).json(
+      buildProtectedResourceMetadata({
+        resource: mcpOptions.resourceUrl || new URL('/mcp', origin).toString(),
+        authorizationServerUrl: mcpOptions.authorizationServerUrl || 'https://app.sanka.com',
+        scopesSupported: mcpOptions.scopesSupported,
+      }),
+    );
   });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, get);

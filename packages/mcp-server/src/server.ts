@@ -10,12 +10,14 @@ import {
 import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
+import { crmListCompaniesTool, crmListContactsTool } from './crm-tools';
 import docsSearchTool from './docs-search-tool';
 import { setLocalSearch } from './docs-search-tool';
 import { LocalDocsSearch } from './local-docs-search';
 import { getInstructions } from './instructions';
 import { McpOptions } from './options';
 import { blockedMethodsForCodeTool } from './methods';
+import { ToolProfile } from './profile';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 
 export const newMcpServer = async ({
@@ -44,6 +46,8 @@ export async function initMcpServer(params: {
   mcpOptions?: McpOptions;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
+  toolProfile?: ToolProfile | undefined;
+  auth?: McpRequestContext['auth'];
 }) {
   const server = params.server instanceof McpServer ? params.server.server : params.server;
 
@@ -93,7 +97,8 @@ export async function initMcpServer(params: {
     return _client;
   };
 
-  const providedTools = selectTools(params.mcpOptions);
+  const toolProfile = params.toolProfile ?? 'full';
+  const providedTools = selectTools(params.mcpOptions, toolProfile);
   const toolMap = Object.fromEntries(providedTools.map((mcpTool) => [mcpTool.tool.name, mcpTool]));
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -130,6 +135,8 @@ export async function initMcpServer(params: {
         client,
         mcpSessionId: params.mcpSessionId,
         mcpClientInfo: params.mcpClientInfo,
+        toolProfile,
+        auth: params.auth,
       },
       args,
     });
@@ -167,18 +174,21 @@ export async function initMcpServer(params: {
 /**
  * Selects the tools to include in the MCP Server based on the provided options.
  */
-export function selectTools(options?: McpOptions): McpTool[] {
+export function selectTools(options?: McpOptions, profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
 
-  if (options?.includeCodeTool ?? true) {
+  if ((options?.includeCodeTool ?? true) && profile === 'full') {
     includedTools.push(
       codeTool({
         blockedMethods: blockedMethodsForCodeTool(options),
       }),
     );
   }
-  if (options?.includeDocsTools ?? true) {
+  if ((options?.includeDocsTools ?? true) && profile === 'full') {
     includedTools.push(docsSearchTool);
+  }
+  if (profile === 'chatgpt') {
+    includedTools.push(crmListCompaniesTool, crmListContactsTool);
   }
   return includedTools;
 }

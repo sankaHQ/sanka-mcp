@@ -59,6 +59,10 @@ export function codeTool({ blockedMethods }: { blockedMethods: SdkMethod[] | und
       },
       required: ['code'],
     },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
   };
 
   const logger = getLogger();

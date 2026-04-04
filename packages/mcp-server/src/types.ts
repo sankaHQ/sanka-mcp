@@ -2,6 +2,8 @@
 
 import Sanka from 'sanka-sdk';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { ResolvedClientAuth } from './auth';
+import { ToolProfile } from './profile';
 
 type TextContentBlock = {
   type: 'text';
@@ -40,12 +42,29 @@ export type ContentBlock = TextContentBlock | ImageContentBlock | AudioContentBl
 export type ToolCallResult = {
   content: ContentBlock[];
   isError?: boolean;
+  structuredContent?: Record<string, unknown>;
+  _meta?: Record<string, unknown>;
+};
+
+export type ToolSecurityScheme =
+  | {
+      type: 'noauth';
+    }
+  | {
+      type: 'oauth2';
+      scopes?: string[] | undefined;
+    };
+
+export type AppTool = Tool & {
+  securitySchemes?: ToolSecurityScheme[] | undefined;
 };
 
 export type McpRequestContext = {
   client: Sanka;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
+  toolProfile?: ToolProfile | undefined;
+  auth?: ResolvedClientAuth | undefined;
 };
 
 export type HandlerFunction = ({
@@ -119,6 +138,6 @@ export type Metadata = {
 
 export type McpTool = {
   metadata: Metadata;
-  tool: Tool;
+  tool: AppTool;
   handler: HandlerFunction;
 };
