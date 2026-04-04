@@ -89,4 +89,45 @@ describe('protected resource metadata route', () => {
       error_description: 'OAuth bearer token verification failed.',
     });
   });
+
+  it('supports a session-bound GET stream after initialize', async () => {
+    const initializeResponse = await fetch(`${baseUrl}/mcp?profile=chatgpt`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: {
+            name: 'ChatGPT',
+            version: '1.0.0',
+          },
+        },
+      }),
+    });
+
+    expect(initializeResponse.status).toBe(200);
+    const sessionId = initializeResponse.headers.get('mcp-session-id');
+    expect(sessionId).toBeTruthy();
+    await initializeResponse.text();
+
+    const streamResponse = await fetch(`${baseUrl}/mcp?profile=chatgpt`, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/event-stream',
+        'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+      },
+    });
+
+    expect(streamResponse.status).toBe(200);
+    expect(streamResponse.headers.get('content-type')).toContain('text/event-stream');
+    await streamResponse.body?.cancel();
+  });
 });

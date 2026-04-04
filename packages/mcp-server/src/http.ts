@@ -13,10 +13,21 @@ import { inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
 
-const sessionProfiles = new Map<string, ToolProfile>();
 const STREAMABLE_HTTP_PATHS = ['/', '/mcp', '/sse'];
 
-const newServer = async ({
+type SessionState = {
+  server: McpServer;
+  transport: StreamableHTTPServerTransport;
+  toolProfile: ToolProfile;
+  sessionId: string;
+};
+
+const sessionStates = new Map<string, SessionState>();
+
+const headerSessionId = (req: express.Request): string | undefined =>
+  singleHeader(req.headers['mcp-session-id']);
+
+const createSessionState = async ({
   clientOptions,
   mcpOptions,
   req,
@@ -28,7 +39,7 @@ const newServer = async ({
   req: express.Request;
   res: express.Response;
   toolProfile: ToolProfile;
-}): Promise<McpServer | null> => {
+}): Promise<SessionState | null> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -81,14 +92,32 @@ const newServer = async ({
     throw error;
   }
 
+  const sessionId = crypto.randomUUID();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => sessionId,
+    onsessioninitialized: async (initializedSessionId) => {
+      sessionStates.set(initializedSessionId, {
+        server,
+        transport,
+        toolProfile,
+        sessionId: initializedSessionId,
+      });
+    },
+    onsessionclosed: async (closedSessionId) => {
+      if (closedSessionId) {
+        sessionStates.delete(closedSessionId);
+      }
+    },
+  });
+
   await initMcpServer({
-    server: server,
+    server,
     mcpOptions: effectiveMcpOptions,
     clientOptions: {
       ...clientOptions,
       ...resolvedAuth.clientOptions,
     },
-    mcpSessionId: (req as any).mcpSessionId,
+    mcpSessionId: sessionId,
     mcpClientInfo:
       typeof req.body?.params?.clientInfo?.name === 'string' ?
         { name: req.body.params.clientInfo.name, version: String(req.body.params.clientInfo.version ?? '') }
@@ -96,8 +125,14 @@ const newServer = async ({
     toolProfile,
     auth: resolvedAuth,
   });
+  await server.connect(transport as any);
 
-  return server;
+  return {
+    server,
+    transport,
+    toolProfile,
+    sessionId,
+  };
 };
 
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
@@ -116,8 +151,8 @@ const requestProfile = (req: express.Request): ToolProfile => {
   const explicitProfile =
     normalizeToolProfile(singleHeader(req.headers['x-sanka-mcp-profile'])) ||
     normalizeToolProfile(queryProfile);
-  const sessionId = (req as any).mcpSessionId as string | undefined;
-  const sessionProfile = sessionId ? sessionProfiles.get(sessionId) : undefined;
+  const sessionId = headerSessionId(req);
+  const sessionProfile = sessionId ? sessionStates.get(sessionId)?.toolProfile : undefined;
   const toolProfile = inferToolProfile({
     explicitProfile,
     sessionProfile,
@@ -127,48 +162,65 @@ const requestProfile = (req: express.Request): ToolProfile => {
     apiKeyHeader: singleHeader(req.headers['x-sanka-api-key']),
   });
 
-  if (sessionId) {
-    sessionProfiles.set(sessionId, toolProfile);
-  }
-
   return toolProfile;
 };
 
-const post =
+const isInitializeRequestBody = (body: unknown): boolean => {
+  if (Array.isArray(body)) {
+    return body.some(
+      (message) =>
+        typeof message === 'object' &&
+        message !== null &&
+        'method' in message &&
+        (message as { method?: unknown }).method === 'initialize',
+    );
+  }
+
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'method' in body &&
+    (body as { method?: unknown }).method === 'initialize'
+  );
+};
+
+const missingSessionResponse = (res: express.Response, sessionId: string | undefined) => {
+  res.status(sessionId ? 404 : 400).json({
+    jsonrpc: '2.0',
+    error: {
+      code: sessionId ? -32001 : -32000,
+      message: sessionId ? 'Session not found' : 'Bad Request: Mcp-Session-Id header is required',
+    },
+  });
+};
+
+const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
   async (req: express.Request, res: express.Response) => {
-    const toolProfile = requestProfile(req);
-    const server = await newServer({ ...options, req, res, toolProfile });
-    // If we return null, we already set the authorization error.
-    if (server === null) return;
-    const transport = new StreamableHTTPServerTransport();
-    await server.connect(transport as any);
-    await transport.handleRequest(req, res, req.body);
+    const sessionId = headerSessionId(req);
+    let state: SessionState | undefined = sessionId ? sessionStates.get(sessionId) : undefined;
+
+    if (!state) {
+      const toolProfile = requestProfile(req);
+      if (sessionId) {
+        missingSessionResponse(res, sessionId);
+        return;
+      }
+
+      const createdState = await createSessionState({ ...options, req, res, toolProfile });
+      if (createdState === null) {
+        return;
+      }
+
+      if (req.method !== 'POST' || !isInitializeRequestBody(req.body)) {
+        await createdState.transport.handleRequest(req, res, req.body);
+        return;
+      }
+      state = createdState;
+    }
+
+    await state.transport.handleRequest(req, res, req.body);
   };
-
-const get = async (req: express.Request, res: express.Response) => {
-  res.status(405).json({
-    jsonrpc: '2.0',
-    error: {
-      code: -32000,
-      message: 'Method not supported',
-    },
-  });
-};
-
-const del = async (req: express.Request, res: express.Response) => {
-  const sessionId = (req as any).mcpSessionId as string | undefined;
-  if (sessionId) {
-    sessionProfiles.delete(sessionId);
-  }
-  res.status(405).json({
-    jsonrpc: '2.0',
-    error: {
-      code: -32000,
-      message: 'Method not supported',
-    },
-  });
-};
 
 const redactHeaders = (headers: Record<string, any>) => {
   const hiddenHeaders = /auth|cookie|key|token/i;
@@ -191,17 +243,6 @@ export const streamableHTTPApp = ({
   const app = express();
   app.set('query parser', 'extended');
   app.use(express.json());
-  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const existing = req.headers['mcp-session-id'];
-    const sessionId = (Array.isArray(existing) ? existing[0] : existing) || crypto.randomUUID();
-    (req as any).mcpSessionId = sessionId;
-    const origWriteHead = res.writeHead.bind(res);
-    res.writeHead = function (statusCode: number, ...rest: any[]) {
-      res.setHeader('mcp-session-id', sessionId);
-      return origWriteHead(statusCode, ...rest);
-    } as typeof res.writeHead;
-    next();
-  });
   app.use(
     pinoHttp({
       logger: getLogger(),
@@ -251,10 +292,11 @@ export const streamableHTTPApp = ({
   };
   app.get('/.well-known/oauth-protected-resource', sendProtectedResourceMetadata);
   app.get('/.well-known/oauth-protected-resource/mcp', sendProtectedResourceMetadata);
+  const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
-    app.get(routePath, get);
-    app.post(routePath, post({ clientOptions, mcpOptions }));
-    app.delete(routePath, del);
+    app.get(routePath, streamableHandler);
+    app.post(routePath, streamableHandler);
+    app.delete(routePath, streamableHandler);
   }
 
   return app;
