@@ -192,4 +192,34 @@ describe('protected resource metadata route', () => {
     expect(streamResponse.headers.get('content-type')).toContain('text/event-stream');
     await streamResponse.body?.cancel();
   });
+
+  it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {
+    const response = await fetch(`${baseUrl}/mcp/crm`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: {
+          name: 'crm.list_companies',
+          arguments: {
+            search: 'OpenAI',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).toContain('scope="companies:read"');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use crm.list_companies.',
+    });
+  });
 });

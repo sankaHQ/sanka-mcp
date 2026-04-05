@@ -6,7 +6,7 @@ import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
-import { OAuthChallengeError, resolveClientAuth } from './auth';
+import { buildOAuthWwwAuthenticateHeader, OAuthChallengeError, resolveClientAuth } from './auth';
 import { getLogger } from './logger';
 import { McpOptions } from './options';
 import { inferPathProfile, inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
@@ -20,6 +20,10 @@ const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
 const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
 const CRM_METADATA_PATH = '/.well-known/oauth-protected-resource/mcp/crm';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse', CRM_STREAMABLE_PATH, CRM_STREAMABLE_SSE_PATH];
+const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
+  'crm.list_companies': ['companies:read'],
+  'crm.list_contacts': ['contacts:read'],
+};
 
 const createRequestTransport = async ({
   clientOptions,
@@ -33,7 +37,14 @@ const createRequestTransport = async ({
   req: express.Request;
   res: express.Response;
   toolProfile: ToolProfile;
-}): Promise<{ server: McpServer; transport: StreamableHTTPServerTransport } | null> => {
+}): Promise<
+  | {
+      auth: Awaited<ReturnType<typeof resolveClientAuth>>;
+      server: McpServer;
+      transport: StreamableHTTPServerTransport;
+    }
+  | null
+> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -106,7 +117,93 @@ const createRequestTransport = async ({
   return {
     server,
     transport,
+    auth: resolvedAuth,
   };
+};
+
+const getToolAuthPreflight = ({
+  auth,
+  body,
+}: {
+  auth: Awaited<ReturnType<typeof resolveClientAuth>>;
+  body: unknown;
+}):
+  | {
+      error: string;
+      errorDescription: string;
+      statusCode: number;
+      wwwAuthenticate: string;
+    }
+  | undefined => {
+  const messages = Array.isArray(body) ? body : [body];
+
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') {
+      continue;
+    }
+
+    const method = (message as { method?: unknown }).method;
+    if (method !== 'tools/call') {
+      continue;
+    }
+
+    const params = (message as { params?: { name?: unknown } }).params;
+    const toolName = typeof params?.name === 'string' ? params.name : undefined;
+    if (!toolName) {
+      continue;
+    }
+
+    const requiredScopes = TOOL_SCOPE_REQUIREMENTS[toolName];
+    if (!requiredScopes || requiredScopes.length === 0) {
+      continue;
+    }
+
+    if (auth.authMode === 'api_key') {
+      continue;
+    }
+
+    if (auth.authMode === 'none') {
+      const description = `Authentication required to use ${toolName}.`;
+      return {
+        error: 'authentication_required',
+        errorDescription: description,
+        statusCode: 401,
+        wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
+          authorizationServerUrl: auth.oauth.authorizationServerUrl,
+          description,
+          error: 'invalid_token',
+          resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
+          scope: requiredScopes.join(' '),
+        }),
+      };
+    }
+
+    const grantedScopes = new Set(auth.oauth.scopes);
+    if (grantedScopes.size === 0 && auth.authMode === 'legacy_oauth_jwt') {
+      continue;
+    }
+
+    const missingScopes = requiredScopes.filter((scope) => !grantedScopes.has(scope));
+    if (missingScopes.length === 0) {
+      continue;
+    }
+
+    const description = `${toolName} requires the following OAuth scopes: ${missingScopes.join(', ')}.`;
+    return {
+      error: 'insufficient_scope',
+      errorDescription: description,
+      statusCode: 403,
+      wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
+        authorizationServerUrl: auth.oauth.authorizationServerUrl,
+        description,
+        error: 'insufficient_scope',
+        resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
+        scope: missingScopes.join(' '),
+      }),
+    };
+  }
+
+  return undefined;
 };
 
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
@@ -164,6 +261,19 @@ const handleStreamableRequest =
     const toolProfile = requestProfile(req);
     const transportContext = await createRequestTransport({ ...options, req, res, toolProfile });
     if (transportContext === null) {
+      return;
+    }
+
+    const authPreflight = getToolAuthPreflight({
+      auth: transportContext.auth,
+      body: req.body,
+    });
+    if (authPreflight) {
+      res.setHeader('WWW-Authenticate', authPreflight.wwwAuthenticate);
+      res.status(authPreflight.statusCode).json({
+        error: authPreflight.error,
+        error_description: authPreflight.errorDescription,
+      });
       return;
     }
 
