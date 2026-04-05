@@ -64,7 +64,7 @@ const createRequestTransport = async ({
     }
   }
 
-  const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, effectiveMcpOptions, toolProfile);
+  const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, effectiveMcpOptions);
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
@@ -126,13 +126,19 @@ const streamablePathForProfile = (toolProfile: ToolProfile): string =>
 const metadataPathForProfile = (toolProfile: ToolProfile): string =>
   toolProfile === 'crm' ? CRM_METADATA_PATH : DEFAULT_METADATA_PATH;
 
-const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions, toolProfile: ToolProfile) => ({
-  resourceUrl:
-    toolProfile === 'crm' ?
-      new URL(streamablePathForProfile(toolProfile), requestOrigin(req)).toString()
-    : (mcpOptions.resourceUrl || new URL(streamablePathForProfile(toolProfile), requestOrigin(req)).toString()),
-  resourceMetadataUrl: new URL(metadataPathForProfile(toolProfile), requestOrigin(req)).toString(),
-});
+const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
+  const routeProfile = inferPathProfile(req.path);
+  const resourceProfile = routeProfile ?? 'full';
+
+  return {
+    resourceUrl:
+      resourceProfile === 'crm' ?
+        new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString()
+      : (mcpOptions.resourceUrl ||
+          new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString()),
+    resourceMetadataUrl: new URL(metadataPathForProfile(resourceProfile), requestOrigin(req)).toString(),
+  };
+};
 
 const requestProfile = (req: express.Request): ToolProfile => {
   const routeProfile = inferPathProfile(req.path);
@@ -224,7 +230,7 @@ export const streamableHTTPApp = ({
   });
   const sendProtectedResourceMetadata = async (req: express.Request, res: express.Response) => {
     const toolProfile = inferPathProfile(req.path) ?? 'full';
-    const { resourceUrl } = requestResourceUrls(req, mcpOptions, toolProfile);
+    const { resourceUrl } = requestResourceUrls(req, mcpOptions);
     res.status(200).json(
       buildProtectedResourceMetadata({
         resource: resourceUrl,

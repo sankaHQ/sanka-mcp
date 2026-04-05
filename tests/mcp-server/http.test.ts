@@ -102,6 +102,40 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('keeps the default /mcp resource metadata when ChatGPT connects through /mcp', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer a.b.c',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: {
+            name: 'ChatGPT',
+            version: '1.0.0',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain(
+      `resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+    );
+    expect(response.headers.get('www-authenticate')).not.toContain('/mcp/crm');
+    expect(body).toEqual({
+      error: 'authentication_failed',
+      error_description: 'OAuth bearer token verification failed.',
+    });
+  });
+
   it('supports stateless follow-up requests after initialize', async () => {
     const initializeResponse = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'POST',
