@@ -44,8 +44,7 @@ export async function getInstructions({
   if (customInstructionsPath) {
     fetchedInstructions = await fetchLatestInstructionsFromFile(customInstructionsPath);
   } else {
-    fetchedInstructions =
-      toolProfile === 'crm' ? DEFAULT_CRM_INSTRUCTIONS : DEFAULT_FULL_INSTRUCTIONS;
+    fetchedInstructions = toolProfile === 'crm' ? DEFAULT_CRM_INSTRUCTIONS : DEFAULT_FULL_INSTRUCTIONS;
   }
 
   instructionsCache.set(cacheKey, { fetchedInstructions, fetchedAt: now });

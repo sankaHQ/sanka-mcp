@@ -19,7 +19,13 @@ const CRM_STREAMABLE_SSE_PATH = '/sse/crm';
 const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
 const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
 const CRM_METADATA_PATH = '/.well-known/oauth-protected-resource/mcp/crm';
-const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse', CRM_STREAMABLE_PATH, CRM_STREAMABLE_SSE_PATH];
+const STREAMABLE_HTTP_PATHS = [
+  '/',
+  DEFAULT_STREAMABLE_PATH,
+  '/sse',
+  CRM_STREAMABLE_PATH,
+  CRM_STREAMABLE_SSE_PATH,
+];
 const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
   'crm.list_companies': ['companies:read'],
   'crm.list_contacts': ['contacts:read'],
@@ -37,14 +43,11 @@ const createRequestTransport = async ({
   req: express.Request;
   res: express.Response;
   toolProfile: ToolProfile;
-}): Promise<
-  | {
-      auth: Awaited<ReturnType<typeof resolveClientAuth>>;
-      server: McpServer;
-      transport: StreamableHTTPServerTransport;
-    }
-  | null
-> => {
+}): Promise<{
+  auth: Awaited<ReturnType<typeof resolveClientAuth>>;
+  server: McpServer;
+  transport: StreamableHTTPServerTransport;
+} | null> => {
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -231,8 +234,8 @@ const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
     resourceUrl:
       resourceProfile === 'crm' ?
         new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString()
-      : (mcpOptions.resourceUrl ||
-          new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString()),
+      : mcpOptions.resourceUrl ||
+        new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString(),
     resourceMetadataUrl: new URL(metadataPathForProfile(resourceProfile), requestOrigin(req)).toString(),
   };
 };

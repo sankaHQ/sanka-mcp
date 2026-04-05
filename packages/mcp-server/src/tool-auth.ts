@@ -31,13 +31,13 @@ const authErrorResult = ({
       error,
       ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
     },
-    ...(wwwAuthenticate
-      ? {
-          _meta: {
-            'mcp/www_authenticate': [wwwAuthenticate],
-          },
-        }
-      : undefined),
+    ...(wwwAuthenticate ?
+      {
+        _meta: {
+          'mcp/www_authenticate': [wwwAuthenticate],
+        },
+      }
+    : undefined),
   };
 };
 

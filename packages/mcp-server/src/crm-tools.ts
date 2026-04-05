@@ -185,13 +185,13 @@ const buildAuthStatusChallenge = ({
       message,
       resource_url: oauth?.resourceUrl,
     },
-    ...(wwwAuthenticate
-      ? {
-          _meta: {
-            'mcp/www_authenticate': [wwwAuthenticate],
-          },
-        }
-      : undefined),
+    ...(wwwAuthenticate ?
+      {
+        _meta: {
+          'mcp/www_authenticate': [wwwAuthenticate],
+        },
+      }
+    : undefined),
   };
 };
 
