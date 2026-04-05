@@ -1,6 +1,7 @@
 export type ToolProfile = 'full' | 'crm';
 
 const CHATGPT_CLIENT_NAME_PATTERN = /(chatgpt|openai|webplus)/i;
+const CHATGPT_USER_AGENT_PATTERN = /(openai-mcp|chatgpt|webplus)/i;
 const CRM_ROUTE_PATHS = new Set(['/mcp/crm', '/sse/crm', '/.well-known/oauth-protected-resource/mcp/crm']);
 
 const normalizePathname = (value: string): string => {
@@ -29,11 +30,16 @@ export function isChatGPTClientName(value: unknown): boolean {
   return typeof value === 'string' && CHATGPT_CLIENT_NAME_PATTERN.test(value);
 }
 
+export function isChatGPTUserAgent(value: unknown): boolean {
+  return typeof value === 'string' && CHATGPT_USER_AGENT_PATTERN.test(value);
+}
+
 export function inferToolProfile({
   routeProfile,
   explicitProfile,
   sessionProfile,
   clientInfoName,
+  userAgent,
   authorizationHeader,
   apiKeyHeader,
 }: {
@@ -41,6 +47,7 @@ export function inferToolProfile({
   explicitProfile?: ToolProfile | undefined;
   sessionProfile?: ToolProfile | undefined;
   clientInfoName?: string | undefined;
+  userAgent?: string | undefined;
   authorizationHeader?: string | undefined;
   apiKeyHeader?: string | undefined;
 }): ToolProfile {
@@ -49,6 +56,7 @@ export function inferToolProfile({
   if (sessionProfile) return sessionProfile;
   if (apiKeyHeader) return 'full';
   if (isChatGPTClientName(clientInfoName)) return 'crm';
+  if (isChatGPTUserAgent(userAgent)) return 'crm';
   if (authorizationHeader) return 'full';
   return 'full';
 }

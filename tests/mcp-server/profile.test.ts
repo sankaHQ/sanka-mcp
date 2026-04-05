@@ -2,6 +2,7 @@ import {
   inferPathProfile,
   inferToolProfile,
   isChatGPTClientName,
+  isChatGPTUserAgent,
   normalizeToolProfile,
 } from '../../packages/mcp-server/src/profile';
 
@@ -17,6 +18,12 @@ describe('tool profile detection', () => {
     expect(isChatGPTClientName('ChatGPT')).toBe(true);
     expect(isChatGPTClientName('OpenAI Developer Mode')).toBe(true);
     expect(isChatGPTClientName('Claude Desktop')).toBe(false);
+  });
+
+  it('detects ChatGPT-style user agents', () => {
+    expect(isChatGPTUserAgent('openai-mcp/1.0.0 (ChatGPT)')).toBe(true);
+    expect(isChatGPTUserAgent('ChatGPT')).toBe(true);
+    expect(isChatGPTUserAgent('Claude Desktop')).toBe(false);
   });
 
   it('locks the crm profile for the dedicated route path', () => {
@@ -61,6 +68,15 @@ describe('tool profile detection', () => {
     expect(
       inferToolProfile({
         clientInfoName: 'ChatGPT',
+      }),
+    ).toBe('crm');
+  });
+
+  it('routes recognized OpenAI user agents to the crm profile', () => {
+    expect(
+      inferToolProfile({
+        authorizationHeader: 'Bearer eyJ.example',
+        userAgent: 'openai-mcp/1.0.0 (ChatGPT)',
       }),
     ).toBe('crm');
   });

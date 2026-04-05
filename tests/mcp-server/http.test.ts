@@ -193,6 +193,31 @@ describe('protected resource metadata route', () => {
     await streamResponse.body?.cancel();
   });
 
+  it('keeps ChatGPT user-agent traffic on the CRM profile for stateless tools/list requests', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2025-11-25',
+        'User-Agent': 'openai-mcp/1.0.0 (ChatGPT)',
+        Authorization: 'Bearer opaque-token',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/list',
+        params: {},
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('crm.auth_status');
+    expect(text).toContain('crm.list_companies');
+    expect(text).not.toContain('"name":"execute"');
+  });
+
   it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {
     const response = await fetch(`${baseUrl}/mcp/crm`, {
       method: 'POST',

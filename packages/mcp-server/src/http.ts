@@ -248,6 +248,7 @@ const requestProfile = (req: express.Request): ToolProfile => {
     explicitProfile,
     clientInfoName:
       typeof req.body?.params?.clientInfo?.name === 'string' ? req.body.params.clientInfo.name : undefined,
+    userAgent: singleHeader(req.headers['user-agent']),
     authorizationHeader: singleHeader(req.headers.authorization),
     apiKeyHeader: singleHeader(req.headers['x-sanka-api-key']),
   });
