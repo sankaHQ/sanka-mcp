@@ -418,9 +418,7 @@ const buildProspectSummary = (
   query?: string | null,
 ): string => {
   if (rows.length === 0) {
-    return query ?
-        `No companies found for "${query}".`
-      : 'No companies found matching the given filters.';
+    return query ? `No companies found for "${query}".` : 'No companies found matching the given filters.';
   }
 
   const preview = rows
