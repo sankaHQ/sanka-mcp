@@ -8,10 +8,7 @@ import {
   type ProspectCompaniesCreateResponse,
 } from './companies';
 
-export {
-  type ProspectCompaniesCreateParams,
-  type ProspectCompaniesCreateResponse,
-};
+export { type ProspectCompaniesCreateParams, type ProspectCompaniesCreateResponse };
 
 export class Prospect extends APIResource {
   companies: CompaniesAPI.ProspectCompanies = new CompaniesAPI.ProspectCompanies(this._client);
