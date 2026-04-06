@@ -124,7 +124,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for unauthenticated initialize requests', async () => {
+  it('allows unauthenticated initialize requests so clients do not prompt on startup', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -145,14 +145,12 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const body = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to initialize the Sanka MCP server.',
-    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toContain('"protocolVersion"');
+    expect(body).toContain('"serverInfo"');
   });
 
   it('supports stateless follow-up requests after authenticated initialize', async () => {
@@ -235,8 +233,8 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     const text = await response.text();
-    expect(text).toContain('crm.auth_status');
-    expect(text).toContain('crm.list_companies');
+    expect(text).toContain('"name":"auth_status"');
+    expect(text).toContain('"name":"list_companies"');
     expect(text).toContain('"name":"execute"');
     expect(text).toContain('"name":"search_docs"');
   });
@@ -253,7 +251,7 @@ describe('protected resource metadata route', () => {
         id: 5,
         method: 'tools/call',
         params: {
-          name: 'crm.list_companies',
+          name: 'list_companies',
           arguments: {
             search: 'OpenAI',
           },
@@ -267,7 +265,7 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toContain('scope="companies:read"');
     expect(body).toEqual({
       error: 'authentication_required',
-      error_description: 'Authentication required to use crm.list_companies.',
+      error_description: 'Authentication required to use list_companies.',
     });
   });
 });

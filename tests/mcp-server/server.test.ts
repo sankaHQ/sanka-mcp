@@ -12,9 +12,9 @@ describe('profile-aware tool selection', () => {
 
     expect(toolNames).toContain('execute');
     expect(toolNames).toContain('search_docs');
-    expect(toolNames).toContain('crm.auth_status');
-    expect(toolNames).toContain('crm.list_companies');
-    expect(toolNames).toContain('crm.list_contacts');
+    expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('list_companies');
+    expect(toolNames).toContain('list_contacts');
   });
 
   it('returns unified instructions from the default profile', async () => {
@@ -22,8 +22,8 @@ describe('profile-aware tool selection', () => {
 
     expect(instructions).toContain('execute');
     expect(instructions).toContain('search_docs');
-    expect(instructions).toContain('crm.auth_status');
-    expect(instructions).toContain('crm.list_companies');
-    expect(instructions).toContain('crm.list_contacts');
+    expect(instructions).toContain('auth_status');
+    expect(instructions).toContain('list_companies');
+    expect(instructions).toContain('list_contacts');
   });
 });

@@ -18,6 +18,11 @@ import * as Uploads from './core/uploads';
 import * as API from './resources/index';
 import { APIPromise } from './core/api-promise';
 import { Enrich, EnrichCreateParams, EnrichCreateResponse } from './resources/enrich';
+import {
+  Prospect,
+  ProspectCompaniesCreateParams,
+  ProspectCompaniesCreateResponse,
+} from './resources/prospect/prospect';
 import { Score, ScoreCreateParams, ScoreCreateResponse } from './resources/score';
 import { Public } from './resources/public/public';
 import { type Fetch } from './internal/builtin-types';
@@ -727,11 +732,13 @@ export class Sanka {
   static toFile = Uploads.toFile;
 
   enrich: API.Enrich = new API.Enrich(this);
+  prospect: API.Prospect = new API.Prospect(this);
   score: API.Score = new API.Score(this);
   public: API.Public = new API.Public(this);
 }
 
 Sanka.Enrich = Enrich;
+Sanka.Prospect = Prospect;
 Sanka.Score = Score;
 Sanka.Public = Public;
 
@@ -742,6 +749,12 @@ export declare namespace Sanka {
     Enrich as Enrich,
     type EnrichCreateResponse as EnrichCreateResponse,
     type EnrichCreateParams as EnrichCreateParams,
+  };
+
+  export {
+    Prospect as Prospect,
+    type ProspectCompaniesCreateResponse as ProspectCompaniesCreateResponse,
+    type ProspectCompaniesCreateParams as ProspectCompaniesCreateParams,
   };
 
   export {
