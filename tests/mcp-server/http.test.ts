@@ -268,4 +268,32 @@ describe('protected resource metadata route', () => {
       error_description: 'Authentication required to use list_companies.',
     });
   });
+
+  it('returns an OAuth challenge for auth_status when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 7,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {},
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).toContain('scope="contacts:read companies:read"');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use auth_status.',
+    });
+  });
 });

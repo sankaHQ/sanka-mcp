@@ -206,7 +206,7 @@ export const crmAuthStatusTool: McpTool = {
     name: 'auth_status',
     title: 'Check CRM authentication status',
     description:
-      'Check whether the Sanka CRM connector is authenticated and ready before using CRM lookup tools.',
+      'Debug whether the Sanka CRM connector is authenticated. Do not use this as a preflight before company or contact lookup tools.',
     inputSchema: {
       type: 'object',
       properties: {},
