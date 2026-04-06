@@ -12,8 +12,8 @@ const oauthContext = (overrides?: {
   clientOptions: {},
   oauth: {
     authorizationServerUrl: 'https://app.sanka.com',
-    resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource/mcp/crm',
-    resourceUrl: 'https://mcp.sanka.com/mcp/crm',
+    resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+    resourceUrl: 'https://mcp.sanka.com/mcp',
     scopes: overrides?.scopes ?? ['companies:read', 'contacts:read'],
   },
 });
@@ -32,7 +32,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext: {
         client: {} as any,
         auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: {},
     });
@@ -41,10 +41,10 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       connected: false,
       auth_mode: 'none',
-      tool_profile: 'crm',
+      tool_profile: 'full',
       scopes: [],
       message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
-      resource_url: 'https://mcp.sanka.com/mcp/crm',
+      resource_url: 'https://mcp.sanka.com/mcp',
     });
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="invalid_token"'),
@@ -56,7 +56,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext: {
         client: {} as any,
         auth: oauthContext({ scopes: ['companies:read', 'contacts:read'] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: {},
     });
@@ -65,10 +65,10 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       connected: true,
       auth_mode: 'resource_oauth_jwt',
-      tool_profile: 'crm',
+      tool_profile: 'full',
       scopes: ['companies:read', 'contacts:read'],
       message: 'Sanka CRM is connected with OAuth and scopes: companies:read, contacts:read.',
-      resource_url: 'https://mcp.sanka.com/mcp/crm',
+      resource_url: 'https://mcp.sanka.com/mcp',
     });
   });
 
@@ -83,7 +83,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: { search: 'Acme' },
     });
@@ -106,7 +106,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['contacts:read'] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: {},
     });
@@ -139,7 +139,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['companies:read'] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: { limit: 5, page: 2, search: 'Acme', language: 'en' },
     });
@@ -182,7 +182,7 @@ describe('ChatGPT CRM tools', () => {
           },
         } as any,
         auth: oauthContext({ scopes: ['contacts:read'] }),
-        toolProfile: 'crm',
+        toolProfile: 'full',
       },
       args: { limit: 20 },
     });

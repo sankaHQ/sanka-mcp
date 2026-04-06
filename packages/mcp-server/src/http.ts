@@ -9,23 +9,14 @@ import pinoHttp from 'pino-http';
 import { buildOAuthWwwAuthenticateHeader, OAuthChallengeError, resolveClientAuth } from './auth';
 import { getLogger } from './logger';
 import { McpOptions } from './options';
-import { inferPathProfile, inferToolProfile, normalizeToolProfile, ToolProfile } from './profile';
+import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
-const CRM_STREAMABLE_PATH = '/mcp/crm';
-const CRM_STREAMABLE_SSE_PATH = '/sse/crm';
 const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
 const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
-const CRM_METADATA_PATH = '/.well-known/oauth-protected-resource/mcp/crm';
-const STREAMABLE_HTTP_PATHS = [
-  '/',
-  DEFAULT_STREAMABLE_PATH,
-  '/sse',
-  CRM_STREAMABLE_PATH,
-  CRM_STREAMABLE_SSE_PATH,
-];
+const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
 const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
   'crm.list_companies': ['companies:read'],
   'crm.list_contacts': ['contacts:read'],
@@ -124,7 +115,7 @@ const createRequestTransport = async ({
   };
 };
 
-const getToolAuthPreflight = ({
+const getRequestAuthPreflight = ({
   auth,
   body,
 }: {
@@ -146,6 +137,21 @@ const getToolAuthPreflight = ({
     }
 
     const method = (message as { method?: unknown }).method;
+    if (method === 'initialize' && auth.authMode === 'none') {
+      const description = 'Authentication required to initialize the Sanka MCP server.';
+      return {
+        error: 'authentication_required',
+        errorDescription: description,
+        statusCode: 401,
+        wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
+          authorizationServerUrl: auth.oauth.authorizationServerUrl,
+          description,
+          error: 'invalid_token',
+          resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
+        }),
+      };
+    }
+
     if (method !== 'tools/call') {
       continue;
     }
@@ -220,44 +226,14 @@ const requestOrigin = (req: express.Request): string => {
   return `${protocol}://${host}`;
 };
 
-const streamablePathForProfile = (toolProfile: ToolProfile): string =>
-  toolProfile === 'crm' ? CRM_STREAMABLE_PATH : DEFAULT_STREAMABLE_PATH;
-
-const metadataPathForProfile = (toolProfile: ToolProfile): string =>
-  toolProfile === 'crm' ? CRM_METADATA_PATH : DEFAULT_METADATA_PATH;
-
 const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
-  const routeProfile = inferPathProfile(req.path);
-  const resourceProfile = routeProfile ?? 'full';
-
   return {
-    resourceUrl:
-      resourceProfile === 'crm' ?
-        new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString()
-      : mcpOptions.resourceUrl ||
-        new URL(streamablePathForProfile(resourceProfile), requestOrigin(req)).toString(),
-    resourceMetadataUrl: new URL(metadataPathForProfile(resourceProfile), requestOrigin(req)).toString(),
+    resourceUrl: mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString(),
+    resourceMetadataUrl: new URL(DEFAULT_METADATA_PATH, requestOrigin(req)).toString(),
   };
 };
 
-const requestProfile = (req: express.Request): ToolProfile => {
-  const routeProfile = inferPathProfile(req.path);
-  const queryProfile = Array.isArray(req.query['profile']) ? req.query['profile'][0] : req.query['profile'];
-  const explicitProfile =
-    normalizeToolProfile(singleHeader(req.headers['x-sanka-mcp-profile'])) ||
-    normalizeToolProfile(queryProfile);
-  const toolProfile = inferToolProfile({
-    routeProfile,
-    explicitProfile,
-    clientInfoName:
-      typeof req.body?.params?.clientInfo?.name === 'string' ? req.body.params.clientInfo.name : undefined,
-    userAgent: singleHeader(req.headers['user-agent']),
-    authorizationHeader: singleHeader(req.headers.authorization),
-    apiKeyHeader: singleHeader(req.headers['x-sanka-api-key']),
-  });
-
-  return toolProfile;
-};
+const requestProfile = (_req: express.Request): ToolProfile => 'full';
 
 const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
@@ -268,7 +244,7 @@ const handleStreamableRequest =
       return;
     }
 
-    const authPreflight = getToolAuthPreflight({
+    const authPreflight = getRequestAuthPreflight({
       auth: transportContext.auth,
       body: req.body,
     });
@@ -343,7 +319,6 @@ export const streamableHTTPApp = ({
     res.status(200).send('OK');
   });
   const sendProtectedResourceMetadata = async (req: express.Request, res: express.Response) => {
-    const toolProfile = inferPathProfile(req.path) ?? 'full';
     const { resourceUrl } = requestResourceUrls(req, mcpOptions);
     res.status(200).json(
       buildProtectedResourceMetadata({
@@ -355,7 +330,6 @@ export const streamableHTTPApp = ({
   };
   app.get(DEFAULT_METADATA_PATH, sendProtectedResourceMetadata);
   app.get(DEFAULT_METADATA_ALIAS_PATH, sendProtectedResourceMetadata);
-  app.get(CRM_METADATA_PATH, sendProtectedResourceMetadata);
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, streamableHandler);

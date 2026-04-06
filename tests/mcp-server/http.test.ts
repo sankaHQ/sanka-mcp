@@ -66,18 +66,6 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('serves CRM metadata from the dedicated CRM alias path', async () => {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource/mcp/crm`);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      resource: `${baseUrl}/mcp/crm`,
-      authorization_servers: ['https://app.sanka.com'],
-      scopes_supported: ['contacts:read', 'companies:read'],
-    });
-  });
-
   it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -102,7 +90,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('keeps the default /mcp resource metadata when ChatGPT connects through /mcp', async () => {
+  it('keeps the default /mcp resource metadata on initialize', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -136,11 +124,43 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('supports stateless follow-up requests after initialize', async () => {
-    const initializeResponse = await fetch(`${baseUrl}/mcp/crm`, {
+  it('returns an OAuth challenge for unauthenticated initialize requests', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: {
+            name: 'ChatGPT',
+            version: '1.0.0',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to initialize the Sanka MCP server.',
+    });
+  });
+
+  it('supports stateless follow-up requests after authenticated initialize', async () => {
+    const initializeResponse = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -162,10 +182,11 @@ describe('protected resource metadata route', () => {
     expect(initializeResponse.headers.get('mcp-session-id')).toBeNull();
     await initializeResponse.text();
 
-    const listResponse = await fetch(`${baseUrl}/mcp/crm`, {
+    const listResponse = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
+        Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
         'mcp-protocol-version': '2025-11-25',
       },
@@ -180,10 +201,11 @@ describe('protected resource metadata route', () => {
     expect(listResponse.status).toBe(200);
     await listResponse.text();
 
-    const streamResponse = await fetch(`${baseUrl}/mcp/crm`, {
+    const streamResponse = await fetch(`${baseUrl}/mcp`, {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',
+        Authorization: 'Bearer opaque-token',
         'mcp-protocol-version': '2025-11-25',
       },
     });
@@ -193,7 +215,7 @@ describe('protected resource metadata route', () => {
     await streamResponse.body?.cancel();
   });
 
-  it('keeps ChatGPT user-agent traffic on the CRM profile for stateless tools/list requests', async () => {
+  it('returns the unified toolset for stateless tools/list requests', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -215,11 +237,12 @@ describe('protected resource metadata route', () => {
     const text = await response.text();
     expect(text).toContain('crm.auth_status');
     expect(text).toContain('crm.list_companies');
-    expect(text).not.toContain('"name":"execute"');
+    expect(text).toContain('"name":"execute"');
+    expect(text).toContain('"name":"search_docs"');
   });
 
   it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {
-    const response = await fetch(`${baseUrl}/mcp/crm`, {
+    const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',

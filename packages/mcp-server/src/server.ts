@@ -176,22 +176,20 @@ export async function initMcpServer(params: {
 /**
  * Selects the tools to include in the MCP Server based on the provided options.
  */
-export function selectTools(options?: McpOptions, profile: ToolProfile = 'full'): McpTool[] {
+export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
 
-  if ((options?.includeCodeTool ?? true) && profile === 'full') {
+  if (options?.includeCodeTool ?? true) {
     includedTools.push(
       codeTool({
         blockedMethods: blockedMethodsForCodeTool(options),
       }),
     );
   }
-  if ((options?.includeDocsTools ?? true) && profile === 'full') {
+  if (options?.includeDocsTools ?? true) {
     includedTools.push(docsSearchTool);
   }
-  if (profile === 'crm') {
-    includedTools.push(crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool);
-  }
+  includedTools.push(crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool);
   return includedTools;
 }
 

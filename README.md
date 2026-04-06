@@ -9,6 +9,8 @@ The production service is a remote Streamable HTTP MCP endpoint:
 - `POST /` as a compatibility alias
 - `GET /health` for health checks
 
+The `/mcp` endpoint exposes both the general SDK tools and the read-only CRM tools from a single MCP surface.
+
 Live endpoints:
 
 - `https://mcp.sanka.com/mcp`

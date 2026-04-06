@@ -7,27 +7,23 @@ describe('profile-aware tool selection', () => {
     configureLogger({ level: 'error', pretty: false });
   });
 
-  it('keeps execute available in the full profile', () => {
+  it('exposes the unified toolset from the full profile', () => {
     const toolNames = selectTools(undefined, 'full').map((tool) => tool.tool.name);
 
     expect(toolNames).toContain('execute');
     expect(toolNames).toContain('search_docs');
-    expect(toolNames).not.toContain('crm.list_companies');
+    expect(toolNames).toContain('crm.auth_status');
+    expect(toolNames).toContain('crm.list_companies');
+    expect(toolNames).toContain('crm.list_contacts');
   });
 
-  it('exposes only explicit CRM tools in the crm profile', () => {
-    const toolNames = selectTools(undefined, 'crm').map((tool) => tool.tool.name);
+  it('returns unified instructions from the default profile', async () => {
+    const instructions = await getInstructions({ toolProfile: 'full' });
 
-    expect(toolNames).toEqual(['crm.auth_status', 'crm.list_companies', 'crm.list_contacts']);
-  });
-
-  it('returns crm-specific instructions for the crm profile', async () => {
-    const instructions = await getInstructions({ toolProfile: 'crm' });
-
+    expect(instructions).toContain('execute');
+    expect(instructions).toContain('search_docs');
     expect(instructions).toContain('crm.auth_status');
     expect(instructions).toContain('crm.list_companies');
     expect(instructions).toContain('crm.list_contacts');
-    expect(instructions).not.toContain('execute');
-    expect(instructions).not.toContain('search_docs');
   });
 });
