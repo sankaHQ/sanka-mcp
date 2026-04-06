@@ -18,9 +18,9 @@ const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
 const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
 const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
-  'list_companies': ['companies:read'],
-  'list_contacts': ['contacts:read'],
-  'prospect_companies': ['prospect:read'],
+  list_companies: ['companies:read'],
+  list_contacts: ['contacts:read'],
+  prospect_companies: ['prospect:read'],
 };
 
 const createRequestTransport = async ({
