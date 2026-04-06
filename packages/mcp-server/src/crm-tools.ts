@@ -200,10 +200,10 @@ export const crmAuthStatusTool: McpTool = {
     resource: 'auth',
     operation: 'read',
     tags: ['crm'],
-    operationId: 'crm.auth_status',
+    operationId: 'auth_status',
   },
   tool: {
-    name: 'crm.auth_status',
+    name: 'auth_status',
     title: 'Check CRM authentication status',
     description:
       'Check whether the Sanka CRM connector is authenticated and ready before using CRM lookup tools.',
@@ -260,7 +260,7 @@ export const crmListCompaniesTool: McpTool = {
     operationId: 'public.companies.list',
   },
   tool: {
-    name: 'crm.list_companies',
+    name: 'list_companies',
     title: 'List companies',
     description:
       'Search and review companies in Sanka. Use this when the user wants to find or inspect companies, not to create or update them.',
@@ -303,7 +303,7 @@ export const crmListContactsTool: McpTool = {
     operationId: 'public.contacts.list',
   },
   tool: {
-    name: 'crm.list_contacts',
+    name: 'list_contacts',
     title: 'List contacts',
     description:
       'Search and review contacts in Sanka. Use this when the user wants to find or inspect contacts, not to create or update them.',
@@ -333,5 +333,178 @@ export const crmListContactsTool: McpTool = {
       label: 'contacts',
       payload,
     });
+  },
+};
+
+const PROSPECT_COMPANIES_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    query: {
+      type: 'string',
+      description: 'Search query for prospecting (e.g. "manufacturing companies in Tokyo").',
+    },
+    location: {
+      type: 'string',
+      description: 'Geographic location filter (city, region, or country).',
+    },
+    industry: {
+      type: 'string',
+      description: 'Industry or vertical filter.',
+    },
+    min_employee_count: {
+      type: 'integer',
+      description: 'Minimum employee count filter.',
+    },
+    max_employee_count: {
+      type: 'integer',
+      description: 'Maximum employee count filter.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return.',
+      minimum: 1,
+      maximum: 20,
+      default: 10,
+    },
+  },
+};
+
+const PROSPECT_COMPANIES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    query: { type: 'string' },
+    parsed_filters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        location: { type: 'string' },
+        industry: { type: 'string' },
+        min_employee_count: { type: 'integer' },
+        max_employee_count: { type: 'integer' },
+      },
+    },
+    count: { type: 'integer' },
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          url: { type: 'string' },
+          domain: { type: 'string' },
+          industry: { type: 'string' },
+          employee_count: { type: 'integer' },
+          employee_count_display: { type: 'string' },
+          address: { type: 'string' },
+          email: { type: 'string' },
+          phone_number: { type: 'string' },
+          linkedin_url: { type: 'string' },
+          description: { type: 'string' },
+          relevance_score: { type: 'number' },
+          match_reasons: { type: 'array', items: { type: 'string' } },
+          source_urls: { type: 'array', items: { type: 'string' } },
+          sources: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    message: { type: 'string' },
+  },
+  required: ['count', 'results', 'message'],
+};
+
+const buildProspectSummary = (
+  rows: Array<Record<string, unknown>>,
+  count: number,
+  query?: string | null,
+): string => {
+  if (rows.length === 0) {
+    return query ?
+        `No companies found for "${query}".`
+      : 'No companies found matching the given filters.';
+  }
+
+  const preview = rows
+    .slice(0, 3)
+    .map((row) => {
+      const name = row['name'];
+      return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
+    })
+    .filter((name): name is string => Boolean(name));
+
+  const previewText = preview.length > 0 ? ` Top matches: ${preview.join(', ')}.` : '';
+  const queryText = query ? ` for "${query}"` : '';
+  return `Found ${count} prospected companies${queryText}.${previewText}`;
+};
+
+export const crmProspectCompaniesTool: McpTool = {
+  metadata: {
+    resource: 'prospect',
+    operation: 'read',
+    tags: ['crm', 'prospecting'],
+    httpMethod: 'post',
+    httpPath: '/v1/prospect/companies',
+    operationId: 'prospect.companies.create',
+  },
+  tool: {
+    name: 'prospect_companies',
+    title: 'Prospect companies',
+    description:
+      'Research and discover companies from external sources. Use this when the user wants to find new companies to target, research potential customers, or build prospecting lists. Returns company details including name, domain, industry, size, and relevance scores.',
+    inputSchema: PROSPECT_COMPANIES_INPUT_SCHEMA,
+    outputSchema: PROSPECT_COMPANIES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2', scopes: ['prospect:read'] }],
+    annotations: {
+      title: 'Prospect companies',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const scopeError = requireScopes({
+      reqContext,
+      requiredScopes: ['prospect:read'],
+      toolTitle: 'Prospect companies',
+    });
+    if (scopeError) {
+      return scopeError;
+    }
+
+    const body: Record<string, unknown> = {};
+    const query = readString(args?.['query']);
+    const location = readString(args?.['location']);
+    const industry = readString(args?.['industry']);
+
+    if (query) body['query'] = query;
+    if (location) body['location'] = location;
+    if (industry) body['industry'] = industry;
+    if (typeof args?.['min_employee_count'] === 'number') {
+      body['min_employee_count'] = args['min_employee_count'];
+    }
+    if (typeof args?.['max_employee_count'] === 'number') {
+      body['max_employee_count'] = args['max_employee_count'];
+    }
+    body['limit'] = readNumber(args?.['limit'], 10);
+
+    const response = await reqContext.client.prospect.companies.create(body as any);
+
+    const data = response.data;
+    const results = (data.results ?? []) as Array<Record<string, unknown>>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildProspectSummary(results, data.count, data.query),
+        },
+      ],
+      structuredContent: {
+        query: data.query,
+        parsed_filters: data.parsed_filters,
+        count: data.count,
+        results: data.results,
+        message: response.message,
+      },
+    };
   },
 };
