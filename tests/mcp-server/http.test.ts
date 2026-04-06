@@ -49,7 +49,9 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       resource: `${baseUrl}/mcp`,
-      authorization_servers: ['https://app.sanka.com'],
+      authorization_servers: [baseUrl],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Sanka MCP Server',
       scopes_supported: ['contacts:read', 'companies:read'],
     });
   });
@@ -61,7 +63,32 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       resource: `${baseUrl}/mcp`,
-      authorization_servers: ['https://app.sanka.com'],
+      authorization_servers: [baseUrl],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Sanka MCP Server',
+      scopes_supported: ['contacts:read', 'companies:read'],
+    });
+  });
+
+  it('serves same-origin authorization server metadata for native Codex OAuth', async () => {
+    const response = await fetch(`${baseUrl}/.well-known/oauth-authorization-server`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+      jwks_uri: `${baseUrl}/oauth/jwks.json`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      revocation_endpoint_auth_methods_supported: ['none'],
+      code_challenge_methods_supported: ['S256'],
+      client_id_metadata_document_supported: false,
       scopes_supported: ['contacts:read', 'companies:read'],
     });
   });

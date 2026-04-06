@@ -14,8 +14,16 @@ import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
+const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
+const DEFAULT_OPENID_CONFIGURATION_PATH = '/.well-known/openid-configuration';
 const DEFAULT_METADATA_PATH = '/.well-known/oauth-protected-resource';
 const DEFAULT_METADATA_ALIAS_PATH = '/.well-known/oauth-protected-resource/mcp';
+const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
+const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
+const OAUTH_TOKEN_PATH = '/oauth/token';
+const OAUTH_REGISTER_PATH = '/oauth/register';
+const OAUTH_REVOKE_PATH = '/oauth/revoke';
+const OAUTH_JWKS_PATH = '/oauth/jwks.json';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
 const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
   auth_status: ['contacts:read', 'companies:read'],
@@ -75,6 +83,7 @@ const createRequestTransport = async ({
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
+      advertisedAuthorizationServerUrl: requestAuthorizationServerUrl(req),
       mcpOptions: effectiveMcpOptions,
       req,
       resourceMetadataUrl,
@@ -221,6 +230,121 @@ const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
   };
 };
 
+const requestAuthorizationServerUrl = (req: express.Request): string => requestOrigin(req);
+
+const upstreamAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
+  mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL;
+
+const buildAuthorizationServerMetadata = ({
+  authorizationServerUrl,
+  scopesSupported,
+}: {
+  authorizationServerUrl: string;
+  scopesSupported?: string[] | undefined;
+}) => ({
+  issuer: authorizationServerUrl,
+  authorization_endpoint: `${authorizationServerUrl}${OAUTH_AUTHORIZE_PATH}`,
+  token_endpoint: `${authorizationServerUrl}${OAUTH_TOKEN_PATH}`,
+  revocation_endpoint: `${authorizationServerUrl}${OAUTH_REVOKE_PATH}`,
+  jwks_uri: `${authorizationServerUrl}${OAUTH_JWKS_PATH}`,
+  registration_endpoint: `${authorizationServerUrl}${OAUTH_REGISTER_PATH}`,
+  response_types_supported: ['code'],
+  response_modes_supported: ['query'],
+  grant_types_supported: ['authorization_code', 'refresh_token'],
+  token_endpoint_auth_methods_supported: ['none'],
+  revocation_endpoint_auth_methods_supported: ['none'],
+  code_challenge_methods_supported: ['S256'],
+  client_id_metadata_document_supported: false,
+  ...(scopesSupported && scopesSupported.length > 0 ? { scopes_supported: scopesSupported } : {}),
+});
+
+const filteredProxyRequestHeaders = (req: express.Request): Headers => {
+  const headers = new Headers();
+  const blockedHeaders = new Set(['connection', 'content-length', 'host']);
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (!value || blockedHeaders.has(key.toLowerCase())) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        headers.append(key, item);
+      }
+      continue;
+    }
+    headers.set(key, value);
+  }
+  return headers;
+};
+
+const filteredProxyResponseHeaders = (response: Response): Record<string, string> => {
+  const headers: Record<string, string> = {};
+  const blockedHeaders = new Set(['connection', 'content-encoding', 'content-length', 'transfer-encoding']);
+  response.headers.forEach((value, key) => {
+    if (!blockedHeaders.has(key.toLowerCase())) {
+      headers[key] = value;
+    }
+  });
+  return headers;
+};
+
+const serializeProxyRequestBody = (req: express.Request): string | undefined => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return undefined;
+  }
+
+  const contentType = singleHeader(req.headers['content-type']) || '';
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    const params = new URLSearchParams();
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    for (const [key, value] of Object.entries(body)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          params.append(key, String(item));
+        }
+      } else if (value !== undefined && value !== null) {
+        params.append(key, String(value));
+      }
+    }
+    return params.toString();
+  }
+
+  if (typeof req.body === 'string') {
+    return req.body;
+  }
+
+  if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+    return JSON.stringify(req.body);
+  }
+
+  return undefined;
+};
+
+const proxyOAuthRequest =
+  ({
+    path,
+    upstreamBaseUrl,
+  }: {
+    path: string;
+    upstreamBaseUrl: string;
+  }) =>
+  async (req: express.Request, res: express.Response) => {
+    const upstreamUrl = new URL(path, upstreamBaseUrl);
+    upstreamUrl.search = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    const requestBody = serializeProxyRequestBody(req);
+
+    const response = await fetch(upstreamUrl, {
+      method: req.method,
+      headers: filteredProxyRequestHeaders(req),
+      redirect: 'manual',
+      ...(requestBody !== undefined ? { body: requestBody } : {}),
+    });
+
+    res.status(response.status);
+    res.set(filteredProxyResponseHeaders(response));
+    const responseBody = Buffer.from(await response.arrayBuffer());
+    res.send(responseBody);
+  };
+
 const requestProfile = (_req: express.Request): ToolProfile => 'full';
 
 const handleStreamableRequest =
@@ -269,6 +393,7 @@ export const streamableHTTPApp = ({
   const app = express();
   app.set('query parser', 'extended');
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
   app.use(
     pinoHttp({
       logger: getLogger(),
@@ -306,18 +431,49 @@ export const streamableHTTPApp = ({
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
   });
+  const sendAuthorizationServerMetadata = async (req: express.Request, res: express.Response) => {
+    res.status(200).json(
+      buildAuthorizationServerMetadata({
+        authorizationServerUrl: requestAuthorizationServerUrl(req),
+        scopesSupported: mcpOptions.scopesSupported,
+      }),
+    );
+  };
   const sendProtectedResourceMetadata = async (req: express.Request, res: express.Response) => {
     const { resourceUrl } = requestResourceUrls(req, mcpOptions);
     res.status(200).json(
       buildProtectedResourceMetadata({
         resource: resourceUrl,
-        authorizationServerUrl: mcpOptions.authorizationServerUrl || 'https://app.sanka.com',
+        authorizationServerUrl: requestAuthorizationServerUrl(req),
+        resourceName: 'Sanka MCP Server',
         scopesSupported: mcpOptions.scopesSupported,
       }),
     );
   };
+  app.get(DEFAULT_AUTHORIZATION_METADATA_PATH, sendAuthorizationServerMetadata);
+  app.get(DEFAULT_OPENID_CONFIGURATION_PATH, sendAuthorizationServerMetadata);
   app.get(DEFAULT_METADATA_PATH, sendProtectedResourceMetadata);
   app.get(DEFAULT_METADATA_ALIAS_PATH, sendProtectedResourceMetadata);
+  app.get(OAUTH_AUTHORIZE_PATH, (req: express.Request, res: express.Response) => {
+    const upstreamUrl = new URL(req.originalUrl, upstreamAuthorizationServerUrl(mcpOptions));
+    res.redirect(302, upstreamUrl.toString());
+  });
+  app.get(
+    OAUTH_JWKS_PATH,
+    proxyOAuthRequest({ path: OAUTH_JWKS_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+  );
+  app.post(
+    OAUTH_TOKEN_PATH,
+    proxyOAuthRequest({ path: OAUTH_TOKEN_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+  );
+  app.post(
+    OAUTH_REGISTER_PATH,
+    proxyOAuthRequest({ path: OAUTH_REGISTER_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+  );
+  app.post(
+    OAUTH_REVOKE_PATH,
+    proxyOAuthRequest({ path: OAUTH_REVOKE_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+  );
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, streamableHandler);

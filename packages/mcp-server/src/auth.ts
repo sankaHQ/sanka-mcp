@@ -308,11 +308,13 @@ async function exchangeOAuthJwt({
 }
 
 export const resolveClientAuth = async ({
+  advertisedAuthorizationServerUrl,
   mcpOptions,
   req,
   resourceMetadataUrl,
   resourceUrl,
 }: {
+  advertisedAuthorizationServerUrl?: string;
   mcpOptions: McpOptions;
   req: IncomingMessage;
   resourceMetadataUrl: string;
@@ -320,8 +322,11 @@ export const resolveClientAuth = async ({
 }): Promise<ResolvedClientAuth> => {
   const authorizationHeader = singleHeader(req.headers.authorization);
   const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
-  const authorizationServerUrl = stripTrailingSlash(
+  const internalAuthorizationServerUrl = stripTrailingSlash(
     mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL,
+  );
+  const authorizationServerUrl = stripTrailingSlash(
+    advertisedAuthorizationServerUrl || internalAuthorizationServerUrl,
   );
 
   if (!authorizationHeader) {
@@ -368,7 +373,7 @@ export const resolveClientAuth = async ({
 
   const legacyAudience = mcpOptions.legacyJwtAudience || DEFAULT_LEGACY_JWT_AUDIENCE;
   const verified = await verifyOAuthJwt({
-    authorizationServerUrl,
+    authorizationServerUrl: internalAuthorizationServerUrl,
     legacyAudience,
     resourceUrl,
     resourceMetadataUrl,
@@ -389,7 +394,7 @@ export const resolveClientAuth = async ({
   }
 
   const exchangedToken = await exchangeOAuthJwt({
-    authorizationServerUrl,
+    authorizationServerUrl: internalAuthorizationServerUrl,
     resourceUrl,
     resourceMetadataUrl,
     token,
