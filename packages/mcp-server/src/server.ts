@@ -10,7 +10,12 @@ import {
 import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
-import { crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool } from './crm-tools';
+import {
+  crmAuthStatusTool,
+  crmListCompaniesTool,
+  crmListContactsTool,
+  crmProspectCompaniesTool,
+} from './crm-tools';
 import docsSearchTool from './docs-search-tool';
 import { setLocalSearch } from './docs-search-tool';
 import { LocalDocsSearch } from './local-docs-search';
@@ -189,7 +194,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
   if (options?.includeDocsTools ?? true) {
     includedTools.push(docsSearchTool);
   }
-  includedTools.push(crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool);
+  includedTools.push(crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool, crmProspectCompaniesTool);
   return includedTools;
 }
 
