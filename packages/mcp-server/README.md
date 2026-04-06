@@ -62,8 +62,8 @@ The package exposes one unified MCP tool surface on `/mcp`:
 
 - `search_docs`: local in-memory docs search built from the repo’s embedded SDK metadata
 - `execute`: local code execution against the internal Sanka TypeScript client
-- `crm.auth_status`: read-only CRM auth readiness check
-- `crm.list_companies`: read-only company search
-- `crm.list_contacts`: read-only contact search
+- `auth_status`: read-only CRM auth readiness check
+- `list_companies`: read-only company search
+- `list_contacts`: read-only contact search
 
 No Stainless-hosted runtime services are required.
