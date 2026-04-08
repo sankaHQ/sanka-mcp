@@ -339,18 +339,27 @@ const buildListResult = ({
     permission?: string | null;
   };
   previewKeys?: string[];
-}): ToolCallResult => ({
-  content: [
-    {
-      type: 'text',
-      text: buildListSummary({
+}): ToolCallResult => {
+  const summaryInput = previewKeys
+    ? {
         label,
         rows: payload.data,
         total: payload.total,
         previewKeys,
-      }),
-    },
-  ],
+      }
+    : {
+        label,
+        rows: payload.data,
+        total: payload.total,
+      };
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: buildListSummary(summaryInput),
+      },
+    ],
   structuredContent: {
     count: payload.count,
     page: payload.page,
@@ -359,7 +368,8 @@ const buildListResult = ({
     permission: payload.permission ?? undefined,
     results: payload.data,
   },
-});
+  };
+};
 
 const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
@@ -450,9 +460,11 @@ const parseBase64Content = (raw: string): { data: string; mimeType?: string } =>
     return { data: normalized };
   }
 
+  const [, detectedMimeType = '', base64Data = ''] = dataURLMatch;
+
   return {
-    data: dataURLMatch[2].trim(),
-    ...(dataURLMatch[1] ? { mimeType: dataURLMatch[1].trim() } : undefined),
+    data: base64Data.trim(),
+    ...(detectedMimeType ? { mimeType: detectedMimeType.trim() } : {}),
   };
 };
 
@@ -695,7 +707,9 @@ export const crmListExpensesTool: McpTool = {
 
     const { limit, params } = buildExpenseListParams(args);
     const expenses = await reqContext.client.public.expenses.list(params, undefined);
-    const results = expenses.slice(0, limit) as Array<Record<string, unknown>>;
+    const results = expenses
+      .slice(0, limit)
+      .map((expense) => expense as unknown as Record<string, unknown>);
 
     return buildListResult({
       label: 'expenses',
@@ -748,10 +762,11 @@ export const crmGetExpenseTool: McpTool = {
       return asErrorResult('`expense_id` is required.');
     }
 
-    const expense = (await reqContext.client.public.expenses.retrieve(expenseID, params, undefined)) as Record<
-      string,
-      unknown
-    >;
+    const expense = (await reqContext.client.public.expenses.retrieve(
+      expenseID,
+      params,
+      undefined
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [{ type: 'text', text: buildExpenseDetailSummary(expense) }],
