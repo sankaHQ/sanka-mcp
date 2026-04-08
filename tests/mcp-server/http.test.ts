@@ -2,6 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { streamableHTTPApp } from '../../packages/mcp-server/src/http';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
+import { AI_CLIENT_MCP_SCOPE } from '../../packages/mcp-server/src/tool-auth';
 
 describe('protected resource metadata route', () => {
   let server: http.Server;
@@ -13,7 +14,7 @@ describe('protected resource metadata route', () => {
     const app = streamableHTTPApp({
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
-        scopesSupported: ['contacts:read', 'companies:read'],
+        scopesSupported: [AI_CLIENT_MCP_SCOPE],
       },
     });
 
@@ -52,7 +53,7 @@ describe('protected resource metadata route', () => {
       authorization_servers: [baseUrl],
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
-      scopes_supported: ['contacts:read', 'companies:read'],
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
     });
   });
 
@@ -66,7 +67,7 @@ describe('protected resource metadata route', () => {
       authorization_servers: [baseUrl],
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
-      scopes_supported: ['contacts:read', 'companies:read'],
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
     });
   });
 
@@ -89,7 +90,7 @@ describe('protected resource metadata route', () => {
       revocation_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
       client_id_metadata_document_supported: false,
-      scopes_supported: ['contacts:read', 'companies:read'],
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
     });
   });
 
@@ -262,6 +263,12 @@ describe('protected resource metadata route', () => {
     const text = await response.text();
     expect(text).toContain('"name":"auth_status"');
     expect(text).toContain('"name":"list_companies"');
+    expect(text).toContain('"name":"list_expenses"');
+    expect(text).toContain('"name":"get_expense"');
+    expect(text).toContain('"name":"upload_expense_attachment"');
+    expect(text).toContain('"name":"create_expense"');
+    expect(text).toContain('"name":"update_expense"');
+    expect(text).toContain('"name":"delete_expense"');
     expect(text).toContain('"name":"execute"');
     expect(text).toContain('"name":"search_docs"');
   });
@@ -289,7 +296,7 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).toContain('scope="companies:read"');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
     expect(body).toEqual({
       error: 'authentication_required',
       error_description: 'Authentication required to use list_companies.',
@@ -317,10 +324,68 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).toContain('scope="contacts:read companies:read"');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
     expect(body).toEqual({
       error: 'authentication_required',
       error_description: 'Authentication required to use auth_status.',
+    });
+  });
+
+  it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'list_expenses',
+          arguments: {},
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use list_expenses.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_expense when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: {
+          name: 'create_expense',
+          arguments: {
+            description: 'Hotel',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_expense.',
     });
   });
 });

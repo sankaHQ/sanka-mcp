@@ -1,6 +1,7 @@
+import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
-import { McpRequestContext, McpTool, ToolCallResult } from './types';
-import { requireScopes } from './tool-auth';
+import { asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import { requireAuthentication, requireScopes } from './tool-auth';
 
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -41,6 +42,151 @@ const LIST_INPUT_SCHEMA = {
   },
 };
 
+const EXPENSE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of expenses to return from the newest-first expense list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const EXPENSE_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    expense_id: {
+      type: 'string',
+      description: 'Expense identifier. May be a UUID, PM numeric id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['expense_id'],
+};
+
+const EXPENSE_MUTATION_INPUT_PROPERTIES = {
+  amount: {
+    type: 'number',
+    description: 'Expense amount in the provided currency.',
+  },
+  attachment_file_ids: {
+    type: 'array',
+    description: 'Optional uploaded expense attachment file IDs to bind to the expense.',
+    items: {
+      type: 'string',
+    },
+  },
+  company_external_id: {
+    type: 'string',
+    description: 'Optional supplier company external id.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Optional supplier company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'Optional supplier contact external id.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Optional supplier contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Expense currency code.',
+  },
+  description: {
+    type: 'string',
+    description: 'Human-readable expense description.',
+  },
+  due_date: {
+    type: 'string',
+    description: 'Optional due date in ISO format.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'Optional external id for idempotent upsert-style integrations.',
+  },
+  reimburse_date: {
+    type: 'string',
+    description: 'Optional reimbursement date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Expense status.',
+  },
+};
+
+const EXPENSE_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: EXPENSE_MUTATION_INPUT_PROPERTIES,
+};
+
+const EXPENSE_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    expense_id: {
+      type: 'string',
+      description: 'Expense identifier to update.',
+    },
+    ...EXPENSE_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['expense_id'],
+};
+
+const EXPENSE_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    expense_id: {
+      type: 'string',
+      description: 'Expense identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['expense_id'],
+};
+
+const EXPENSE_UPLOAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    filename: {
+      type: 'string',
+      description: 'Attachment filename to preserve in Sanka.',
+    },
+    content_base64: {
+      type: 'string',
+      description: 'Base64-encoded file content. Data URLs are also accepted.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type override.',
+    },
+  },
+  required: ['filename', 'content_base64'],
+};
+
 const LIST_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -57,6 +203,48 @@ const LIST_OUTPUT_SCHEMA = {
     },
   },
   required: ['count', 'page', 'total', 'message', 'results'],
+};
+
+const EXPENSE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    id_pm: { type: 'integer' },
+    contact_name: { type: 'string' },
+    company_name: { type: 'string' },
+    description: { type: 'string' },
+    reimburse_date: { type: 'string' },
+    due_date: { type: 'string' },
+    status: { type: 'string' },
+    currency: { type: 'string' },
+    amount: { type: 'number' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+  },
+  required: ['id', 'created_at'],
+};
+
+const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    expense_id: { type: 'string' },
+    external_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    file_id: { type: 'string' },
+    ok: { type: 'boolean' },
+    ctx_id: { type: 'string' },
+    filename: { type: 'string' },
+  },
+  required: ['file_id', 'ok'],
 };
 
 const AUTH_STATUS_OUTPUT_SCHEMA = {
@@ -91,7 +279,27 @@ const readString = (value: unknown): string | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const buildListSummary = (label: string, rows: Array<Record<string, unknown>>, total: number): string => {
+const readStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => readString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+};
+
+const buildListSummary = ({
+  label,
+  rows,
+  total,
+  previewKeys = ['name'],
+}: {
+  label: string;
+  rows: Array<Record<string, unknown>>;
+  total: number;
+  previewKeys?: string[];
+}): string => {
   if (rows.length === 0) {
     return `No ${label} matched the current filters.`;
   }
@@ -99,10 +307,18 @@ const buildListSummary = (label: string, rows: Array<Record<string, unknown>>, t
   const preview = rows
     .slice(0, 3)
     .map((row) => {
-      const name = row['name'];
-      return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
+      for (const key of previewKeys) {
+        const value = row[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return value.trim();
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return String(value);
+        }
+      }
+      return null;
     })
-    .filter((name): name is string => Boolean(name));
+    .filter((value): value is string => Boolean(value));
 
   const previewText = preview.length > 0 ? ` Examples: ${preview.join(', ')}.` : '';
   return `Found ${total} ${label}.${previewText}`;
@@ -111,6 +327,7 @@ const buildListSummary = (label: string, rows: Array<Record<string, unknown>>, t
 const buildListResult = ({
   label,
   payload,
+  previewKeys,
 }: {
   label: string;
   payload: {
@@ -121,11 +338,17 @@ const buildListResult = ({
     total: number;
     permission?: string | null;
   };
+  previewKeys?: string[];
 }): ToolCallResult => ({
   content: [
     {
       type: 'text',
-      text: buildListSummary(label, payload.data, payload.total),
+      text: buildListSummary({
+        label,
+        rows: payload.data,
+        total: payload.total,
+        previewKeys,
+      }),
     },
   ],
   structuredContent: {
@@ -154,6 +377,111 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
     ...(view ? { view } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
+};
+
+const buildExpenseListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildExpenseRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const expenseID = readString(args?.['expense_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    expenseID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+
+  if (typeof args?.['amount'] === 'number' && Number.isFinite(args['amount'])) {
+    body['amount'] = args['amount'];
+  }
+
+  for (const key of [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'description',
+    'due_date',
+    'external_id',
+    'reimburse_date',
+    'status',
+  ] as const) {
+    const value = readString(args?.[key]);
+    if (value) {
+      body[key] = value;
+    }
+  }
+
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  if (attachmentFileIDs.length > 0) {
+    body['attachment_file'] = {
+      files: attachmentFileIDs.map((fileID) => ({ file_id: fileID })),
+    };
+  }
+
+  return body;
+};
+
+const parseBase64Content = (raw: string): { data: string; mimeType?: string } => {
+  const normalized = raw.trim();
+  const dataURLMatch = /^data:([^;,]+)?;base64,(.+)$/s.exec(normalized);
+  if (!dataURLMatch) {
+    return { data: normalized };
+  }
+
+  return {
+    data: dataURLMatch[2].trim(),
+    ...(dataURLMatch[1] ? { mimeType: dataURLMatch[1].trim() } : undefined),
+  };
+};
+
+const buildExpenseMutationSummary = ({
+  action,
+  payload,
+}: {
+  action: 'created' | 'updated' | 'deleted';
+  payload: Record<string, unknown>;
+}): string => {
+  const reference =
+    readString(payload['expense_id']) || readString(payload['external_id']) || readString(payload['status']) || 'expense';
+  return `Expense ${action}: ${reference}.`;
+};
+
+const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => {
+  const description = readString(expense['description']);
+  const companyName = readString(expense['company_name']);
+  const id = readString(expense['id']);
+  const amount = typeof expense['amount'] === 'number' ? String(expense['amount']) : undefined;
+  const currency = readString(expense['currency']);
+
+  if (description) {
+    return `Loaded expense: ${description}.`;
+  }
+  if (companyName && amount && currency) {
+    return `Loaded expense for ${companyName}: ${amount} ${currency}.`;
+  }
+  return `Loaded expense ${id ?? ''}.`.trim();
 };
 
 const buildAuthStatusChallenge = ({
@@ -232,9 +560,7 @@ export const crmAuthStatusTool: McpTool = {
     }
 
     const message =
-      authMode === 'api_key' ?
-        'Sanka CRM is connected with an API key.'
-      : `Sanka CRM is connected with OAuth${scopes.length > 0 ? ` and scopes: ${scopes.join(', ')}.` : '.'}`;
+      authMode === 'api_key' ? 'Sanka CRM is connected with an API key.' : 'Sanka CRM is connected with OAuth.';
 
     return {
       content: [{ type: 'text', text: message }],
@@ -266,7 +592,7 @@ export const crmListCompaniesTool: McpTool = {
       'Search and review companies in Sanka. Use this when the user wants to find or inspect companies, not to create or update them.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2', scopes: ['companies:read'] }],
+    securitySchemes: [{ type: 'oauth2' }],
     annotations: {
       title: 'List companies',
       readOnlyHint: true,
@@ -275,13 +601,12 @@ export const crmListCompaniesTool: McpTool = {
     },
   },
   handler: async ({ reqContext, args }) => {
-    const scopeError = requireScopes({
+    const authError = requireAuthentication({
       reqContext,
-      requiredScopes: ['companies:read'],
       toolTitle: 'List companies',
     });
-    if (scopeError) {
-      return scopeError;
+    if (authError) {
+      return authError;
     }
 
     const payload = await reqContext.client.public.companies.list(buildListParams(args), undefined);
@@ -309,7 +634,7 @@ export const crmListContactsTool: McpTool = {
       'Search and review contacts in Sanka. Use this when the user wants to find or inspect contacts, not to create or update them.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2', scopes: ['contacts:read'] }],
+    securitySchemes: [{ type: 'oauth2' }],
     annotations: {
       title: 'List contacts',
       readOnlyHint: true,
@@ -318,13 +643,12 @@ export const crmListContactsTool: McpTool = {
     },
   },
   handler: async ({ reqContext, args }) => {
-    const scopeError = requireScopes({
+    const authError = requireAuthentication({
       reqContext,
-      requiredScopes: ['contacts:read'],
       toolTitle: 'List contacts',
     });
-    if (scopeError) {
-      return scopeError;
+    if (authError) {
+      return authError;
     }
 
     const payload = await reqContext.client.public.contacts.list(buildListParams(args), undefined);
@@ -333,6 +657,314 @@ export const crmListContactsTool: McpTool = {
       label: 'contacts',
       payload,
     });
+  },
+};
+
+export const crmListExpensesTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'read',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/expenses',
+    operationId: 'public.expenses.list',
+  },
+  tool: {
+    name: 'list_expenses',
+    title: 'List expenses',
+    description:
+      'Review expenses in Sanka. Use this when the user wants to inspect recent expenses, review reimbursements, or check expense records in the current workspace.',
+    inputSchema: EXPENSE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List expenses',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List expenses',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildExpenseListParams(args);
+    const expenses = await reqContext.client.public.expenses.list(params, undefined);
+    const results = expenses.slice(0, limit) as Array<Record<string, unknown>>;
+
+    return buildListResult({
+      label: 'expenses',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${expenses.length} expenses.`,
+        page: 1,
+        total: expenses.length,
+      },
+      previewKeys: ['description', 'company_name', 'contact_name', 'id_pm'],
+    });
+  },
+};
+
+export const crmGetExpenseTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'read',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/expenses/{expense_id}',
+    operationId: 'public.expenses.retrieve',
+  },
+  tool: {
+    name: 'get_expense',
+    title: 'Get expense',
+    description: 'Load one expense from Sanka by expense id, PM id, or external reference.',
+    inputSchema: EXPENSE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: EXPENSE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get expense',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get expense',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { expenseID, params } = buildExpenseRetrieveParams(args);
+    if (!expenseID) {
+      return asErrorResult('`expense_id` is required.');
+    }
+
+    const expense = (await reqContext.client.public.expenses.retrieve(expenseID, params, undefined)) as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      content: [{ type: 'text', text: buildExpenseDetailSummary(expense) }],
+      structuredContent: expense,
+    };
+  },
+};
+
+export const crmUploadExpenseAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/expenses/files',
+    operationId: 'public.expenses.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_expense_attachment',
+    title: 'Upload expense attachment',
+    description:
+      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_expense or update_expense.',
+    inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
+    outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload expense attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload expense attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const filename = readString(args?.['filename']);
+    const contentBase64 = readString(args?.['content_base64']);
+    const mimeType = readString(args?.['mime_type']);
+    if (!filename) {
+      return asErrorResult('`filename` is required.');
+    }
+    if (!contentBase64) {
+      return asErrorResult('`content_base64` is required.');
+    }
+
+    const parsed = parseBase64Content(contentBase64);
+    const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+      type: mimeType || parsed.mimeType || 'application/octet-stream',
+    });
+    const response = await reqContext.client.public.expenses.uploadAttachment({ file }, undefined);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded expense attachment ${response.filename || filename}.`,
+        },
+      ],
+      structuredContent: response as unknown as Record<string, unknown>,
+    };
+  },
+};
+
+export const crmCreateExpenseTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/expenses',
+    operationId: 'public.expenses.create',
+  },
+  tool: {
+    name: 'create_expense',
+    title: 'Create expense',
+    description: 'Create an expense in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+    inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
+    outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create expense',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create expense',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.expenses.create(
+      buildExpenseMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) }],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateExpenseTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/expenses/{expense_id}',
+    operationId: 'public.expenses.update',
+  },
+  tool: {
+    name: 'update_expense',
+    title: 'Update expense',
+    description: 'Update an existing expense in Sanka.',
+    inputSchema: EXPENSE_UPDATE_INPUT_SCHEMA,
+    outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update expense',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update expense',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const expenseID = readString(args?.['expense_id']);
+    if (!expenseID) {
+      return asErrorResult('`expense_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.expenses.update(
+      expenseID,
+      buildExpenseMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) }],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteExpenseTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/expenses/{expense_id}',
+    operationId: 'public.expenses.delete',
+  },
+  tool: {
+    name: 'delete_expense',
+    title: 'Delete expense',
+    description: 'Delete an expense in Sanka by expense id, PM id, or external reference.',
+    inputSchema: EXPENSE_DELETE_INPUT_SCHEMA,
+    outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete expense',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete expense',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const expenseID = readString(args?.['expense_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!expenseID) {
+      return asErrorResult('`expense_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.expenses.delete(
+      expenseID,
+      {
+        ...(externalID ? { external_id: externalID } : undefined),
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) }],
+      structuredContent: response,
+    };
   },
 };
 

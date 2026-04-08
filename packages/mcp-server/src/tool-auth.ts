@@ -1,6 +1,41 @@
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import { McpRequestContext, ToolCallResult } from './types';
 
+export const AI_CLIENT_MCP_SCOPE = 'mcp:access';
+export const LEGACY_CRM_READ_SCOPES = ['contacts:read', 'companies:read'] as const;
+
+const scopeSatisfied = ({
+  grantedScopes,
+  requiredScope,
+}: {
+  grantedScopes: Set<string>;
+  requiredScope: string;
+}): boolean => {
+  if (requiredScope !== AI_CLIENT_MCP_SCOPE) {
+    return grantedScopes.has(requiredScope);
+  }
+
+  return (
+    grantedScopes.has(AI_CLIENT_MCP_SCOPE) ||
+    LEGACY_CRM_READ_SCOPES.some((legacyScope) => grantedScopes.has(legacyScope))
+  );
+};
+
+export const resolveMissingScopes = ({
+  grantedScopes,
+  requiredScopes,
+}: {
+  grantedScopes: Set<string>;
+  requiredScopes: string[];
+}): string[] =>
+  requiredScopes.filter(
+    (requiredScope) =>
+      !scopeSatisfied({
+        grantedScopes,
+        requiredScope,
+      }),
+  );
+
 const authErrorResult = ({
   error,
   message,
@@ -73,7 +108,10 @@ export const requireScopes = ({
     return null;
   }
 
-  const missingScopes = requiredScopes.filter((scope) => !grantedScopes.has(scope));
+  const missingScopes = resolveMissingScopes({
+    grantedScopes,
+    requiredScopes,
+  });
   if (missingScopes.length === 0) {
     return null;
   }
@@ -84,4 +122,31 @@ export const requireScopes = ({
     reqContext,
     requiredScopes: missingScopes,
   });
+};
+
+export const requireAuthentication = ({
+  reqContext,
+  toolTitle,
+}: {
+  reqContext: McpRequestContext;
+  toolTitle: string;
+}): ToolCallResult | null => {
+  const auth = reqContext.auth;
+  if (!auth) {
+    return null;
+  }
+
+  if (auth.authMode === 'api_key') {
+    return null;
+  }
+
+  if (auth.authMode === 'none') {
+    return authErrorResult({
+      error: 'invalid_token',
+      message: `Authentication required to use ${toolTitle}.`,
+      reqContext,
+    });
+  }
+
+  return null;
 };

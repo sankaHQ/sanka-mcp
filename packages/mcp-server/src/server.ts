@@ -11,10 +11,16 @@ import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
 import {
+  crmCreateExpenseTool,
+  crmDeleteExpenseTool,
   crmAuthStatusTool,
+  crmGetExpenseTool,
   crmListCompaniesTool,
   crmListContactsTool,
+  crmListExpensesTool,
   crmProspectCompaniesTool,
+  crmUpdateExpenseTool,
+  crmUploadExpenseAttachmentTool,
 } from './crm-tools';
 import docsSearchTool from './docs-search-tool';
 import { setLocalSearch } from './docs-search-tool';
@@ -194,7 +200,18 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
   if (options?.includeDocsTools ?? true) {
     includedTools.push(docsSearchTool);
   }
-  includedTools.push(crmAuthStatusTool, crmListCompaniesTool, crmListContactsTool, crmProspectCompaniesTool);
+  includedTools.push(
+    crmAuthStatusTool,
+    crmListCompaniesTool,
+    crmListContactsTool,
+    crmListExpensesTool,
+    crmGetExpenseTool,
+    crmUploadExpenseAttachmentTool,
+    crmCreateExpenseTool,
+    crmUpdateExpenseTool,
+    crmDeleteExpenseTool,
+    crmProspectCompaniesTool,
+  );
   return includedTools;
 }
 

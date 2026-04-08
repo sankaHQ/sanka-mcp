@@ -12,6 +12,7 @@ import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { initMcpServer, newMcpServer } from './server';
+import { resolveMissingScopes } from './tool-auth';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
 const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
@@ -25,11 +26,23 @@ const OAUTH_REGISTER_PATH = '/oauth/register';
 const OAUTH_REVOKE_PATH = '/oauth/revoke';
 const OAUTH_JWKS_PATH = '/oauth/jwks.json';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
-const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
-  auth_status: ['contacts:read', 'companies:read'],
-  list_companies: ['companies:read'],
-  list_contacts: ['contacts:read'],
-  prospect_companies: ['prospect:read'],
+const TOOL_ACCESS_REQUIREMENTS: Record<
+  string,
+  {
+    authenticationRequired: boolean;
+    requiredScopes?: string[];
+  }
+> = {
+  auth_status: { authenticationRequired: true },
+  list_companies: { authenticationRequired: true },
+  list_contacts: { authenticationRequired: true },
+  list_expenses: { authenticationRequired: true },
+  get_expense: { authenticationRequired: true },
+  upload_expense_attachment: { authenticationRequired: true },
+  create_expense: { authenticationRequired: true },
+  update_expense: { authenticationRequired: true },
+  delete_expense: { authenticationRequired: true },
+  prospect_companies: { authenticationRequired: true, requiredScopes: ['prospect:read'] },
 };
 
 const createRequestTransport = async ({
@@ -159,8 +172,8 @@ const getRequestAuthPreflight = ({
       continue;
     }
 
-    const requiredScopes = TOOL_SCOPE_REQUIREMENTS[toolName];
-    if (!requiredScopes || requiredScopes.length === 0) {
+    const accessRequirements = TOOL_ACCESS_REQUIREMENTS[toolName];
+    if (!accessRequirements?.authenticationRequired) {
       continue;
     }
 
@@ -179,9 +192,13 @@ const getRequestAuthPreflight = ({
           description,
           error: 'invalid_token',
           resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
-          scope: requiredScopes.join(' '),
         }),
       };
+    }
+
+    const requiredScopes = accessRequirements.requiredScopes ?? [];
+    if (requiredScopes.length === 0) {
+      continue;
     }
 
     const grantedScopes = new Set(auth.oauth.scopes);
@@ -189,7 +206,10 @@ const getRequestAuthPreflight = ({
       continue;
     }
 
-    const missingScopes = requiredScopes.filter((scope) => !grantedScopes.has(scope));
+    const missingScopes = resolveMissingScopes({
+      grantedScopes,
+      requiredScopes,
+    });
     if (missingScopes.length === 0) {
       continue;
     }
@@ -320,16 +340,11 @@ const serializeProxyRequestBody = (req: express.Request): string | undefined => 
 };
 
 const proxyOAuthRequest =
-  ({
-    path,
-    upstreamBaseUrl,
-  }: {
-    path: string;
-    upstreamBaseUrl: string;
-  }) =>
+  ({ path, upstreamBaseUrl }: { path: string; upstreamBaseUrl: string }) =>
   async (req: express.Request, res: express.Response) => {
     const upstreamUrl = new URL(path, upstreamBaseUrl);
-    upstreamUrl.search = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    upstreamUrl.search =
+      req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
     const requestBody = serializeProxyRequestBody(req);
 
     const response = await fetch(upstreamUrl, {
@@ -464,15 +479,24 @@ export const streamableHTTPApp = ({
   );
   app.post(
     OAUTH_TOKEN_PATH,
-    proxyOAuthRequest({ path: OAUTH_TOKEN_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+    proxyOAuthRequest({
+      path: OAUTH_TOKEN_PATH,
+      upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions),
+    }),
   );
   app.post(
     OAUTH_REGISTER_PATH,
-    proxyOAuthRequest({ path: OAUTH_REGISTER_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+    proxyOAuthRequest({
+      path: OAUTH_REGISTER_PATH,
+      upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions),
+    }),
   );
   app.post(
     OAUTH_REVOKE_PATH,
-    proxyOAuthRequest({ path: OAUTH_REVOKE_PATH, upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions) }),
+    proxyOAuthRequest({
+      path: OAUTH_REVOKE_PATH,
+      upstreamBaseUrl: upstreamAuthorizationServerUrl(mcpOptions),
+    }),
   );
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {

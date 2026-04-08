@@ -65,5 +65,11 @@ The package exposes one unified MCP tool surface on `/mcp`:
 - `auth_status`: read-only CRM auth readiness check
 - `list_companies`: read-only company search
 - `list_contacts`: read-only contact search
+- `list_expenses`: read-only expense review
+- `get_expense`: load a single expense
+- `upload_expense_attachment`: upload a receipt or invoice and return a file id
+- `create_expense`: create an expense
+- `update_expense`: update an expense
+- `delete_expense`: delete an expense
 
 No Stainless-hosted runtime services are required.
