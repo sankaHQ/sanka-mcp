@@ -12,10 +12,7 @@ export class Demo extends APIResource {
    * workspace when ``workspace_id`` is provided; otherwise provisions a new
    * free-tier workspace owned by the caller.
    */
-  generate(
-    body: DemoGenerateParams,
-    options?: RequestOptions,
-  ): APIPromise<DemoGenerateResponse> {
+  generate(body: DemoGenerateParams, options?: RequestOptions): APIPromise<DemoGenerateResponse> {
     return this._client.post('/v1/demo/generate', { body, ...options });
   }
 }
@@ -70,8 +67,5 @@ export interface DemoGenerateParams {
 }
 
 export declare namespace Demo {
-  export {
-    type DemoGenerateResponse as DemoGenerateResponse,
-    type DemoGenerateParams as DemoGenerateParams,
-  };
+  export { type DemoGenerateResponse as DemoGenerateResponse, type DemoGenerateParams as DemoGenerateParams };
 }

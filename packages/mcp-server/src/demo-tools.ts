@@ -38,8 +38,7 @@ const DEMO_GENERATE_INPUT_SCHEMA = {
     },
     seed: {
       type: 'integer',
-      description:
-        'Optional seed for the deterministic random selections. Useful for replayable demos.',
+      description: 'Optional seed for the deterministic random selections. Useful for replayable demos.',
       minimum: 0,
     },
   },
@@ -89,13 +88,11 @@ const INTEGRATION_SYNC_PUSH_INPUT_SCHEMA = {
     },
     object_type: {
       type: 'string',
-      description:
-        'Object type to push to the destination channel, e.g. "company", "contact", "deal".',
+      description: 'Object type to push to the destination channel, e.g. "company", "contact", "deal".',
     },
     record_ids: {
       type: 'array',
-      description:
-        'Explicit list of record UUIDs to push. Mutually exclusive with workspace_scope.',
+      description: 'Explicit list of record UUIDs to push. Mutually exclusive with workspace_scope.',
       items: { type: 'string' },
     },
     workspace_scope: {
@@ -170,22 +167,20 @@ const buildDemoSummary = (response: DemoGenerateResponse): string => {
     : `Seeded existing workspace "${response.workspace_name}"`,
   );
   parts.push(
-    `with ${response.counts?.['companies'] ?? 0} companies, ${
-      response.counts?.['contacts'] ?? 0
-    } contacts, ${response.counts?.['deals'] ?? 0} deals, ${
-      response.counts?.['subscriptions'] ?? 0
-    } subscriptions, ${response.counts?.['invoices'] ?? 0} invoices, ${
-      response.counts?.['receipts'] ?? 0
-    } receipts.`,
+    `with ${response.counts?.['companies'] ?? 0} companies, ${response.counts?.['contacts'] ?? 0} contacts, ${
+      response.counts?.['deals'] ?? 0
+    } deals, ${response.counts?.['subscriptions'] ?? 0} subscriptions, ${
+      response.counts?.['invoices'] ?? 0
+    } invoices, ${response.counts?.['receipts'] ?? 0} receipts.`,
   );
   return parts.join(' ');
 };
 
 const buildPushSummary = (response: IntegrationSyncPushResponse): string => {
   const emitted = response.emitted_event_ids?.length ?? 0;
-  return `Queued ${emitted} outbound ${response.object_type} event${
-    emitted === 1 ? '' : 's'
-  } (requested ${response.requested_count}, skipped ${response.skipped_count}).`;
+  return `Queued ${emitted} outbound ${response.object_type} event${emitted === 1 ? '' : 's'} (requested ${
+    response.requested_count
+  }, skipped ${response.skipped_count}).`;
 };
 
 export const demoGenerateTool: McpTool = {

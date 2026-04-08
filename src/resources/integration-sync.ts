@@ -11,10 +11,7 @@ export class IntegrationSync extends APIResource {
    * either an explicit ``record_ids`` list or ``workspace_scope: "all"`` to
    * push every eligible record for the given ``object_type``.
    */
-  push(
-    body: IntegrationSyncPushParams,
-    options?: RequestOptions,
-  ): APIPromise<IntegrationSyncPushResponse> {
+  push(body: IntegrationSyncPushParams, options?: RequestOptions): APIPromise<IntegrationSyncPushResponse> {
     return this._client.post('/v1/integration-sync/push', { body, ...options });
   }
 }
