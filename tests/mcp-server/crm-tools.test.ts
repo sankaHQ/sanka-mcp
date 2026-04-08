@@ -218,7 +218,13 @@ describe('ChatGPT CRM tools', () => {
 
   it('lists expenses with a local result limit', async () => {
     const list = jest.fn().mockResolvedValue([
-      { id: 'expense-1', description: 'Google Workspace', company_name: 'Google', amount: 20, currency: 'USD' },
+      {
+        id: 'expense-1',
+        description: 'Google Workspace',
+        company_name: 'Google',
+        amount: 20,
+        currency: 'USD',
+      },
       { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
       { id: 'expense-3', description: 'Loom', company_name: 'Loom', amount: 5, currency: 'USD' },
     ]);
@@ -251,7 +257,13 @@ describe('ChatGPT CRM tools', () => {
       message: 'Returned 2 of 3 expenses.',
       permission: undefined,
       results: [
-        { id: 'expense-1', description: 'Google Workspace', company_name: 'Google', amount: 20, currency: 'USD' },
+        {
+          id: 'expense-1',
+          description: 'Google Workspace',
+          company_name: 'Google',
+          amount: 20,
+          currency: 'USD',
+        },
         { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
       ],
     });

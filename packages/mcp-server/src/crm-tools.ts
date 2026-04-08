@@ -284,9 +284,7 @@ const readStringArray = (value: unknown): string[] => {
     return [];
   }
 
-  return value
-    .map((entry) => readString(entry))
-    .filter((entry): entry is string => Boolean(entry));
+  return value.map((entry) => readString(entry)).filter((entry): entry is string => Boolean(entry));
 };
 
 const buildListSummary = ({
@@ -340,8 +338,9 @@ const buildListResult = ({
   };
   previewKeys?: string[];
 }): ToolCallResult => {
-  const summaryInput = previewKeys
-    ? {
+  const summaryInput =
+    previewKeys ?
+      {
         label,
         rows: payload.data,
         total: payload.total,
@@ -360,14 +359,14 @@ const buildListResult = ({
         text: buildListSummary(summaryInput),
       },
     ],
-  structuredContent: {
-    count: payload.count,
-    page: payload.page,
-    total: payload.total,
-    message: payload.message,
-    permission: payload.permission ?? undefined,
-    results: payload.data,
-  },
+    structuredContent: {
+      count: payload.count,
+      page: payload.page,
+      total: payload.total,
+      message: payload.message,
+      permission: payload.permission ?? undefined,
+      results: payload.data,
+    },
   };
 };
 
@@ -476,7 +475,10 @@ const buildExpenseMutationSummary = ({
   payload: Record<string, unknown>;
 }): string => {
   const reference =
-    readString(payload['expense_id']) || readString(payload['external_id']) || readString(payload['status']) || 'expense';
+    readString(payload['expense_id']) ||
+    readString(payload['external_id']) ||
+    readString(payload['status']) ||
+    'expense';
   return `Expense ${action}: ${reference}.`;
 };
 
@@ -572,7 +574,9 @@ export const crmAuthStatusTool: McpTool = {
     }
 
     const message =
-      authMode === 'api_key' ? 'Sanka CRM is connected with an API key.' : 'Sanka CRM is connected with OAuth.';
+      authMode === 'api_key' ?
+        'Sanka CRM is connected with an API key.'
+      : 'Sanka CRM is connected with OAuth.';
 
     return {
       content: [{ type: 'text', text: message }],
@@ -707,9 +711,7 @@ export const crmListExpensesTool: McpTool = {
 
     const { limit, params } = buildExpenseListParams(args);
     const expenses = await reqContext.client.public.expenses.list(params, undefined);
-    const results = expenses
-      .slice(0, limit)
-      .map((expense) => expense as unknown as Record<string, unknown>);
+    const results = expenses.slice(0, limit).map((expense) => expense as unknown as Record<string, unknown>);
 
     return buildListResult({
       label: 'expenses',
@@ -765,7 +767,7 @@ export const crmGetExpenseTool: McpTool = {
     const expense = (await reqContext.client.public.expenses.retrieve(
       expenseID,
       params,
-      undefined
+      undefined,
     )) as unknown as Record<string, unknown>;
 
     return {
@@ -848,7 +850,8 @@ export const crmCreateExpenseTool: McpTool = {
   tool: {
     name: 'create_expense',
     title: 'Create expense',
-    description: 'Create an expense in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+    description:
+      'Create an expense in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -874,7 +877,9 @@ export const crmCreateExpenseTool: McpTool = {
     )) as unknown as Record<string, unknown>;
 
     return {
-      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) }],
+      content: [
+        { type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) },
+      ],
       structuredContent: response,
     };
   },
@@ -924,7 +929,9 @@ export const crmUpdateExpenseTool: McpTool = {
     )) as unknown as Record<string, unknown>;
 
     return {
-      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) }],
+      content: [
+        { type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) },
+      ],
       structuredContent: response,
     };
   },
@@ -977,7 +984,9 @@ export const crmDeleteExpenseTool: McpTool = {
     )) as unknown as Record<string, unknown>;
 
     return {
-      content: [{ type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) }],
+      content: [
+        { type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) },
+      ],
       structuredContent: response,
     };
   },
