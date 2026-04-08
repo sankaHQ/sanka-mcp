@@ -22,6 +22,7 @@ import {
   crmUpdateExpenseTool,
   crmUploadExpenseAttachmentTool,
 } from './crm-tools';
+import { demoGenerateTool, integrationSyncPushTool } from './demo-tools';
 import docsSearchTool from './docs-search-tool';
 import { setLocalSearch } from './docs-search-tool';
 import { LocalDocsSearch } from './local-docs-search';
@@ -211,6 +212,8 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmUpdateExpenseTool,
     crmDeleteExpenseTool,
     crmProspectCompaniesTool,
+    demoGenerateTool,
+    integrationSyncPushTool,
   );
   return includedTools;
 }

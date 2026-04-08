@@ -17,7 +17,13 @@ import * as Errors from './core/error';
 import * as Uploads from './core/uploads';
 import * as API from './resources/index';
 import { APIPromise } from './core/api-promise';
+import { Demo, DemoGenerateParams, DemoGenerateResponse } from './resources/demo';
 import { Enrich, EnrichCreateParams, EnrichCreateResponse } from './resources/enrich';
+import {
+  IntegrationSync,
+  IntegrationSyncPushParams,
+  IntegrationSyncPushResponse,
+} from './resources/integration-sync';
 import {
   Prospect,
   ProspectCompaniesCreateParams,
@@ -731,13 +737,17 @@ export class Sanka {
 
   static toFile = Uploads.toFile;
 
+  demo: API.Demo = new API.Demo(this);
   enrich: API.Enrich = new API.Enrich(this);
+  integrationSync: API.IntegrationSync = new API.IntegrationSync(this);
   prospect: API.Prospect = new API.Prospect(this);
   score: API.Score = new API.Score(this);
   public: API.Public = new API.Public(this);
 }
 
+Sanka.Demo = Demo;
 Sanka.Enrich = Enrich;
+Sanka.IntegrationSync = IntegrationSync;
 Sanka.Prospect = Prospect;
 Sanka.Score = Score;
 Sanka.Public = Public;
@@ -746,9 +756,21 @@ export declare namespace Sanka {
   export type RequestOptions = Opts.RequestOptions;
 
   export {
+    Demo as Demo,
+    type DemoGenerateResponse as DemoGenerateResponse,
+    type DemoGenerateParams as DemoGenerateParams,
+  };
+
+  export {
     Enrich as Enrich,
     type EnrichCreateResponse as EnrichCreateResponse,
     type EnrichCreateParams as EnrichCreateParams,
+  };
+
+  export {
+    IntegrationSync as IntegrationSync,
+    type IntegrationSyncPushResponse as IntegrationSyncPushResponse,
+    type IntegrationSyncPushParams as IntegrationSyncPushParams,
   };
 
   export {
