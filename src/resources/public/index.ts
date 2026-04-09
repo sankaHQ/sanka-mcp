@@ -46,11 +46,19 @@ export {
   type PublicCompanyResponse,
   type CompanyRetrieveResponse,
   type CompanyListResponse,
+  type CompanyPriceTableItem,
+  type CompanyPriceTablePagination,
+  type CompanyPriceTableResponse,
+  type CompanyPriceTableMutationResponse,
   type CompanyCreateParams,
   type CompanyRetrieveParams,
   type CompanyUpdateParams,
   type CompanyListParams,
   type CompanyDeleteParams,
+  type CompanyPriceTableQueryParams,
+  type CompanyPriceTableCompanyUpdateParams,
+  type CompanyPriceTableItemUpdateParams,
+  type CompanyPriceTableApplyAllParams,
 } from './companies';
 export {
   Contacts,
@@ -116,12 +124,7 @@ export {
   type ExpenseDeleteParams,
   type ExpenseUploadAttachmentParams,
 } from './expenses';
-export {
-  Exports,
-  type ExportCreateParams,
-  type ExportListParams,
-  type ExportListResponse,
-} from './exports';
+export { Exports, type ExportCreateParams, type ExportListParams, type ExportListResponse } from './exports';
 export {
   Imports,
   type ImportCreateParams,
