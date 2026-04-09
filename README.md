@@ -16,12 +16,17 @@ Live endpoints:
 - `https://mcp.sanka.com/mcp`
 - `https://mcp.sanka.com/sse`
 
+Staging endpoint:
+
+- `https://sanka-mcp-staging.fly.dev/mcp`
+
 ## Repository layout
 
 - `src/`: internal Sanka API client used by the MCP service
 - `packages/mcp-server/`: the MCP server application and Docker entrypoint
-- `.github/workflows/`: CI plus Fly deployment on `main`
+- `.github/workflows/`: CI plus staging and production Fly deployment workflows
 - `fly.toml`: production Fly app configuration
+- `fly.staging.toml`: staging Fly app configuration
 - `docs/openapi-maintenance.md`: guidance for keeping API coverage current without Stainless
 
 ## Auth
@@ -55,8 +60,27 @@ curl -sS -D - http://127.0.0.1:8080/mcp \
 
 This repo deploys to Fly from `packages/mcp-server/Dockerfile`.
 
-- Manual deploy: `fly deploy -c fly.toml`
-- Automatic deploy: push to `main`
+- Manual production deploy: `fly deploy -c fly.toml`
+- Manual staging deploy: `fly deploy -c fly.staging.toml`
+- Automatic staging deploy: push to `staging`
+- Automatic production deploy: publish a GitHub release that targets `main`
+
+## Release Flow
+
+Use the same promotion shape as the main Sanka app:
+
+1. Open feature PRs into `staging`.
+2. Merge `staging` after CI passes to deploy `sanka-mcp-staging`.
+3. Validate the staging MCP endpoint.
+4. Open `staging -> main`.
+5. After `main` is ready, run `Create new Sanka MCP Tag and Release`.
+6. The published release deploys production.
+
+Required Fly apps and secrets:
+
+- Production app: `sanka-mcp`
+- Staging app: `sanka-mcp-staging`
+- Set the same `MCP_SERVER_*` secrets on both apps unless staging intentionally uses a different auth stack.
 
 ## Maintenance direction
 
