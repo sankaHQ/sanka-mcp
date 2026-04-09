@@ -344,6 +344,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_company"');
     expect(text).toContain('"name":"update_company"');
     expect(text).toContain('"name":"delete_company"');
+    expect(text).toContain('"name":"get_company_price_table"');
+    expect(text).toContain('"name":"update_company_price_table_company"');
+    expect(text).toContain('"name":"update_company_price_table_item"');
+    expect(text).toContain('"name":"apply_company_price_table_items"');
     expect(text).toContain('"name":"list_contacts"');
     expect(text).toContain('"name":"get_contact"');
     expect(text).toContain('"name":"create_contact"');
@@ -355,6 +359,11 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"update_deal"');
     expect(text).toContain('"name":"delete_deal"');
     expect(text).toContain('"name":"list_deal_pipelines"');
+    expect(text).toContain('"name":"list_items"');
+    expect(text).toContain('"name":"get_item"');
+    expect(text).toContain('"name":"create_item"');
+    expect(text).toContain('"name":"update_item"');
+    expect(text).toContain('"name":"delete_item"');
     expect(text).toContain('"name":"list_tickets"');
     expect(text).toContain('"name":"get_ticket"');
     expect(text).toContain('"name":"create_ticket"');
@@ -403,6 +412,11 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_invoice"');
     expect(text).toContain('"name":"update_invoice"');
     expect(text).toContain('"name":"delete_invoice"');
+    expect(text).toContain('"name":"list_subscriptions"');
+    expect(text).toContain('"name":"get_subscription"');
+    expect(text).toContain('"name":"create_subscription"');
+    expect(text).toContain('"name":"update_subscription"');
+    expect(text).toContain('"name":"delete_subscription"');
     expect(text).toContain('"name":"list_payments"');
     expect(text).toContain('"name":"get_payment"');
     expect(text).toContain('"name":"create_payment"');
@@ -423,6 +437,21 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_disbursement"');
     expect(text).toContain('"name":"update_disbursement"');
     expect(text).toContain('"name":"delete_disbursement"');
+    expect(text).toContain('"name":"list_locations"');
+    expect(text).toContain('"name":"get_location"');
+    expect(text).toContain('"name":"create_location"');
+    expect(text).toContain('"name":"update_location"');
+    expect(text).toContain('"name":"delete_location"');
+    expect(text).toContain('"name":"list_inventories"');
+    expect(text).toContain('"name":"get_inventory"');
+    expect(text).toContain('"name":"create_inventory"');
+    expect(text).toContain('"name":"update_inventory"');
+    expect(text).toContain('"name":"delete_inventory"');
+    expect(text).toContain('"name":"list_inventory_transactions"');
+    expect(text).toContain('"name":"get_inventory_transaction"');
+    expect(text).toContain('"name":"create_inventory_transaction"');
+    expect(text).toContain('"name":"update_inventory_transaction"');
+    expect(text).toContain('"name":"delete_inventory_transaction"');
     expect(text).toContain('"name":"prospect_companies"');
     expect(text).toContain('"name":"score_record"');
     expect(text).toContain('"name":"generate_demo_workspace"');
@@ -606,6 +635,37 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual({
       error: 'authentication_required',
       error_description: 'Authentication required to use create_company.',
+    });
+  });
+
+  it('returns an OAuth challenge for get_company_price_table when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10.5,
+        method: 'tools/call',
+        params: {
+          name: 'get_company_price_table',
+          arguments: {
+            company_id: 'company-1',
+            search: 'Widget',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use get_company_price_table.',
     });
   });
 
