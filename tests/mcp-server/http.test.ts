@@ -269,8 +269,8 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_expense"');
     expect(text).toContain('"name":"update_expense"');
     expect(text).toContain('"name":"delete_expense"');
-    expect(text).toContain('"name":"execute"');
-    expect(text).toContain('"name":"search_docs"');
+    expect(text).not.toContain('"name":"execute"');
+    expect(text).not.toContain('"name":"search_docs"');
   });
 
   it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {

@@ -360,7 +360,7 @@ const proxyOAuthRequest =
     res.send(responseBody);
   };
 
-const requestProfile = (_req: express.Request): ToolProfile => 'full';
+const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
 const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>

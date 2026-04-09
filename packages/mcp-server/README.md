@@ -58,10 +58,8 @@ Local MCP config:
 
 ## Runtime model
 
-The package exposes one unified MCP tool surface on `/mcp`:
+The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
-- `search_docs`: local in-memory docs search built from the repo’s embedded SDK metadata
-- `execute`: local code execution against the internal Sanka TypeScript client
 - `auth_status`: read-only CRM auth readiness check
 - `list_companies`: read-only company search
 - `list_contacts`: read-only contact search
@@ -71,5 +69,10 @@ The package exposes one unified MCP tool surface on `/mcp`:
 - `create_expense`: create an expense
 - `update_expense`: update an expense
 - `delete_expense`: delete an expense
+
+Local stdio development keeps the broader `full` profile available, including:
+
+- `search_docs`: local in-memory docs search built from the repo’s embedded SDK metadata
+- `execute`: local code execution against the internal Sanka TypeScript client
 
 No Stainless-hosted runtime services are required.
