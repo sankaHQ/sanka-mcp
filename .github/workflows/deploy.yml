@@ -44,3 +44,46 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only -c fly.toml --strategy immediate --ha=false
+
+      - name: Smoke check Task MCP tools
+        run: |
+          tools=(list_tasks get_task create_task update_task delete_task)
+
+          for _ in {1..20}; do
+            init_file="$(mktemp)"
+            tools_file="$(mktemp)"
+            curl -sS https://mcp.sanka.com/mcp \
+              -H 'content-type: application/json' \
+              -H 'accept: application/json, text/event-stream' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"github-actions","version":"0.1"}}}' \
+              > "$init_file"
+            curl -sS https://mcp.sanka.com/mcp \
+              -H 'content-type: application/json' \
+              -H 'accept: application/json, text/event-stream' \
+              --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+              > "$tools_file"
+
+            missing=0
+            for tool in "${tools[@]}"; do
+              if ! rg -q "$tool" "$init_file"; then
+                missing=1
+              fi
+              if ! rg -q "\"name\":\"$tool\"" "$tools_file"; then
+                missing=1
+              fi
+            done
+
+            if [ "$missing" -eq 0 ]; then
+              echo "Hosted MCP Task tools are available."
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "Hosted MCP Task tool smoke check failed"
+          echo "--- initialize ---"
+          cat "$init_file"
+          echo "--- tools/list ---"
+          cat "$tools_file"
+          exit 1
