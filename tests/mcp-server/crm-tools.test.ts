@@ -3,9 +3,12 @@ import {
   crmCreateExpenseTool,
   crmDeleteExpenseTool,
   crmAuthStatusTool,
+  crmGetDealTool,
   crmGetExpenseTool,
   crmListCompaniesTool,
   crmListContactsTool,
+  crmListDealPipelinesTool,
+  crmListDealsTool,
   crmListExpensesTool,
   crmUpdateExpenseTool,
   crmUploadExpenseAttachmentTool,
@@ -30,6 +33,9 @@ describe('ChatGPT CRM tools', () => {
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmListCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListContactsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListDealsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetDealTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListDealPipelinesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListExpensesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadExpenseAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -213,6 +219,196 @@ describe('ChatGPT CRM tools', () => {
       message: 'ok',
       permission: 'view',
       results: [{ id: 'contact-1', name: 'Jane Doe' }],
+    });
+  });
+
+  it('returns reauth metadata when list deals is called without authentication', async () => {
+    const list = jest.fn();
+
+    const result = await crmListDealsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            deals: { list },
+          },
+        } as any,
+        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        toolProfile: 'full',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result._meta?.['mcp/www_authenticate']).toEqual([
+      expect.stringContaining('error="invalid_token"'),
+    ]);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it('lists deals with a local result limit', async () => {
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'deal-1',
+        deal_id: 101,
+        name: 'Acme renewal',
+        stage_label: 'Negotiation',
+        pipeline_name: 'Sales',
+      },
+      {
+        id: 'deal-2',
+        deal_id: 102,
+        name: 'Globex POC',
+        stage_label: 'Discovery',
+        pipeline_name: 'Sales',
+      },
+      {
+        id: 'deal-3',
+        deal_id: 103,
+        name: 'Initech upsell',
+        stage_label: 'Proposal',
+        pipeline_name: 'Sales',
+      },
+    ]);
+
+    const result = await crmListDealsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            deals: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { limit: 2, language: 'en', workspace_id: 'workspace-1' },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      count: 2,
+      page: 1,
+      total: 3,
+      message: 'Returned 2 of 3 deals.',
+      permission: undefined,
+      results: [
+        {
+          id: 'deal-1',
+          deal_id: 101,
+          name: 'Acme renewal',
+          stage_label: 'Negotiation',
+          pipeline_name: 'Sales',
+        },
+        {
+          id: 'deal-2',
+          deal_id: 102,
+          name: 'Globex POC',
+          stage_label: 'Discovery',
+          pipeline_name: 'Sales',
+        },
+      ],
+    });
+  });
+
+  it('gets one deal when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'deal-1',
+      deal_id: 101,
+      name: 'Acme renewal',
+      stage_label: 'Negotiation',
+      pipeline_name: 'Sales',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const result = await crmGetDealTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            deals: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { case_id: 'deal-1', external_id: 'EXT-1', language: 'en' },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'deal-1',
+      {
+        external_id: 'EXT-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      id: 'deal-1',
+      deal_id: 101,
+      name: 'Acme renewal',
+      stage_label: 'Negotiation',
+      pipeline_name: 'Sales',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+  });
+
+  it('lists deal pipelines when authentication is present', async () => {
+    const listPipelines = jest.fn().mockResolvedValue([
+      {
+        id: 'pipeline-1',
+        name: 'Sales',
+        internal_name: 'sales',
+        is_default: true,
+        order: 1,
+        stages: [
+          { id: 'stage-1', name: 'Discovery', internal_value: 'discovery', order: 1 },
+          { id: 'stage-2', name: 'Negotiation', internal_value: 'negotiation', order: 2 },
+        ],
+      },
+    ]);
+
+    const result = await crmListDealPipelinesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            deals: { listPipelines },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { workspace_id: 'workspace-1' },
+    });
+
+    expect(listPipelines).toHaveBeenCalledWith({ workspace_id: 'workspace-1' }, undefined);
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 1,
+      message: 'Returned 1 deal pipelines.',
+      permission: undefined,
+      results: [
+        {
+          id: 'pipeline-1',
+          name: 'Sales',
+          internal_name: 'sales',
+          is_default: true,
+          order: 1,
+          stages: [
+            { id: 'stage-1', name: 'Discovery', internal_value: 'discovery', order: 1 },
+            { id: 'stage-2', name: 'Negotiation', internal_value: 'negotiation', order: 2 },
+          ],
+        },
+      ],
     });
   });
 

@@ -247,6 +247,77 @@ const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
   required: ['file_id', 'ok'],
 };
 
+const DEAL_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of deals to return from the deal list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const DEAL_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    case_id: {
+      type: 'string',
+      description: 'Deal identifier. Accepts a UUID, deal numeric id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['case_id'],
+};
+
+const DEAL_PIPELINES_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+  },
+};
+
+const DEAL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    deal_id: { type: 'integer' },
+    name: { type: 'string' },
+    case_status: { type: 'string' },
+    status: { type: 'string' },
+    currency: { type: 'string' },
+    pipeline_name: { type: 'string' },
+    pipeline_order: { type: 'integer' },
+    stage_key: { type: 'string' },
+    stage_label: { type: 'string' },
+    stage_position: { type: 'integer' },
+    stage_score: { type: 'number' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
 const AUTH_STATUS_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -496,6 +567,50 @@ const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => 
     return `Loaded expense for ${companyName}: ${amount} ${currency}.`;
   }
   return `Loaded expense ${id ?? ''}.`.trim();
+};
+
+const buildDealListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildDealRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const caseID = readString(args?.['case_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    caseID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildDealDetailSummary = (deal: Record<string, unknown>): string => {
+  const name = readString(deal['name']);
+  const stageLabel = readString(deal['stage_label']) || readString(deal['stage_key']);
+  const pipelineName = readString(deal['pipeline_name']);
+
+  if (name && stageLabel) {
+    const pipelineSuffix = pipelineName ? ` in pipeline ${pipelineName}` : '';
+    return `Loaded deal "${name}" at stage ${stageLabel}${pipelineSuffix}.`;
+  }
+  if (name) {
+    return `Loaded deal "${name}".`;
+  }
+  return `Loaded deal ${readString(deal['id']) ?? ''}.`.trim();
 };
 
 const buildAuthStatusChallenge = ({
@@ -989,6 +1104,159 @@ export const crmDeleteExpenseTool: McpTool = {
       ],
       structuredContent: response,
     };
+  },
+};
+
+export const crmListDealsTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'read',
+    tags: ['crm', 'deals'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/deals',
+    operationId: 'public.deals.list',
+  },
+  tool: {
+    name: 'list_deals',
+    title: 'List deals',
+    description:
+      'Review deals (sales pipeline records) in Sanka. Use this when the user wants to inspect their pipeline, find open deals, or review deal stages in the current workspace.',
+    inputSchema: DEAL_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List deals',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List deals',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildDealListParams(args);
+    const deals = await reqContext.client.public.deals.list(params, undefined);
+    const results = deals.slice(0, limit).map((deal) => deal as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'deals',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${deals.length} deals.`,
+        page: 1,
+        total: deals.length,
+      },
+      previewKeys: ['name', 'stage_label', 'deal_id'],
+    });
+  },
+};
+
+export const crmGetDealTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'read',
+    tags: ['crm', 'deals'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/deals/{case_id}',
+    operationId: 'public.deals.retrieve',
+  },
+  tool: {
+    name: 'get_deal',
+    title: 'Get deal',
+    description: 'Load one deal from Sanka by case id, deal numeric id, or external reference.',
+    inputSchema: DEAL_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: DEAL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get deal',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get deal',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { caseID, params } = buildDealRetrieveParams(args);
+    if (!caseID) {
+      return asErrorResult('`case_id` is required.');
+    }
+
+    const deal = (await reqContext.client.public.deals.retrieve(
+      caseID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildDealDetailSummary(deal) }],
+      structuredContent: deal,
+    };
+  },
+};
+
+export const crmListDealPipelinesTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'read',
+    tags: ['crm', 'deals'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/deals/pipelines',
+    operationId: 'public.deals.listPipelines',
+  },
+  tool: {
+    name: 'list_deal_pipelines',
+    title: 'List deal pipelines',
+    description:
+      'Discover the deal pipelines and stages defined in the current workspace. Use this when the user wants to understand pipeline structure, list available stages, or describe deal positions in context.',
+    inputSchema: DEAL_PIPELINES_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List deal pipelines',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List deal pipelines',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const workspaceID = readString(args?.['workspace_id']);
+    const params = workspaceID ? { workspace_id: workspaceID } : {};
+    const pipelines = await reqContext.client.public.deals.listPipelines(params, undefined);
+    const results = pipelines.map((pipeline) => pipeline as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'deal pipelines',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} deal pipelines.`,
+        page: 1,
+        total: results.length,
+      },
+      previewKeys: ['name', 'internal_name'],
+    });
   },
 };
 
