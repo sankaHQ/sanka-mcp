@@ -68,7 +68,8 @@ const IMPORT_INPUT_SCHEMA = {
     },
     operation: {
       type: 'string',
-      description: 'Import mode. Use "create" for insert-only, "update" for update-only, or "upsert" to create and update.',
+      description:
+        'Import mode. Use "create" for insert-only, "update" for update-only, or "upsert" to create and update.',
       enum: ['create', 'update', 'upsert'],
       default: 'upsert',
     },
@@ -277,8 +278,7 @@ const UPLOAD_OUTPUT_SCHEMA = {
 const readString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
-const readBoolean = (value: unknown): boolean | undefined =>
-  typeof value === 'boolean' ? value : undefined;
+const readBoolean = (value: unknown): boolean | undefined => (typeof value === 'boolean' ? value : undefined);
 
 const readNumber = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -395,8 +395,7 @@ export const uploadImportFileTool: McpTool = {
       object_type: objectType,
       file,
     };
-    const response: TransferUploadFileResponse =
-      await reqContext.client.public.imports.uploadFile(body);
+    const response: TransferUploadFileResponse = await reqContext.client.public.imports.uploadFile(body);
 
     return {
       content: [
