@@ -65,10 +65,10 @@ jobs:
 
             missing=0
             for tool in "${tools[@]}"; do
-              if ! rg -q "$tool" "$init_file"; then
+              if ! grep -q -- "$tool" "$init_file"; then
                 missing=1
               fi
-              if ! rg -q "\"name\":\"$tool\"" "$tools_file"; then
+              if ! grep -q -- "\"name\":\"$tool\"" "$tools_file"; then
                 missing=1
               fi
             done
