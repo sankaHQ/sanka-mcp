@@ -118,6 +118,26 @@ import {
   PublicExpenseRequest,
   PublicExpenseResponse,
 } from './expenses';
+import * as ExportsAPI from './exports';
+import { ExportCreateParams, ExportListParams, ExportListResponse, Exports } from './exports';
+import * as ImportsAPI from './imports';
+import {
+  ImportCreateParams,
+  ImportListParams,
+  ImportListResponse,
+  ImportUploadFileParams,
+  Imports,
+  TransferColumnMapping,
+  TransferJob,
+  TransferJobSummary,
+  TransferUploadFileResponse,
+} from './imports';
+import * as IntegrationsAPI from './integrations';
+import {
+  IntegrationChannelsListParams,
+  IntegrationChannelsListResponse,
+  Integrations,
+} from './integrations';
 import * as InventoriesAPI from './inventories';
 import {
   Inventories,
@@ -344,6 +364,9 @@ import {
 
 export class Public extends APIResource {
   accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
+  imports: ImportsAPI.Imports = new ImportsAPI.Imports(this._client);
+  exports: ExportsAPI.Exports = new ExportsAPI.Exports(this._client);
+  integrations: IntegrationsAPI.Integrations = new IntegrationsAPI.Integrations(this._client);
   orders: OrdersAPI.Orders = new OrdersAPI.Orders(this._client);
   tasks: TasksAPI.Tasks = new TasksAPI.Tasks(this._client);
   items: ItemsAPI.Items = new ItemsAPI.Items(this._client);
@@ -373,6 +396,9 @@ export class Public extends APIResource {
 }
 
 Public.AccountMessages = AccountMessages;
+Public.Imports = Imports;
+Public.Exports = Exports;
+Public.Integrations = Integrations;
 Public.Orders = Orders;
 Public.Tasks = Tasks;
 Public.Items = Items;
@@ -418,6 +444,31 @@ export declare namespace Public {
     type AccountMessageThreadArchiveParams as AccountMessageThreadArchiveParams,
     type AccountMessageThreadReplyParams as AccountMessageThreadReplyParams,
     type Threads as Threads,
+  };
+
+  export {
+    Imports as Imports,
+    type ImportCreateParams as ImportCreateParams,
+    type ImportListParams as ImportListParams,
+    type ImportListResponse as ImportListResponse,
+    type ImportUploadFileParams as ImportUploadFileParams,
+    type TransferColumnMapping as TransferColumnMapping,
+    type TransferJob as TransferJob,
+    type TransferJobSummary as TransferJobSummary,
+    type TransferUploadFileResponse as TransferUploadFileResponse,
+  };
+
+  export {
+    Exports as Exports,
+    type ExportCreateParams as ExportCreateParams,
+    type ExportListParams as ExportListParams,
+    type ExportListResponse as ExportListResponse,
+  };
+
+  export {
+    Integrations as Integrations,
+    type IntegrationChannelsListParams as IntegrationChannelsListParams,
+    type IntegrationChannelsListResponse as IntegrationChannelsListResponse,
   };
 
   export {

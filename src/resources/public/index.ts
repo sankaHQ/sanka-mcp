@@ -117,6 +117,28 @@ export {
   type ExpenseUploadAttachmentParams,
 } from './expenses';
 export {
+  Exports,
+  type ExportCreateParams,
+  type ExportListParams,
+  type ExportListResponse,
+} from './exports';
+export {
+  Imports,
+  type ImportCreateParams,
+  type ImportListParams,
+  type ImportListResponse,
+  type ImportUploadFileParams,
+  type TransferColumnMapping,
+  type TransferJob,
+  type TransferJobSummary,
+  type TransferUploadFileResponse,
+} from './imports';
+export {
+  Integrations,
+  type IntegrationChannelsListParams,
+  type IntegrationChannelsListResponse,
+} from './integrations';
+export {
   Inventories,
   type InventoryRequest,
   type InventoryResponse,
