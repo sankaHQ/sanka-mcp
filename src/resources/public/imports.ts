@@ -42,10 +42,7 @@ export class Imports extends APIResource {
   /**
    * Upload Import File
    */
-  uploadFile(
-    body: ImportUploadFileParams,
-    options?: RequestOptions,
-  ): APIPromise<TransferUploadFileResponse> {
+  uploadFile(body: ImportUploadFileParams, options?: RequestOptions): APIPromise<TransferUploadFileResponse> {
     const { object_type, file } = body;
     return this._client.post(
       '/v1/public/files',
