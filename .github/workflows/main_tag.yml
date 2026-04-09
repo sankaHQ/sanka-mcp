@@ -1,0 +1,102 @@
+name: Create new Sanka MCP Tag and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy-version:
+        description: 'Create Tag and Release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve main HEAD
+        id: main-ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          echo "sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest tag
+        id: latest-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/tags?per_page=100" \
+              | jq -r '.[].name' \
+              | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | tail -n 1
+          )"
+
+          if [ -z "$latest" ]; then
+            latest="0.0.0"
+          fi
+
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate next version
+        id: next-tag
+        run: |
+          latest="${{ steps.latest-tag.outputs.latest }}"
+          IFS='.' read -ra parts <<< "$latest"
+          major=${parts[0]}
+          minor=${parts[1]}
+          patch=${parts[2]}
+
+          case "${{ github.event.inputs.deploy-version }}" in
+            patch)
+              patch=$((patch + 1))
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+          esac
+
+          version="$major.$minor.$patch"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists and increment if necessary
+        id: check-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.next-tag.outputs.version }}"
+          while gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${version}" >/dev/null 2>&1; do
+            echo "Tag $version already exists. Incrementing..."
+            IFS='.' read -ra parts <<< "$version"
+            parts[2]=$((parts[2] + 1))
+            version="${parts[0]}.${parts[1]}.${parts[2]}"
+          done
+          echo "final_version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.check-tag.outputs.final_version }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${{ steps.main-ref.outputs.sha }}" \
+            --title "Release ${{ steps.check-tag.outputs.final_version }}" \
+            --generate-notes
