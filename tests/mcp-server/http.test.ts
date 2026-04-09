@@ -263,12 +263,46 @@ describe('protected resource metadata route', () => {
     const text = await response.text();
     expect(text).toContain('"name":"auth_status"');
     expect(text).toContain('"name":"list_companies"');
+    expect(text).toContain('"name":"get_company"');
+    expect(text).toContain('"name":"create_company"');
+    expect(text).toContain('"name":"update_company"');
+    expect(text).toContain('"name":"delete_company"');
+    expect(text).toContain('"name":"list_contacts"');
+    expect(text).toContain('"name":"get_contact"');
+    expect(text).toContain('"name":"create_contact"');
+    expect(text).toContain('"name":"update_contact"');
+    expect(text).toContain('"name":"delete_contact"');
+    expect(text).toContain('"name":"list_deals"');
+    expect(text).toContain('"name":"get_deal"');
+    expect(text).toContain('"name":"create_deal"');
+    expect(text).toContain('"name":"update_deal"');
+    expect(text).toContain('"name":"delete_deal"');
+    expect(text).toContain('"name":"list_deal_pipelines"');
+    expect(text).toContain('"name":"list_tickets"');
+    expect(text).toContain('"name":"get_ticket"');
+    expect(text).toContain('"name":"create_ticket"');
+    expect(text).toContain('"name":"update_ticket"');
+    expect(text).toContain('"name":"delete_ticket"');
+    expect(text).toContain('"name":"list_ticket_pipelines"');
+    expect(text).toContain('"name":"update_ticket_status"');
     expect(text).toContain('"name":"list_expenses"');
     expect(text).toContain('"name":"get_expense"');
     expect(text).toContain('"name":"upload_expense_attachment"');
     expect(text).toContain('"name":"create_expense"');
     expect(text).toContain('"name":"update_expense"');
     expect(text).toContain('"name":"delete_expense"');
+    expect(text).toContain('"name":"list_properties"');
+    expect(text).toContain('"name":"get_property"');
+    expect(text).toContain('"name":"create_property"');
+    expect(text).toContain('"name":"update_property"');
+    expect(text).toContain('"name":"delete_property"');
+    expect(text).toContain('"name":"get_calendar_bootstrap"');
+    expect(text).toContain('"name":"check_calendar_availability"');
+    expect(text).toContain('"name":"create_calendar_attendance"');
+    expect(text).toContain('"name":"cancel_calendar_attendance"');
+    expect(text).toContain('"name":"reschedule_calendar_attendance"');
+    expect(text).toContain('"name":"prospect_companies"');
+    expect(text).toContain('"name":"score_record"');
     expect(text).not.toContain('"name":"execute"');
     expect(text).not.toContain('"name":"search_docs"');
   });
@@ -386,6 +420,132 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual({
       error: 'authentication_required',
       error_description: 'Authentication required to use create_expense.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_company when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: {
+          name: 'create_company',
+          arguments: {
+            external_id: 'COMP-1',
+            name: 'Acme',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_company.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_ticket when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 11,
+        method: 'tools/call',
+        params: {
+          name: 'create_ticket',
+          arguments: {
+            title: 'Broken integration',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_ticket.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_calendar_attendance when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 12,
+        method: 'tools/call',
+        params: {
+          name: 'create_calendar_attendance',
+          arguments: {
+            event_id: 'event-1',
+            date: '2026-04-10',
+            time: '09:00',
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_calendar_attendance.',
+    });
+  });
+
+  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 13,
+        method: 'tools/call',
+        params: {
+          name: 'score_record',
+          arguments: {
+            object_type: 'company',
+            record_id: '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use score_record.',
     });
   });
 });

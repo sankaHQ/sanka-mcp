@@ -62,13 +62,44 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 - `auth_status`: read-only CRM auth readiness check
 - `list_companies`: read-only company search
+- `get_company`: load a single company
+- `create_company`: create or upsert a company by external reference
+- `update_company`: update a company
+- `delete_company`: delete a company
 - `list_contacts`: read-only contact search
+- `get_contact`: load a single contact
+- `create_contact`: create or upsert a contact by external reference
+- `update_contact`: update a contact
+- `delete_contact`: delete a contact
+- `list_deals`: read-only deal search
+- `get_deal`: load a single deal
+- `create_deal`: create or upsert a deal by external reference
+- `update_deal`: update a deal
+- `delete_deal`: delete a deal
+- `list_deal_pipelines`: inspect deal pipelines and stages
+- `list_tickets`: read-only ticket search
+- `get_ticket`: load a single ticket
+- `create_ticket`: create a ticket
+- `update_ticket`: update a ticket
+- `delete_ticket`: delete a ticket
+- `list_ticket_pipelines`: inspect ticket pipelines and stages
+- `update_ticket_status`: update only a ticket stage or status
 - `list_expenses`: read-only expense review
 - `get_expense`: load a single expense
 - `upload_expense_attachment`: upload a receipt or invoice and return a file id
 - `create_expense`: create an expense
 - `update_expense`: update an expense
 - `delete_expense`: delete an expense
+- `list_properties`: inspect object property definitions
+- `get_property`: load a single property definition
+- `create_property`: create a custom property
+- `update_property`: update a custom property
+- `delete_property`: delete a custom property
+- `get_calendar_bootstrap`: load calendar booking context
+- `check_calendar_availability`: inspect available booking slots
+- `create_calendar_attendance`: book a calendar attendance
+- `cancel_calendar_attendance`: cancel a calendar attendance
+- `reschedule_calendar_attendance`: reschedule a calendar attendance
 
 Local stdio development keeps the broader `full` profile available, including:
 
