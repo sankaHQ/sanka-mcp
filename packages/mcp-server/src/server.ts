@@ -194,14 +194,16 @@ export async function initMcpServer(params: {
 export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
 
-  if (options?.includeCodeTool ?? true) {
+  const includeGenericTools = _profile === 'full';
+
+  if (includeGenericTools && (options?.includeCodeTool ?? true)) {
     includedTools.push(
       codeTool({
         blockedMethods: blockedMethodsForCodeTool(options),
       }),
     );
   }
-  if (options?.includeDocsTools ?? true) {
+  if (includeGenericTools && (options?.includeDocsTools ?? true)) {
     includedTools.push(docsSearchTool);
   }
   includedTools.push(

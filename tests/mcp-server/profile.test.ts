@@ -7,8 +7,9 @@ import {
 } from '../../packages/mcp-server/src/profile';
 
 describe('tool profile detection', () => {
-  it('only accepts the unified full profile', () => {
+  it('accepts the supported tool profiles', () => {
     expect(normalizeToolProfile('FULL')).toBe('full');
+    expect(normalizeToolProfile('HOSTED')).toBe('hosted');
     expect(normalizeToolProfile('crm')).toBeUndefined();
     expect(normalizeToolProfile('chatgpt')).toBeUndefined();
   });
@@ -24,13 +25,21 @@ describe('tool profile detection', () => {
     expect(inferPathProfile('/mcp')).toBeUndefined();
   });
 
-  it('always resolves to the unified full profile', () => {
+  it('prefers explicit route/session profiles before falling back to full', () => {
     expect(
       inferToolProfile({
         explicitProfile: 'full',
         authorizationHeader: 'Bearer legacy-token',
       }),
     ).toBe('full');
+
+    expect(
+      inferToolProfile({
+        routeProfile: 'hosted',
+        explicitProfile: 'full',
+        authorizationHeader: 'Bearer legacy-token',
+      }),
+    ).toBe('hosted');
 
     expect(
       inferToolProfile({

@@ -1,7 +1,14 @@
-export type ToolProfile = 'full';
+export type ToolProfile = 'full' | 'hosted';
 
 export function normalizeToolProfile(value: unknown): ToolProfile | undefined {
-  return typeof value === 'string' && value.trim().toLowerCase() === 'full' ? 'full' : undefined;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'full' || normalized === 'hosted') {
+    return normalized;
+  }
+  return undefined;
 }
 
 export function isChatGPTClientName(_value: unknown): boolean {
@@ -21,7 +28,7 @@ export function inferToolProfile(_: {
   authorizationHeader?: string | undefined;
   apiKeyHeader?: string | undefined;
 }): ToolProfile {
-  return 'full';
+  return _.routeProfile ?? _.explicitProfile ?? _.sessionProfile ?? 'full';
 }
 
 export function inferPathProfile(_pathname: unknown): ToolProfile | undefined {
