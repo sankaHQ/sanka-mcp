@@ -63,6 +63,26 @@ export class Orders extends APIResource {
   }
 
   /**
+   * Download Order PDF
+   */
+  downloadPDF(
+    orderID: string,
+    params: OrderDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/orders/${orderID}/pdf`, {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    }) as APIPromise<Response>;
+  }
+
+  /**
    * Bulk Create Orders
    */
   bulkCreate(body: OrderBulkCreateParams, options?: RequestOptions): APIPromise<BulkOrders> {
@@ -194,6 +214,33 @@ export interface OrderCreateParams {
 
 export interface OrderRetrieveParams {
   external_id?: string | null;
+}
+
+export interface OrderDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
 }
 
 export interface OrderUpdateParams {

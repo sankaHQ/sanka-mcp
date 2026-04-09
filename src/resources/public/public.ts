@@ -133,11 +133,7 @@ import {
   TransferUploadFileResponse,
 } from './imports';
 import * as IntegrationsAPI from './integrations';
-import {
-  IntegrationChannelsListParams,
-  IntegrationChannelsListResponse,
-  Integrations,
-} from './integrations';
+import { IntegrationChannelsListParams, IntegrationChannelsListResponse, Integrations } from './integrations';
 import * as InventoriesAPI from './inventories';
 import {
   Inventories,
@@ -170,6 +166,8 @@ import {
   InvoiceDeleteParams,
   InvoiceListParams,
   InvoiceListResponse,
+  InvoiceListOverdueParams,
+  InvoiceListOverdueResponse,
   InvoiceRequest,
   InvoiceRetrieveParams,
   InvoiceSchema,
@@ -602,10 +600,12 @@ export declare namespace Public {
     type InvoiceRequest as InvoiceRequest,
     type InvoiceSchema as InvoiceSchema,
     type InvoiceListResponse as InvoiceListResponse,
+    type InvoiceListOverdueResponse as InvoiceListOverdueResponse,
     type InvoiceCreateParams as InvoiceCreateParams,
     type InvoiceRetrieveParams as InvoiceRetrieveParams,
     type InvoiceUpdateParams as InvoiceUpdateParams,
     type InvoiceListParams as InvoiceListParams,
+    type InvoiceListOverdueParams as InvoiceListOverdueParams,
     type InvoiceDeleteParams as InvoiceDeleteParams,
   };
 

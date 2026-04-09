@@ -315,18 +315,46 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_order"');
     expect(text).toContain('"name":"update_order"');
     expect(text).toContain('"name":"delete_order"');
+    expect(text).toContain('"name":"list_purchase_orders"');
+    expect(text).toContain('"name":"get_purchase_order"');
+    expect(text).toContain('"name":"create_purchase_order"');
+    expect(text).toContain('"name":"update_purchase_order"');
+    expect(text).toContain('"name":"delete_purchase_order"');
     expect(text).toContain('"name":"list_estimates"');
     expect(text).toContain('"name":"get_estimate"');
     expect(text).toContain('"name":"create_estimate"');
     expect(text).toContain('"name":"update_estimate"');
     expect(text).toContain('"name":"delete_estimate"');
     expect(text).toContain('"name":"list_invoices"');
+    expect(text).toContain('"name":"list_overdue_invoices"');
     expect(text).toContain('"name":"get_invoice"');
     expect(text).toContain('"name":"create_invoice"');
     expect(text).toContain('"name":"update_invoice"');
     expect(text).toContain('"name":"delete_invoice"');
+    expect(text).toContain('"name":"list_payments"');
+    expect(text).toContain('"name":"get_payment"');
+    expect(text).toContain('"name":"create_payment"');
+    expect(text).toContain('"name":"update_payment"');
+    expect(text).toContain('"name":"delete_payment"');
+    expect(text).toContain('"name":"list_slips"');
+    expect(text).toContain('"name":"get_slip"');
+    expect(text).toContain('"name":"create_slip"');
+    expect(text).toContain('"name":"update_slip"');
+    expect(text).toContain('"name":"delete_slip"');
+    expect(text).toContain('"name":"list_bills"');
+    expect(text).toContain('"name":"get_bill"');
+    expect(text).toContain('"name":"create_bill"');
+    expect(text).toContain('"name":"update_bill"');
+    expect(text).toContain('"name":"delete_bill"');
+    expect(text).toContain('"name":"list_disbursements"');
+    expect(text).toContain('"name":"get_disbursement"');
+    expect(text).toContain('"name":"create_disbursement"');
+    expect(text).toContain('"name":"update_disbursement"');
+    expect(text).toContain('"name":"delete_disbursement"');
     expect(text).toContain('"name":"prospect_companies"');
     expect(text).toContain('"name":"score_record"');
+    expect(text).toContain('"name":"generate_demo_workspace"');
+    expect(text).toContain('"name":"push_integration_sync"');
     expect(text).not.toContain('"name":"execute"');
     expect(text).not.toContain('"name":"search_docs"');
   });
@@ -673,7 +701,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+  it('returns an OAuth challenge for create_payment when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -683,6 +711,37 @@ describe('protected resource metadata route', () => {
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 16,
+        method: 'tools/call',
+        params: {
+          name: 'create_payment',
+          arguments: {
+            external_id: 'PAY-1',
+            company_id: 'company-1',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_payment.',
+    });
+  });
+
+  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 17,
         method: 'tools/call',
         params: {
           name: 'score_record',

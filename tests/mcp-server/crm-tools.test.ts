@@ -11,6 +11,11 @@ import {
   crmCreateExpenseTool,
   crmCreateInvoiceTool,
   crmCreateOrderTool,
+  crmCreatePaymentTool,
+  crmCreatePurchaseOrderTool,
+  crmCreateBillTool,
+  crmCreateDisbursementTool,
+  crmCreateSlipTool,
   crmCreatePropertyTool,
   crmCreateTaskTool,
   crmCreateTicketTool,
@@ -22,6 +27,11 @@ import {
   crmDeleteExpenseTool,
   crmDeleteInvoiceTool,
   crmDeleteOrderTool,
+  crmDeletePaymentTool,
+  crmDeletePurchaseOrderTool,
+  crmDeleteBillTool,
+  crmDeleteDisbursementTool,
+  crmDeleteSlipTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
   crmAuthStatusTool,
@@ -34,6 +44,11 @@ import {
   crmGetExpenseTool,
   crmGetInvoiceTool,
   crmGetOrderTool,
+  crmGetPaymentTool,
+  crmGetPurchaseOrderTool,
+  crmGetBillTool,
+  crmGetDisbursementTool,
+  crmGetSlipTool,
   crmGetPropertyTool,
   crmGetTaskTool,
   crmGetTicketTool,
@@ -44,7 +59,13 @@ import {
   crmListEstimatesTool,
   crmListExpensesTool,
   crmListInvoicesTool,
+  crmListOverdueInvoicesTool,
   crmListOrdersTool,
+  crmListPaymentsTool,
+  crmListPurchaseOrdersTool,
+  crmListBillsTool,
+  crmListDisbursementsTool,
+  crmListSlipsTool,
   crmListTasksTool,
   crmListPrivateMessagesTool,
   crmListPropertiesTool,
@@ -62,6 +83,11 @@ import {
   crmUpdateExpenseTool,
   crmUpdateInvoiceTool,
   crmUpdateOrderTool,
+  crmUpdatePaymentTool,
+  crmUpdatePurchaseOrderTool,
+  crmUpdateBillTool,
+  crmUpdateDisbursementTool,
+  crmUpdateSlipTool,
   crmUpdateTaskTool,
   crmUpdatePropertyTool,
   crmUpdateTicketStatusTool,
@@ -112,6 +138,11 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPurchaseOrdersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetPurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeletePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListTasksTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -127,6 +158,26 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPaymentsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetPaymentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreatePaymentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdatePaymentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeletePaymentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListSlipsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetSlipTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateSlipTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateSlipTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteSlipTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListBillsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListDisbursementsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetDisbursementTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateDisbursementTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateDisbursementTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteDisbursementTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListTicketsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetTicketTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateTicketTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -1518,6 +1569,155 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('maps purchase order CRUD handlers to the SDK client', async () => {
+    const list = jest.fn().mockResolvedValue([
+      { id_po: 901, company_name: 'Acme', contact_name: 'Taylor', total_price: 1200 },
+      { id_po: 902, company_name: 'Globex', contact_name: 'Jordan', total_price: 900 },
+    ]);
+    const retrieve = jest.fn().mockResolvedValue({
+      id_po: 901,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      purchase_order_id: 'purchase-order-1',
+      external_id: 'PO-1',
+    });
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      purchase_order_id: 'purchase-order-1',
+    });
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      purchase_order_id: 'purchase-order-1',
+    });
+
+    const reqContext = {
+      client: {
+        public: {
+          purchaseOrders: { list, retrieve, create, update, delete: del },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListPurchaseOrdersTool.handler({
+      reqContext,
+      args: { limit: 1, workspace_id: 'workspace-1', language: 'en' },
+    });
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(listResult.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 2,
+      message: 'Returned 1 of 2 purchase orders.',
+      permission: undefined,
+      results: [{ id_po: 901, company_name: 'Acme', contact_name: 'Taylor', total_price: 1200 }],
+    });
+
+    const getResult = await crmGetPurchaseOrderTool.handler({
+      reqContext,
+      args: { purchase_order_id: 'purchase-order-1', external_id: 'PO-1', language: 'ja' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'purchase-order-1',
+      {
+        external_id: 'PO-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(getResult.structuredContent).toEqual({
+      id_po: 901,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const createResult = await crmCreatePurchaseOrderTool.handler({
+      reqContext,
+      args: {
+        company_id: 'company-1',
+        contact_id: 'contact-1',
+        currency: 'USD',
+        date: '2026-04-09',
+        total_price: 1200,
+        tax_rate: 0.1,
+      },
+    });
+    expect(create).toHaveBeenCalledWith(
+      {
+        company_id: 'company-1',
+        contact_id: 'contact-1',
+        currency: 'USD',
+        date: '2026-04-09',
+        total_price: 1200,
+        tax_rate: 0.1,
+      },
+      undefined,
+    );
+    expect(createResult.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      purchase_order_id: 'purchase-order-1',
+      external_id: 'PO-1',
+    });
+
+    const updateResult = await crmUpdatePurchaseOrderTool.handler({
+      reqContext,
+      args: {
+        purchase_order_id: 'purchase-order-1',
+        status: 'sent',
+        notes: 'Approved by finance',
+      },
+    });
+    expect(update).toHaveBeenCalledWith(
+      'purchase-order-1',
+      {
+        status: 'sent',
+        notes: 'Approved by finance',
+      },
+      undefined,
+    );
+    expect(updateResult.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      purchase_order_id: 'purchase-order-1',
+    });
+
+    const deleteResult = await crmDeletePurchaseOrderTool.handler({
+      reqContext,
+      args: {
+        purchase_order_id: 'purchase-order-1',
+        external_id: 'PO-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith(
+      'purchase-order-1',
+      {
+        external_id: 'PO-1',
+      },
+      undefined,
+    );
+    expect(deleteResult.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      purchase_order_id: 'purchase-order-1',
+    });
+  });
+
   it('lists tasks when authentication is present', async () => {
     const list = jest.fn().mockResolvedValue({
       data: [{ id: 'task-1', task_id: 701, title: 'Follow up with Acme' }],
@@ -1979,6 +2179,47 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists overdue invoices with a local result limit', async () => {
+    const listOverdue = jest.fn().mockResolvedValue([
+      { id_inv: 1, company_name: 'Acme', outstanding_balance: 100, days_overdue: 7 },
+      { id_inv: 2, company_name: 'Globex', outstanding_balance: 80, days_overdue: 3 },
+      { id_inv: 3, company_name: 'Initech', outstanding_balance: 50, days_overdue: 1 },
+    ]);
+
+    const result = await crmListOverdueInvoicesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            invoices: { listOverdue },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { limit: 2, workspace_id: 'workspace-1', as_of_date: '2026-04-10', language: 'en' },
+    });
+
+    expect(listOverdue).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        as_of_date: '2026-04-10',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 2,
+      page: 1,
+      total: 3,
+      message: 'Returned 2 of 3 overdue invoices.',
+      permission: undefined,
+      results: [
+        { id_inv: 1, company_name: 'Acme', outstanding_balance: 100, days_overdue: 7 },
+        { id_inv: 2, company_name: 'Globex', outstanding_balance: 80, days_overdue: 3 },
+      ],
+    });
+  });
+
   it('gets one invoice when authentication is present', async () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_inv: 1,
@@ -2130,6 +2371,670 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       invoice_id: 'invoice-1',
+    });
+  });
+
+  it('lists payments with a local result limit', async () => {
+    const list = jest.fn().mockResolvedValue([
+      {
+        id_rcp: 301,
+        company_name: 'Acme',
+        contact_name: 'Taylor',
+        status: 'sent',
+      },
+      {
+        id_rcp: 302,
+        company_name: 'Globex',
+        contact_name: 'Jordan',
+        status: 'paid',
+      },
+      {
+        id_rcp: 303,
+        company_name: 'Initech',
+        contact_name: 'Casey',
+        status: 'draft',
+      },
+    ]);
+
+    const result = await crmListPaymentsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { limit: 2, workspace_id: 'workspace-1', language: 'en' },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 2,
+      message: 'Returned 2 of 3 payments.',
+      page: 1,
+      permission: undefined,
+      results: [
+        {
+          id_rcp: 301,
+          company_name: 'Acme',
+          contact_name: 'Taylor',
+          status: 'sent',
+        },
+        {
+          id_rcp: 302,
+          company_name: 'Globex',
+          contact_name: 'Jordan',
+          status: 'paid',
+        },
+      ],
+      total: 3,
+    });
+  });
+
+  it('gets one payment when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      id_rcp: 301,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const result = await crmGetPaymentTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { payment_id: 'payment-1', external_id: 'PAY-1', language: 'ja' },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'payment-1',
+      {
+        external_id: 'PAY-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id_rcp: 301,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+  });
+
+  it('creates a payment', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      payment_id: 'payment-1',
+      external_id: 'PAY-1',
+    });
+
+    const result = await crmCreatePaymentTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-1',
+        total_price: 120,
+        currency: 'USD',
+        entry_type: 'item',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        company_id: 'company-1',
+        total_price: 120,
+        currency: 'USD',
+        entry_type: 'item',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      payment_id: 'payment-1',
+      external_id: 'PAY-1',
+    });
+  });
+
+  it('updates a payment', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      payment_id: 'payment-1',
+    });
+
+    const result = await crmUpdatePaymentTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        payment_id: 'payment-1',
+        status: 'paid',
+        notes: 'Updated payment notes',
+        external_id: 'PAY-1',
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'payment-1',
+      {
+        status: 'paid',
+        notes: 'Updated payment notes',
+        external_id: 'PAY-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      payment_id: 'payment-1',
+    });
+  });
+
+  it('deletes a payment', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      payment_id: 'payment-1',
+    });
+
+    const result = await crmDeletePaymentTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        payment_id: 'payment-1',
+        external_id: 'PAY-1',
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith(
+      'payment-1',
+      {
+        external_id: 'PAY-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      payment_id: 'payment-1',
+    });
+  });
+
+  it('maps slip CRUD handlers to the SDK client', async () => {
+    const list = jest.fn().mockResolvedValue([
+      { id_slip: 401, company_name: 'Acme', contact_name: 'Taylor', slip_type: 'delivery_slip' },
+      { id_slip: 402, company_name: 'Globex', contact_name: 'Jordan', slip_type: 'delivery_slip' },
+    ]);
+    const retrieve = jest.fn().mockResolvedValue({
+      id_slip: 401,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      slip_id: 'slip-1',
+      external_id: 'SLIP-1',
+    });
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      slip_id: 'slip-1',
+    });
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      slip_id: 'slip-1',
+    });
+
+    const reqContext = {
+      client: {
+        public: {
+          slips: { list, retrieve, create, update, delete: del },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListSlipsTool.handler({
+      reqContext,
+      args: { limit: 1, workspace_id: 'workspace-1', language: 'en' },
+    });
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(listResult.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 2,
+      message: 'Returned 1 of 2 slips.',
+      permission: undefined,
+      results: [{ id_slip: 401, company_name: 'Acme', contact_name: 'Taylor', slip_type: 'delivery_slip' }],
+    });
+
+    const getResult = await crmGetSlipTool.handler({
+      reqContext,
+      args: { slip_id: 'slip-1', external_id: 'SLIP-1', language: 'ja' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'slip-1',
+      {
+        external_id: 'SLIP-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(getResult.structuredContent).toEqual({
+      id_slip: 401,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const createResult = await crmCreateSlipTool.handler({
+      reqContext,
+      args: {
+        company_id: 'company-1',
+        currency: 'USD',
+        slip_type: 'delivery_slip',
+        total_price: 500,
+        tax_inclusive: true,
+      },
+    });
+    expect(create).toHaveBeenCalledWith(
+      {
+        company_id: 'company-1',
+        currency: 'USD',
+        slip_type: 'delivery_slip',
+        total_price: 500,
+        tax_inclusive: true,
+      },
+      undefined,
+    );
+    expect(createResult.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      slip_id: 'slip-1',
+      external_id: 'SLIP-1',
+    });
+
+    const updateResult = await crmUpdateSlipTool.handler({
+      reqContext,
+      args: {
+        slip_id: 'slip-1',
+        status: 'sent',
+        notes: 'Updated slip notes',
+      },
+    });
+    expect(update).toHaveBeenCalledWith(
+      'slip-1',
+      {
+        status: 'sent',
+        notes: 'Updated slip notes',
+      },
+      undefined,
+    );
+    expect(updateResult.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      slip_id: 'slip-1',
+    });
+
+    const deleteResult = await crmDeleteSlipTool.handler({
+      reqContext,
+      args: {
+        slip_id: 'slip-1',
+        external_id: 'SLIP-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith(
+      'slip-1',
+      {
+        external_id: 'SLIP-1',
+      },
+      undefined,
+    );
+    expect(deleteResult.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      slip_id: 'slip-1',
+    });
+  });
+
+  it('maps bill CRUD handlers to the SDK client', async () => {
+    const list = jest.fn().mockResolvedValue([
+      { id_bill: 501, company_name: 'Acme', contact_name: 'Taylor', amount: 1200 },
+      { id_bill: 502, company_name: 'Globex', contact_name: 'Jordan', amount: 900 },
+    ]);
+    const retrieve = jest.fn().mockResolvedValue({
+      id_bill: 501,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      bill_id: 'bill-1',
+      external_id: 'BILL-1',
+    });
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      bill_id: 'bill-1',
+    });
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      bill_id: 'bill-1',
+    });
+
+    const reqContext = {
+      client: {
+        public: {
+          bills: { list, retrieve, create, update, delete: del },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListBillsTool.handler({
+      reqContext,
+      args: { limit: 1, workspace_id: 'workspace-1', language: 'en' },
+    });
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(listResult.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 2,
+      message: 'Returned 1 of 2 bills.',
+      permission: undefined,
+      results: [{ id_bill: 501, company_name: 'Acme', contact_name: 'Taylor', amount: 1200 }],
+    });
+
+    const getResult = await crmGetBillTool.handler({
+      reqContext,
+      args: { bill_id: 'bill-1', external_id: 'BILL-1', language: 'ja' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'bill-1',
+      {
+        external_id: 'BILL-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(getResult.structuredContent).toEqual({
+      id_bill: 501,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const createResult = await crmCreateBillTool.handler({
+      reqContext,
+      args: {
+        company_id: 'company-1',
+        currency: 'USD',
+        amount: 1200,
+        due_date: '2026-04-20',
+        tax_inclusive: false,
+      },
+    });
+    expect(create).toHaveBeenCalledWith(
+      {
+        company_id: 'company-1',
+        currency: 'USD',
+        amount: 1200,
+        due_date: '2026-04-20',
+        tax_inclusive: false,
+      },
+      undefined,
+    );
+    expect(createResult.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      bill_id: 'bill-1',
+      external_id: 'BILL-1',
+    });
+
+    const updateResult = await crmUpdateBillTool.handler({
+      reqContext,
+      args: {
+        bill_id: 'bill-1',
+        status: 'paid',
+        payment_date: '2026-04-15',
+      },
+    });
+    expect(update).toHaveBeenCalledWith(
+      'bill-1',
+      {
+        status: 'paid',
+        payment_date: '2026-04-15',
+      },
+      undefined,
+    );
+    expect(updateResult.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      bill_id: 'bill-1',
+    });
+
+    const deleteResult = await crmDeleteBillTool.handler({
+      reqContext,
+      args: {
+        bill_id: 'bill-1',
+        external_id: 'BILL-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith(
+      'bill-1',
+      {
+        external_id: 'BILL-1',
+      },
+      undefined,
+    );
+    expect(deleteResult.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      bill_id: 'bill-1',
+    });
+  });
+
+  it('maps disbursement CRUD handlers to the SDK client', async () => {
+    const list = jest.fn().mockResolvedValue([
+      { id_dsb: 601, company_name: 'Acme', contact_name: 'Taylor', total_price: 800 },
+      { id_dsb: 602, company_name: 'Globex', contact_name: 'Jordan', total_price: 650 },
+    ]);
+    const retrieve = jest.fn().mockResolvedValue({
+      id_dsb: 601,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      disbursement_id: 'disbursement-1',
+      external_id: 'DSB-1',
+    });
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      disbursement_id: 'disbursement-1',
+    });
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      disbursement_id: 'disbursement-1',
+    });
+
+    const reqContext = {
+      client: {
+        public: {
+          disbursements: { list, retrieve, create, update, delete: del },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListDisbursementsTool.handler({
+      reqContext,
+      args: { limit: 1, workspace_id: 'workspace-1', language: 'en' },
+    });
+    expect(list).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(listResult.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 2,
+      message: 'Returned 1 of 2 disbursements.',
+      permission: undefined,
+      results: [{ id_dsb: 601, company_name: 'Acme', contact_name: 'Taylor', total_price: 800 }],
+    });
+
+    const getResult = await crmGetDisbursementTool.handler({
+      reqContext,
+      args: { disbursement_id: 'disbursement-1', external_id: 'DSB-1', language: 'ja' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'disbursement-1',
+      {
+        external_id: 'DSB-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(getResult.structuredContent).toEqual({
+      id_dsb: 601,
+      company_name: 'Acme',
+      created_at: '2026-04-08T00:00:00Z',
+      updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const createResult = await crmCreateDisbursementTool.handler({
+      reqContext,
+      args: {
+        company_id: 'company-1',
+        currency: 'USD',
+        total_price: 800,
+        fee: 25,
+        tax_inclusive: true,
+      },
+    });
+    expect(create).toHaveBeenCalledWith(
+      {
+        company_id: 'company-1',
+        currency: 'USD',
+        total_price: 800,
+        fee: 25,
+        tax_inclusive: true,
+      },
+      undefined,
+    );
+    expect(createResult.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      disbursement_id: 'disbursement-1',
+      external_id: 'DSB-1',
+    });
+
+    const updateResult = await crmUpdateDisbursementTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        status: 'approved',
+        notes: 'Approved for payout',
+      },
+    });
+    expect(update).toHaveBeenCalledWith(
+      'disbursement-1',
+      {
+        status: 'approved',
+        notes: 'Approved for payout',
+      },
+      undefined,
+    );
+    expect(updateResult.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      disbursement_id: 'disbursement-1',
+    });
+
+    const deleteResult = await crmDeleteDisbursementTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        external_id: 'DSB-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith(
+      'disbursement-1',
+      {
+        external_id: 'DSB-1',
+      },
+      undefined,
+    );
+    expect(deleteResult.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      disbursement_id: 'disbursement-1',
     });
   });
 

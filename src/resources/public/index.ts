@@ -116,12 +116,7 @@ export {
   type ExpenseDeleteParams,
   type ExpenseUploadAttachmentParams,
 } from './expenses';
-export {
-  Exports,
-  type ExportCreateParams,
-  type ExportListParams,
-  type ExportListResponse,
-} from './exports';
+export { Exports, type ExportCreateParams, type ExportListParams, type ExportListResponse } from './exports';
 export {
   Imports,
   type ImportCreateParams,
@@ -167,10 +162,12 @@ export {
   type InvoiceRequest,
   type InvoiceSchema,
   type InvoiceListResponse,
+  type InvoiceListOverdueResponse,
   type InvoiceCreateParams,
   type InvoiceRetrieveParams,
   type InvoiceUpdateParams,
   type InvoiceListParams,
+  type InvoiceListOverdueParams,
   type InvoiceDeleteParams,
 } from './invoices';
 export {

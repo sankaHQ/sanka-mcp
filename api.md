@@ -35,6 +35,7 @@ Methods:
 
 - <code title="post /v1/public/orders">client.public.orders.<a href="./src/resources/public/orders.ts">create</a>({ ...params }) -> BulkOrders</code>
 - <code title="get /v1/public/orders/{order_id}">client.public.orders.<a href="./src/resources/public/orders.ts">retrieve</a>(orderID, { ...params }) -> OrderRetrieveResponse</code>
+- <code title="get /v1/public/orders/{order_id}/pdf">client.public.orders.<a href="./src/resources/public/orders.ts">downloadPDF</a>(orderID, { ...params }) -> Response</code>
 - <code title="put /v1/public/orders/{order_id}">client.public.orders.<a href="./src/resources/public/orders.ts">update</a>(orderID, { ...params }) -> BulkOrders</code>
 - <code title="get /v1/public/orders">client.public.orders.<a href="./src/resources/public/orders.ts">list</a>({ ...params }) -> OrderListResponse</code>
 - <code title="delete /v1/public/orders/{order_id}">client.public.orders.<a href="./src/resources/public/orders.ts">delete</a>(orderID, { ...params }) -> OrderDeleteResponse</code>
@@ -177,6 +178,7 @@ Methods:
 
 - <code title="post /v1/public/estimates">client.public.estimates.<a href="./src/resources/public/estimates.ts">create</a>({ ...params }) -> PublicEstimateResponse</code>
 - <code title="get /v1/public/estimates/{estimate_id}">client.public.estimates.<a href="./src/resources/public/estimates.ts">retrieve</a>(estimateID, { ...params }) -> Estimate</code>
+- <code title="get /v1/public/estimates/{estimate_id}/pdf">client.public.estimates.<a href="./src/resources/public/estimates.ts">downloadPDF</a>(estimateID, { ...params }) -> Response</code>
 - <code title="put /v1/public/estimates/{estimate_id}">client.public.estimates.<a href="./src/resources/public/estimates.ts">update</a>(estimateID, { ...params }) -> PublicEstimateResponse</code>
 - <code title="get /v1/public/estimates">client.public.estimates.<a href="./src/resources/public/estimates.ts">list</a>({ ...params }) -> EstimateListResponse</code>
 - <code title="delete /v1/public/estimates/{estimate_id}">client.public.estimates.<a href="./src/resources/public/estimates.ts">delete</a>(estimateID, { ...params }) -> PublicEstimateResponse</code>
@@ -194,6 +196,7 @@ Methods:
 
 - <code title="post /v1/public/invoices">client.public.invoices.<a href="./src/resources/public/invoices.ts">create</a>({ ...params }) -> Invoice</code>
 - <code title="get /v1/public/invoices/{invoice_id}">client.public.invoices.<a href="./src/resources/public/invoices.ts">retrieve</a>(invoiceID, { ...params }) -> InvoiceSchema</code>
+- <code title="get /v1/public/invoices/{invoice_id}/pdf">client.public.invoices.<a href="./src/resources/public/invoices.ts">downloadPDF</a>(invoiceID, { ...params }) -> Response</code>
 - <code title="put /v1/public/invoices/{invoice_id}">client.public.invoices.<a href="./src/resources/public/invoices.ts">update</a>(invoiceID, { ...params }) -> Invoice</code>
 - <code title="get /v1/public/invoices">client.public.invoices.<a href="./src/resources/public/invoices.ts">list</a>({ ...params }) -> InvoiceListResponse</code>
 - <code title="delete /v1/public/invoices/{invoice_id}">client.public.invoices.<a href="./src/resources/public/invoices.ts">delete</a>(invoiceID, { ...params }) -> Invoice</code>
@@ -211,6 +214,7 @@ Methods:
 
 - <code title="post /v1/public/payments">client.public.payments.<a href="./src/resources/public/payments.ts">create</a>({ ...params }) -> PaymentResponse</code>
 - <code title="get /v1/public/payments/{payment_id}">client.public.payments.<a href="./src/resources/public/payments.ts">retrieve</a>(paymentID, { ...params }) -> Receipt</code>
+- <code title="get /v1/public/payments/{payment_id}/pdf">client.public.payments.<a href="./src/resources/public/payments.ts">downloadPDF</a>(paymentID, { ...params }) -> Response</code>
 - <code title="put /v1/public/payments/{payment_id}">client.public.payments.<a href="./src/resources/public/payments.ts">update</a>(paymentID, { ...params }) -> PaymentResponse</code>
 - <code title="get /v1/public/payments">client.public.payments.<a href="./src/resources/public/payments.ts">list</a>({ ...params }) -> PaymentListResponse</code>
 - <code title="delete /v1/public/payments/{payment_id}">client.public.payments.<a href="./src/resources/public/payments.ts">delete</a>(paymentID, { ...params }) -> PaymentResponse</code>
@@ -349,6 +353,7 @@ Methods:
 
 - <code title="post /v1/public/slips">client.public.slips.<a href="./src/resources/public/slips.ts">create</a>({ ...params }) -> SlipResponse</code>
 - <code title="get /v1/public/slips/{slip_id}">client.public.slips.<a href="./src/resources/public/slips.ts">retrieve</a>(slipID, { ...params }) -> Slip</code>
+- <code title="get /v1/public/slips/{slip_id}/pdf">client.public.slips.<a href="./src/resources/public/slips.ts">downloadPDF</a>(slipID, { ...params }) -> Response</code>
 - <code title="put /v1/public/slips/{slip_id}">client.public.slips.<a href="./src/resources/public/slips.ts">update</a>(slipID, { ...params }) -> SlipResponse</code>
 - <code title="get /v1/public/slips">client.public.slips.<a href="./src/resources/public/slips.ts">list</a>({ ...params }) -> SlipListResponse</code>
 - <code title="delete /v1/public/slips/{slip_id}">client.public.slips.<a href="./src/resources/public/slips.ts">delete</a>(slipID, { ...params }) -> SlipResponse</code>

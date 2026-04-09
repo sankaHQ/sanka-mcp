@@ -71,6 +71,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/orders/{order_id}',
   },
   {
+    clientCallName: 'client.public.orders.downloadPDF',
+    fullyQualifiedName: 'public.orders.downloadPDF',
+    httpMethod: 'get',
+    httpPath: '/v1/public/orders/{order_id}/pdf',
+  },
+  {
     clientCallName: 'client.public.orders.update',
     fullyQualifiedName: 'public.orders.update',
     httpMethod: 'put',
@@ -335,6 +341,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/estimates/{estimate_id}',
   },
   {
+    clientCallName: 'client.public.estimates.downloadPDF',
+    fullyQualifiedName: 'public.estimates.downloadPDF',
+    httpMethod: 'get',
+    httpPath: '/v1/public/estimates/{estimate_id}/pdf',
+  },
+  {
     clientCallName: 'client.public.estimates.update',
     fullyQualifiedName: 'public.estimates.update',
     httpMethod: 'put',
@@ -365,6 +377,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/invoices/{invoice_id}',
   },
   {
+    clientCallName: 'client.public.invoices.downloadPDF',
+    fullyQualifiedName: 'public.invoices.downloadPDF',
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices/{invoice_id}/pdf',
+  },
+  {
     clientCallName: 'client.public.invoices.update',
     fullyQualifiedName: 'public.invoices.update',
     httpMethod: 'put',
@@ -375,6 +393,12 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.invoices.list',
     httpMethod: 'get',
     httpPath: '/v1/public/invoices',
+  },
+  {
+    clientCallName: 'client.public.invoices.listOverdue',
+    fullyQualifiedName: 'public.invoices.listOverdue',
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices/overdue',
   },
   {
     clientCallName: 'client.public.invoices.delete',
@@ -393,6 +417,12 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.payments.retrieve',
     httpMethod: 'get',
     httpPath: '/v1/public/payments/{payment_id}',
+  },
+  {
+    clientCallName: 'client.public.payments.downloadPDF',
+    fullyQualifiedName: 'public.payments.downloadPDF',
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}/pdf',
   },
   {
     clientCallName: 'client.public.payments.update',
@@ -639,6 +669,12 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.slips.retrieve',
     httpMethod: 'get',
     httpPath: '/v1/public/slips/{slip_id}',
+  },
+  {
+    clientCallName: 'client.public.slips.downloadPDF',
+    fullyQualifiedName: 'public.slips.downloadPDF',
+    httpMethod: 'get',
+    httpPath: '/v1/public/slips/{slip_id}/pdf',
   },
   {
     clientCallName: 'client.public.slips.update',

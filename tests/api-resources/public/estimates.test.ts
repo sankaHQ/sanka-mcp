@@ -112,4 +112,34 @@ describe('resource estimates', () => {
       ),
     ).rejects.toThrow(Sanka.NotFoundError);
   });
+
+  // Mock server tests are disabled
+  test.skip('downloadPDF', async () => {
+    const responsePromise = client.public.estimates.downloadPDF('estimate_id');
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
+  test.skip('downloadPDF: request options and params are passed correctly', async () => {
+    // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
+    await expect(
+      client.public.estimates.downloadPDF(
+        'estimate_id',
+        {
+          external_id: 'external_id',
+          lang: 'lang',
+          language: 'language',
+          template_select: 'template_select',
+          'Accept-Language': 'Accept-Language',
+        },
+        { path: '/_stainless_unknown_path' },
+      ),
+    ).rejects.toThrow(Sanka.NotFoundError);
+  });
 });

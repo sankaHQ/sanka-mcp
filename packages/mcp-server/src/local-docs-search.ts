@@ -1127,9 +1127,9 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       'Accept-Language?: string;',
     ],
     response:
-      '{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; due_date?: string; id_inv?: number; start_date?: string; status?: string; total_price?: number; total_price_without_tax?: number; }',
+      '{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }',
     markdown:
-      "## retrieve\n\n`client.public.invoices.retrieve(invoice_id: string, external_id?: string, lang?: string, language?: string, Accept-Language?: string): { created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; due_date?: string; id_inv?: number; start_date?: string; status?: string; total_price?: number; total_price_without_tax?: number; }`\n\n**get** `/v1/public/invoices/{invoice_id}`\n\nGet Invoice\n\n### Parameters\n\n- `invoice_id: string`\n\n- `external_id?: string`\n\n- `lang?: string`\n\n- `language?: string`\n\n- `Accept-Language?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; due_date?: string; id_inv?: number; start_date?: string; status?: string; total_price?: number; total_price_without_tax?: number; }`\n\n  - `created_at: string`\n  - `updated_at: string`\n  - `company_name?: string`\n  - `contact_name?: string`\n  - `currency?: string`\n  - `due_date?: string`\n  - `id_inv?: number`\n  - `start_date?: string`\n  - `status?: string`\n  - `total_price?: number`\n  - `total_price_without_tax?: number`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst invoiceSchema = await client.public.invoices.retrieve('invoice_id');\n\nconsole.log(invoiceSchema);\n```",
+      "## retrieve\n\n`client.public.invoices.retrieve(invoice_id: string, external_id?: string, lang?: string, language?: string, Accept-Language?: string): { created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }`\n\n**get** `/v1/public/invoices/{invoice_id}`\n\nGet Invoice\n\n### Parameters\n\n- `invoice_id: string`\n\n- `external_id?: string`\n\n- `lang?: string`\n\n- `language?: string`\n\n- `Accept-Language?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }`\n\n  - `created_at: string`\n  - `updated_at: string`\n  - `company_name?: string`\n  - `contact_name?: string`\n  - `currency?: string`\n  - `days_overdue?: number`\n  - `due_date?: string`\n  - `id_inv?: number`\n  - `outstanding_balance?: number`\n  - `paid_amount?: number`\n  - `start_date?: string`\n  - `status?: string`\n  - `status_key?: string`\n  - `total_price?: number`\n  - `total_price_without_tax?: number`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst invoiceSchema = await client.public.invoices.retrieve('invoice_id');\n\nconsole.log(invoiceSchema);\n```",
   },
   {
     name: 'update',
@@ -1171,9 +1171,29 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     qualified: 'client.public.invoices.list',
     params: ['lang?: string;', 'language?: string;', 'workspace_id?: string;', 'Accept-Language?: string;'],
     response:
-      '{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; due_date?: string; id_inv?: number; start_date?: string; status?: string; total_price?: number; total_price_without_tax?: number; }[]',
+      '{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }[]',
     markdown:
-      "## list\n\n`client.public.invoices.list(lang?: string, language?: string, workspace_id?: string, Accept-Language?: string): object[]`\n\n**get** `/v1/public/invoices`\n\nList Invoices\n\n### Parameters\n\n- `lang?: string`\n\n- `language?: string`\n\n- `workspace_id?: string`\n\n- `Accept-Language?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; due_date?: string; id_inv?: number; start_date?: string; status?: string; total_price?: number; total_price_without_tax?: number; }[]`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst invoiceSchemata = await client.public.invoices.list();\n\nconsole.log(invoiceSchemata);\n```",
+      "## list\n\n`client.public.invoices.list(lang?: string, language?: string, workspace_id?: string, Accept-Language?: string): object[]`\n\n**get** `/v1/public/invoices`\n\nList Invoices\n\n### Parameters\n\n- `lang?: string`\n\n- `language?: string`\n\n- `workspace_id?: string`\n\n- `Accept-Language?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }[]`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst invoiceSchemata = await client.public.invoices.list();\n\nconsole.log(invoiceSchemata);\n```",
+  },
+  {
+    name: 'listOverdue',
+    endpoint: '/v1/public/invoices/overdue',
+    httpMethod: 'get',
+    summary: 'List Overdue Invoices',
+    description: 'List Overdue Invoices',
+    stainlessPath: '(resource) public.invoices > (method) listOverdue',
+    qualified: 'client.public.invoices.listOverdue',
+    params: [
+      'as_of_date?: string;',
+      'lang?: string;',
+      'language?: string;',
+      'workspace_id?: string;',
+      'Accept-Language?: string;',
+    ],
+    response:
+      '{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }[]',
+    markdown:
+      "## listOverdue\n\n`client.public.invoices.listOverdue(as_of_date?: string, lang?: string, language?: string, workspace_id?: string, Accept-Language?: string): object[]`\n\n**get** `/v1/public/invoices/overdue`\n\nList Overdue Invoices\n\n### Parameters\n\n- `as_of_date?: string`\n\n- `lang?: string`\n\n- `language?: string`\n\n- `workspace_id?: string`\n\n- `Accept-Language?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; company_name?: string; contact_name?: string; currency?: string; days_overdue?: number; due_date?: string; id_inv?: number; outstanding_balance?: number; paid_amount?: number; start_date?: string; status?: string; status_key?: string; total_price?: number; total_price_without_tax?: number; }[]`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst invoiceSchemata = await client.public.invoices.listOverdue();\n\nconsole.log(invoiceSchemata);\n```",
   },
   {
     name: 'delete',
