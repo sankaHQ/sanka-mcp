@@ -376,6 +376,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/tasks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Tasks */
+    get: operations['api_routers_v1_tasks_public_api_list_public_tasks'];
+    put?: never;
+    /** Create Task */
+    post: operations['api_routers_v1_tasks_public_api_create_public_task'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/tasks/{task_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Task */
+    get: operations['api_routers_v1_tasks_public_api_get_public_task'];
+    /** Update Task */
+    put: operations['api_routers_v1_tasks_public_api_update_public_task'];
+    post?: never;
+    /** Delete Task */
+    delete: operations['api_routers_v1_tasks_public_api_delete_public_task'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/tickets': {
     parameters: {
       query?: never;
@@ -1361,6 +1398,13 @@ export interface components {
        */
       order: number;
     };
+    /** TasksErrorResponse */
+    TasksErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
     /** SubscriptionErrorResponse */
     SubscriptionErrorResponse: {
       /** Message */
@@ -2251,6 +2295,128 @@ export interface components {
       owner_id?: string | null;
       /** Deal Ids */
       deal_ids?: string[] | null;
+    };
+    /** PublicTasksListResponse */
+    PublicTasksListResponse: {
+      /** Data */
+      data: components['schemas']['PublicTaskSchema'][];
+      /** Page */
+      page: number;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicTaskSchema */
+    PublicTaskSchema: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id?: string | null;
+      /** Task Id */
+      task_id?: number | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Status Label */
+      status_label?: string | null;
+      /** Usage Status */
+      usage_status?: string | null;
+      /**
+       * Project Id
+       * Format: uuid
+       */
+      project_id?: string | null;
+      /** Project Title */
+      project_title?: string | null;
+      /**
+       * Main Task Id
+       * Format: uuid
+       */
+      main_task_id?: string | null;
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** PublicTaskResponse */
+    PublicTaskResponse: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** External Id */
+      external_id?: string | null;
+      /** Task Id */
+      task_id?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicTaskRequest */
+    PublicTaskRequest: {
+      /** External Id */
+      external_id?: string | null;
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Usage Status */
+      usage_status?: string | null;
+      /** Project Id */
+      project_id?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /** Main Task Id */
+      main_task_id?: string | null;
+      /** Owner Id */
+      owner_id?: string | null;
+      /** Assignees */
+      assignees?: string[] | null;
+      /** Projects */
+      projects?: string[] | null;
     };
     /** PublicSubscriptionUpdatePayload */
     PublicSubscriptionUpdatePayload: {
@@ -6984,6 +7150,374 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['CasesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_tasks_public_api_list_public_tasks: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        usage_status?: string | null;
+        project_id?: string | null;
+        page?: number;
+        limit?: number;
+        lang?: string | null;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTasksListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_tasks_public_api_create_public_task: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicTaskRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTaskResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_tasks_public_api_get_public_task: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        external_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTaskSchema'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_tasks_public_api_update_public_task: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+      };
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicTaskRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTaskResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_tasks_public_api_delete_public_task: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+      };
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTaskResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TasksErrorResponse'];
         };
       };
     };

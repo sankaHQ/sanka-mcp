@@ -76,6 +76,21 @@ type OrderMutationPayloadDraft = {
   triggerWorkflows?: boolean;
 };
 
+type TaskMutationPayload = {
+  external_id?: string;
+  title?: string;
+  description?: string;
+  status?: string;
+  usage_status?: string;
+  project_id?: string;
+  start_date?: string;
+  due_date?: string;
+  main_task_id?: string;
+  owner_id?: string;
+  assignees?: string[];
+  projects?: string[];
+};
+
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
   address: {
     type: 'string',
@@ -1203,6 +1218,157 @@ const ORDER_DELETE_INPUT_SCHEMA = {
   required: ['order_id'],
 };
 
+const TASK_MUTATION_INPUT_PROPERTIES = {
+  external_id: {
+    type: 'string',
+    description: 'External task reference used for idempotent create or update flows.',
+  },
+  title: {
+    type: 'string',
+    description: 'Task title.',
+  },
+  description: {
+    type: 'string',
+    description: 'Task description.',
+  },
+  status: {
+    type: 'string',
+    description: 'Task status.',
+  },
+  usage_status: {
+    type: 'string',
+    description: 'Task usage status, for example active or archived.',
+  },
+  project_id: {
+    type: 'string',
+    description: 'Optional project identifier associated with the task.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Task start date in ISO format.',
+  },
+  due_date: {
+    type: 'string',
+    description: 'Task due date in ISO format.',
+  },
+  main_task_id: {
+    type: 'string',
+    description: 'Optional parent task identifier.',
+  },
+  owner_id: {
+    type: 'string',
+    description: 'Optional owner identifier.',
+  },
+  assignees: {
+    type: 'array',
+    description: 'Optional list of assignee identifiers.',
+    items: { type: 'string' },
+  },
+  projects: {
+    type: 'array',
+    description: 'Optional list of related project identifiers.',
+    items: { type: 'string' },
+  },
+};
+
+const TASK_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    search: {
+      type: 'string',
+      description: 'Free-text search query.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional usage status filter.',
+    },
+    project_id: {
+      type: 'string',
+      description: 'Optional project identifier filter.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override for reads.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const TASK_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: TASK_MUTATION_INPUT_PROPERTIES,
+};
+
+const TASK_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier. Accepts a UUID, numeric task id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override for reads.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['task_id'],
+};
+
+const TASK_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier to update.',
+    },
+    lookup_external_id: {
+      type: 'string',
+      description: 'Optional external id lookup override when resolving the task to update.',
+    },
+    ...TASK_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['task_id'],
+};
+
+const TASK_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['task_id'],
+};
+
 const ORDER_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1247,6 +1413,40 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
     },
   },
   required: ['ok'],
+};
+
+const TASK_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    task_id: { type: 'integer' },
+    external_id: { type: 'string' },
+    title: { type: 'string' },
+    description: { type: 'string' },
+    status: { type: 'string' },
+    status_label: { type: 'string' },
+    usage_status: { type: 'string' },
+    project_id: { type: 'string' },
+    project_title: { type: 'string' },
+    main_task_id: { type: 'string' },
+    owner_id: { type: 'string' },
+    start_date: { type: 'string' },
+    due_date: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+  },
+};
+
+const TASK_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    task_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
 };
 
 const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
@@ -2637,6 +2837,72 @@ const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'cr
     'order';
 
   return `Order ${action}: ${reference}.`;
+};
+
+const buildTaskListParams = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const search = readString(args?.['search']);
+  const usageStatus = readString(args?.['usage_status']);
+  const projectID = readString(args?.['project_id']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const rawPage = readNumber(args?.['page'], 1);
+
+  return {
+    params: {
+      limit: Math.max(1, Math.min(100, rawLimit)),
+      page: Math.max(1, rawPage),
+      ...(search ? { search } : undefined),
+      ...(usageStatus ? { usage_status: usageStatus } : undefined),
+      ...(projectID ? { project_id: projectID } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildTaskRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const taskID = readString(args?.['task_id']);
+  const externalID = readString(args?.['external_id']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    taskID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildTaskMutationBody = (args: Record<string, unknown> | undefined): TaskMutationPayload => {
+  const body: TaskMutationPayload = {};
+  assignStringFields(body, args, [
+    'external_id',
+    'title',
+    'description',
+    'status',
+    'usage_status',
+    'project_id',
+    'start_date',
+    'due_date',
+    'main_task_id',
+    'owner_id',
+  ]);
+
+  const assignees = readStringArray(args?.['assignees']);
+  if (assignees.length > 0) {
+    body.assignees = assignees;
+  }
+
+  const projects = readStringArray(args?.['projects']);
+  if (projects.length > 0) {
+    body.projects = projects;
+  }
+
+  return body;
 };
 
 const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -4831,6 +5097,307 @@ export const crmDeleteOrderTool: McpTool = {
             action: 'deleted',
             payload: response,
             idKeys: ['order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListTasksTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'read',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks',
+    operationId: 'public.tasks.list',
+  },
+  tool: {
+    name: 'list_tasks',
+    title: 'List tasks',
+    description: 'Search and review tasks in Sanka.',
+    inputSchema: TASK_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List tasks',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List tasks',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = await reqContext.client.public.tasks.list(buildTaskListParams(args).params, undefined);
+
+    return buildListResult({
+      label: 'tasks',
+      payload: {
+        count: payload.count,
+        data: payload.data.map((task) => ({ ...task })),
+        message: payload.message,
+        page: payload.page,
+        total: payload.total,
+      },
+      previewKeys: ['title', 'task_id', 'id'],
+    });
+  },
+};
+
+export const crmGetTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'read',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.retrieve',
+  },
+  tool: {
+    name: 'get_task',
+    title: 'Get task',
+    description: 'Load one task from Sanka by task id, numeric id, or external reference.',
+    inputSchema: TASK_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: TASK_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get task',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { taskID, params } = buildTaskRetrieveParams(args);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const task = (await reqContext.client.public.tasks.retrieve(
+      taskID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'task',
+            payload: task,
+            previewKeys: ['title', 'task_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: task,
+    };
+  },
+};
+
+export const crmCreateTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/tasks',
+    operationId: 'public.tasks.create',
+  },
+  tool: {
+    name: 'create_task',
+    title: 'Create task',
+    description: 'Create a task in Sanka.',
+    inputSchema: TASK_CREATE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create task',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildTaskMutationBody(args);
+    if (Object.keys(body).length === 0) {
+      return asErrorResult('At least one task field is required.');
+    }
+
+    const response = (await reqContext.client.public.tasks.create(body, undefined)) as unknown as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'created',
+            payload: response,
+            idKeys: ['task_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.update',
+  },
+  tool: {
+    name: 'update_task',
+    title: 'Update task',
+    description:
+      'Update an existing task in Sanka. When you need to append to a description, load the task first and then send the full updated description.',
+    inputSchema: TASK_UPDATE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update task',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const taskID = readString(args?.['task_id']);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const body = buildTaskMutationBody(args);
+    if (Object.keys(body).length === 0) {
+      return asErrorResult('At least one task field is required.');
+    }
+
+    const lookupExternalID = readString(args?.['lookup_external_id']);
+    const { external_id: bodyExternalID, ...restBody } = body;
+    const params = {
+      ...(lookupExternalID ? { external_id: lookupExternalID } : undefined),
+      ...(bodyExternalID !== undefined ? { body_external_id: bodyExternalID } : undefined),
+      ...restBody,
+    };
+
+    const response = (await reqContext.client.public.tasks.update(
+      taskID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'updated',
+            payload: response,
+            idKeys: ['task_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.delete',
+  },
+  tool: {
+    name: 'delete_task',
+    title: 'Delete task',
+    description: 'Archive or delete a task in Sanka by task id or external reference.',
+    inputSchema: TASK_DELETE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete task',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const taskID = readString(args?.['task_id']);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const externalID = readString(args?.['external_id']);
+    const response = (await reqContext.client.public.tasks.delete(
+      taskID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['task_id'],
           }),
         },
       ],

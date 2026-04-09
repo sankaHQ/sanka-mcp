@@ -95,6 +95,36 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/orders/bulk',
   },
   {
+    clientCallName: 'client.public.tasks.create',
+    fullyQualifiedName: 'public.tasks.create',
+    httpMethod: 'post',
+    httpPath: '/v1/public/tasks',
+  },
+  {
+    clientCallName: 'client.public.tasks.retrieve',
+    fullyQualifiedName: 'public.tasks.retrieve',
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks/{task_id}',
+  },
+  {
+    clientCallName: 'client.public.tasks.update',
+    fullyQualifiedName: 'public.tasks.update',
+    httpMethod: 'put',
+    httpPath: '/v1/public/tasks/{task_id}',
+  },
+  {
+    clientCallName: 'client.public.tasks.list',
+    fullyQualifiedName: 'public.tasks.list',
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks',
+  },
+  {
+    clientCallName: 'client.public.tasks.delete',
+    fullyQualifiedName: 'public.tasks.delete',
+    httpMethod: 'delete',
+    httpPath: '/v1/public/tasks/{task_id}',
+  },
+  {
     clientCallName: 'client.public.items.create',
     fullyQualifiedName: 'public.items.create',
     httpMethod: 'post',

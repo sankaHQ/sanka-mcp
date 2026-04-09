@@ -12,6 +12,7 @@ import {
   crmCreateInvoiceTool,
   crmCreateOrderTool,
   crmCreatePropertyTool,
+  crmCreateTaskTool,
   crmCreateTicketTool,
   crmDeleteCompanyTool,
   crmDeleteContactTool,
@@ -21,6 +22,7 @@ import {
   crmDeleteExpenseTool,
   crmDeleteInvoiceTool,
   crmDeleteOrderTool,
+  crmDeleteTaskTool,
   crmDeleteTicketTool,
   crmAuthStatusTool,
   crmGetCalendarBootstrapTool,
@@ -33,6 +35,7 @@ import {
   crmGetInvoiceTool,
   crmGetOrderTool,
   crmGetPropertyTool,
+  crmGetTaskTool,
   crmGetTicketTool,
   crmListCompaniesTool,
   crmListContactsTool,
@@ -42,6 +45,7 @@ import {
   crmListExpensesTool,
   crmListInvoicesTool,
   crmListOrdersTool,
+  crmListTasksTool,
   crmListPrivateMessagesTool,
   crmListPropertiesTool,
   crmListTicketPipelinesTool,
@@ -58,6 +62,7 @@ import {
   crmUpdateExpenseTool,
   crmUpdateInvoiceTool,
   crmUpdateOrderTool,
+  crmUpdateTaskTool,
   crmUpdatePropertyTool,
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
@@ -107,6 +112,11 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListTasksTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListEstimatesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -1444,6 +1454,233 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       order_id: 'order-1',
+    });
+  });
+
+  it('lists tasks when authentication is present', async () => {
+    const list = jest.fn().mockResolvedValue({
+      data: [{ id: 'task-1', task_id: 701, title: 'Follow up with Acme' }],
+      page: 2,
+      count: 1,
+      total: 4,
+      has_next: true,
+      message: 'ok',
+    });
+
+    const result = await crmListTasksTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            tasks: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        search: 'Acme',
+        usage_status: 'active',
+        project_id: 'project-1',
+        page: 2,
+        limit: 20,
+        workspace_id: 'workspace-1',
+        language: 'en',
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        search: 'Acme',
+        usage_status: 'active',
+        project_id: 'project-1',
+        page: 2,
+        limit: 20,
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 2,
+      total: 4,
+      message: 'ok',
+      permission: undefined,
+      results: [{ id: 'task-1', task_id: 701, title: 'Follow up with Acme' }],
+    });
+  });
+
+  it('gets one task when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'task-1',
+      task_id: 701,
+      title: 'Follow up with Acme',
+      description: 'Send the latest customer update',
+      status: 'open',
+      created_at: '2026-04-09T09:00:00Z',
+      updated_at: '2026-04-09T10:00:00Z',
+    });
+
+    const result = await crmGetTaskTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            tasks: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        task_id: 'task-1',
+        external_id: 'TASK-1',
+        workspace_id: 'workspace-1',
+        language: 'en',
+      },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'task-1',
+      {
+        external_id: 'TASK-1',
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'task-1',
+      task_id: 701,
+      title: 'Follow up with Acme',
+      description: 'Send the latest customer update',
+      status: 'open',
+      created_at: '2026-04-09T09:00:00Z',
+      updated_at: '2026-04-09T10:00:00Z',
+    });
+  });
+
+  it('creates a task', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      task_id: 'task-1',
+      external_id: 'TASK-1',
+    });
+
+    const result = await crmCreateTaskTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            tasks: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        external_id: 'TASK-1',
+        title: 'Follow up with Acme',
+        description: 'Send the latest customer update',
+        assignees: ['user-1'],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        external_id: 'TASK-1',
+        title: 'Follow up with Acme',
+        description: 'Send the latest customer update',
+        assignees: ['user-1'],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      task_id: 'task-1',
+      external_id: 'TASK-1',
+    });
+  });
+
+  it('updates a task with separate lookup and body external ids', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      task_id: 'task-1',
+      external_id: 'TASK-2',
+    });
+
+    const result = await crmUpdateTaskTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            tasks: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        task_id: 'task-1',
+        lookup_external_id: 'TASK-1',
+        external_id: 'TASK-2',
+        description: 'Append the latest customer note',
+        projects: ['project-1'],
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'task-1',
+      {
+        external_id: 'TASK-1',
+        body_external_id: 'TASK-2',
+        description: 'Append the latest customer note',
+        projects: ['project-1'],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      task_id: 'task-1',
+      external_id: 'TASK-2',
+    });
+  });
+
+  it('deletes a task', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      task_id: 'task-1',
+    });
+
+    const result = await crmDeleteTaskTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            tasks: { delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        task_id: 'task-1',
+        external_id: 'TASK-1',
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith(
+      'task-1',
+      {
+        external_id: 'TASK-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      task_id: 'task-1',
     });
   });
 

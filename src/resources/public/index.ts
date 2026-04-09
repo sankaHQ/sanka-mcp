@@ -203,6 +203,18 @@ export {
   type OrderBulkCreateParams,
 } from './orders';
 export {
+  Tasks,
+  type PublicTaskRequest,
+  type PublicTaskResponse,
+  type PublicTaskSchema,
+  type PublicTasksListResponse,
+  type TaskCreateParams,
+  type TaskRetrieveParams,
+  type TaskUpdateParams,
+  type TaskListParams,
+  type TaskDeleteParams,
+} from './tasks';
+export {
   Payments,
   type PaymentRequest,
   type PaymentResponse,

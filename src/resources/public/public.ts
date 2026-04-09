@@ -211,6 +211,19 @@ import {
   OrderUpdateParams,
   Orders,
 } from './orders';
+import * as TasksAPI from './tasks';
+import {
+  PublicTaskRequest,
+  PublicTaskResponse,
+  PublicTaskSchema,
+  PublicTasksListResponse,
+  TaskCreateParams,
+  TaskDeleteParams,
+  TaskListParams,
+  TaskRetrieveParams,
+  TaskUpdateParams,
+  Tasks,
+} from './tasks';
 import * as PaymentsAPI from './payments';
 import {
   PaymentCreateParams,
@@ -332,6 +345,7 @@ import {
 export class Public extends APIResource {
   accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
   orders: OrdersAPI.Orders = new OrdersAPI.Orders(this._client);
+  tasks: TasksAPI.Tasks = new TasksAPI.Tasks(this._client);
   items: ItemsAPI.Items = new ItemsAPI.Items(this._client);
   contacts: ContactsAPI.Contacts = new ContactsAPI.Contacts(this._client);
   companies: CompaniesAPI.Companies = new CompaniesAPI.Companies(this._client);
@@ -360,6 +374,7 @@ export class Public extends APIResource {
 
 Public.AccountMessages = AccountMessages;
 Public.Orders = Orders;
+Public.Tasks = Tasks;
 Public.Items = Items;
 Public.Contacts = Contacts;
 Public.Companies = Companies;
@@ -419,6 +434,19 @@ export declare namespace Public {
     type OrderListParams as OrderListParams,
     type OrderDeleteParams as OrderDeleteParams,
     type OrderBulkCreateParams as OrderBulkCreateParams,
+  };
+
+  export {
+    Tasks as Tasks,
+    type PublicTaskRequest as PublicTaskRequest,
+    type PublicTaskResponse as PublicTaskResponse,
+    type PublicTaskSchema as PublicTaskSchema,
+    type PublicTasksListResponse as PublicTasksListResponse,
+    type TaskCreateParams as TaskCreateParams,
+    type TaskRetrieveParams as TaskRetrieveParams,
+    type TaskUpdateParams as TaskUpdateParams,
+    type TaskListParams as TaskListParams,
+    type TaskDeleteParams as TaskDeleteParams,
   };
 
   export {

@@ -40,6 +40,23 @@ Methods:
 - <code title="delete /v1/public/orders/{order_id}">client.public.orders.<a href="./src/resources/public/orders.ts">delete</a>(orderID, { ...params }) -> OrderDeleteResponse</code>
 - <code title="post /v1/public/orders/bulk">client.public.orders.<a href="./src/resources/public/orders.ts">bulkCreate</a>({ ...params }) -> BulkOrders</code>
 
+## Tasks
+
+Types:
+
+- <code><a href="./src/resources/public/tasks.ts">PublicTaskRequest</a></code>
+- <code><a href="./src/resources/public/tasks.ts">PublicTaskResponse</a></code>
+- <code><a href="./src/resources/public/tasks.ts">PublicTaskSchema</a></code>
+- <code><a href="./src/resources/public/tasks.ts">PublicTasksListResponse</a></code>
+
+Methods:
+
+- <code title="post /v1/public/tasks">client.public.tasks.<a href="./src/resources/public/tasks.ts">create</a>({ ...params }) -> PublicTaskResponse</code>
+- <code title="get /v1/public/tasks/{task_id}">client.public.tasks.<a href="./src/resources/public/tasks.ts">retrieve</a>(taskID, { ...params }) -> PublicTaskSchema</code>
+- <code title="put /v1/public/tasks/{task_id}">client.public.tasks.<a href="./src/resources/public/tasks.ts">update</a>(taskID, { ...params }) -> PublicTaskResponse</code>
+- <code title="get /v1/public/tasks">client.public.tasks.<a href="./src/resources/public/tasks.ts">list</a>({ ...params }) -> PublicTasksListResponse</code>
+- <code title="delete /v1/public/tasks/{task_id}">client.public.tasks.<a href="./src/resources/public/tasks.ts">delete</a>(taskID, { ...params }) -> PublicTaskResponse</code>
+
 ## Items
 
 Types:
