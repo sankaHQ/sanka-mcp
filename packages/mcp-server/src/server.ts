@@ -87,6 +87,18 @@ import { getInstructions } from './instructions';
 import { McpOptions } from './options';
 import { blockedMethodsForCodeTool } from './methods';
 import { ToolProfile } from './profile';
+import {
+  cancelExportJobTool,
+  cancelImportJobTool,
+  exportRecordsTool,
+  getExportJobTool,
+  getImportJobTool,
+  importRecordsTool,
+  listExportJobsTool,
+  listImportJobsTool,
+  listIntegrationChannelsTool,
+  uploadImportFileTool,
+} from './transfer-tools';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 
 export const newMcpServer = async ({
@@ -328,6 +340,16 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmRescheduleCalendarAttendanceTool,
     crmProspectCompaniesTool,
     crmScoreRecordTool,
+    uploadImportFileTool,
+    importRecordsTool,
+    getImportJobTool,
+    listImportJobsTool,
+    cancelImportJobTool,
+    listIntegrationChannelsTool,
+    exportRecordsTool,
+    getExportJobTool,
+    listExportJobsTool,
+    cancelExportJobTool,
     demoGenerateTool,
     integrationSyncPushTool,
   );

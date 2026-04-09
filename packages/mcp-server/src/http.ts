@@ -100,6 +100,16 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   reschedule_calendar_attendance: { authenticationRequired: true },
   prospect_companies: { authenticationRequired: true },
   score_record: { authenticationRequired: true },
+  upload_import_file: { authenticationRequired: true },
+  import_records: { authenticationRequired: true },
+  get_import_job: { authenticationRequired: true },
+  list_import_jobs: { authenticationRequired: true },
+  cancel_import_job: { authenticationRequired: true },
+  list_integration_channels: { authenticationRequired: true },
+  export_records: { authenticationRequired: true },
+  get_export_job: { authenticationRequired: true },
+  list_export_jobs: { authenticationRequired: true },
+  cancel_export_job: { authenticationRequired: true },
 };
 
 const createRequestTransport = async ({

@@ -2388,12 +2388,18 @@ const flattenPrivateMessagesPayload = (payload: Record<string, unknown>) => {
   const channels =
     Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
   const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+  const hasConnectedPrivateInbox = readBoolean(data?.['has_connected_private_inbox']) ?? channels.length > 0;
+  const setupRequired = readBoolean(data?.['setup_required']) ?? !hasConnectedPrivateInbox;
+  const setupMessage = readString(data?.['setup_message']);
 
   return {
     message: readString(payload['message']) ?? 'ok',
     ctx_id: readString(payload['ctx_id']) ?? undefined,
     channels,
     threads,
+    has_connected_private_inbox: hasConnectedPrivateInbox,
+    setup_required: setupRequired,
+    setup_message: setupMessage,
   };
 };
 
@@ -2408,6 +2414,19 @@ const buildPrivateMessagesResult = ({
   const unreadThreads = flattened.threads.reduce((total, thread) => {
     return total + (readBoolean(thread['has_unread']) ? 1 : 0);
   }, 0);
+  const setupMessage = flattened.setup_message ?? 'No private inbox channel is connected in Sanka yet.';
+
+  if (flattened.setup_required) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: setupMessage,
+        },
+      ],
+      structuredContent: flattened,
+    };
+  }
 
   return {
     content: [

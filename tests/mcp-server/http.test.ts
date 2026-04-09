@@ -293,6 +293,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"list_expenses"');
     expect(text).toContain('"name":"get_expense"');
     expect(text).toContain('"name":"upload_expense_attachment"');
+    expect(text).toContain('"name":"upload_import_file"');
+    expect(text).toContain('"name":"import_records"');
+    expect(text).toContain('"name":"list_integration_channels"');
+    expect(text).toContain('"name":"export_records"');
     expect(text).toContain('"name":"create_expense"');
     expect(text).toContain('"name":"update_expense"');
     expect(text).toContain('"name":"delete_expense"');

@@ -250,6 +250,9 @@ describe('ChatGPT CRM tools', () => {
       message: 'ok',
       ctx_id: 'ctx-private-list',
       data: {
+        has_connected_private_inbox: true,
+        setup_required: false,
+        setup_message: null,
         channels: [
           {
             id: 'channel-1',
@@ -298,6 +301,9 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       message: 'ok',
       ctx_id: 'ctx-private-list',
+      has_connected_private_inbox: true,
+      setup_required: false,
+      setup_message: undefined,
       channels: [
         {
           id: 'channel-1',
@@ -323,10 +329,59 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists private messages with a setup message when no private inbox is connected', async () => {
+    const list = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-private-list-empty',
+      data: {
+        has_connected_private_inbox: false,
+        setup_required: true,
+        setup_message:
+          'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+        channels: [],
+        threads: [],
+      },
+    });
+
+    const result = await crmListPrivateMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { status: 'active', language: 'en' },
+    });
+
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      },
+    ]);
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-private-list-empty',
+      has_connected_private_inbox: false,
+      setup_required: true,
+      setup_message:
+        'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      channels: [],
+      threads: [],
+    });
+  });
+
   it('syncs private messages when authentication is present', async () => {
     const sync = jest.fn().mockResolvedValue({
       message: 'ok',
       data: {
+        has_connected_private_inbox: false,
+        setup_required: true,
+        setup_message:
+          'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
         channels: [],
         threads: [],
       },
@@ -354,6 +409,12 @@ describe('ChatGPT CRM tools', () => {
       undefined,
     );
     expect(result.isError).toBeUndefined();
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      },
+    ]);
   });
 
   it('gets one private message thread when authentication is present', async () => {
