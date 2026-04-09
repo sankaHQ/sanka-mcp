@@ -7,10 +7,10 @@ const client = new Sanka({
   baseURL: process.env['TEST_API_BASE_URL'] ?? 'http://127.0.0.1:4010',
 });
 
-describe('resource estimates', () => {
+describe('resource tasks', () => {
   // Mock server tests are disabled
   test.skip('create', async () => {
-    const responsePromise = client.public.estimates.create({});
+    const responsePromise = client.public.tasks.create({ title: 'Follow up with Acme' });
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
     const response = await responsePromise;
@@ -22,7 +22,7 @@ describe('resource estimates', () => {
 
   // Mock server tests are disabled
   test.skip('retrieve', async () => {
-    const responsePromise = client.public.estimates.retrieve('estimate_id');
+    const responsePromise = client.public.tasks.retrieve('task_id');
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
     const response = await responsePromise;
@@ -36,12 +36,11 @@ describe('resource estimates', () => {
   test.skip('retrieve: request options and params are passed correctly', async () => {
     // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
     await expect(
-      client.public.estimates.retrieve(
-        'estimate_id',
+      client.public.tasks.retrieve(
+        'task_id',
         {
           external_id: 'external_id',
-          lang: 'lang',
-          language: 'language',
+          workspace_id: 'workspace_id',
           'Accept-Language': 'Accept-Language',
         },
         { path: '/_stainless_unknown_path' },
@@ -51,7 +50,9 @@ describe('resource estimates', () => {
 
   // Mock server tests are disabled
   test.skip('update', async () => {
-    const responsePromise = client.public.estimates.update('estimate_id', {});
+    const responsePromise = client.public.tasks.update('task_id', {
+      description: 'Add latest customer note',
+    });
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
     const response = await responsePromise;
@@ -62,8 +63,24 @@ describe('resource estimates', () => {
   });
 
   // Mock server tests are disabled
+  test.skip('update: request options and params are passed correctly', async () => {
+    // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
+    await expect(
+      client.public.tasks.update(
+        'task_id',
+        {
+          external_id: 'lookup_external_id',
+          body_external_id: 'body_external_id',
+          description: 'Add latest customer note',
+        },
+        { path: '/_stainless_unknown_path' },
+      ),
+    ).rejects.toThrow(Sanka.NotFoundError);
+  });
+
+  // Mock server tests are disabled
   test.skip('list', async () => {
-    const responsePromise = client.public.estimates.list();
+    const responsePromise = client.public.tasks.list();
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
     const response = await responsePromise;
@@ -77,10 +94,15 @@ describe('resource estimates', () => {
   test.skip('list: request options and params are passed correctly', async () => {
     // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
     await expect(
-      client.public.estimates.list(
+      client.public.tasks.list(
         {
-          lang: 'lang',
-          language: 'language',
+          search: 'Acme',
+          usage_status: 'active',
+          project_id: 'project_id',
+          page: 1,
+          limit: 10,
+          lang: 'en',
+          language: 'en',
           workspace_id: 'workspace_id',
           'Accept-Language': 'Accept-Language',
         },
@@ -91,7 +113,7 @@ describe('resource estimates', () => {
 
   // Mock server tests are disabled
   test.skip('delete', async () => {
-    const responsePromise = client.public.estimates.delete('estimate_id');
+    const responsePromise = client.public.tasks.delete('task_id');
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
     const response = await responsePromise;
@@ -105,39 +127,9 @@ describe('resource estimates', () => {
   test.skip('delete: request options and params are passed correctly', async () => {
     // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
     await expect(
-      client.public.estimates.delete(
-        'estimate_id',
+      client.public.tasks.delete(
+        'task_id',
         { external_id: 'external_id' },
-        { path: '/_stainless_unknown_path' },
-      ),
-    ).rejects.toThrow(Sanka.NotFoundError);
-  });
-
-  // Mock server tests are disabled
-  test.skip('downloadPDF', async () => {
-    const responsePromise = client.public.estimates.downloadPDF('estimate_id');
-    const rawResponse = await responsePromise.asResponse();
-    expect(rawResponse).toBeInstanceOf(Response);
-    const response = await responsePromise;
-    expect(response).toBeInstanceOf(Response);
-    const dataAndResponse = await responsePromise.withResponse();
-    expect(dataAndResponse.data).toBe(response);
-    expect(dataAndResponse.response).toBe(rawResponse);
-  });
-
-  // Mock server tests are disabled
-  test.skip('downloadPDF: request options and params are passed correctly', async () => {
-    // ensure the request options are being passed correctly by passing an invalid HTTP method in order to cause an error
-    await expect(
-      client.public.estimates.downloadPDF(
-        'estimate_id',
-        {
-          external_id: 'external_id',
-          lang: 'lang',
-          language: 'language',
-          template_select: 'template_select',
-          'Accept-Language': 'Accept-Language',
-        },
         { path: '/_stainless_unknown_path' },
       ),
     ).rejects.toThrow(Sanka.NotFoundError);

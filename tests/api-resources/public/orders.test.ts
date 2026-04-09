@@ -164,6 +164,35 @@ describe('resource orders', () => {
   });
 
   // Mock server tests are disabled
+  test.skip('downloadPDF', async () => {
+    const responsePromise = client.public.orders.downloadPDF('order_id');
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
+  test.skip('downloadPDF: request options and params are passed correctly', async () => {
+    await expect(
+      client.public.orders.downloadPDF(
+        'order_id',
+        {
+          external_id: 'external_id',
+          template_select: 'template_select',
+          lang: 'lang',
+          language: 'language',
+          'Accept-Language': 'Accept-Language',
+        },
+        { path: '/_stainless_unknown_path' },
+      ),
+    ).rejects.toThrow(Sanka.NotFoundError);
+  });
+
+  // Mock server tests are disabled
   test.skip('bulkCreate: only required params', async () => {
     const responsePromise = client.public.orders.bulkCreate({
       orders: [{ externalId: 'externalId', items: [{}] }],

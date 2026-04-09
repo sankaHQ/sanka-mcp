@@ -76,6 +76,26 @@ export class Estimates extends APIResource {
       ...options,
     });
   }
+
+  /**
+   * Download Estimate PDF
+   */
+  downloadPDF(
+    estimateID: string,
+    params: EstimateDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/estimates/${estimateID}/pdf`, {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    }) as APIPromise<Response>;
+  }
 }
 
 export interface Estimate {
@@ -258,6 +278,33 @@ export interface EstimateListParams {
 
 export interface EstimateDeleteParams {
   external_id?: string | null;
+}
+
+export interface EstimateDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
 }
 
 export declare namespace Estimates {

@@ -1,6 +1,6 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
-import { asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication } from './tool-auth';
 
 const LIST_INPUT_SCHEMA = {
@@ -74,6 +74,21 @@ type OrderMutationPayloadDraft = {
   order?: OrderPayloadDraft;
   createMissingItems?: boolean;
   triggerWorkflows?: boolean;
+};
+
+type TaskMutationPayload = {
+  external_id?: string;
+  title?: string;
+  description?: string;
+  status?: string;
+  usage_status?: string;
+  project_id?: string;
+  start_date?: string;
+  due_date?: string;
+  main_task_id?: string;
+  owner_id?: string;
+  assignees?: string[];
+  projects?: string[];
 };
 
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
@@ -1188,6 +1203,29 @@ const ORDER_RETRIEVE_INPUT_SCHEMA = {
   required: ['order_id'],
 };
 
+const ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Order identifier. Accepts a UUID, numeric order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['order_id'],
+};
+
 const ORDER_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1201,6 +1239,157 @@ const ORDER_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['order_id'],
+};
+
+const TASK_MUTATION_INPUT_PROPERTIES = {
+  external_id: {
+    type: 'string',
+    description: 'External task reference used for idempotent create or update flows.',
+  },
+  title: {
+    type: 'string',
+    description: 'Task title.',
+  },
+  description: {
+    type: 'string',
+    description: 'Task description.',
+  },
+  status: {
+    type: 'string',
+    description: 'Task status.',
+  },
+  usage_status: {
+    type: 'string',
+    description: 'Task usage status, for example active or archived.',
+  },
+  project_id: {
+    type: 'string',
+    description: 'Optional project identifier associated with the task.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Task start date in ISO format.',
+  },
+  due_date: {
+    type: 'string',
+    description: 'Task due date in ISO format.',
+  },
+  main_task_id: {
+    type: 'string',
+    description: 'Optional parent task identifier.',
+  },
+  owner_id: {
+    type: 'string',
+    description: 'Optional owner identifier.',
+  },
+  assignees: {
+    type: 'array',
+    description: 'Optional list of assignee identifiers.',
+    items: { type: 'string' },
+  },
+  projects: {
+    type: 'array',
+    description: 'Optional list of related project identifiers.',
+    items: { type: 'string' },
+  },
+};
+
+const TASK_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    search: {
+      type: 'string',
+      description: 'Free-text search query.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional usage status filter.',
+    },
+    project_id: {
+      type: 'string',
+      description: 'Optional project identifier filter.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override for reads.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const TASK_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: TASK_MUTATION_INPUT_PROPERTIES,
+};
+
+const TASK_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier. Accepts a UUID, numeric task id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override for reads.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['task_id'],
+};
+
+const TASK_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier to update.',
+    },
+    lookup_external_id: {
+      type: 'string',
+      description: 'Optional external id lookup override when resolving the task to update.',
+    },
+    ...TASK_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['task_id'],
+};
+
+const TASK_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    task_id: {
+      type: 'string',
+      description: 'Task identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['task_id'],
 };
 
 const ORDER_OUTPUT_SCHEMA = {
@@ -1247,6 +1436,197 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
     },
   },
   required: ['ok'],
+};
+
+const PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES = {
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  date: {
+    type: 'string',
+    description: 'Purchase order date in ISO format.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Document notes.',
+  },
+  status: {
+    type: 'string',
+    description: 'Purchase order status.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Tax option.',
+  },
+  tax_rate: {
+    type: 'number',
+    description: 'Tax rate.',
+  },
+  total_price: {
+    type: 'number',
+    description: 'Total price including tax when applicable.',
+  },
+  total_price_without_tax: {
+    type: 'number',
+    description: 'Total price before tax.',
+  },
+};
+
+const PURCHASE_ORDER_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES,
+};
+
+const PURCHASE_ORDER_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description: 'Purchase order identifier to update.',
+    },
+    ...PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['purchase_order_id'],
+};
+
+const PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description:
+        'Purchase order identifier. Accepts a UUID, numeric purchase order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['purchase_order_id'],
+};
+
+const PURCHASE_ORDER_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description: 'Purchase order identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['purchase_order_id'],
+};
+
+const PURCHASE_ORDER_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of purchase orders to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const PURCHASE_ORDER_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    date: { type: 'string' },
+    id_po: { type: 'integer' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    purchase_order_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const TASK_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    task_id: { type: 'integer' },
+    external_id: { type: 'string' },
+    title: { type: 'string' },
+    description: { type: 'string' },
+    status: { type: 'string' },
+    status_label: { type: 'string' },
+    usage_status: { type: 'string' },
+    project_id: { type: 'string' },
+    project_title: { type: 'string' },
+    main_task_id: { type: 'string' },
+    owner_id: { type: 'string' },
+    start_date: { type: 'string' },
+    due_date: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+  },
+};
+
+const TASK_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    task_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
 };
 
 const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
@@ -1348,6 +1728,29 @@ const ESTIMATE_RETRIEVE_INPUT_SCHEMA = {
   required: ['estimate_id'],
 };
 
+const ESTIMATE_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    estimate_id: {
+      type: 'string',
+      description: 'Estimate identifier. Accepts a UUID, numeric estimate id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['estimate_id'],
+};
+
 const ESTIMATE_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1414,6 +1817,15 @@ const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    content_disposition: { type: 'string' },
+    mime_type: { type: 'string' },
+  },
+  required: ['mime_type'],
+};
+
 const INVOICE_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES,
@@ -1441,6 +1853,29 @@ const INVOICE_RETRIEVE_INPUT_SCHEMA = {
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['invoice_id'],
+};
+
+const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
     },
     language: {
       type: 'string',
@@ -1486,18 +1921,629 @@ const INVOICE_LIST_INPUT_SCHEMA = {
   },
 };
 
+const INVOICE_OVERDUE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of overdue invoices to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    as_of_date: {
+      type: 'string',
+      description: 'Optional evaluation date in ISO format. Defaults to today.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const PAYMENT_MUTATION_INPUT_PROPERTIES = {
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  entry_type: {
+    type: 'string',
+    description: 'Payment entry type.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Payment notes.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Payment start date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Payment status.',
+  },
+  total_price: {
+    type: 'number',
+    description: 'Total price including tax when applicable.',
+  },
+  total_price_without_tax: {
+    type: 'number',
+    description: 'Total price before tax.',
+  },
+};
+
+const PAYMENT_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: PAYMENT_MUTATION_INPUT_PROPERTIES,
+};
+
+const PAYMENT_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier to update.',
+    },
+    ...PAYMENT_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['payment_id'],
+};
+
+const PAYMENT_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['payment_id'],
+};
+
+const PAYMENT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of payments to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const PAYMENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['payment_id'],
+};
+
+const PAYMENT_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['payment_id'],
+};
+
+const SLIP_MUTATION_INPUT_PROPERTIES = {
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Document notes.',
+  },
+  slip_type: {
+    type: 'string',
+    description: 'Slip document type.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Document start date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Document status.',
+  },
+  tax_inclusive: {
+    type: 'boolean',
+    description: 'Whether totals are tax inclusive.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Tax option.',
+  },
+  tax_rate: {
+    type: 'number',
+    description: 'Tax rate.',
+  },
+  total_price: {
+    type: 'number',
+    description: 'Total price including tax when applicable.',
+  },
+  total_price_without_tax: {
+    type: 'number',
+    description: 'Total price before tax.',
+  },
+};
+
+const SLIP_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: SLIP_MUTATION_INPUT_PROPERTIES,
+};
+
+const SLIP_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slip_id: {
+      type: 'string',
+      description: 'Slip identifier to update.',
+    },
+    ...SLIP_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['slip_id'],
+};
+
+const SLIP_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slip_id: {
+      type: 'string',
+      description: 'Slip identifier. Accepts a UUID, numeric slip id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['slip_id'],
+};
+
+const SLIP_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slip_id: {
+      type: 'string',
+      description: 'Slip identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['slip_id'],
+};
+
+const SLIP_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of slips to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const SLIP_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slip_id: {
+      type: 'string',
+      description: 'Slip identifier. Accepts a UUID, numeric slip id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['slip_id'],
+};
+
+const BILL_MUTATION_INPUT_PROPERTIES = {
+  amount: {
+    type: 'number',
+    description: 'Bill amount in the provided currency.',
+  },
+  amount_without_tax: {
+    type: 'number',
+    description: 'Bill amount before tax.',
+  },
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  description: {
+    type: 'string',
+    description: 'Bill description.',
+  },
+  due_date: {
+    type: 'string',
+    description: 'Due date in ISO format.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  issued_date: {
+    type: 'string',
+    description: 'Issue date in ISO format.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Document notes.',
+  },
+  payment_date: {
+    type: 'string',
+    description: 'Payment date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Bill status.',
+  },
+  tax_inclusive: {
+    type: 'boolean',
+    description: 'Whether totals are tax inclusive.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Tax option.',
+  },
+  tax_rate: {
+    type: 'number',
+    description: 'Tax rate.',
+  },
+};
+
+const BILL_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: BILL_MUTATION_INPUT_PROPERTIES,
+};
+
+const BILL_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    bill_id: {
+      type: 'string',
+      description: 'Bill identifier to update.',
+    },
+    ...BILL_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['bill_id'],
+};
+
+const BILL_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    bill_id: {
+      type: 'string',
+      description: 'Bill identifier. Accepts a UUID, numeric bill id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['bill_id'],
+};
+
+const BILL_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    bill_id: {
+      type: 'string',
+      description: 'Bill identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['bill_id'],
+};
+
+const BILL_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of bills to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const DISBURSEMENT_MUTATION_INPUT_PROPERTIES = {
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  fee: {
+    type: 'number',
+    description: 'Additional fee amount.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Document notes.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Document start date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Document status.',
+  },
+  tax_inclusive: {
+    type: 'boolean',
+    description: 'Whether totals are tax inclusive.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Tax option.',
+  },
+  tax_rate: {
+    type: 'number',
+    description: 'Tax rate.',
+  },
+  total_price: {
+    type: 'number',
+    description: 'Total price including tax when applicable.',
+  },
+  total_price_without_tax: {
+    type: 'number',
+    description: 'Total price before tax.',
+  },
+};
+
+const DISBURSEMENT_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: DISBURSEMENT_MUTATION_INPUT_PROPERTIES,
+};
+
+const DISBURSEMENT_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement_id: {
+      type: 'string',
+      description: 'Disbursement identifier to update.',
+    },
+    ...DISBURSEMENT_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['disbursement_id'],
+};
+
+const DISBURSEMENT_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement_id: {
+      type: 'string',
+      description: 'Disbursement identifier. Accepts a UUID, numeric disbursement id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['disbursement_id'],
+};
+
+const DISBURSEMENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement_id: {
+      type: 'string',
+      description: 'Disbursement identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['disbursement_id'],
+};
+
+const DISBURSEMENT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of disbursements to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
 const INVOICE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
+    days_overdue: { type: 'integer' },
     company_name: { type: 'string' },
     contact_name: { type: 'string' },
     currency: { type: 'string' },
     due_date: { type: 'string' },
     id_inv: { type: 'integer' },
+    outstanding_balance: { type: 'number' },
+    paid_amount: { type: 'number' },
     start_date: { type: 'string' },
     status: { type: 'string' },
+    status_key: { type: 'string' },
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
   },
@@ -1512,6 +2558,127 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     invoice_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const PAYMENT_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    entry_type: { type: 'string' },
+    id_rcp: { type: 'integer' },
+    start_date: { type: 'string' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    payment_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const SLIP_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    due_date: { type: 'string' },
+    id_slip: { type: 'integer' },
+    slip_type: { type: 'string' },
+    start_date: { type: 'string' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const SLIP_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    slip_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const BILL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    amount: { type: 'number' },
+    amount_without_tax: { type: 'number' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    due_date: { type: 'string' },
+    id_bill: { type: 'integer' },
+    issued_date: { type: 'string' },
+    payment_date: { type: 'string' },
+    status: { type: 'string' },
+    updated_at: { type: 'string' },
+  },
+  required: ['created_at'],
+};
+
+const BILL_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    bill_id: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const DISBURSEMENT_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    id_dsb: { type: 'integer' },
+    start_date: { type: 'string' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const DISBURSEMENT_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    disbursement_id: { type: 'string' },
+    external_id: { type: 'string' },
   },
   required: ['ok', 'status'],
 };
@@ -2188,12 +3355,18 @@ const flattenPrivateMessagesPayload = (payload: Record<string, unknown>) => {
   const channels =
     Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
   const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+  const hasConnectedPrivateInbox = readBoolean(data?.['has_connected_private_inbox']) ?? channels.length > 0;
+  const setupRequired = readBoolean(data?.['setup_required']) ?? !hasConnectedPrivateInbox;
+  const setupMessage = readString(data?.['setup_message']);
 
   return {
     message: readString(payload['message']) ?? 'ok',
     ctx_id: readString(payload['ctx_id']) ?? undefined,
     channels,
     threads,
+    has_connected_private_inbox: hasConnectedPrivateInbox,
+    setup_required: setupRequired,
+    setup_message: setupMessage,
   };
 };
 
@@ -2208,6 +3381,19 @@ const buildPrivateMessagesResult = ({
   const unreadThreads = flattened.threads.reduce((total, thread) => {
     return total + (readBoolean(thread['has_unread']) ? 1 : 0);
   }, 0);
+  const setupMessage = flattened.setup_message ?? 'No private inbox channel is connected in Sanka yet.';
+
+  if (flattened.setup_required) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: setupMessage,
+        },
+      ],
+      structuredContent: flattened,
+    };
+  }
 
   return {
     content: [
@@ -2627,6 +3813,22 @@ const buildOrderRetrieveParams = (args: Record<string, unknown> | undefined) => 
   };
 };
 
+const buildOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const orderID = readString(args?.['order_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    orderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
 const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'created' | 'updated') => {
   const results = Array.isArray(payload['results']) ? payload['results'] : [];
   const firstResult = readRecord(results[0]);
@@ -2637,6 +3839,72 @@ const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'cr
     'order';
 
   return `Order ${action}: ${reference}.`;
+};
+
+const buildTaskListParams = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const search = readString(args?.['search']);
+  const usageStatus = readString(args?.['usage_status']);
+  const projectID = readString(args?.['project_id']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const rawPage = readNumber(args?.['page'], 1);
+
+  return {
+    params: {
+      limit: Math.max(1, Math.min(100, rawLimit)),
+      page: Math.max(1, rawPage),
+      ...(search ? { search } : undefined),
+      ...(usageStatus ? { usage_status: usageStatus } : undefined),
+      ...(projectID ? { project_id: projectID } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildTaskRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const taskID = readString(args?.['task_id']);
+  const externalID = readString(args?.['external_id']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    taskID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildTaskMutationBody = (args: Record<string, unknown> | undefined): TaskMutationPayload => {
+  const body: TaskMutationPayload = {};
+  assignStringFields(body, args, [
+    'external_id',
+    'title',
+    'description',
+    'status',
+    'usage_status',
+    'project_id',
+    'start_date',
+    'due_date',
+    'main_task_id',
+    'owner_id',
+  ]);
+
+  const assignees = readStringArray(args?.['assignees']);
+  if (assignees.length > 0) {
+    body.assignees = assignees;
+  }
+
+  const projects = readStringArray(args?.['projects']);
+  if (projects.length > 0) {
+    body.projects = projects;
+  }
+
+  return body;
 };
 
 const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -2666,6 +3934,206 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
   return body;
 };
 
+const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'entry_type',
+    'external_id',
+    'notes',
+    'start_date',
+    'status',
+  ]);
+
+  for (const key of ['total_price', 'total_price_without_tax'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'date',
+    'external_id',
+    'notes',
+    'status',
+    'tax_option',
+  ]);
+
+  for (const key of ['tax_rate', 'total_price', 'total_price_without_tax'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildPurchaseOrderListParams = (args: Record<string, unknown> | undefined) =>
+  buildEstimateInvoiceListParams(args);
+
+const buildPurchaseOrderRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const purchaseOrderID = readString(args?.['purchase_order_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    purchaseOrderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildSlipMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'external_id',
+    'notes',
+    'slip_type',
+    'start_date',
+    'status',
+    'tax_option',
+  ]);
+  assignBooleanFields(body, args, ['tax_inclusive']);
+
+  for (const key of ['tax_rate', 'total_price', 'total_price_without_tax'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildSlipListParams = (args: Record<string, unknown> | undefined) =>
+  buildEstimateInvoiceListParams(args);
+
+const buildSlipRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const slipID = readString(args?.['slip_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    slipID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'description',
+    'due_date',
+    'external_id',
+    'issued_date',
+    'notes',
+    'payment_date',
+    'status',
+    'tax_option',
+  ]);
+  assignBooleanFields(body, args, ['tax_inclusive']);
+
+  for (const key of ['amount', 'amount_without_tax', 'tax_rate'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildBillListParams = (args: Record<string, unknown> | undefined) =>
+  buildEstimateInvoiceListParams(args);
+
+const buildBillRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const billID = readString(args?.['bill_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    billID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildDisbursementMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'external_id',
+    'notes',
+    'start_date',
+    'status',
+    'tax_option',
+  ]);
+  assignBooleanFields(body, args, ['tax_inclusive']);
+
+  for (const key of ['fee', 'tax_rate', 'total_price', 'total_price_without_tax'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildDisbursementListParams = (args: Record<string, unknown> | undefined) =>
+  buildEstimateInvoiceListParams(args);
+
+const buildDisbursementRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const disbursementID = readString(args?.['disbursement_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    disbursementID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
 const buildEstimateInvoiceListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
@@ -2676,6 +4144,23 @@ const buildEstimateInvoiceListParams = (args: Record<string, unknown> | undefine
     limit,
     params: {
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildOverdueInvoiceListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const asOfDate = readString(args?.['as_of_date']);
+  const language = readString(args?.['language']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(asOfDate ? { as_of_date: asOfDate } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
@@ -2695,6 +4180,22 @@ const buildEstimateRetrieveParams = (args: Record<string, unknown> | undefined) 
   };
 };
 
+const buildEstimateDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const estimateID = readString(args?.['estimate_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    estimateID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
 const buildInvoiceRetrieveParams = (args: Record<string, unknown> | undefined) => {
   const invoiceID = readString(args?.['invoice_id']);
   const externalID = readString(args?.['external_id']);
@@ -2704,6 +4205,68 @@ const buildInvoiceRetrieveParams = (args: Record<string, unknown> | undefined) =
     invoiceID,
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const invoiceID = readString(args?.['invoice_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    invoiceID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPaymentRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const paymentID = readString(args?.['payment_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    paymentID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const paymentID = readString(args?.['payment_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    paymentID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildSlipDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const slipID = readString(args?.['slip_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    slipID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
@@ -4642,6 +6205,56 @@ export const crmGetOrderTool: McpTool = {
   },
 };
 
+export const crmDownloadOrderPDFTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'read',
+    tags: ['crm', 'orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/orders/{order_id}/pdf',
+    operationId: 'public.orders.downloadPDF',
+  },
+  tool: {
+    name: 'download_order_pdf',
+    title: 'Download order PDF',
+    description: 'Download an order from Sanka as a PDF document.',
+    inputSchema: ORDER_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download order PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download order PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderDownloadPDFParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: {
+        content_disposition: response.headers.get('content-disposition') ?? undefined,
+        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
+      },
+    };
+  },
+};
+
 export const crmCreateOrderTool: McpTool = {
   metadata: {
     resource: 'orders',
@@ -4839,6 +6452,594 @@ export const crmDeleteOrderTool: McpTool = {
   },
 };
 
+export const crmListPurchaseOrdersTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'read',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/purchase-orders',
+    operationId: 'public.purchaseOrders.list',
+  },
+  tool: {
+    name: 'list_purchase_orders',
+    title: 'List purchase orders',
+    description: 'Review purchase orders in Sanka.',
+    inputSchema: PURCHASE_ORDER_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List purchase orders',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List purchase orders',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildPurchaseOrderListParams(args);
+    const purchaseOrders = await reqContext.client.public.purchaseOrders.list(params, undefined);
+    const results = purchaseOrders
+      .slice(0, limit)
+      .map((purchaseOrder) => purchaseOrder as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'purchase orders',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${purchaseOrders.length} purchase orders.`,
+        page: 1,
+        total: purchaseOrders.length,
+      },
+      previewKeys: ['id_po', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetPurchaseOrderTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'read',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    operationId: 'public.purchaseOrders.retrieve',
+  },
+  tool: {
+    name: 'get_purchase_order',
+    title: 'Get purchase order',
+    description:
+      'Load one purchase order from Sanka by purchase order id, numeric id, or external reference.',
+    inputSchema: PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: PURCHASE_ORDER_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get purchase order',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get purchase order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { purchaseOrderID, params } = buildPurchaseOrderRetrieveParams(args);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const purchaseOrder = (await reqContext.client.public.purchaseOrders.retrieve(
+      purchaseOrderID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'purchase order',
+            payload: purchaseOrder,
+            previewKeys: ['id_po', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: purchaseOrder,
+    };
+  },
+};
+
+export const crmCreatePurchaseOrderTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'write',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/purchase-orders',
+    operationId: 'public.purchaseOrders.create',
+  },
+  tool: {
+    name: 'create_purchase_order',
+    title: 'Create purchase order',
+    description: 'Create a purchase order in Sanka.',
+    inputSchema: PURCHASE_ORDER_CREATE_INPUT_SCHEMA,
+    outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create purchase order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create purchase order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.purchaseOrders.create(
+      buildPurchaseOrderMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Purchase order',
+            action: 'created',
+            payload: response,
+            idKeys: ['purchase_order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdatePurchaseOrderTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'write',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    operationId: 'public.purchaseOrders.update',
+  },
+  tool: {
+    name: 'update_purchase_order',
+    title: 'Update purchase order',
+    description: 'Update an existing purchase order in Sanka.',
+    inputSchema: PURCHASE_ORDER_UPDATE_INPUT_SCHEMA,
+    outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update purchase order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update purchase order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const purchaseOrderID = readString(args?.['purchase_order_id']);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.purchaseOrders.update(
+      purchaseOrderID,
+      buildPurchaseOrderMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Purchase order',
+            action: 'updated',
+            payload: response,
+            idKeys: ['purchase_order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeletePurchaseOrderTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'write',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    operationId: 'public.purchaseOrders.delete',
+  },
+  tool: {
+    name: 'delete_purchase_order',
+    title: 'Delete purchase order',
+    description: 'Delete a purchase order in Sanka by purchase order id or external reference.',
+    inputSchema: PURCHASE_ORDER_DELETE_INPUT_SCHEMA,
+    outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete purchase order',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete purchase order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const purchaseOrderID = readString(args?.['purchase_order_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.purchaseOrders.delete(
+      purchaseOrderID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Purchase order',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['purchase_order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListTasksTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'read',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks',
+    operationId: 'public.tasks.list',
+  },
+  tool: {
+    name: 'list_tasks',
+    title: 'List tasks',
+    description: 'Search and review tasks in Sanka.',
+    inputSchema: TASK_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List tasks',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List tasks',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = await reqContext.client.public.tasks.list(buildTaskListParams(args).params, undefined);
+
+    return buildListResult({
+      label: 'tasks',
+      payload: {
+        count: payload.count,
+        data: payload.data.map((task) => ({ ...task })),
+        message: payload.message,
+        page: payload.page,
+        total: payload.total,
+      },
+      previewKeys: ['title', 'task_id', 'id'],
+    });
+  },
+};
+
+export const crmGetTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'read',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.retrieve',
+  },
+  tool: {
+    name: 'get_task',
+    title: 'Get task',
+    description: 'Load one task from Sanka by task id, numeric id, or external reference.',
+    inputSchema: TASK_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: TASK_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get task',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { taskID, params } = buildTaskRetrieveParams(args);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const task = (await reqContext.client.public.tasks.retrieve(
+      taskID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'task',
+            payload: task,
+            previewKeys: ['title', 'task_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: task,
+    };
+  },
+};
+
+export const crmCreateTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/tasks',
+    operationId: 'public.tasks.create',
+  },
+  tool: {
+    name: 'create_task',
+    title: 'Create task',
+    description: 'Create a task in Sanka.',
+    inputSchema: TASK_CREATE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create task',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildTaskMutationBody(args);
+    if (Object.keys(body).length === 0) {
+      return asErrorResult('At least one task field is required.');
+    }
+
+    const response = (await reqContext.client.public.tasks.create(body, undefined)) as unknown as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'created',
+            payload: response,
+            idKeys: ['task_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.update',
+  },
+  tool: {
+    name: 'update_task',
+    title: 'Update task',
+    description:
+      'Update an existing task in Sanka. When you need to append to a description, load the task first and then send the full updated description.',
+    inputSchema: TASK_UPDATE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update task',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const taskID = readString(args?.['task_id']);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const body = buildTaskMutationBody(args);
+    if (Object.keys(body).length === 0) {
+      return asErrorResult('At least one task field is required.');
+    }
+
+    const lookupExternalID = readString(args?.['lookup_external_id']);
+    const { external_id: bodyExternalID, ...restBody } = body;
+    const params = {
+      ...(lookupExternalID ? { external_id: lookupExternalID } : undefined),
+      ...(bodyExternalID !== undefined ? { body_external_id: bodyExternalID } : undefined),
+      ...restBody,
+    };
+
+    const response = (await reqContext.client.public.tasks.update(
+      taskID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'updated',
+            payload: response,
+            idKeys: ['task_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteTaskTool: McpTool = {
+  metadata: {
+    resource: 'tasks',
+    operation: 'write',
+    tags: ['crm', 'tasks'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/tasks/{task_id}',
+    operationId: 'public.tasks.delete',
+  },
+  tool: {
+    name: 'delete_task',
+    title: 'Delete task',
+    description: 'Archive or delete a task in Sanka by task id or external reference.',
+    inputSchema: TASK_DELETE_INPUT_SCHEMA,
+    outputSchema: TASK_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete task',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete task',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const taskID = readString(args?.['task_id']);
+    if (!taskID) {
+      return asErrorResult('`task_id` is required.');
+    }
+
+    const externalID = readString(args?.['external_id']);
+    const response = (await reqContext.client.public.tasks.delete(
+      taskID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Task',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['task_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
 export const crmListEstimatesTool: McpTool = {
   metadata: {
     resource: 'estimates',
@@ -4946,6 +7147,56 @@ export const crmGetEstimateTool: McpTool = {
         },
       ],
       structuredContent: estimate,
+    };
+  },
+};
+
+export const crmDownloadEstimatePDFTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'read',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/estimates/{estimate_id}/pdf',
+    operationId: 'public.estimates.downloadPDF',
+  },
+  tool: {
+    name: 'download_estimate_pdf',
+    title: 'Download estimate PDF',
+    description: 'Download an estimate from Sanka as a PDF document.',
+    inputSchema: ESTIMATE_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download estimate PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download estimate PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { estimateID, params } = buildEstimateDownloadPDFParams(args);
+    if (!estimateID) {
+      return asErrorResult('`estimate_id` is required.');
+    }
+
+    const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: {
+        content_disposition: response.headers.get('content-disposition') ?? undefined,
+        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
+      },
     };
   },
 };
@@ -5175,6 +7426,56 @@ export const crmListInvoicesTool: McpTool = {
   },
 };
 
+export const crmListOverdueInvoicesTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'read',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices/overdue',
+    operationId: 'public.invoices.listOverdue',
+  },
+  tool: {
+    name: 'list_overdue_invoices',
+    title: 'List overdue invoices',
+    description: 'Review overdue invoices in Sanka that still have outstanding balance.',
+    inputSchema: INVOICE_OVERDUE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List overdue invoices',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List overdue invoices',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildOverdueInvoiceListParams(args);
+    const invoices = await reqContext.client.public.invoices.listOverdue(params, undefined);
+    const results = invoices.slice(0, limit).map((invoice) => invoice as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'overdue invoices',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${invoices.length} overdue invoices.`,
+        page: 1,
+        total: invoices.length,
+      },
+      previewKeys: ['id_inv', 'company_name', 'contact_name', 'outstanding_balance', 'days_overdue'],
+    });
+  },
+};
+
 export const crmGetInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -5230,6 +7531,56 @@ export const crmGetInvoiceTool: McpTool = {
         },
       ],
       structuredContent: invoice,
+    };
+  },
+};
+
+export const crmDownloadInvoicePDFTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'read',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices/{invoice_id}/pdf',
+    operationId: 'public.invoices.downloadPDF',
+  },
+  tool: {
+    name: 'download_invoice_pdf',
+    title: 'Download invoice PDF',
+    description: 'Download an invoice from Sanka as a PDF document.',
+    inputSchema: INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download invoice PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download invoice PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceDownloadPDFParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: {
+        content_disposition: response.headers.get('content-disposition') ?? undefined,
+        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
+      },
     };
   },
 };
@@ -5401,6 +7752,1244 @@ export const crmDeleteInvoiceTool: McpTool = {
             action: 'deleted',
             payload: response,
             idKeys: ['invoice_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListPaymentsTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'read',
+    tags: ['crm', 'payments'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments',
+    operationId: 'public.payments.list',
+  },
+  tool: {
+    name: 'list_payments',
+    title: 'List payments',
+    description: 'Review payments in Sanka.',
+    inputSchema: PAYMENT_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List payments',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List payments',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildEstimateInvoiceListParams(args);
+    const payments = await reqContext.client.public.payments.list(params, undefined);
+    const results = payments.slice(0, limit).map((payment) => payment as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'payments',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${payments.length} payments.`,
+        page: 1,
+        total: payments.length,
+      },
+      previewKeys: ['id_rcp', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetPaymentTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'read',
+    tags: ['crm', 'payments'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}',
+    operationId: 'public.payments.retrieve',
+  },
+  tool: {
+    name: 'get_payment',
+    title: 'Get payment',
+    description: 'Load one payment from Sanka by payment id, numeric id, or external reference.',
+    inputSchema: PAYMENT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get payment',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get payment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentRetrieveParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const payment = (await reqContext.client.public.payments.retrieve(
+      paymentID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'payment',
+            payload: payment,
+            previewKeys: ['id_rcp', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: payment,
+    };
+  },
+};
+
+export const crmCreatePaymentTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'write',
+    tags: ['crm', 'payments'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payments',
+    operationId: 'public.payments.create',
+  },
+  tool: {
+    name: 'create_payment',
+    title: 'Create payment',
+    description: 'Create a payment in Sanka.',
+    inputSchema: PAYMENT_CREATE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create payment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create payment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.payments.create(
+      buildPaymentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Payment',
+            action: 'created',
+            payload: response,
+            idKeys: ['payment_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdatePaymentTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'write',
+    tags: ['crm', 'payments'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/payments/{payment_id}',
+    operationId: 'public.payments.update',
+  },
+  tool: {
+    name: 'update_payment',
+    title: 'Update payment',
+    description: 'Update an existing payment in Sanka.',
+    inputSchema: PAYMENT_UPDATE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update payment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update payment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const paymentID = readString(args?.['payment_id']);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.update(
+      paymentID,
+      buildPaymentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Payment',
+            action: 'updated',
+            payload: response,
+            idKeys: ['payment_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeletePaymentTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'write',
+    tags: ['crm', 'payments'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/payments/{payment_id}',
+    operationId: 'public.payments.delete',
+  },
+  tool: {
+    name: 'delete_payment',
+    title: 'Delete payment',
+    description: 'Delete a payment in Sanka by payment id or external reference.',
+    inputSchema: PAYMENT_DELETE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete payment',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete payment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const paymentID = readString(args?.['payment_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.delete(
+      paymentID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Payment',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['payment_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDownloadPaymentPDFTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'read',
+    tags: ['crm', 'payments'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}/pdf',
+    operationId: 'public.payments.downloadPDF',
+  },
+  tool: {
+    name: 'download_payment_pdf',
+    title: 'Download payment PDF',
+    description: 'Download a payment from Sanka as a PDF document.',
+    inputSchema: PAYMENT_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download payment PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download payment PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentDownloadPDFParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: {
+        content_disposition: response.headers.get('content-disposition') ?? undefined,
+        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
+      },
+    };
+  },
+};
+
+export const crmListSlipsTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'read',
+    tags: ['crm', 'slips'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/slips',
+    operationId: 'public.slips.list',
+  },
+  tool: {
+    name: 'list_slips',
+    title: 'List slips',
+    description: 'Review slips in Sanka.',
+    inputSchema: SLIP_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List slips',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List slips',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildSlipListParams(args);
+    const slips = await reqContext.client.public.slips.list(params, undefined);
+    const results = slips.slice(0, limit).map((slip) => slip as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'slips',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${slips.length} slips.`,
+        page: 1,
+        total: slips.length,
+      },
+      previewKeys: ['id_slip', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetSlipTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'read',
+    tags: ['crm', 'slips'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/slips/{slip_id}',
+    operationId: 'public.slips.retrieve',
+  },
+  tool: {
+    name: 'get_slip',
+    title: 'Get slip',
+    description: 'Load one slip from Sanka by slip id, numeric id, or external reference.',
+    inputSchema: SLIP_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: SLIP_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get slip',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get slip',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { slipID, params } = buildSlipRetrieveParams(args);
+    if (!slipID) {
+      return asErrorResult('`slip_id` is required.');
+    }
+
+    const slip = (await reqContext.client.public.slips.retrieve(
+      slipID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'slip',
+            payload: slip,
+            previewKeys: ['id_slip', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: slip,
+    };
+  },
+};
+
+export const crmCreateSlipTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'write',
+    tags: ['crm', 'slips'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/slips',
+    operationId: 'public.slips.create',
+  },
+  tool: {
+    name: 'create_slip',
+    title: 'Create slip',
+    description: 'Create a slip in Sanka.',
+    inputSchema: SLIP_CREATE_INPUT_SCHEMA,
+    outputSchema: SLIP_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create slip',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create slip',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.slips.create(
+      buildSlipMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Slip',
+            action: 'created',
+            payload: response,
+            idKeys: ['slip_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateSlipTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'write',
+    tags: ['crm', 'slips'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/slips/{slip_id}',
+    operationId: 'public.slips.update',
+  },
+  tool: {
+    name: 'update_slip',
+    title: 'Update slip',
+    description: 'Update an existing slip in Sanka.',
+    inputSchema: SLIP_UPDATE_INPUT_SCHEMA,
+    outputSchema: SLIP_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update slip',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update slip',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const slipID = readString(args?.['slip_id']);
+    if (!slipID) {
+      return asErrorResult('`slip_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.slips.update(
+      slipID,
+      buildSlipMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Slip',
+            action: 'updated',
+            payload: response,
+            idKeys: ['slip_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteSlipTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'write',
+    tags: ['crm', 'slips'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/slips/{slip_id}',
+    operationId: 'public.slips.delete',
+  },
+  tool: {
+    name: 'delete_slip',
+    title: 'Delete slip',
+    description: 'Delete a slip in Sanka by slip id or external reference.',
+    inputSchema: SLIP_DELETE_INPUT_SCHEMA,
+    outputSchema: SLIP_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete slip',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete slip',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const slipID = readString(args?.['slip_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!slipID) {
+      return asErrorResult('`slip_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.slips.delete(
+      slipID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Slip',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['slip_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDownloadSlipPDFTool: McpTool = {
+  metadata: {
+    resource: 'slips',
+    operation: 'read',
+    tags: ['crm', 'slips'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/slips/{slip_id}/pdf',
+    operationId: 'public.slips.downloadPDF',
+  },
+  tool: {
+    name: 'download_slip_pdf',
+    title: 'Download slip PDF',
+    description: 'Download a slip from Sanka as a PDF document.',
+    inputSchema: SLIP_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download slip PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download slip PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { slipID, params } = buildSlipDownloadPDFParams(args);
+    if (!slipID) {
+      return asErrorResult('`slip_id` is required.');
+    }
+
+    const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: {
+        content_disposition: response.headers.get('content-disposition') ?? undefined,
+        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
+      },
+    };
+  },
+};
+
+export const crmListBillsTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'read',
+    tags: ['crm', 'bills'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/bills',
+    operationId: 'public.bills.list',
+  },
+  tool: {
+    name: 'list_bills',
+    title: 'List bills',
+    description: 'Review bills in Sanka.',
+    inputSchema: BILL_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List bills',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List bills',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildBillListParams(args);
+    const bills = await reqContext.client.public.bills.list(params, undefined);
+    const results = bills.slice(0, limit).map((bill) => bill as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'bills',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${bills.length} bills.`,
+        page: 1,
+        total: bills.length,
+      },
+      previewKeys: ['id_bill', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetBillTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'read',
+    tags: ['crm', 'bills'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/bills/{bill_id}',
+    operationId: 'public.bills.retrieve',
+  },
+  tool: {
+    name: 'get_bill',
+    title: 'Get bill',
+    description: 'Load one bill from Sanka by bill id, numeric id, or external reference.',
+    inputSchema: BILL_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: BILL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get bill',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get bill',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { billID, params } = buildBillRetrieveParams(args);
+    if (!billID) {
+      return asErrorResult('`bill_id` is required.');
+    }
+
+    const bill = (await reqContext.client.public.bills.retrieve(
+      billID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'bill',
+            payload: bill,
+            previewKeys: ['id_bill', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: bill,
+    };
+  },
+};
+
+export const crmCreateBillTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'write',
+    tags: ['crm', 'bills'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/bills',
+    operationId: 'public.bills.create',
+  },
+  tool: {
+    name: 'create_bill',
+    title: 'Create bill',
+    description: 'Create a bill in Sanka.',
+    inputSchema: BILL_CREATE_INPUT_SCHEMA,
+    outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create bill',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create bill',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.bills.create(
+      buildBillMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Bill',
+            action: 'created',
+            payload: response,
+            idKeys: ['bill_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateBillTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'write',
+    tags: ['crm', 'bills'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/bills/{bill_id}',
+    operationId: 'public.bills.update',
+  },
+  tool: {
+    name: 'update_bill',
+    title: 'Update bill',
+    description: 'Update an existing bill in Sanka.',
+    inputSchema: BILL_UPDATE_INPUT_SCHEMA,
+    outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update bill',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update bill',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const billID = readString(args?.['bill_id']);
+    if (!billID) {
+      return asErrorResult('`bill_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.bills.update(
+      billID,
+      buildBillMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Bill',
+            action: 'updated',
+            payload: response,
+            idKeys: ['bill_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteBillTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'write',
+    tags: ['crm', 'bills'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/bills/{bill_id}',
+    operationId: 'public.bills.delete',
+  },
+  tool: {
+    name: 'delete_bill',
+    title: 'Delete bill',
+    description: 'Delete a bill in Sanka by bill id or external reference.',
+    inputSchema: BILL_DELETE_INPUT_SCHEMA,
+    outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete bill',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete bill',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const billID = readString(args?.['bill_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!billID) {
+      return asErrorResult('`bill_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.bills.delete(
+      billID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Bill',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['bill_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListDisbursementsTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'read',
+    tags: ['crm', 'disbursements'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/disbursements',
+    operationId: 'public.disbursements.list',
+  },
+  tool: {
+    name: 'list_disbursements',
+    title: 'List disbursements',
+    description: 'Review disbursements in Sanka.',
+    inputSchema: DISBURSEMENT_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List disbursements',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List disbursements',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildDisbursementListParams(args);
+    const disbursements = await reqContext.client.public.disbursements.list(params, undefined);
+    const results = disbursements
+      .slice(0, limit)
+      .map((disbursement) => disbursement as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'disbursements',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${disbursements.length} disbursements.`,
+        page: 1,
+        total: disbursements.length,
+      },
+      previewKeys: ['id_dsb', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetDisbursementTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'read',
+    tags: ['crm', 'disbursements'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    operationId: 'public.disbursements.retrieve',
+  },
+  tool: {
+    name: 'get_disbursement',
+    title: 'Get disbursement',
+    description: 'Load one disbursement from Sanka by disbursement id, numeric id, or external reference.',
+    inputSchema: DISBURSEMENT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get disbursement',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get disbursement',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, params } = buildDisbursementRetrieveParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const disbursement = (await reqContext.client.public.disbursements.retrieve(
+      disbursementID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'disbursement',
+            payload: disbursement,
+            previewKeys: ['id_dsb', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: disbursement,
+    };
+  },
+};
+
+export const crmCreateDisbursementTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/disbursements',
+    operationId: 'public.disbursements.create',
+  },
+  tool: {
+    name: 'create_disbursement',
+    title: 'Create disbursement',
+    description: 'Create a disbursement in Sanka.',
+    inputSchema: DISBURSEMENT_CREATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create disbursement',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create disbursement',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.disbursements.create(
+      buildDisbursementMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Disbursement',
+            action: 'created',
+            payload: response,
+            idKeys: ['disbursement_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateDisbursementTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    operationId: 'public.disbursements.update',
+  },
+  tool: {
+    name: 'update_disbursement',
+    title: 'Update disbursement',
+    description: 'Update an existing disbursement in Sanka.',
+    inputSchema: DISBURSEMENT_UPDATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update disbursement',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update disbursement',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const disbursementID = readString(args?.['disbursement_id']);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.disbursements.update(
+      disbursementID,
+      buildDisbursementMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Disbursement',
+            action: 'updated',
+            payload: response,
+            idKeys: ['disbursement_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteDisbursementTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    operationId: 'public.disbursements.delete',
+  },
+  tool: {
+    name: 'delete_disbursement',
+    title: 'Delete disbursement',
+    description: 'Delete a disbursement in Sanka by disbursement id or external reference.',
+    inputSchema: DISBURSEMENT_DELETE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete disbursement',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete disbursement',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const disbursementID = readString(args?.['disbursement_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.disbursements.delete(
+      disbursementID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Disbursement',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['disbursement_id'],
           }),
         },
       ],

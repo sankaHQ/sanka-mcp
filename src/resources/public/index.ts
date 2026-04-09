@@ -116,6 +116,23 @@ export {
   type ExpenseDeleteParams,
   type ExpenseUploadAttachmentParams,
 } from './expenses';
+export { Exports, type ExportCreateParams, type ExportListParams, type ExportListResponse } from './exports';
+export {
+  Imports,
+  type ImportCreateParams,
+  type ImportListParams,
+  type ImportListResponse,
+  type ImportUploadFileParams,
+  type TransferColumnMapping,
+  type TransferJob,
+  type TransferJobSummary,
+  type TransferUploadFileResponse,
+} from './imports';
+export {
+  Integrations,
+  type IntegrationChannelsListParams,
+  type IntegrationChannelsListResponse,
+} from './integrations';
 export {
   Inventories,
   type InventoryRequest,
@@ -145,10 +162,12 @@ export {
   type InvoiceRequest,
   type InvoiceSchema,
   type InvoiceListResponse,
+  type InvoiceListOverdueResponse,
   type InvoiceCreateParams,
   type InvoiceRetrieveParams,
   type InvoiceUpdateParams,
   type InvoiceListParams,
+  type InvoiceListOverdueParams,
   type InvoiceDeleteParams,
 } from './invoices';
 export {
@@ -202,6 +221,18 @@ export {
   type OrderDeleteParams,
   type OrderBulkCreateParams,
 } from './orders';
+export {
+  Tasks,
+  type PublicTaskRequest,
+  type PublicTaskResponse,
+  type PublicTaskSchema,
+  type PublicTasksListResponse,
+  type TaskCreateParams,
+  type TaskRetrieveParams,
+  type TaskUpdateParams,
+  type TaskListParams,
+  type TaskDeleteParams,
+} from './tasks';
 export {
   Payments,
   type PaymentRequest,

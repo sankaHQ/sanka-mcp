@@ -59,6 +59,24 @@ export class Invoices extends APIResource {
   }
 
   /**
+   * List Overdue Invoices
+   */
+  listOverdue(
+    params: InvoiceListOverdueParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<InvoiceListOverdueResponse> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get('/v1/public/invoices/overdue', {
+      query,
+      ...options,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
+  }
+
+  /**
    * Delete Invoice
    */
   delete(
@@ -71,6 +89,26 @@ export class Invoices extends APIResource {
       query: { external_id },
       ...options,
     });
+  }
+
+  /**
+   * Download Invoice PDF
+   */
+  downloadPDF(
+    invoiceID: string,
+    params: InvoiceDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/invoices/${invoiceID}/pdf`, {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    }) as APIPromise<Response>;
   }
 }
 
@@ -123,6 +161,8 @@ export interface InvoiceSchema {
 
   updated_at: string;
 
+  days_overdue?: number | null;
+
   company_name?: string | null;
 
   contact_name?: string | null;
@@ -133,9 +173,15 @@ export interface InvoiceSchema {
 
   id_inv?: number | null;
 
+  outstanding_balance?: number | null;
+
+  paid_amount?: number | null;
+
   start_date?: string | null;
 
   status?: string | null;
+
+  status_key?: string | null;
 
   total_price?: number | null;
 
@@ -143,6 +189,8 @@ export interface InvoiceSchema {
 }
 
 export type InvoiceListResponse = Array<InvoiceSchema>;
+
+export type InvoiceListOverdueResponse = Array<InvoiceSchema>;
 
 export interface InvoiceCreateParams {
   company_external_id?: string | null;
@@ -181,6 +229,33 @@ export interface InvoiceRetrieveParams {
    * Query param
    */
   external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface InvoiceDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
 
   /**
    * Query param
@@ -252,6 +327,33 @@ export interface InvoiceListParams {
   'Accept-Language'?: string;
 }
 
+export interface InvoiceListOverdueParams {
+  /**
+   * Query param
+   */
+  as_of_date?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Query param
+   */
+  workspace_id?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
 export interface InvoiceDeleteParams {
   external_id?: string | null;
 }
@@ -262,10 +364,12 @@ export declare namespace Invoices {
     type InvoiceRequest as InvoiceRequest,
     type InvoiceSchema as InvoiceSchema,
     type InvoiceListResponse as InvoiceListResponse,
+    type InvoiceListOverdueResponse as InvoiceListOverdueResponse,
     type InvoiceCreateParams as InvoiceCreateParams,
     type InvoiceRetrieveParams as InvoiceRetrieveParams,
     type InvoiceUpdateParams as InvoiceUpdateParams,
     type InvoiceListParams as InvoiceListParams,
+    type InvoiceListOverdueParams as InvoiceListOverdueParams,
     type InvoiceDeleteParams as InvoiceDeleteParams,
   };
 }

@@ -69,6 +69,26 @@ export class Slips extends APIResource {
     const { external_id } = params ?? {};
     return this._client.delete(path`/v1/public/slips/${slipID}`, { query: { external_id }, ...options });
   }
+
+  /**
+   * Download Slip PDF
+   */
+  downloadPDF(
+    slipID: string,
+    params: SlipDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/slips/${slipID}/pdf`, {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    }) as APIPromise<Response>;
+  }
 }
 
 export interface Slip {
@@ -180,6 +200,33 @@ export interface SlipRetrieveParams {
    * Query param
    */
   external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface SlipDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
 
   /**
    * Query param

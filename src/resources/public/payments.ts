@@ -81,6 +81,26 @@ export class Payments extends APIResource {
       ...options,
     });
   }
+
+  /**
+   * Download Payment PDF
+   */
+  downloadPDF(
+    paymentID: string,
+    params: PaymentDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/payments/${paymentID}/pdf`, {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    }) as APIPromise<Response>;
+  }
 }
 
 export interface PaymentRequest {
@@ -178,6 +198,33 @@ export interface PaymentRetrieveParams {
    * Query param
    */
   external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface PaymentDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
 
   /**
    * Query param
