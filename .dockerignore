@@ -53,8 +53,3 @@ yarn-error.log*
 # Examples and scripts
 examples/
 bin/
-
-# Other packages (we only need mcp-server)
-packages/*/
-!packages/mcp-server/
-!packages/mcp-server/**
