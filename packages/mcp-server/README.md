@@ -61,6 +61,11 @@ Local MCP config:
 The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 - `auth_status`: read-only CRM auth readiness check
+- `list_private_messages`: read-only private inbox review for the authenticated user
+- `sync_private_messages`: pull the latest private inbox threads into Sanka
+- `get_private_message_thread`: load one private inbox thread and its history
+- `reply_private_message_thread`: send a reply on a private inbox thread
+- `archive_private_message_thread`: archive a private inbox thread
 - `list_companies`: read-only company search
 - `get_company`: load a single company
 - `create_company`: create or upsert a company by external reference

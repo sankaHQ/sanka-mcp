@@ -1,6 +1,26 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 import { APIResource } from '../../core/resource';
+import * as AccountMessagesAPI from './account-messages/account-messages';
+import {
+  AccountMessages,
+  AccountMessageBulkActionsParams,
+  AccountMessageChannel,
+  AccountMessageListParams,
+  AccountMessagesData,
+  AccountMessagesResponse,
+  AccountMessageSyncParams,
+  AccountMessageThread,
+  AccountMessageThreadArchiveParams,
+  AccountMessageThreadDetail,
+  AccountMessageThreadDetailResponse,
+  AccountMessageThreadMessage,
+  AccountMessageThreadReplyData,
+  AccountMessageThreadReplyParams,
+  AccountMessageThreadReplyResponse,
+  AccountMessageThreadRetrieveParams,
+  Threads,
+} from './account-messages/account-messages';
 import * as AuthAPI from './auth';
 import { Auth, AuthGetCurrentIdentityResponse } from './auth';
 import * as BillsAPI from './bills';
@@ -310,6 +330,7 @@ import {
 } from './calendar/calendar';
 
 export class Public extends APIResource {
+  accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
   orders: OrdersAPI.Orders = new OrdersAPI.Orders(this._client);
   items: ItemsAPI.Items = new ItemsAPI.Items(this._client);
   contacts: ContactsAPI.Contacts = new ContactsAPI.Contacts(this._client);
@@ -337,6 +358,7 @@ export class Public extends APIResource {
   auth: AuthAPI.Auth = new AuthAPI.Auth(this._client);
 }
 
+Public.AccountMessages = AccountMessages;
 Public.Orders = Orders;
 Public.Items = Items;
 Public.Contacts = Contacts;
@@ -363,6 +385,26 @@ Public.Calendar = Calendar;
 Public.Auth = Auth;
 
 export declare namespace Public {
+  export {
+    AccountMessages as AccountMessages,
+    type AccountMessageChannel as AccountMessageChannel,
+    type AccountMessageThread as AccountMessageThread,
+    type AccountMessagesData as AccountMessagesData,
+    type AccountMessagesResponse as AccountMessagesResponse,
+    type AccountMessageListParams as AccountMessageListParams,
+    type AccountMessageSyncParams as AccountMessageSyncParams,
+    type AccountMessageBulkActionsParams as AccountMessageBulkActionsParams,
+    type AccountMessageThreadMessage as AccountMessageThreadMessage,
+    type AccountMessageThreadDetail as AccountMessageThreadDetail,
+    type AccountMessageThreadDetailResponse as AccountMessageThreadDetailResponse,
+    type AccountMessageThreadReplyData as AccountMessageThreadReplyData,
+    type AccountMessageThreadReplyResponse as AccountMessageThreadReplyResponse,
+    type AccountMessageThreadRetrieveParams as AccountMessageThreadRetrieveParams,
+    type AccountMessageThreadArchiveParams as AccountMessageThreadArchiveParams,
+    type AccountMessageThreadReplyParams as AccountMessageThreadReplyParams,
+    type Threads as Threads,
+  };
+
   export {
     Orders as Orders,
     type BulkOrder as BulkOrder,

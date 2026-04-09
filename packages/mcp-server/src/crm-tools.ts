@@ -405,6 +405,187 @@ const LIST_OUTPUT_SCHEMA = {
   required: ['count', 'page', 'total', 'message', 'results'],
 };
 
+const PRIVATE_MESSAGE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    status: {
+      type: 'string',
+      description: 'Optional private-inbox thread status filter. Defaults to `active` on the API side.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    channel_id: {
+      type: 'string',
+      description: 'Optional private inbox channel id to sync. Omit to sync all account-level channels.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional private-inbox thread status filter to return after sync.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    thread_id: {
+      type: 'string',
+      description: 'Private inbox thread identifier.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['thread_id'],
+};
+
+const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    thread_id: {
+      type: 'string',
+      description: 'Private inbox thread identifier.',
+    },
+    body: {
+      type: 'string',
+      description: 'Reply body to send on the private message thread.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['thread_id', 'body'],
+};
+
+const PRIVATE_MESSAGE_CHANNEL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    integration_slug: { type: 'string' },
+    display_name: { type: 'string' },
+    account_username: { type: 'string' },
+    status: { type: 'string' },
+    updated_at: { type: 'string' },
+    thread_count: { type: 'integer' },
+    unread_count: { type: 'integer' },
+  },
+  required: ['id', 'integration_slug', 'display_name', 'thread_count', 'unread_count'],
+};
+
+const PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    title: { type: 'string' },
+    counterparty: { type: 'string' },
+    preview: { type: 'string' },
+    last_message_at: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_label: { type: 'string' },
+    has_unread: { type: 'boolean' },
+    message_type: { type: 'string' },
+    message_count: { type: 'integer' },
+  },
+  required: [
+    'id',
+    'title',
+    'counterparty',
+    'preview',
+    'channel_id',
+    'channel_label',
+    'has_unread',
+    'message_type',
+    'message_count',
+  ],
+};
+
+const PRIVATE_MESSAGE_THREAD_MESSAGE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    body: { type: 'string' },
+    sent_at: { type: 'string' },
+    status: { type: 'string' },
+    direction: { type: 'string' },
+    sender_label: { type: 'string' },
+  },
+  required: ['id', 'body', 'direction', 'sender_label'],
+};
+
+const PRIVATE_MESSAGES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    channels: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_CHANNEL_OUTPUT_SCHEMA,
+    },
+    threads: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA,
+    },
+  },
+  required: ['message', 'channels', 'threads'],
+};
+
+const PRIVATE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    ...PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA.properties,
+    open_in_web_url: { type: 'string' },
+    can_reply: { type: 'boolean' },
+    reply_target: { type: 'string' },
+    messages: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_THREAD_MESSAGE_OUTPUT_SCHEMA,
+    },
+  },
+  required: [
+    'message',
+    'id',
+    'title',
+    'counterparty',
+    'preview',
+    'channel_id',
+    'channel_label',
+    'has_unread',
+    'message_type',
+    'message_count',
+    'open_in_web_url',
+    'can_reply',
+    'messages',
+  ],
+};
+
+const PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    thread_id: { type: 'string' },
+    message_id: { type: 'string' },
+    has_unread: { type: 'boolean' },
+  },
+  required: ['message', 'thread_id', 'has_unread'],
+};
+
 const EXPENSE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1962,6 +2143,134 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   };
 };
 
+const buildPrivateMessageListParams = (args: Record<string, unknown> | undefined) => {
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildPrivateMessageSyncParams = (args: Record<string, unknown> | undefined) => {
+  const channelID = readString(args?.['channel_id']);
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildPrivateMessageThreadLanguageParams = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+
+  return {
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildPrivateMessageReplyParams = (args: Record<string, unknown> | undefined) => {
+  const body = readString(args?.['body']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(body ? { body } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const flattenPrivateMessagesPayload = (payload: Record<string, unknown>) => {
+  const data = readRecord(payload['data']);
+  const channels =
+    Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
+  const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+
+  return {
+    message: readString(payload['message']) ?? 'ok',
+    ctx_id: readString(payload['ctx_id']) ?? undefined,
+    channels,
+    threads,
+  };
+};
+
+const buildPrivateMessagesResult = ({
+  action,
+  payload,
+}: {
+  action: 'Loaded' | 'Synced' | 'Updated';
+  payload: Record<string, unknown>;
+}): ToolCallResult => {
+  const flattened = flattenPrivateMessagesPayload(payload);
+  const unreadThreads = flattened.threads.reduce((total, thread) => {
+    return total + (readBoolean(thread['has_unread']) ? 1 : 0);
+  }, 0);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `${action} ${flattened.threads.length} private message thread${
+          flattened.threads.length === 1 ? '' : 's'
+        } across ${flattened.channels.length} channel${flattened.channels.length === 1 ? '' : 's'}${
+          unreadThreads > 0 ? `, ${unreadThreads} unread` : ''
+        }.`,
+      },
+    ],
+    structuredContent: flattened,
+  };
+};
+
+const buildPrivateMessageThreadResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const title = readString(data['title']);
+  const messages = Array.isArray(data['messages']) ? data['messages'] : [];
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          title ?
+            `Loaded private message thread "${title}" with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`
+          : `Loaded private message thread with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`,
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
+const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const threadID = readString(data['thread_id']);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          threadID ? `Replied to private message thread ${threadID}.` : 'Replied to private message thread.',
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
 const buildCompanyRetrieveParams = (args: Record<string, unknown> | undefined) => {
   const companyID = readString(args?.['company_id']);
   const externalID = readString(args?.['external_id']);
@@ -2788,6 +3097,247 @@ export const crmAuthStatusTool: McpTool = {
         resource_url: reqContext.auth?.oauth.resourceUrl,
       },
     };
+  },
+};
+
+export const crmListPrivateMessagesTool: McpTool = {
+  metadata: {
+    resource: 'account_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/account-messages',
+    operationId: 'public.accountMessages.list',
+  },
+  tool: {
+    name: 'list_private_messages',
+    title: 'List private messages',
+    description:
+      'Review the authenticated user private inbox in Sanka. This covers account-level inbox threads, not the shared group inbox.',
+    inputSchema: PRIVATE_MESSAGE_LIST_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List private messages',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List private messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.accountMessages.list(
+      buildPrivateMessageListParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildPrivateMessagesResult({
+      action: 'Loaded',
+      payload,
+    });
+  },
+};
+
+export const crmSyncPrivateMessagesTool: McpTool = {
+  metadata: {
+    resource: 'account_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/sync',
+    operationId: 'public.accountMessages.sync',
+  },
+  tool: {
+    name: 'sync_private_messages',
+    title: 'Sync private messages',
+    description:
+      'Pull the latest private inbox messages into Sanka for the authenticated user account-level inbox.',
+    inputSchema: PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Sync private messages',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Sync private messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.accountMessages.sync(
+      buildPrivateMessageSyncParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildPrivateMessagesResult({
+      action: 'Synced',
+      payload,
+    });
+  },
+};
+
+export const crmGetPrivateMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'account_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}',
+    operationId: 'public.accountMessages.threads.retrieve',
+  },
+  tool: {
+    name: 'get_private_message_thread',
+    title: 'Get private message thread',
+    description:
+      'Load one private inbox thread from Sanka, including message history and reply metadata for the authenticated user.',
+    inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get private message thread',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get private message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.accountMessages.threads.retrieve(
+      threadID,
+      buildPrivateMessageThreadLanguageParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildPrivateMessageThreadResult(payload);
+  },
+};
+
+export const crmReplyPrivateMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'account_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}/reply',
+    operationId: 'public.accountMessages.threads.reply',
+  },
+  tool: {
+    name: 'reply_private_message_thread',
+    title: 'Reply private message thread',
+    description:
+      'Send a reply on a private inbox thread in Sanka. This is for the authenticated user account-level inbox, not the shared group inbox.',
+    inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Reply private message thread',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Reply private message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const body = readString(args?.['body']);
+    if (!body) {
+      return asErrorResult('`body` is required.');
+    }
+
+    const payload = (await reqContext.client.public.accountMessages.threads.reply(
+      threadID,
+      buildPrivateMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildPrivateMessageReplyResult(payload);
+  },
+};
+
+export const crmArchivePrivateMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'account_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}/archive',
+    operationId: 'public.accountMessages.threads.archive',
+  },
+  tool: {
+    name: 'archive_private_message_thread',
+    title: 'Archive private message thread',
+    description: 'Archive a private inbox thread in Sanka for the authenticated user account-level inbox.',
+    inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Archive private message thread',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Archive private message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.accountMessages.threads.archive(
+      threadID,
+      buildPrivateMessageThreadLanguageParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildPrivateMessagesResult({
+      action: 'Updated',
+      payload,
+    });
   },
 };
 

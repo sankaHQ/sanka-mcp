@@ -2,6 +2,25 @@
 
 export { Auth, type AuthGetCurrentIdentityResponse } from './auth';
 export {
+  AccountMessages,
+  type AccountMessageBulkActionsParams,
+  type AccountMessageChannel,
+  type AccountMessageListParams,
+  type AccountMessagesData,
+  type AccountMessagesResponse,
+  type AccountMessageSyncParams,
+  type AccountMessageThread,
+  type AccountMessageThreadArchiveParams,
+  type AccountMessageThreadDetail,
+  type AccountMessageThreadDetailResponse,
+  type AccountMessageThreadMessage,
+  type AccountMessageThreadReplyData,
+  type AccountMessageThreadReplyParams,
+  type AccountMessageThreadReplyResponse,
+  type AccountMessageThreadRetrieveParams,
+  type Threads,
+} from './account-messages/index';
+export {
   Bills,
   type Bill,
   type PublicBillRequest,

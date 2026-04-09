@@ -11,6 +11,7 @@ import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
 import {
+  crmArchivePrivateMessageThreadTool,
   crmCreateExpenseTool,
   crmCancelCalendarAttendanceTool,
   crmCheckCalendarAvailabilityTool,
@@ -34,6 +35,7 @@ import {
   crmDeleteTicketTool,
   crmAuthStatusTool,
   crmGetCalendarBootstrapTool,
+  crmGetPrivateMessageThreadTool,
   crmGetCompanyTool,
   crmGetContactTool,
   crmGetDealTool,
@@ -51,12 +53,15 @@ import {
   crmListExpensesTool,
   crmListInvoicesTool,
   crmListOrdersTool,
+  crmListPrivateMessagesTool,
   crmListPropertiesTool,
   crmListTicketPipelinesTool,
   crmListTicketsTool,
   crmProspectCompaniesTool,
+  crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
+  crmSyncPrivateMessagesTool,
   crmUpdateCompanyTool,
   crmUpdateContactTool,
   crmUpdateDealTool,
@@ -252,6 +257,11 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
   }
   includedTools.push(
     crmAuthStatusTool,
+    crmListPrivateMessagesTool,
+    crmSyncPrivateMessagesTool,
+    crmGetPrivateMessageThreadTool,
+    crmReplyPrivateMessageThreadTool,
+    crmArchivePrivateMessageThreadTool,
     crmListCompaniesTool,
     crmGetCompanyTool,
     crmCreateCompanyTool,

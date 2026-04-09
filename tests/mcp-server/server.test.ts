@@ -13,6 +13,11 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('execute');
     expect(toolNames).toContain('search_docs');
     expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('list_private_messages');
+    expect(toolNames).toContain('sync_private_messages');
+    expect(toolNames).toContain('get_private_message_thread');
+    expect(toolNames).toContain('reply_private_message_thread');
+    expect(toolNames).toContain('archive_private_message_thread');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -77,6 +82,11 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).not.toContain('execute');
     expect(toolNames).not.toContain('search_docs');
     expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('list_private_messages');
+    expect(toolNames).toContain('sync_private_messages');
+    expect(toolNames).toContain('get_private_message_thread');
+    expect(toolNames).toContain('reply_private_message_thread');
+    expect(toolNames).toContain('archive_private_message_thread');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -141,6 +151,11 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('execute');
     expect(instructions).toContain('search_docs');
     expect(instructions).toContain('auth_status');
+    expect(instructions).toContain('list_private_messages');
+    expect(instructions).toContain('sync_private_messages');
+    expect(instructions).toContain('get_private_message_thread');
+    expect(instructions).toContain('reply_private_message_thread');
+    expect(instructions).toContain('archive_private_message_thread');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');
@@ -205,6 +220,11 @@ describe('profile-aware tool selection', () => {
     expect(instructions).not.toContain('execute');
     expect(instructions).not.toContain('search_docs');
     expect(instructions).toContain('auth_status');
+    expect(instructions).toContain('list_private_messages');
+    expect(instructions).toContain('sync_private_messages');
+    expect(instructions).toContain('get_private_message_thread');
+    expect(instructions).toContain('reply_private_message_thread');
+    expect(instructions).toContain('archive_private_message_thread');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');

@@ -106,6 +106,12 @@ const fuse = new Fuse(
   [
     'client.enrich.create',
     'client.score.create',
+    'client.public.accountMessages.bulkActions',
+    'client.public.accountMessages.list',
+    'client.public.accountMessages.sync',
+    'client.public.accountMessages.threads.archive',
+    'client.public.accountMessages.threads.reply',
+    'client.public.accountMessages.threads.retrieve',
     'client.public.orders.bulkCreate',
     'client.public.orders.create',
     'client.public.orders.delete',

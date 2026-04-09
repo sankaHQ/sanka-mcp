@@ -86,6 +86,87 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       "## create\n\n`client.score.create(object_type: string, record_id: string, score_model_id?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/score`\n\nScore Company or Deal Data\n\n### Parameters\n\n- `object_type: string`\n\n- `record_id: string`\n\n- `score_model_id?: string`\n\n### Returns\n\n- `{ data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }; message: string; ctx_id?: string; }`\n\n  - `data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }`\n  - `message: string`\n  - `ctx_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst score = await client.score.create({ object_type: 'object_type', record_id: '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e' });\n\nconsole.log(score);\n```",
   },
   {
+    name: 'list',
+    endpoint: '/v1/public/account-messages',
+    httpMethod: 'get',
+    summary: 'List Account Messages',
+    description: 'List private account-level inbox messages for the authenticated user.',
+    stainlessPath: '(resource) public.accountMessages > (method) list',
+    qualified: 'client.public.accountMessages.list',
+    params: ['status?: string;', "'Accept-Language'?: string;"],
+    response:
+      '{ data: { channels: { id: string; integration_slug: string; display_name: string; thread_count: number; unread_count: number; account_username?: string; status?: string; updated_at?: string; }[]; threads: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; last_message_at?: string; }[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## list\n\n`client.public.accountMessages.list(status?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**get** `/v1/public/account-messages`\n\nList Account Messages\n\n### Parameters\n\n- `status?: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { channels: { id: string; integration_slug: string; display_name: string; thread_count: number; unread_count: number; account_username?: string; status?: string; updated_at?: string; }[]; threads: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; last_message_at?: string; }[]; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.list({ status: 'active' });\n\nconsole.log(response);\n```",
+  },
+  {
+    name: 'sync',
+    endpoint: '/v1/public/account-messages/sync',
+    httpMethod: 'post',
+    summary: 'Sync Account Messages',
+    description: 'Sync private account-level inbox messages for the authenticated user.',
+    stainlessPath: '(resource) public.accountMessages > (method) sync',
+    qualified: 'client.public.accountMessages.sync',
+    params: ['channel_id?: string;', 'status?: string;', "'Accept-Language'?: string;"],
+    response: '{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## sync\n\n`client.public.accountMessages.sync(channel_id?: string, status?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/public/account-messages/sync`\n\nSync Account Messages\n\n### Parameters\n\n- `channel_id?: string`\n\n- `status?: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.sync({ channel_id: 'channel_id' });\n\nconsole.log(response);\n```",
+  },
+  {
+    name: 'bulk_actions',
+    endpoint: '/v1/public/account-messages/bulk-actions',
+    httpMethod: 'post',
+    summary: 'Bulk Update Account Message Threads',
+    description: 'Apply a bulk action to private account-level inbox threads.',
+    stainlessPath: '(resource) public.accountMessages > (method) bulkActions',
+    qualified: 'client.public.accountMessages.bulkActions',
+    params: ['action: string;', 'thread_ids: string[];', 'status?: string;', "'Accept-Language'?: string;"],
+    response: '{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## bulk_actions\n\n`client.public.accountMessages.bulkActions(action: string, thread_ids: string[], status?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/public/account-messages/bulk-actions`\n\nBulk Update Account Message Threads\n\n### Parameters\n\n- `action: string`\n\n- `thread_ids: string[]`\n\n- `status?: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.bulkActions({ action: 'archive', thread_ids: ['thread_id'] });\n\nconsole.log(response);\n```",
+  },
+  {
+    name: 'retrieve',
+    endpoint: '/v1/public/account-messages/threads/{thread_id}',
+    httpMethod: 'get',
+    summary: 'Get Account Message Thread',
+    description: 'Load one private account-level inbox thread, including message history and reply metadata.',
+    stainlessPath: '(resource) public.accountMessages.threads > (method) retrieve',
+    qualified: 'client.public.accountMessages.threads.retrieve',
+    params: ['thread_id: string;', "'Accept-Language'?: string;"],
+    response:
+      '{ data: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; open_in_web_url: string; can_reply: boolean; reply_target?: string; messages: { id: string; body: string; direction: string; sender_label: string; sent_at?: string; status?: string; }[]; last_message_at?: string; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## retrieve\n\n`client.public.accountMessages.threads.retrieve(thread_id: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**get** `/v1/public/account-messages/threads/{thread_id}`\n\nGet Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; open_in_web_url: string; can_reply: boolean; reply_target?: string; messages: object[]; last_message_at?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.retrieve('thread_id');\n\nconsole.log(response);\n```",
+  },
+  {
+    name: 'archive',
+    endpoint: '/v1/public/account-messages/threads/{thread_id}/archive',
+    httpMethod: 'post',
+    summary: 'Archive Account Message Thread',
+    description: 'Archive one private account-level inbox thread.',
+    stainlessPath: '(resource) public.accountMessages.threads > (method) archive',
+    qualified: 'client.public.accountMessages.threads.archive',
+    params: ['thread_id: string;', "'Accept-Language'?: string;"],
+    response: '{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## archive\n\n`client.public.accountMessages.threads.archive(thread_id: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/public/account-messages/threads/{thread_id}/archive`\n\nArchive Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.archive('thread_id');\n\nconsole.log(response);\n```",
+  },
+  {
+    name: 'reply',
+    endpoint: '/v1/public/account-messages/threads/{thread_id}/reply',
+    httpMethod: 'post',
+    summary: 'Reply To Account Message Thread',
+    description: 'Send a reply on one private account-level inbox thread.',
+    stainlessPath: '(resource) public.accountMessages.threads > (method) reply',
+    qualified: 'client.public.accountMessages.threads.reply',
+    params: ['thread_id: string;', 'body: string;', "'Accept-Language'?: string;"],
+    response:
+      '{ data: { thread_id: string; has_unread: boolean; message_id?: string; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/public/account-messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.' });\n\nconsole.log(response);\n```",
+  },
+  {
     name: 'create',
     endpoint: '/v1/public/orders',
     httpMethod: 'post',

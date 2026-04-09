@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/prospect/companies': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Prospect Companies from External Sources */
+    post: operations['api_routers_v1_ai_api_prospect_companies'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/score': {
     parameters: {
       query?: never;
@@ -166,6 +183,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/account-messages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Account Messages */
+    get: operations['api_routers_v1_account_messages_public_api_public_list_account_messages'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-messages/sync': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync Account Messages */
+    post: operations['api_routers_v1_account_messages_public_api_public_sync_account_messages'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-messages/threads/{thread_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Account Message Thread */
+    get: operations['api_routers_v1_account_messages_public_api_public_get_account_message_thread'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-messages/bulk-actions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Update Account Message Threads */
+    post: operations['api_routers_v1_account_messages_public_api_public_mutate_account_message_threads'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-messages/threads/{thread_id}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Account Message Thread */
+    post: operations['api_routers_v1_account_messages_public_api_public_archive_account_message_thread'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-messages/threads/{thread_id}/reply': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reply To Account Message Thread */
+    post: operations['api_routers_v1_account_messages_public_api_public_post_account_message_thread_reply'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/companies': {
     parameters: {
       query?: never;
@@ -213,10 +332,7 @@ export interface paths {
     /** List Deals */
     get: operations['api_routers_v1_cases_public_api_list_public_cases'];
     put?: never;
-    /**
-     * Create Deal
-     * @description Creates or updates a deal in Sanka for the authenticated public channel. Connected integrations such as HubSpot sync separately; this endpoint does not guarantee an immediate downstream write.
-     */
+    /** Create Deal */
     post: operations['api_routers_v1_cases_public_api_create_public_case'];
     delete?: never;
     options?: never;
@@ -250,10 +366,7 @@ export interface paths {
     };
     /** Get Deal */
     get: operations['api_routers_v1_cases_public_api_get_public_case'];
-    /**
-     * Update Deal
-     * @description Updates a deal in Sanka for the authenticated public channel. Connected integrations such as HubSpot sync separately; this endpoint does not guarantee an immediate downstream write.
-     */
+    /** Update Deal */
     put: operations['api_routers_v1_cases_public_api_update_public_case'];
     post?: never;
     /** Delete Deal */
@@ -3175,32 +3288,16 @@ export interface components {
     };
     /** PublicCaseRequest */
     PublicCaseRequest: {
-      /**
-       * Externalid
-       * @description External reference for the upstream system. Uniqueness is scoped to the authenticated public channel.
-       */
+      /** Externalid */
       externalId?: string | null;
       /** Name */
       name?: string | null;
       /** Status */
       status?: string | null;
-      /**
-       * Stage
-       * @description Deal stage internal value. The value must belong to the selected pipeline or the workspace default pipeline.
-       */
-      stage?: string | null;
+      /** Casestatus */
+      caseStatus?: string | null;
       /** Currency */
       currency?: string | null;
-      /**
-       * Value
-       * @description Deal value expressed in the request currency.
-       */
-      value?: number | null;
-      /**
-       * Pipelineid
-       * @description Pipeline identifier to validate and assign the stage against. When omitted, the deal stays on its current pipeline or uses the default workspace pipeline.
-       */
-      pipelineId?: string | null;
       /** Contactid */
       contactId?: string | null;
       /** Contactexternalid */
@@ -3524,6 +3621,101 @@ export interface components {
       errors?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** ProspectCompaniesResponse */
+    ProspectCompaniesResponse: {
+      data: components['schemas']['ProspectCompaniesResponsePayload'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ProspectCompaniesResponsePayload */
+    ProspectCompaniesResponsePayload: {
+      /** Query */
+      query?: string | null;
+      parsed_filters: components['schemas']['ProspectCompaniesFiltersPayload'];
+      /** Results */
+      results?: components['schemas']['ProspectCompanyPayload'][];
+      /** Count */
+      count: number;
+      /** Provider Meta */
+      provider_meta?: {
+        [key: string]: unknown;
+      };
+    };
+    /** ProspectCompanyPayload */
+    ProspectCompanyPayload: {
+      /** Name */
+      name?: string | null;
+      /** Url */
+      url?: string | null;
+      /** Domain */
+      domain?: string | null;
+      /** Industry */
+      industry?: string | null;
+      /** Employee Count */
+      employee_count?: number | null;
+      /** Employee Count Display */
+      employee_count_display?: string | null;
+      /** Address */
+      address?: string | null;
+      /** Email */
+      email?: string | null;
+      /** Phone Number */
+      phone_number?: string | null;
+      /** Linkedin Url */
+      linkedin_url?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Source Urls */
+      source_urls?: string[];
+      /** Sources */
+      sources?: string[];
+      /**
+       * Relevance Score
+       * @default 0
+       */
+      relevance_score: number;
+      /** Match Reasons */
+      match_reasons?: string[];
+      /** Provider Meta */
+      provider_meta?: {
+        [key: string]: unknown;
+      };
+    };
+    /** ProspectCompaniesFiltersPayload */
+    ProspectCompaniesFiltersPayload: {
+      /** Query */
+      query?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Industry */
+      industry?: string | null;
+      /** Min Employee Count */
+      min_employee_count?: number | null;
+      /** Max Employee Count */
+      max_employee_count?: number | null;
+    };
+    /** ProspectCompaniesRequest */
+    ProspectCompaniesRequest: {
+      /** Query */
+      query?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Industry */
+      industry?: string | null;
+      /** Min Employee Count */
+      min_employee_count?: number | null;
+      /** Max Employee Count */
+      max_employee_count?: number | null;
+      /**
+       * Limit
+       * @default 10
+       */
+      limit: number;
+      /** Sources */
+      sources?: string[];
     };
     /** PaymentsErrorResponse */
     PaymentsErrorResponse: {
@@ -4183,15 +4375,6 @@ export interface components {
       status?: string | null;
       /** Case Status */
       case_status?: string | null;
-      /** Stage */
-      stage?: string | null;
-      /** Value */
-      value?: number | null;
-      /**
-       * Pipeline Id
-       * Format: uuid
-       */
-      pipeline_id?: string | null;
       /** Pipeline Name */
       pipeline_name?: string | null;
       /** Pipeline Order */
@@ -4320,6 +4503,234 @@ export interface components {
        */
       updated_at?: string | null;
     };
+    /** AccountMessagesResponse */
+    AccountMessagesResponse: {
+      data: components['schemas']['AccountMessagesData'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountMessagesData */
+    AccountMessagesData: {
+      /** Channels */
+      channels: components['schemas']['AccountMessageChannel'][];
+      /** Threads */
+      threads: components['schemas']['AccountMessageThread'][];
+    };
+    /** AccountMessageThread */
+    AccountMessageThread: {
+      /** Id */
+      id: string;
+      /** Title */
+      title: string;
+      /**
+       * Counterparty
+       * @default
+       */
+      counterparty: string;
+      /**
+       * Preview
+       * @default
+       */
+      preview: string;
+      /**
+       * Last Message At
+       * Format: date-time
+       */
+      last_message_at?: string | null;
+      /** Channel Id */
+      channel_id: string;
+      /**
+       * Channel Label
+       * @default
+       */
+      channel_label: string;
+      /**
+       * Has Unread
+       * @default false
+       */
+      has_unread: boolean;
+      /**
+       * Message Type
+       * @default
+       */
+      message_type: string;
+      /**
+       * Message Count
+       * @default 0
+       */
+      message_count: number;
+    };
+    /** AccountMessageChannel */
+    AccountMessageChannel: {
+      /** Id */
+      id: string;
+      /** Integration Slug */
+      integration_slug: string;
+      /** Display Name */
+      display_name: string;
+      /** Account Username */
+      account_username?: string | null;
+      /** Status */
+      status?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+      /**
+       * Thread Count
+       * @default 0
+       */
+      thread_count: number;
+      /**
+       * Unread Count
+       * @default 0
+       */
+      unread_count: number;
+    };
+    /** AccountMessagesErrorResponse */
+    AccountMessagesErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountMessageThreadReplyResponse */
+    AccountMessageThreadReplyResponse: {
+      data: components['schemas']['AccountMessageThreadReplyData'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountMessageThreadReplyData */
+    AccountMessageThreadReplyData: {
+      /** Thread Id */
+      thread_id: string;
+      /** Message Id */
+      message_id?: string | null;
+      /**
+       * Has Unread
+       * @default false
+       */
+      has_unread: boolean;
+    };
+    /** AccountMessageThreadReplyRequest */
+    AccountMessageThreadReplyRequest: {
+      /** Body */
+      body: string;
+    };
+    /** AccountMessageThreadDetailResponse */
+    AccountMessageThreadDetailResponse: {
+      data: components['schemas']['AccountMessageThreadDetailData'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountMessageThreadDetailData */
+    AccountMessageThreadDetailData: {
+      /** Id */
+      id: string;
+      /** Title */
+      title: string;
+      /**
+       * Counterparty
+       * @default
+       */
+      counterparty: string;
+      /**
+       * Preview
+       * @default
+       */
+      preview: string;
+      /**
+       * Last Message At
+       * Format: date-time
+       */
+      last_message_at?: string | null;
+      /** Channel Id */
+      channel_id: string;
+      /**
+       * Channel Label
+       * @default
+       */
+      channel_label: string;
+      /**
+       * Has Unread
+       * @default false
+       */
+      has_unread: boolean;
+      /**
+       * Message Type
+       * @default
+       */
+      message_type: string;
+      /**
+       * Message Count
+       * @default 0
+       */
+      message_count: number;
+      /**
+       * Open In Web Url
+       * @default
+       */
+      open_in_web_url: string;
+      /**
+       * Can Reply
+       * @default false
+       */
+      can_reply: boolean;
+      /** Reply Target */
+      reply_target?: string | null;
+      /** Messages */
+      messages: components['schemas']['AccountMessageThreadMessage'][];
+    };
+    /** AccountMessageThreadMessage */
+    AccountMessageThreadMessage: {
+      /** Id */
+      id: string;
+      /**
+       * Body
+       * @default
+       */
+      body: string;
+      /**
+       * Sent At
+       * Format: date-time
+       */
+      sent_at?: string | null;
+      /** Status */
+      status?: string | null;
+      /**
+       * Direction
+       * @default
+       */
+      direction: string;
+      /**
+       * Sender Label
+       * @default
+       */
+      sender_label: string;
+    };
+    /** AccountMessageThreadBulkMutationRequest */
+    AccountMessageThreadBulkMutationRequest: {
+      /** Thread Ids */
+      thread_ids: string[];
+      /** Action */
+      action: string;
+      /** Status */
+      status?: string | null;
+    };
+    /** AccountMessageSyncRequest */
+    AccountMessageSyncRequest: {
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Status */
+      status?: string | null;
+    };
     /** AIErrorResponse */
     AIErrorResponse: {
       /** Message */
@@ -4391,6 +4802,84 @@ export interface operations {
       };
       /** @description Not Found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_ai_api_prospect_companies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProspectCompaniesRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProspectCompaniesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
         headers: {
           [name: string]: unknown;
         };
@@ -5461,6 +5950,374 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ContactsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_list_account_messages: {
+    parameters: {
+      query?: {
+        status?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_sync_account_messages: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountMessageSyncRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_get_account_message_thread: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessageThreadDetailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_mutate_account_message_threads: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountMessageThreadBulkMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_archive_account_message_thread: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_messages_public_api_public_post_account_message_thread_reply: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountMessageThreadReplyRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessageThreadReplyResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountMessagesErrorResponse'];
         };
       };
     };

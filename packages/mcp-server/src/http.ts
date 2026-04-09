@@ -34,6 +34,11 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   }
 > = {
   auth_status: { authenticationRequired: true },
+  list_private_messages: { authenticationRequired: true },
+  sync_private_messages: { authenticationRequired: true },
+  get_private_message_thread: { authenticationRequired: true },
+  reply_private_message_thread: { authenticationRequired: true },
+  archive_private_message_thread: { authenticationRequired: true },
   list_companies: { authenticationRequired: true },
   get_company: { authenticationRequired: true },
   create_company: { authenticationRequired: true },

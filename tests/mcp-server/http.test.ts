@@ -262,6 +262,11 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     const text = await response.text();
     expect(text).toContain('"name":"auth_status"');
+    expect(text).toContain('"name":"list_private_messages"');
+    expect(text).toContain('"name":"sync_private_messages"');
+    expect(text).toContain('"name":"get_private_message_thread"');
+    expect(text).toContain('"name":"reply_private_message_thread"');
+    expect(text).toContain('"name":"archive_private_message_thread"');
     expect(text).toContain('"name":"list_companies"');
     expect(text).toContain('"name":"get_company"');
     expect(text).toContain('"name":"create_company"');
@@ -349,6 +354,37 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual({
       error: 'authentication_required',
       error_description: 'Authentication required to use list_companies.',
+    });
+  });
+
+  it('returns an OAuth challenge for reply_private_message_thread when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 17,
+        method: 'tools/call',
+        params: {
+          name: 'reply_private_message_thread',
+          arguments: {
+            thread_id: 'thread-1',
+            body: 'Thanks for the update.',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use reply_private_message_thread.',
     });
   });
 

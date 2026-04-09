@@ -23,6 +23,42 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/score',
   },
   {
+    clientCallName: 'client.public.accountMessages.list',
+    fullyQualifiedName: 'public.accountMessages.list',
+    httpMethod: 'get',
+    httpPath: '/v1/public/account-messages',
+  },
+  {
+    clientCallName: 'client.public.accountMessages.sync',
+    fullyQualifiedName: 'public.accountMessages.sync',
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/sync',
+  },
+  {
+    clientCallName: 'client.public.accountMessages.bulkActions',
+    fullyQualifiedName: 'public.accountMessages.bulkActions',
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/bulk-actions',
+  },
+  {
+    clientCallName: 'client.public.accountMessages.threads.retrieve',
+    fullyQualifiedName: 'public.accountMessages.threads.retrieve',
+    httpMethod: 'get',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}',
+  },
+  {
+    clientCallName: 'client.public.accountMessages.threads.archive',
+    fullyQualifiedName: 'public.accountMessages.threads.archive',
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}/archive',
+  },
+  {
+    clientCallName: 'client.public.accountMessages.threads.reply',
+    fullyQualifiedName: 'public.accountMessages.threads.reply',
+    httpMethod: 'post',
+    httpPath: '/v1/public/account-messages/threads/{thread_id}/reply',
+  },
+  {
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',

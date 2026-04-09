@@ -1,5 +1,6 @@
 import { File } from 'node:buffer';
 import {
+  crmArchivePrivateMessageThreadTool,
   crmCancelCalendarAttendanceTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateCalendarAttendanceTool,
@@ -23,6 +24,7 @@ import {
   crmDeleteTicketTool,
   crmAuthStatusTool,
   crmGetCalendarBootstrapTool,
+  crmGetPrivateMessageThreadTool,
   crmGetCompanyTool,
   crmGetContactTool,
   crmGetDealTool,
@@ -40,12 +42,15 @@ import {
   crmListExpensesTool,
   crmListInvoicesTool,
   crmListOrdersTool,
+  crmListPrivateMessagesTool,
   crmListPropertiesTool,
   crmListTicketPipelinesTool,
   crmListTicketsTool,
   crmProspectCompaniesTool,
+  crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
+  crmSyncPrivateMessagesTool,
   crmUpdateCompanyTool,
   crmUpdateContactTool,
   crmUpdateDealTool,
@@ -76,6 +81,11 @@ const oauthContext = (overrides?: {
 describe('ChatGPT CRM tools', () => {
   it('advertises auth schemes on CRM tools', () => {
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
+    expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmReplyPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmArchivePrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -200,6 +210,292 @@ describe('ChatGPT CRM tools', () => {
       expect.stringContaining('error="invalid_token"'),
     ]);
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('returns reauth metadata when list private messages is called without authentication', async () => {
+    const list = jest.fn();
+
+    const result = await crmListPrivateMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: { list },
+          },
+        } as any,
+        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        toolProfile: 'full',
+      },
+      args: { status: 'active' },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result._meta?.['mcp/www_authenticate']).toEqual([
+      expect.stringContaining('error="invalid_token"'),
+    ]);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it('lists private messages when authentication is present', async () => {
+    const list = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-private-list',
+      data: {
+        channels: [
+          {
+            id: 'channel-1',
+            integration_slug: 'gmail',
+            display_name: 'My Inbox',
+            thread_count: 2,
+            unread_count: 1,
+          },
+        ],
+        threads: [
+          {
+            id: 'thread-1',
+            title: 'Quarterly check-in',
+            counterparty: 'Sarah Chen',
+            preview: 'Checking in',
+            channel_id: 'channel-1',
+            channel_label: 'My Inbox',
+            has_unread: true,
+            message_type: 'email',
+            message_count: 2,
+          },
+        ],
+      },
+    });
+
+    const result = await crmListPrivateMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { status: 'active', language: 'en' },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        status: 'active',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-private-list',
+      channels: [
+        {
+          id: 'channel-1',
+          integration_slug: 'gmail',
+          display_name: 'My Inbox',
+          thread_count: 2,
+          unread_count: 1,
+        },
+      ],
+      threads: [
+        {
+          id: 'thread-1',
+          title: 'Quarterly check-in',
+          counterparty: 'Sarah Chen',
+          preview: 'Checking in',
+          channel_id: 'channel-1',
+          channel_label: 'My Inbox',
+          has_unread: true,
+          message_type: 'email',
+          message_count: 2,
+        },
+      ],
+    });
+  });
+
+  it('syncs private messages when authentication is present', async () => {
+    const sync = jest.fn().mockResolvedValue({
+      message: 'ok',
+      data: {
+        channels: [],
+        threads: [],
+      },
+    });
+
+    const result = await crmSyncPrivateMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: { sync },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { channel_id: 'channel-1', status: 'active', language: 'ja' },
+    });
+
+    expect(sync).toHaveBeenCalledWith(
+      {
+        channel_id: 'channel-1',
+        status: 'active',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('gets one private message thread when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      message: 'ok',
+      data: {
+        id: 'thread-1',
+        title: 'Quarterly check-in',
+        counterparty: 'Sarah Chen',
+        preview: 'Checking in',
+        channel_id: 'channel-1',
+        channel_label: 'My Inbox',
+        has_unread: false,
+        message_type: 'email',
+        message_count: 2,
+        open_in_web_url: 'https://mail.google.com',
+        can_reply: true,
+        reply_target: 'sarah@example.com',
+        messages: [
+          {
+            id: 'message-1',
+            body: 'Hello',
+            direction: 'received',
+            sender_label: 'Sarah Chen',
+          },
+        ],
+      },
+    });
+
+    const result = await crmGetPrivateMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: {
+              threads: { retrieve },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'thread-1', language: 'en' },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'thread-1',
+      {
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: undefined,
+      id: 'thread-1',
+      title: 'Quarterly check-in',
+      counterparty: 'Sarah Chen',
+      preview: 'Checking in',
+      channel_id: 'channel-1',
+      channel_label: 'My Inbox',
+      has_unread: false,
+      message_type: 'email',
+      message_count: 2,
+      open_in_web_url: 'https://mail.google.com',
+      can_reply: true,
+      reply_target: 'sarah@example.com',
+      messages: [
+        {
+          id: 'message-1',
+          body: 'Hello',
+          direction: 'received',
+          sender_label: 'Sarah Chen',
+        },
+      ],
+    });
+  });
+
+  it('replies to a private message thread', async () => {
+    const reply = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-private-reply',
+      data: {
+        thread_id: 'thread-1',
+        message_id: 'message-2',
+        has_unread: false,
+      },
+    });
+
+    const result = await crmReplyPrivateMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'thread-1', body: 'Thanks for the update.', language: 'en' },
+    });
+
+    expect(reply).toHaveBeenCalledWith(
+      'thread-1',
+      {
+        body: 'Thanks for the update.',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-private-reply',
+      thread_id: 'thread-1',
+      message_id: 'message-2',
+      has_unread: false,
+    });
+  });
+
+  it('archives a private message thread', async () => {
+    const archive = jest.fn().mockResolvedValue({
+      message: 'ok',
+      data: {
+        channels: [],
+        threads: [],
+      },
+    });
+
+    const result = await crmArchivePrivateMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: {
+              threads: { archive },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'thread-1', language: 'en' },
+    });
+
+    expect(archive).toHaveBeenCalledWith(
+      'thread-1',
+      {
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
   });
 
   it('lists companies when authentication is present', async () => {
