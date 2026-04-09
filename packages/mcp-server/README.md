@@ -77,6 +77,21 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `update_deal`: update a deal
 - `delete_deal`: delete a deal
 - `list_deal_pipelines`: inspect deal pipelines and stages
+- `list_orders`: read-only order search
+- `get_order`: load a single order
+- `create_order`: create an order
+- `update_order`: update an order
+- `delete_order`: delete an order
+- `list_estimates`: read-only estimate review
+- `get_estimate`: load a single estimate
+- `create_estimate`: create an estimate
+- `update_estimate`: update an estimate
+- `delete_estimate`: delete an estimate
+- `list_invoices`: read-only invoice review
+- `get_invoice`: load a single invoice
+- `create_invoice`: create an invoice
+- `update_invoice`: update an invoice
+- `delete_invoice`: delete an invoice
 - `list_tickets`: read-only ticket search
 - `get_ticket`: load a single ticket
 - `create_ticket`: create a ticket

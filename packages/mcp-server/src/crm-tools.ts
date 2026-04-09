@@ -42,6 +42,40 @@ const LIST_INPUT_SCHEMA = {
   },
 };
 
+type OrderLineItem = {
+  item_id?: string;
+  itemExternalId?: string;
+  price?: number;
+  quantity?: number;
+  tax?: number;
+  tax_rate?: number;
+};
+
+type OrderPayload = {
+  externalId: string;
+  items: OrderLineItem[];
+  companyExternalId?: string;
+  companyId?: string;
+  deliveryStatus?: string;
+  orderAt?: string;
+};
+
+type OrderPayloadDraft = Partial<OrderPayload> & {
+  items?: OrderLineItem[];
+};
+
+type OrderMutationPayload = {
+  order: OrderPayload;
+  createMissingItems?: boolean;
+  triggerWorkflows?: boolean;
+};
+
+type OrderMutationPayloadDraft = {
+  order?: OrderPayloadDraft;
+  createMissingItems?: boolean;
+  triggerWorkflows?: boolean;
+};
+
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
   address: {
     type: 'string',
@@ -857,6 +891,448 @@ const PROPERTY_MUTATION_OUTPUT_SCHEMA = {
     property_id: { type: 'string' },
   },
   required: ['ok', 'status', 'ctx_id', 'object', 'property_id'],
+};
+
+const ORDER_ITEM_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    item_id: {
+      type: 'string',
+      description: 'Existing item id to attach to the order line.',
+    },
+    item_external_id: {
+      type: 'string',
+      description: 'External item reference to attach to the order line.',
+    },
+    price: {
+      type: 'number',
+      description: 'Line price.',
+    },
+    quantity: {
+      type: 'integer',
+      description: 'Line quantity.',
+      minimum: 1,
+    },
+    tax: {
+      type: 'number',
+      description: 'Line tax amount.',
+    },
+    tax_rate: {
+      type: 'number',
+      description: 'Line tax rate.',
+    },
+  },
+};
+
+const ORDER_BODY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    external_id: {
+      type: 'string',
+      description: 'External order reference.',
+    },
+    company_external_id: {
+      type: 'string',
+      description: 'External company reference for the order.',
+    },
+    company_id: {
+      type: 'string',
+      description: 'Company id for the order.',
+    },
+    delivery_status: {
+      type: 'string',
+      description: 'Delivery status.',
+    },
+    order_at: {
+      type: 'string',
+      description: 'Order timestamp in ISO format.',
+    },
+    items: {
+      type: 'array',
+      description: 'Order line items.',
+      items: ORDER_ITEM_INPUT_SCHEMA,
+    },
+  },
+  required: ['external_id', 'items'],
+};
+
+const ORDER_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order: ORDER_BODY_INPUT_SCHEMA,
+    create_missing_items: {
+      type: 'boolean',
+      description: 'When true, create referenced items that do not exist yet.',
+    },
+    trigger_workflows: {
+      type: 'boolean',
+      description: 'When true, trigger follow-on workflows after the order is created.',
+    },
+  },
+  required: ['order'],
+};
+
+const ORDER_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Order identifier to update.',
+    },
+    order: ORDER_BODY_INPUT_SCHEMA,
+    create_missing_items: {
+      type: 'boolean',
+      description: 'When true, create referenced items that do not exist yet.',
+    },
+    trigger_workflows: {
+      type: 'boolean',
+      description: 'When true, trigger follow-on workflows after the order is updated.',
+    },
+  },
+  required: ['order_id', 'order'],
+};
+
+const ORDER_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Order identifier. Accepts a UUID, numeric order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['order_id'],
+};
+
+const ORDER_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Order identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['order_id'],
+};
+
+const ORDER_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    order_at: { type: 'string' },
+    company_id: { type: 'string' },
+    contact_id: { type: 'string' },
+    currency: { type: 'string' },
+    delivery_status: { type: 'string' },
+    number_item: { type: 'integer' },
+    order_id: { type: 'integer' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['id', 'created_at', 'updated_at', 'order_at'],
+};
+
+const ORDER_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    ctx_id: { type: 'string' },
+    job_id: { type: 'string' },
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          external_id: { type: 'string' },
+          status: { type: 'string' },
+          errors: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          order_id: { type: 'string' },
+        },
+        required: ['external_id', 'status'],
+      },
+    },
+  },
+  required: ['ok'],
+};
+
+const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
+  company_external_id: {
+    type: 'string',
+    description: 'External company reference.',
+  },
+  company_id: {
+    type: 'string',
+    description: 'Company id.',
+  },
+  contact_external_id: {
+    type: 'string',
+    description: 'External contact reference.',
+  },
+  contact_id: {
+    type: 'string',
+    description: 'Contact id.',
+  },
+  currency: {
+    type: 'string',
+    description: 'Currency code.',
+  },
+  due_date: {
+    type: 'string',
+    description: 'Due date in ISO format.',
+  },
+  external_id: {
+    type: 'string',
+    description: 'External reference.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Document notes.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Document start date in ISO format.',
+  },
+  status: {
+    type: 'string',
+    description: 'Document status.',
+  },
+  tax_inclusive: {
+    type: 'boolean',
+    description: 'Whether totals are tax inclusive.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Tax option.',
+  },
+  tax_rate: {
+    type: 'number',
+    description: 'Tax rate.',
+  },
+  total_price: {
+    type: 'number',
+    description: 'Total price including tax when applicable.',
+  },
+  total_price_without_tax: {
+    type: 'number',
+    description: 'Total price before tax.',
+  },
+};
+
+const ESTIMATE_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES,
+};
+
+const ESTIMATE_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    estimate_id: {
+      type: 'string',
+      description: 'Estimate identifier to update.',
+    },
+    ...ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['estimate_id'],
+};
+
+const ESTIMATE_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    estimate_id: {
+      type: 'string',
+      description: 'Estimate identifier. Accepts a UUID, numeric estimate id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['estimate_id'],
+};
+
+const ESTIMATE_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    estimate_id: {
+      type: 'string',
+      description: 'Estimate identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['estimate_id'],
+};
+
+const ESTIMATE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of estimates to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const ESTIMATE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    due_date: { type: 'string' },
+    id_est: { type: 'integer' },
+    start_date: { type: 'string' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    estimate_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
+};
+
+const INVOICE_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES,
+};
+
+const INVOICE_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier to update.',
+    },
+    ...ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['invoice_id'],
+};
+
+const INVOICE_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['invoice_id'],
+};
+
+const INVOICE_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier to delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+  },
+  required: ['invoice_id'],
+};
+
+const INVOICE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of invoices to return from the fetched list.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const INVOICE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    company_name: { type: 'string' },
+    contact_name: { type: 'string' },
+    currency: { type: 'string' },
+    due_date: { type: 'string' },
+    id_inv: { type: 'integer' },
+    start_date: { type: 'string' },
+    status: { type: 'string' },
+    total_price: { type: 'number' },
+    total_price_without_tax: { type: 'number' },
+  },
+  required: ['created_at', 'updated_at'],
+};
+
+const INVOICE_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    external_id: { type: 'string' },
+    invoice_id: { type: 'string' },
+  },
+  required: ['ok', 'status'],
 };
 
 const TICKET_LIST_INPUT_SCHEMA = {
@@ -1738,6 +2214,190 @@ const buildDealDetailSummary = (deal: Record<string, unknown>): string => {
     return `Loaded deal "${name}".`;
   }
   return `Loaded deal ${readString(deal['id']) ?? ''}.`.trim();
+};
+
+const buildOrderLineItem = (value: unknown): OrderLineItem | null => {
+  const record = readRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const item: OrderLineItem = {};
+  assignStringFields(item, record, ['item_id']);
+
+  const itemExternalID = readString(record['item_external_id']);
+  if (itemExternalID) {
+    item['itemExternalId'] = itemExternalID;
+  }
+
+  for (const key of ['price', 'tax', 'tax_rate'] as const) {
+    const numericValue = record[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      item[key] = numericValue;
+    }
+  }
+
+  const quantity = record['quantity'];
+  if (typeof quantity === 'number' && Number.isInteger(quantity)) {
+    item['quantity'] = quantity;
+  }
+
+  return Object.keys(item).length > 0 ? item : null;
+};
+
+const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
+  const record = readRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const order: OrderPayloadDraft = {};
+  const externalID = readString(record['external_id']);
+  const companyExternalID = readString(record['company_external_id']);
+  const companyID = readString(record['company_id']);
+  const deliveryStatus = readString(record['delivery_status']);
+  const orderAt = readString(record['order_at']);
+
+  if (externalID) {
+    order.externalId = externalID;
+  }
+  if (companyExternalID) {
+    order.companyExternalId = companyExternalID;
+  }
+  if (companyID) {
+    order.companyId = companyID;
+  }
+  if (deliveryStatus) {
+    order.deliveryStatus = deliveryStatus;
+  }
+  if (orderAt) {
+    order.orderAt = orderAt;
+  }
+
+  if (Array.isArray(record['items'])) {
+    const items = record['items']
+      .map((item) => buildOrderLineItem(item))
+      .filter((item): item is OrderLineItem => Boolean(item));
+    if (items.length > 0) {
+      order.items = items;
+    }
+  }
+
+  return Object.keys(order).length > 0 ? order : undefined;
+};
+
+const buildOrderMutationBody = (args: Record<string, unknown> | undefined): OrderMutationPayloadDraft => {
+  const body: OrderMutationPayloadDraft = {};
+  const order = buildOrderBodyEntry(args?.['order']);
+  if (order) {
+    body.order = order;
+  }
+
+  const createMissingItems = readBoolean(args?.['create_missing_items']);
+  const triggerWorkflows = readBoolean(args?.['trigger_workflows']);
+
+  if (createMissingItems !== undefined) {
+    body.createMissingItems = createMissingItems;
+  }
+  if (triggerWorkflows !== undefined) {
+    body.triggerWorkflows = triggerWorkflows;
+  }
+
+  return body;
+};
+
+const buildOrderRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const orderID = readString(args?.['order_id']);
+  const externalID = readString(args?.['external_id']);
+
+  return {
+    orderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+    },
+  };
+};
+
+const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'created' | 'updated') => {
+  const results = Array.isArray(payload['results']) ? payload['results'] : [];
+  const firstResult = readRecord(results[0]);
+  const reference =
+    readString(firstResult?.['external_id']) ||
+    readString(firstResult?.['order_id']) ||
+    readString(payload['job_id']) ||
+    'order';
+
+  return `Order ${action}: ${reference}.`;
+};
+
+const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'company_external_id',
+    'company_id',
+    'contact_external_id',
+    'contact_id',
+    'currency',
+    'due_date',
+    'external_id',
+    'notes',
+    'start_date',
+    'status',
+    'tax_option',
+  ]);
+  assignBooleanFields(body, args, ['tax_inclusive']);
+
+  for (const key of ['tax_rate', 'total_price', 'total_price_without_tax'] as const) {
+    const numericValue = args?.[key];
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+      body[key] = numericValue;
+    }
+  }
+
+  return body;
+};
+
+const buildEstimateInvoiceListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildEstimateRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const estimateID = readString(args?.['estimate_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    estimateID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildInvoiceRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const invoiceID = readString(args?.['invoice_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    invoiceID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
 };
 
 const buildTicketListParams = (args: Record<string, unknown> | undefined) => {
@@ -3323,6 +3983,874 @@ export const crmDeleteDealTool: McpTool = {
             action: 'deleted',
             payload: response,
             idKeys: ['case_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListOrdersTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'read',
+    tags: ['crm', 'orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/orders',
+    operationId: 'public.orders.list',
+  },
+  tool: {
+    name: 'list_orders',
+    title: 'List orders',
+    description: 'Search and review orders in Sanka.',
+    inputSchema: LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List orders',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List orders',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = await reqContext.client.public.orders.list(buildListParams(args), undefined);
+
+    return buildListResult({
+      label: 'orders',
+      payload,
+      previewKeys: ['id', 'order_id'],
+    });
+  },
+};
+
+export const crmGetOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'read',
+    tags: ['crm', 'orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/orders/{order_id}',
+    operationId: 'public.orders.retrieve',
+  },
+  tool: {
+    name: 'get_order',
+    title: 'Get order',
+    description: 'Load one order from Sanka by order id, numeric id, or external reference.',
+    inputSchema: ORDER_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: ORDER_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get order',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const order = (await reqContext.client.public.orders.retrieve(
+      orderID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'order',
+            payload: order,
+            previewKeys: ['order_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: order,
+    };
+  },
+};
+
+export const crmCreateOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/orders',
+    operationId: 'public.orders.create',
+  },
+  tool: {
+    name: 'create_order',
+    title: 'Create order',
+    description:
+      'Create an order in Sanka. Provide the nested `order` payload with line items and optional workflow flags.',
+    inputSchema: ORDER_CREATE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildOrderMutationBody(args);
+    if (!body.order?.externalId) {
+      return asErrorResult('`order.external_id` is required.');
+    }
+    if (!body.order.items?.length) {
+      return asErrorResult('`order.items` must contain at least one line item.');
+    }
+
+    const payload: OrderMutationPayload = {
+      order: {
+        externalId: body.order.externalId,
+        items: body.order.items,
+        ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
+        ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
+        ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
+        ...(body.order.orderAt ? { orderAt: body.order.orderAt } : {}),
+      },
+      ...(body.createMissingItems !== undefined ? { createMissingItems: body.createMissingItems } : {}),
+      ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
+    };
+
+    const response = (await reqContext.client.public.orders.create(payload, undefined)) as unknown as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      content: [{ type: 'text', text: buildOrderMutationSummary(response, 'created') }],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/orders/{order_id}',
+    operationId: 'public.orders.update',
+  },
+  tool: {
+    name: 'update_order',
+    title: 'Update order',
+    description: 'Update an existing order in Sanka.',
+    inputSchema: ORDER_UPDATE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const orderID = readString(args?.['order_id']);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const body = buildOrderMutationBody(args);
+    if (!body.order?.externalId) {
+      return asErrorResult('`order.external_id` is required.');
+    }
+    if (!body.order.items?.length) {
+      return asErrorResult('`order.items` must contain at least one line item.');
+    }
+
+    const payload: OrderMutationPayload = {
+      order: {
+        externalId: body.order.externalId,
+        items: body.order.items,
+        ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
+        ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
+        ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
+        ...(body.order.orderAt ? { orderAt: body.order.orderAt } : {}),
+      },
+      ...(body.createMissingItems !== undefined ? { createMissingItems: body.createMissingItems } : {}),
+      ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
+    };
+
+    const response = (await reqContext.client.public.orders.update(
+      orderID,
+      payload,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildOrderMutationSummary(response, 'updated') }],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/orders/{order_id}',
+    operationId: 'public.orders.delete',
+  },
+  tool: {
+    name: 'delete_order',
+    title: 'Delete order',
+    description: 'Delete an order in Sanka by order id, numeric id, or external reference.',
+    inputSchema: ORDER_DELETE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete order',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.orders.delete(
+      orderID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Order',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListEstimatesTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'read',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/estimates',
+    operationId: 'public.estimates.list',
+  },
+  tool: {
+    name: 'list_estimates',
+    title: 'List estimates',
+    description: 'Review estimates in Sanka.',
+    inputSchema: ESTIMATE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List estimates',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List estimates',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildEstimateInvoiceListParams(args);
+    const estimates = await reqContext.client.public.estimates.list(params, undefined);
+    const results = estimates
+      .slice(0, limit)
+      .map((estimate) => estimate as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'estimates',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${estimates.length} estimates.`,
+        page: 1,
+        total: estimates.length,
+      },
+      previewKeys: ['id_est', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetEstimateTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'read',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/estimates/{estimate_id}',
+    operationId: 'public.estimates.retrieve',
+  },
+  tool: {
+    name: 'get_estimate',
+    title: 'Get estimate',
+    description: 'Load one estimate from Sanka by estimate id, numeric id, or external reference.',
+    inputSchema: ESTIMATE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: ESTIMATE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get estimate',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get estimate',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { estimateID, params } = buildEstimateRetrieveParams(args);
+    if (!estimateID) {
+      return asErrorResult('`estimate_id` is required.');
+    }
+
+    const estimate = (await reqContext.client.public.estimates.retrieve(
+      estimateID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'estimate',
+            payload: estimate,
+            previewKeys: ['id_est', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: estimate,
+    };
+  },
+};
+
+export const crmCreateEstimateTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'write',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/estimates',
+    operationId: 'public.estimates.create',
+  },
+  tool: {
+    name: 'create_estimate',
+    title: 'Create estimate',
+    description: 'Create an estimate in Sanka.',
+    inputSchema: ESTIMATE_CREATE_INPUT_SCHEMA,
+    outputSchema: ESTIMATE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create estimate',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create estimate',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.estimates.create(
+      buildFinancialDocumentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Estimate',
+            action: 'created',
+            payload: response,
+            idKeys: ['estimate_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateEstimateTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'write',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/estimates/{estimate_id}',
+    operationId: 'public.estimates.update',
+  },
+  tool: {
+    name: 'update_estimate',
+    title: 'Update estimate',
+    description: 'Update an existing estimate in Sanka.',
+    inputSchema: ESTIMATE_UPDATE_INPUT_SCHEMA,
+    outputSchema: ESTIMATE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update estimate',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update estimate',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const estimateID = readString(args?.['estimate_id']);
+    if (!estimateID) {
+      return asErrorResult('`estimate_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.estimates.update(
+      estimateID,
+      buildFinancialDocumentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Estimate',
+            action: 'updated',
+            payload: response,
+            idKeys: ['estimate_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteEstimateTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'write',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/estimates/{estimate_id}',
+    operationId: 'public.estimates.delete',
+  },
+  tool: {
+    name: 'delete_estimate',
+    title: 'Delete estimate',
+    description: 'Delete an estimate in Sanka by estimate id or external reference.',
+    inputSchema: ESTIMATE_DELETE_INPUT_SCHEMA,
+    outputSchema: ESTIMATE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete estimate',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete estimate',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const estimateID = readString(args?.['estimate_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!estimateID) {
+      return asErrorResult('`estimate_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.estimates.delete(
+      estimateID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Estimate',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['estimate_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListInvoicesTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'read',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices',
+    operationId: 'public.invoices.list',
+  },
+  tool: {
+    name: 'list_invoices',
+    title: 'List invoices',
+    description: 'Review invoices in Sanka.',
+    inputSchema: INVOICE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List invoices',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List invoices',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildEstimateInvoiceListParams(args);
+    const invoices = await reqContext.client.public.invoices.list(params, undefined);
+    const results = invoices.slice(0, limit).map((invoice) => invoice as unknown as Record<string, unknown>);
+
+    return buildListResult({
+      label: 'invoices',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${invoices.length} invoices.`,
+        page: 1,
+        total: invoices.length,
+      },
+      previewKeys: ['id_inv', 'company_name', 'contact_name'],
+    });
+  },
+};
+
+export const crmGetInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'read',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/invoices/{invoice_id}',
+    operationId: 'public.invoices.retrieve',
+  },
+  tool: {
+    name: 'get_invoice',
+    title: 'Get invoice',
+    description: 'Load one invoice from Sanka by invoice id, numeric id, or external reference.',
+    inputSchema: INVOICE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: INVOICE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get invoice',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const invoice = (await reqContext.client.public.invoices.retrieve(
+      invoiceID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'invoice',
+            payload: invoice,
+            previewKeys: ['id_inv', 'company_name', 'contact_name'],
+          }),
+        },
+      ],
+      structuredContent: invoice,
+    };
+  },
+};
+
+export const crmCreateInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/invoices',
+    operationId: 'public.invoices.create',
+  },
+  tool: {
+    name: 'create_invoice',
+    title: 'Create invoice',
+    description: 'Create an invoice in Sanka.',
+    inputSchema: INVOICE_CREATE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create invoice',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = (await reqContext.client.public.invoices.create(
+      buildFinancialDocumentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Invoice',
+            action: 'created',
+            payload: response,
+            idKeys: ['invoice_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/invoices/{invoice_id}',
+    operationId: 'public.invoices.update',
+  },
+  tool: {
+    name: 'update_invoice',
+    title: 'Update invoice',
+    description: 'Update an existing invoice in Sanka.',
+    inputSchema: INVOICE_UPDATE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update invoice',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const invoiceID = readString(args?.['invoice_id']);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.invoices.update(
+      invoiceID,
+      buildFinancialDocumentMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Invoice',
+            action: 'updated',
+            payload: response,
+            idKeys: ['invoice_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/invoices/{invoice_id}',
+    operationId: 'public.invoices.delete',
+  },
+  tool: {
+    name: 'delete_invoice',
+    title: 'Delete invoice',
+    description: 'Delete an invoice in Sanka by invoice id or external reference.',
+    inputSchema: INVOICE_DELETE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete invoice',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const invoiceID = readString(args?.['invoice_id']);
+    const externalID = readString(args?.['external_id']);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.invoices.delete(
+      invoiceID,
+      externalID ? { external_id: externalID } : {},
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Invoice',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['invoice_id'],
           }),
         },
       ],

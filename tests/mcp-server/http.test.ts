@@ -301,6 +301,21 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_calendar_attendance"');
     expect(text).toContain('"name":"cancel_calendar_attendance"');
     expect(text).toContain('"name":"reschedule_calendar_attendance"');
+    expect(text).toContain('"name":"list_orders"');
+    expect(text).toContain('"name":"get_order"');
+    expect(text).toContain('"name":"create_order"');
+    expect(text).toContain('"name":"update_order"');
+    expect(text).toContain('"name":"delete_order"');
+    expect(text).toContain('"name":"list_estimates"');
+    expect(text).toContain('"name":"get_estimate"');
+    expect(text).toContain('"name":"create_estimate"');
+    expect(text).toContain('"name":"update_estimate"');
+    expect(text).toContain('"name":"delete_estimate"');
+    expect(text).toContain('"name":"list_invoices"');
+    expect(text).toContain('"name":"get_invoice"');
+    expect(text).toContain('"name":"create_invoice"');
+    expect(text).toContain('"name":"update_invoice"');
+    expect(text).toContain('"name":"delete_invoice"');
     expect(text).toContain('"name":"prospect_companies"');
     expect(text).toContain('"name":"score_record"');
     expect(text).not.toContain('"name":"execute"');
@@ -518,7 +533,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+  it('returns an OAuth challenge for create_order when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -528,6 +543,106 @@ describe('protected resource metadata route', () => {
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 13,
+        method: 'tools/call',
+        params: {
+          name: 'create_order',
+          arguments: {
+            order: {
+              external_id: 'ORDER-1',
+              items: [
+                {
+                  item_id: 'item-1',
+                  quantity: 2,
+                },
+              ],
+            },
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_order.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_estimate when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 14,
+        method: 'tools/call',
+        params: {
+          name: 'create_estimate',
+          arguments: {
+            external_id: 'EST-1',
+            company_id: 'company-1',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_estimate.',
+    });
+  });
+
+  it('returns an OAuth challenge for create_invoice when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 15,
+        method: 'tools/call',
+        params: {
+          name: 'create_invoice',
+          arguments: {
+            external_id: 'INV-1',
+            company_id: 'company-1',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_invoice.',
+    });
+  });
+
+  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 16,
         method: 'tools/call',
         params: {
           name: 'score_record',
