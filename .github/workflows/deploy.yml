@@ -1,9 +1,9 @@
 name: Deploy
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 concurrency:
@@ -14,10 +14,32 @@ jobs:
   deploy:
     name: deploy
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mcp.sanka.com/mcp
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        if: github.event_name != 'release'
+
+      - uses: actions/checkout@v6
+        if: github.event_name == 'release'
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name }}
+
+      - name: Ensure release tag points to main history
+        if: github.event_name == 'release'
+        run: |
+          git fetch origin main --depth=1
+          tag_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          if ! git merge-base --is-ancestor "$tag_sha" "$main_sha"; then
+            echo "Production release tag must point to a commit on main history."
+            echo "tag_sha=$tag_sha"
+            echo "main_sha=$main_sha"
+            exit 1
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@v4

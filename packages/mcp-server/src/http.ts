@@ -26,6 +26,21 @@ const OAUTH_REGISTER_PATH = '/oauth/register';
 const OAUTH_REVOKE_PATH = '/oauth/revoke';
 const OAUTH_JWKS_PATH = '/oauth/jwks.json';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
+const AUTHORIZATION_METADATA_PATHS = [
+  DEFAULT_AUTHORIZATION_METADATA_PATH,
+  `${DEFAULT_AUTHORIZATION_METADATA_PATH}${DEFAULT_STREAMABLE_PATH}`,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_AUTHORIZATION_METADATA_PATH}`,
+];
+const OPENID_CONFIGURATION_PATHS = [
+  DEFAULT_OPENID_CONFIGURATION_PATH,
+  `${DEFAULT_OPENID_CONFIGURATION_PATH}${DEFAULT_STREAMABLE_PATH}`,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_OPENID_CONFIGURATION_PATH}`,
+];
+const PROTECTED_RESOURCE_METADATA_PATHS = [
+  DEFAULT_METADATA_PATH,
+  DEFAULT_METADATA_ALIAS_PATH,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_METADATA_PATH}`,
+];
 const TOOL_ACCESS_REQUIREMENTS: Record<
   string,
   {
@@ -45,6 +60,10 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   create_company: { authenticationRequired: true },
   update_company: { authenticationRequired: true },
   delete_company: { authenticationRequired: true },
+  get_company_price_table: { authenticationRequired: true },
+  update_company_price_table_company: { authenticationRequired: true },
+  update_company_price_table_item: { authenticationRequired: true },
+  apply_company_price_table_items: { authenticationRequired: true },
   list_contacts: { authenticationRequired: true },
   get_contact: { authenticationRequired: true },
   create_contact: { authenticationRequired: true },
@@ -56,21 +75,47 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   update_deal: { authenticationRequired: true },
   delete_deal: { authenticationRequired: true },
   list_deal_pipelines: { authenticationRequired: true },
+  list_items: { authenticationRequired: true },
+  get_item: { authenticationRequired: true },
+  create_item: { authenticationRequired: true },
+  update_item: { authenticationRequired: true },
+  delete_item: { authenticationRequired: true },
   list_orders: { authenticationRequired: true },
   get_order: { authenticationRequired: true },
+  download_order_pdf: { authenticationRequired: true },
   create_order: { authenticationRequired: true },
   update_order: { authenticationRequired: true },
   delete_order: { authenticationRequired: true },
+  list_tasks: { authenticationRequired: true },
+  get_task: { authenticationRequired: true },
+  create_task: { authenticationRequired: true },
+  update_task: { authenticationRequired: true },
+  delete_task: { authenticationRequired: true },
   list_estimates: { authenticationRequired: true },
   get_estimate: { authenticationRequired: true },
+  download_estimate_pdf: { authenticationRequired: true },
   create_estimate: { authenticationRequired: true },
   update_estimate: { authenticationRequired: true },
   delete_estimate: { authenticationRequired: true },
   list_invoices: { authenticationRequired: true },
+  list_overdue_invoices: { authenticationRequired: true },
   get_invoice: { authenticationRequired: true },
+  download_invoice_pdf: { authenticationRequired: true },
   create_invoice: { authenticationRequired: true },
   update_invoice: { authenticationRequired: true },
   delete_invoice: { authenticationRequired: true },
+  list_subscriptions: { authenticationRequired: true },
+  get_subscription: { authenticationRequired: true },
+  create_subscription: { authenticationRequired: true },
+  update_subscription: { authenticationRequired: true },
+  delete_subscription: { authenticationRequired: true },
+  list_payments: { authenticationRequired: true },
+  get_payment: { authenticationRequired: true },
+  create_payment: { authenticationRequired: true },
+  update_payment: { authenticationRequired: true },
+  delete_payment: { authenticationRequired: true },
+  download_payment_pdf: { authenticationRequired: true },
+  download_slip_pdf: { authenticationRequired: true },
   list_tickets: { authenticationRequired: true },
   get_ticket: { authenticationRequired: true },
   create_ticket: { authenticationRequired: true },
@@ -78,6 +123,21 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   delete_ticket: { authenticationRequired: true },
   list_ticket_pipelines: { authenticationRequired: true },
   update_ticket_status: { authenticationRequired: true },
+  list_locations: { authenticationRequired: true },
+  get_location: { authenticationRequired: true },
+  create_location: { authenticationRequired: true },
+  update_location: { authenticationRequired: true },
+  delete_location: { authenticationRequired: true },
+  list_inventories: { authenticationRequired: true },
+  get_inventory: { authenticationRequired: true },
+  create_inventory: { authenticationRequired: true },
+  update_inventory: { authenticationRequired: true },
+  delete_inventory: { authenticationRequired: true },
+  list_inventory_transactions: { authenticationRequired: true },
+  get_inventory_transaction: { authenticationRequired: true },
+  create_inventory_transaction: { authenticationRequired: true },
+  update_inventory_transaction: { authenticationRequired: true },
+  delete_inventory_transaction: { authenticationRequired: true },
   list_expenses: { authenticationRequired: true },
   get_expense: { authenticationRequired: true },
   upload_expense_attachment: { authenticationRequired: true },
@@ -96,6 +156,16 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   reschedule_calendar_attendance: { authenticationRequired: true },
   prospect_companies: { authenticationRequired: true },
   score_record: { authenticationRequired: true },
+  upload_import_file: { authenticationRequired: true },
+  import_records: { authenticationRequired: true },
+  get_import_job: { authenticationRequired: true },
+  list_import_jobs: { authenticationRequired: true },
+  cancel_import_job: { authenticationRequired: true },
+  list_integration_channels: { authenticationRequired: true },
+  export_records: { authenticationRequired: true },
+  get_export_job: { authenticationRequired: true },
+  list_export_jobs: { authenticationRequired: true },
+  cancel_export_job: { authenticationRequired: true },
 };
 
 const createRequestTransport = async ({
@@ -518,10 +588,15 @@ export const streamableHTTPApp = ({
       }),
     );
   };
-  app.get(DEFAULT_AUTHORIZATION_METADATA_PATH, sendAuthorizationServerMetadata);
-  app.get(DEFAULT_OPENID_CONFIGURATION_PATH, sendAuthorizationServerMetadata);
-  app.get(DEFAULT_METADATA_PATH, sendProtectedResourceMetadata);
-  app.get(DEFAULT_METADATA_ALIAS_PATH, sendProtectedResourceMetadata);
+  for (const routePath of AUTHORIZATION_METADATA_PATHS) {
+    app.get(routePath, sendAuthorizationServerMetadata);
+  }
+  for (const routePath of OPENID_CONFIGURATION_PATHS) {
+    app.get(routePath, sendAuthorizationServerMetadata);
+  }
+  for (const routePath of PROTECTED_RESOURCE_METADATA_PATHS) {
+    app.get(routePath, sendProtectedResourceMetadata);
+  }
   app.get(OAUTH_AUTHORIZE_PATH, (req: express.Request, res: express.Response) => {
     const upstreamUrl = new URL(req.originalUrl, upstreamAuthorizationServerUrl(mcpOptions));
     res.redirect(302, upstreamUrl.toString());

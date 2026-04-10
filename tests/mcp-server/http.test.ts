@@ -94,6 +94,78 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('serves the same authorization metadata from resource-specific alias paths', async () => {
+    const suffixResponse = await fetch(`${baseUrl}/.well-known/oauth-authorization-server/mcp`);
+    const suffixBody = await suffixResponse.json();
+
+    expect(suffixResponse.status).toBe(200);
+    expect(suffixBody).toEqual({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+      jwks_uri: `${baseUrl}/oauth/jwks.json`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      revocation_endpoint_auth_methods_supported: ['none'],
+      code_challenge_methods_supported: ['S256'],
+      client_id_metadata_document_supported: false,
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+
+    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/oauth-authorization-server`);
+    const prefixedBody = await prefixedResponse.json();
+
+    expect(prefixedResponse.status).toBe(200);
+    expect(prefixedBody).toEqual(suffixBody);
+  });
+
+  it('serves the same OpenID configuration from resource-specific alias paths', async () => {
+    const suffixResponse = await fetch(`${baseUrl}/.well-known/openid-configuration/mcp`);
+    const suffixBody = await suffixResponse.json();
+
+    expect(suffixResponse.status).toBe(200);
+    expect(suffixBody).toEqual({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+      jwks_uri: `${baseUrl}/oauth/jwks.json`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      revocation_endpoint_auth_methods_supported: ['none'],
+      code_challenge_methods_supported: ['S256'],
+      client_id_metadata_document_supported: false,
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+
+    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/openid-configuration`);
+    const prefixedBody = await prefixedResponse.json();
+
+    expect(prefixedResponse.status).toBe(200);
+    expect(prefixedBody).toEqual(suffixBody);
+  });
+
+  it('serves protected resource metadata from the /mcp-prefixed alias path', async () => {
+    const response = await fetch(`${baseUrl}/mcp/.well-known/oauth-protected-resource`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      resource: `${baseUrl}/mcp`,
+      authorization_servers: [baseUrl],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Sanka MCP Server',
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+  });
+
   it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -273,6 +345,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_company"');
     expect(text).toContain('"name":"update_company"');
     expect(text).toContain('"name":"delete_company"');
+    expect(text).toContain('"name":"get_company_price_table"');
+    expect(text).toContain('"name":"update_company_price_table_company"');
+    expect(text).toContain('"name":"update_company_price_table_item"');
+    expect(text).toContain('"name":"apply_company_price_table_items"');
     expect(text).toContain('"name":"list_contacts"');
     expect(text).toContain('"name":"get_contact"');
     expect(text).toContain('"name":"create_contact"');
@@ -284,6 +360,11 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"update_deal"');
     expect(text).toContain('"name":"delete_deal"');
     expect(text).toContain('"name":"list_deal_pipelines"');
+    expect(text).toContain('"name":"list_items"');
+    expect(text).toContain('"name":"get_item"');
+    expect(text).toContain('"name":"create_item"');
+    expect(text).toContain('"name":"update_item"');
+    expect(text).toContain('"name":"delete_item"');
     expect(text).toContain('"name":"list_tickets"');
     expect(text).toContain('"name":"get_ticket"');
     expect(text).toContain('"name":"create_ticket"');
@@ -294,6 +375,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"list_expenses"');
     expect(text).toContain('"name":"get_expense"');
     expect(text).toContain('"name":"upload_expense_attachment"');
+    expect(text).toContain('"name":"upload_import_file"');
+    expect(text).toContain('"name":"import_records"');
+    expect(text).toContain('"name":"list_integration_channels"');
+    expect(text).toContain('"name":"export_records"');
     expect(text).toContain('"name":"create_expense"');
     expect(text).toContain('"name":"update_expense"');
     expect(text).toContain('"name":"delete_expense"');
@@ -312,18 +397,66 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_order"');
     expect(text).toContain('"name":"update_order"');
     expect(text).toContain('"name":"delete_order"');
+    expect(text).toContain('"name":"list_purchase_orders"');
+    expect(text).toContain('"name":"get_purchase_order"');
+    expect(text).toContain('"name":"create_purchase_order"');
+    expect(text).toContain('"name":"update_purchase_order"');
+    expect(text).toContain('"name":"delete_purchase_order"');
     expect(text).toContain('"name":"list_estimates"');
     expect(text).toContain('"name":"get_estimate"');
     expect(text).toContain('"name":"create_estimate"');
     expect(text).toContain('"name":"update_estimate"');
     expect(text).toContain('"name":"delete_estimate"');
     expect(text).toContain('"name":"list_invoices"');
+    expect(text).toContain('"name":"list_overdue_invoices"');
     expect(text).toContain('"name":"get_invoice"');
     expect(text).toContain('"name":"create_invoice"');
     expect(text).toContain('"name":"update_invoice"');
     expect(text).toContain('"name":"delete_invoice"');
+    expect(text).toContain('"name":"list_subscriptions"');
+    expect(text).toContain('"name":"get_subscription"');
+    expect(text).toContain('"name":"create_subscription"');
+    expect(text).toContain('"name":"update_subscription"');
+    expect(text).toContain('"name":"delete_subscription"');
+    expect(text).toContain('"name":"list_payments"');
+    expect(text).toContain('"name":"get_payment"');
+    expect(text).toContain('"name":"create_payment"');
+    expect(text).toContain('"name":"update_payment"');
+    expect(text).toContain('"name":"delete_payment"');
+    expect(text).toContain('"name":"list_slips"');
+    expect(text).toContain('"name":"get_slip"');
+    expect(text).toContain('"name":"create_slip"');
+    expect(text).toContain('"name":"update_slip"');
+    expect(text).toContain('"name":"delete_slip"');
+    expect(text).toContain('"name":"list_bills"');
+    expect(text).toContain('"name":"get_bill"');
+    expect(text).toContain('"name":"create_bill"');
+    expect(text).toContain('"name":"update_bill"');
+    expect(text).toContain('"name":"delete_bill"');
+    expect(text).toContain('"name":"list_disbursements"');
+    expect(text).toContain('"name":"get_disbursement"');
+    expect(text).toContain('"name":"create_disbursement"');
+    expect(text).toContain('"name":"update_disbursement"');
+    expect(text).toContain('"name":"delete_disbursement"');
+    expect(text).toContain('"name":"list_locations"');
+    expect(text).toContain('"name":"get_location"');
+    expect(text).toContain('"name":"create_location"');
+    expect(text).toContain('"name":"update_location"');
+    expect(text).toContain('"name":"delete_location"');
+    expect(text).toContain('"name":"list_inventories"');
+    expect(text).toContain('"name":"get_inventory"');
+    expect(text).toContain('"name":"create_inventory"');
+    expect(text).toContain('"name":"update_inventory"');
+    expect(text).toContain('"name":"delete_inventory"');
+    expect(text).toContain('"name":"list_inventory_transactions"');
+    expect(text).toContain('"name":"get_inventory_transaction"');
+    expect(text).toContain('"name":"create_inventory_transaction"');
+    expect(text).toContain('"name":"update_inventory_transaction"');
+    expect(text).toContain('"name":"delete_inventory_transaction"');
     expect(text).toContain('"name":"prospect_companies"');
     expect(text).toContain('"name":"score_record"');
+    expect(text).toContain('"name":"generate_demo_workspace"');
+    expect(text).toContain('"name":"push_integration_sync"');
     expect(text).not.toContain('"name":"execute"');
     expect(text).not.toContain('"name":"search_docs"');
   });
@@ -536,6 +669,37 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('returns an OAuth challenge for get_company_price_table when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10.5,
+        method: 'tools/call',
+        params: {
+          name: 'get_company_price_table',
+          arguments: {
+            company_id: 'company-1',
+            search: 'Widget',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use get_company_price_table.',
+    });
+  });
+
   it('returns an OAuth challenge for create_ticket when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -700,7 +864,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+  it('returns an OAuth challenge for create_payment when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -710,6 +874,37 @@ describe('protected resource metadata route', () => {
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 16,
+        method: 'tools/call',
+        params: {
+          name: 'create_payment',
+          arguments: {
+            external_id: 'PAY-1',
+            company_id: 'company-1',
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
+    expect(body).toEqual({
+      error: 'authentication_required',
+      error_description: 'Authentication required to use create_payment.',
+    });
+  });
+
+  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 17,
         method: 'tools/call',
         params: {
           name: 'score_record',

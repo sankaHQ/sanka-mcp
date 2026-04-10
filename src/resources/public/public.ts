@@ -43,6 +43,14 @@ import {
   CompanyDeleteParams,
   CompanyListParams,
   CompanyListResponse,
+  CompanyPriceTableApplyAllParams,
+  CompanyPriceTableCompanyUpdateParams,
+  CompanyPriceTableItem,
+  CompanyPriceTableItemUpdateParams,
+  CompanyPriceTableMutationResponse,
+  CompanyPriceTablePagination,
+  CompanyPriceTableQueryParams,
+  CompanyPriceTableResponse,
   CompanyRetrieveParams,
   CompanyRetrieveResponse,
   CompanyUpdateParams,
@@ -118,6 +126,22 @@ import {
   PublicExpenseRequest,
   PublicExpenseResponse,
 } from './expenses';
+import * as ExportsAPI from './exports';
+import { ExportCreateParams, ExportListParams, ExportListResponse, Exports } from './exports';
+import * as ImportsAPI from './imports';
+import {
+  ImportCreateParams,
+  ImportListParams,
+  ImportListResponse,
+  ImportUploadFileParams,
+  Imports,
+  TransferColumnMapping,
+  TransferJob,
+  TransferJobSummary,
+  TransferUploadFileResponse,
+} from './imports';
+import * as IntegrationsAPI from './integrations';
+import { IntegrationChannelsListParams, IntegrationChannelsListResponse, Integrations } from './integrations';
 import * as InventoriesAPI from './inventories';
 import {
   Inventories,
@@ -150,6 +174,8 @@ import {
   InvoiceDeleteParams,
   InvoiceListParams,
   InvoiceListResponse,
+  InvoiceListOverdueParams,
+  InvoiceListOverdueResponse,
   InvoiceRequest,
   InvoiceRetrieveParams,
   InvoiceSchema,
@@ -211,6 +237,19 @@ import {
   OrderUpdateParams,
   Orders,
 } from './orders';
+import * as TasksAPI from './tasks';
+import {
+  PublicTaskRequest,
+  PublicTaskResponse,
+  PublicTaskSchema,
+  PublicTasksListResponse,
+  TaskCreateParams,
+  TaskDeleteParams,
+  TaskListParams,
+  TaskRetrieveParams,
+  TaskUpdateParams,
+  Tasks,
+} from './tasks';
 import * as PaymentsAPI from './payments';
 import {
   PaymentCreateParams,
@@ -331,7 +370,11 @@ import {
 
 export class Public extends APIResource {
   accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
+  imports: ImportsAPI.Imports = new ImportsAPI.Imports(this._client);
+  exports: ExportsAPI.Exports = new ExportsAPI.Exports(this._client);
+  integrations: IntegrationsAPI.Integrations = new IntegrationsAPI.Integrations(this._client);
   orders: OrdersAPI.Orders = new OrdersAPI.Orders(this._client);
+  tasks: TasksAPI.Tasks = new TasksAPI.Tasks(this._client);
   items: ItemsAPI.Items = new ItemsAPI.Items(this._client);
   contacts: ContactsAPI.Contacts = new ContactsAPI.Contacts(this._client);
   companies: CompaniesAPI.Companies = new CompaniesAPI.Companies(this._client);
@@ -359,7 +402,11 @@ export class Public extends APIResource {
 }
 
 Public.AccountMessages = AccountMessages;
+Public.Imports = Imports;
+Public.Exports = Exports;
+Public.Integrations = Integrations;
 Public.Orders = Orders;
+Public.Tasks = Tasks;
 Public.Items = Items;
 Public.Contacts = Contacts;
 Public.Companies = Companies;
@@ -406,6 +453,31 @@ export declare namespace Public {
   };
 
   export {
+    Imports as Imports,
+    type ImportCreateParams as ImportCreateParams,
+    type ImportListParams as ImportListParams,
+    type ImportListResponse as ImportListResponse,
+    type ImportUploadFileParams as ImportUploadFileParams,
+    type TransferColumnMapping as TransferColumnMapping,
+    type TransferJob as TransferJob,
+    type TransferJobSummary as TransferJobSummary,
+    type TransferUploadFileResponse as TransferUploadFileResponse,
+  };
+
+  export {
+    Exports as Exports,
+    type ExportCreateParams as ExportCreateParams,
+    type ExportListParams as ExportListParams,
+    type ExportListResponse as ExportListResponse,
+  };
+
+  export {
+    Integrations as Integrations,
+    type IntegrationChannelsListParams as IntegrationChannelsListParams,
+    type IntegrationChannelsListResponse as IntegrationChannelsListResponse,
+  };
+
+  export {
     Orders as Orders,
     type BulkOrder as BulkOrder,
     type BulkOrders as BulkOrders,
@@ -419,6 +491,19 @@ export declare namespace Public {
     type OrderListParams as OrderListParams,
     type OrderDeleteParams as OrderDeleteParams,
     type OrderBulkCreateParams as OrderBulkCreateParams,
+  };
+
+  export {
+    Tasks as Tasks,
+    type PublicTaskRequest as PublicTaskRequest,
+    type PublicTaskResponse as PublicTaskResponse,
+    type PublicTaskSchema as PublicTaskSchema,
+    type PublicTasksListResponse as PublicTasksListResponse,
+    type TaskCreateParams as TaskCreateParams,
+    type TaskRetrieveParams as TaskRetrieveParams,
+    type TaskUpdateParams as TaskUpdateParams,
+    type TaskListParams as TaskListParams,
+    type TaskDeleteParams as TaskDeleteParams,
   };
 
   export {
@@ -453,11 +538,19 @@ export declare namespace Public {
     type PublicCompanyResponse as PublicCompanyResponse,
     type CompanyRetrieveResponse as CompanyRetrieveResponse,
     type CompanyListResponse as CompanyListResponse,
+    type CompanyPriceTableItem as CompanyPriceTableItem,
+    type CompanyPriceTablePagination as CompanyPriceTablePagination,
+    type CompanyPriceTableResponse as CompanyPriceTableResponse,
+    type CompanyPriceTableMutationResponse as CompanyPriceTableMutationResponse,
     type CompanyCreateParams as CompanyCreateParams,
     type CompanyRetrieveParams as CompanyRetrieveParams,
     type CompanyUpdateParams as CompanyUpdateParams,
     type CompanyListParams as CompanyListParams,
     type CompanyDeleteParams as CompanyDeleteParams,
+    type CompanyPriceTableQueryParams as CompanyPriceTableQueryParams,
+    type CompanyPriceTableCompanyUpdateParams as CompanyPriceTableCompanyUpdateParams,
+    type CompanyPriceTableItemUpdateParams as CompanyPriceTableItemUpdateParams,
+    type CompanyPriceTableApplyAllParams as CompanyPriceTableApplyAllParams,
   };
 
   export {
@@ -523,10 +616,12 @@ export declare namespace Public {
     type InvoiceRequest as InvoiceRequest,
     type InvoiceSchema as InvoiceSchema,
     type InvoiceListResponse as InvoiceListResponse,
+    type InvoiceListOverdueResponse as InvoiceListOverdueResponse,
     type InvoiceCreateParams as InvoiceCreateParams,
     type InvoiceRetrieveParams as InvoiceRetrieveParams,
     type InvoiceUpdateParams as InvoiceUpdateParams,
     type InvoiceListParams as InvoiceListParams,
+    type InvoiceListOverdueParams as InvoiceListOverdueParams,
     type InvoiceDeleteParams as InvoiceDeleteParams,
   };
 

@@ -68,6 +68,63 @@ export class Companies extends APIResource {
       ...options,
     });
   }
+
+  /**
+   * Get Company Price Table
+   */
+  getPriceTable(
+    companyID: string,
+    query: CompanyPriceTableQueryParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<CompanyPriceTableResponse> {
+    return this._client.get(path`/v1/public/companies/${companyID}/price-table`, {
+      query,
+      ...options,
+    });
+  }
+
+  /**
+   * Update Company Price Table Company Settings
+   */
+  updatePriceTableCompany(
+    companyID: string,
+    body: CompanyPriceTableCompanyUpdateParams,
+    options?: RequestOptions,
+  ): APIPromise<CompanyPriceTableMutationResponse> {
+    return this._client.patch(path`/v1/public/companies/${companyID}/price-table/company`, {
+      body,
+      ...options,
+    });
+  }
+
+  /**
+   * Apply Company Price Table To All Items
+   */
+  applyPriceTableItems(
+    companyID: string,
+    body: CompanyPriceTableApplyAllParams,
+    options?: RequestOptions,
+  ): APIPromise<CompanyPriceTableMutationResponse> {
+    return this._client.post(path`/v1/public/companies/${companyID}/price-table/items/apply-all`, {
+      body,
+      ...options,
+    });
+  }
+
+  /**
+   * Update Company Price Table Item Override
+   */
+  updatePriceTableItem(
+    companyID: string,
+    itemID: string,
+    body: CompanyPriceTableItemUpdateParams,
+    options?: RequestOptions,
+  ): APIPromise<CompanyPriceTableMutationResponse> {
+    return this._client.patch(path`/v1/public/companies/${companyID}/price-table/items/${itemID}`, {
+      body,
+      ...options,
+    });
+  }
 }
 
 export interface PublicCompanyRequest {
@@ -136,6 +193,68 @@ export interface CompanyListResponse {
   ctx_id?: string | null;
 
   permission?: string | null;
+}
+
+export interface CompanyPriceTableItem {
+  item_id: string;
+
+  item_name: string;
+
+  company_price_precentage?: number | null;
+
+  company_price_percentage?: number | null;
+
+  currency?: string | null;
+
+  default_price?: number | null;
+
+  discount_price?: number | null;
+
+  discount_rate?: number | null;
+
+  has_override?: boolean | null;
+
+  item_record_id?: number | null;
+}
+
+export interface CompanyPriceTablePagination {
+  has_next: boolean;
+
+  has_previous: boolean;
+
+  page: number;
+
+  page_size: number;
+
+  total_count: number;
+
+  total_pages: number;
+}
+
+export interface CompanyPriceTableResponse {
+  field_id: string;
+
+  items: Array<CompanyPriceTableItem>;
+
+  message: string;
+
+  mode: string;
+
+  pagination: CompanyPriceTablePagination;
+
+  company_price_precentage?: number | null;
+
+  company_price_percentage?: number | null;
+
+  ctx_id?: string | null;
+}
+
+export interface CompanyPriceTableMutationResponse {
+  data: { [key: string]: unknown };
+
+  message: string;
+
+  ctx_id?: string | null;
 }
 
 export interface CompanyCreateParams {
@@ -219,16 +338,64 @@ export interface CompanyDeleteParams {
   external_id?: string | null;
 }
 
+export interface CompanyPriceTableQueryParams {
+  field_ref?: string | null;
+
+  page?: number;
+
+  page_size?: number;
+
+  q?: string | null;
+}
+
+export interface CompanyPriceTableCompanyUpdateParams {
+  field_ref?: string | null;
+
+  mode?: string | null;
+
+  price_percentage?: number | null;
+
+  price_precentage?: number | null;
+}
+
+export interface CompanyPriceTableItemUpdateParams {
+  field_ref?: string | null;
+
+  price_percentage?: number | null;
+
+  price_precentage?: number | null;
+}
+
+export interface CompanyPriceTableApplyAllParams {
+  exclude_item_ids?: Array<string>;
+
+  field_ref?: string | null;
+
+  mode?: string | null;
+
+  price_percentage?: number | null;
+
+  price_precentage?: number | null;
+}
+
 export declare namespace Companies {
   export {
     type PublicCompanyRequest as PublicCompanyRequest,
     type PublicCompanyResponse as PublicCompanyResponse,
     type CompanyRetrieveResponse as CompanyRetrieveResponse,
     type CompanyListResponse as CompanyListResponse,
+    type CompanyPriceTableItem as CompanyPriceTableItem,
+    type CompanyPriceTablePagination as CompanyPriceTablePagination,
+    type CompanyPriceTableResponse as CompanyPriceTableResponse,
+    type CompanyPriceTableMutationResponse as CompanyPriceTableMutationResponse,
     type CompanyCreateParams as CompanyCreateParams,
     type CompanyRetrieveParams as CompanyRetrieveParams,
     type CompanyUpdateParams as CompanyUpdateParams,
     type CompanyListParams as CompanyListParams,
     type CompanyDeleteParams as CompanyDeleteParams,
+    type CompanyPriceTableQueryParams as CompanyPriceTableQueryParams,
+    type CompanyPriceTableCompanyUpdateParams as CompanyPriceTableCompanyUpdateParams,
+    type CompanyPriceTableItemUpdateParams as CompanyPriceTableItemUpdateParams,
+    type CompanyPriceTableApplyAllParams as CompanyPriceTableApplyAllParams,
   };
 }
