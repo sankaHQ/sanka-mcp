@@ -4202,7 +4202,6 @@ describe('ChatGPT CRM tools', () => {
       },
     });
   });
-
   it('prospects companies when authentication is present', async () => {
     const create = jest.fn().mockResolvedValue({
       data: {

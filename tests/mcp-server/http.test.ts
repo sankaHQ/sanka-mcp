@@ -94,6 +94,78 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('serves the same authorization metadata from resource-specific alias paths', async () => {
+    const suffixResponse = await fetch(`${baseUrl}/.well-known/oauth-authorization-server/mcp`);
+    const suffixBody = await suffixResponse.json();
+
+    expect(suffixResponse.status).toBe(200);
+    expect(suffixBody).toEqual({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+      jwks_uri: `${baseUrl}/oauth/jwks.json`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      revocation_endpoint_auth_methods_supported: ['none'],
+      code_challenge_methods_supported: ['S256'],
+      client_id_metadata_document_supported: false,
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+
+    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/oauth-authorization-server`);
+    const prefixedBody = await prefixedResponse.json();
+
+    expect(prefixedResponse.status).toBe(200);
+    expect(prefixedBody).toEqual(suffixBody);
+  });
+
+  it('serves the same OpenID configuration from resource-specific alias paths', async () => {
+    const suffixResponse = await fetch(`${baseUrl}/.well-known/openid-configuration/mcp`);
+    const suffixBody = await suffixResponse.json();
+
+    expect(suffixResponse.status).toBe(200);
+    expect(suffixBody).toEqual({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+      jwks_uri: `${baseUrl}/oauth/jwks.json`,
+      registration_endpoint: `${baseUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      response_modes_supported: ['query'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      revocation_endpoint_auth_methods_supported: ['none'],
+      code_challenge_methods_supported: ['S256'],
+      client_id_metadata_document_supported: false,
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+
+    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/openid-configuration`);
+    const prefixedBody = await prefixedResponse.json();
+
+    expect(prefixedResponse.status).toBe(200);
+    expect(prefixedBody).toEqual(suffixBody);
+  });
+
+  it('serves protected resource metadata from the /mcp-prefixed alias path', async () => {
+    const response = await fetch(`${baseUrl}/mcp/.well-known/oauth-protected-resource`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      resource: `${baseUrl}/mcp`,
+      authorization_servers: [baseUrl],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Sanka MCP Server',
+      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+    });
+  });
+
   it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',

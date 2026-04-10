@@ -17,6 +17,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/enrich',
   },
   {
+    clientCallName: 'client.prospect.companies.create',
+    fullyQualifiedName: 'prospect.companies.create',
+    httpMethod: 'post',
+    httpPath: '/v1/prospect/companies',
+  },
+  {
     clientCallName: 'client.score.create',
     fullyQualifiedName: 'score.create',
     httpMethod: 'post',

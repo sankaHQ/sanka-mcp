@@ -73,6 +73,28 @@ const EMBEDDED_METHODS: MethodEntry[] = [
   },
   {
     name: 'create',
+    endpoint: '/v1/prospect/companies',
+    httpMethod: 'post',
+    summary: 'Prospect Companies from External Sources',
+    description: 'Prospect Companies from External Sources',
+    stainlessPath: '(resource) prospect.companies > (method) create',
+    qualified: 'client.prospect.companies.create',
+    params: [
+      'query?: string;',
+      'location?: string;',
+      'industry?: string;',
+      'min_employee_count?: number;',
+      'max_employee_count?: number;',
+      'limit?: number;',
+      'sources?: string[];',
+    ],
+    response:
+      '{ data: { count: number; results: object[]; parsed_filters?: object; provider_meta?: object; query?: string; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## create\n\n`client.prospect.companies.create(query?: string, location?: string, industry?: string, min_employee_count?: number, max_employee_count?: number, limit?: number, sources?: string[]): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/prospect/companies`\n\nProspect Companies from External Sources\n\n### Parameters\n\n- `query?: string`\n\n- `location?: string`\n\n- `industry?: string`\n\n- `min_employee_count?: number`\n\n- `max_employee_count?: number`\n\n- `limit?: number`\n\n- `sources?: string[]`\n\n### Returns\n\n- `{ data: { count: number; results: object[]; parsed_filters?: object; provider_meta?: object; query?: string; }; message: string; ctx_id?: string; }`\n\n  - `data: { count: number; results: object[]; parsed_filters?: object; provider_meta?: object; query?: string; }`\n  - `message: string`\n  - `ctx_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst prospecting = await client.prospect.companies.create({ query: 'manufacturing companies in Tokyo' });\n\nconsole.log(prospecting);\n```",
+  },
+  {
+    name: 'create',
     endpoint: '/v1/score',
     httpMethod: 'post',
     summary: 'Score Company or Deal Data',
