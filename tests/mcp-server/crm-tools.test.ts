@@ -23,6 +23,7 @@ import {
   crmDeleteOrderTool,
   crmDeleteTicketTool,
   crmAuthStatusTool,
+  crmConnectSankaTool,
   crmGetCalendarBootstrapTool,
   crmGetPrivateMessageThreadTool,
   crmGetCompanyTool,
@@ -80,6 +81,7 @@ const oauthContext = (overrides?: {
 
 describe('ChatGPT CRM tools', () => {
   it('advertises auth schemes on CRM tools', () => {
+    expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -168,6 +170,30 @@ describe('ChatGPT CRM tools', () => {
     ]);
   });
 
+  it('returns a reauth challenge when connect_sanka is called without authentication', async () => {
+    const result = await crmConnectSankaTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        toolProfile: 'full',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual({
+      connected: false,
+      auth_mode: 'none',
+      tool_profile: 'full',
+      scopes: [],
+      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      resource_url: 'https://mcp.sanka.com/mcp',
+    });
+    expect(result._meta?.['mcp/www_authenticate']).toEqual([
+      expect.stringContaining('error="invalid_token"'),
+    ]);
+  });
+
   it('reports connected auth status when OAuth is present', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
@@ -185,6 +211,27 @@ describe('ChatGPT CRM tools', () => {
       tool_profile: 'full',
       scopes: [],
       message: 'Sanka CRM is connected with OAuth.',
+      resource_url: 'https://mcp.sanka.com/mcp',
+    });
+  });
+
+  it('reports connected state when connect_sanka is called with OAuth already present', async () => {
+    const result = await crmConnectSankaTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      connected: true,
+      auth_mode: 'resource_oauth_jwt',
+      tool_profile: 'full',
+      scopes: [],
+      message: 'Sanka CRM is already connected with OAuth.',
       resource_url: 'https://mcp.sanka.com/mcp',
     });
   });
@@ -240,6 +287,9 @@ describe('ChatGPT CRM tools', () => {
       message: 'ok',
       ctx_id: 'ctx-private-list',
       data: {
+        has_connected_private_inbox: true,
+        setup_required: false,
+        setup_message: null,
         channels: [
           {
             id: 'channel-1',
@@ -288,6 +338,9 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       message: 'ok',
       ctx_id: 'ctx-private-list',
+      has_connected_private_inbox: true,
+      setup_required: false,
+      setup_message: undefined,
       channels: [
         {
           id: 'channel-1',
@@ -313,10 +366,59 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists private messages with a setup message when no private inbox is connected', async () => {
+    const list = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-private-list-empty',
+      data: {
+        has_connected_private_inbox: false,
+        setup_required: true,
+        setup_message:
+          'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+        channels: [],
+        threads: [],
+      },
+    });
+
+    const result = await crmListPrivateMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { status: 'active', language: 'en' },
+    });
+
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      },
+    ]);
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-private-list-empty',
+      has_connected_private_inbox: false,
+      setup_required: true,
+      setup_message:
+        'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      channels: [],
+      threads: [],
+    });
+  });
+
   it('syncs private messages when authentication is present', async () => {
     const sync = jest.fn().mockResolvedValue({
       message: 'ok',
       data: {
+        has_connected_private_inbox: false,
+        setup_required: true,
+        setup_message:
+          'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
         channels: [],
         threads: [],
       },
@@ -344,6 +446,12 @@ describe('ChatGPT CRM tools', () => {
       undefined,
     );
     expect(result.isError).toBeUndefined();
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'No private inbox channel is connected in Sanka yet. Connect a private email channel, then retry.',
+      },
+    ]);
   });
 
   it('gets one private message thread when authentication is present', async () => {

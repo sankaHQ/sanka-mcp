@@ -12,6 +12,7 @@ describe('profile-aware tool selection', () => {
 
     expect(toolNames).toContain('execute');
     expect(toolNames).toContain('search_docs');
+    expect(toolNames).toContain('connect_sanka');
     expect(toolNames).toContain('auth_status');
     expect(toolNames).toContain('list_private_messages');
     expect(toolNames).toContain('sync_private_messages');
@@ -81,6 +82,7 @@ describe('profile-aware tool selection', () => {
 
     expect(toolNames).not.toContain('execute');
     expect(toolNames).not.toContain('search_docs');
+    expect(toolNames).toContain('connect_sanka');
     expect(toolNames).toContain('auth_status');
     expect(toolNames).toContain('list_private_messages');
     expect(toolNames).toContain('sync_private_messages');
@@ -150,6 +152,7 @@ describe('profile-aware tool selection', () => {
 
     expect(instructions).toContain('execute');
     expect(instructions).toContain('search_docs');
+    expect(instructions).toContain('connect_sanka');
     expect(instructions).toContain('auth_status');
     expect(instructions).toContain('list_private_messages');
     expect(instructions).toContain('sync_private_messages');
@@ -212,6 +215,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
+    expect(instructions).toContain('If a protected tool reports missing authentication, call auth_status next');
   });
 
   it('returns hosted instructions without generic docs/code tools', async () => {
@@ -219,6 +223,7 @@ describe('profile-aware tool selection', () => {
 
     expect(instructions).not.toContain('execute');
     expect(instructions).not.toContain('search_docs');
+    expect(instructions).toContain('connect_sanka');
     expect(instructions).toContain('auth_status');
     expect(instructions).toContain('list_private_messages');
     expect(instructions).toContain('sync_private_messages');
@@ -281,5 +286,6 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
+    expect(instructions).toContain('If a protected tool reports missing authentication, call auth_status next');
   });
 });

@@ -261,6 +261,7 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     const text = await response.text();
+    expect(text).toContain('"name":"connect_sanka"');
     expect(text).toContain('"name":"auth_status"');
     expect(text).toContain('"name":"list_private_messages"');
     expect(text).toContain('"name":"sync_private_messages"');
@@ -388,7 +389,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for auth_status when authentication is missing', async () => {
+  it('returns the auth_status fallback payload when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -405,15 +406,41 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const text = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use auth_status.',
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(text).toContain('"connected":false');
+    expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.');
+    expect(text).toContain('"mcp/www_authenticate"');
+  });
+
+  it('returns the connect_sanka fallback payload when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 18,
+        method: 'tools/call',
+        params: {
+          name: 'connect_sanka',
+          arguments: {},
+        },
+      }),
     });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(text).toContain('"connected":false');
+    expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.');
+    expect(text).toContain('"mcp/www_authenticate"');
   });
 
   it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {

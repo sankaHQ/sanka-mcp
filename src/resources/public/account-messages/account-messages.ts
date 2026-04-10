@@ -117,6 +117,12 @@ export interface AccountMessagesData {
   channels: Array<AccountMessageChannel>;
 
   threads: Array<AccountMessageThread>;
+
+  has_connected_private_inbox?: boolean;
+
+  setup_required?: boolean;
+
+  setup_message?: string | null;
 }
 
 export interface AccountMessagesResponse {

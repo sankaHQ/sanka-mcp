@@ -2188,12 +2188,18 @@ const flattenPrivateMessagesPayload = (payload: Record<string, unknown>) => {
   const channels =
     Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
   const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+  const hasConnectedPrivateInbox = readBoolean(data?.['has_connected_private_inbox']) ?? channels.length > 0;
+  const setupRequired = readBoolean(data?.['setup_required']) ?? !hasConnectedPrivateInbox;
+  const setupMessage = readString(data?.['setup_message']);
 
   return {
     message: readString(payload['message']) ?? 'ok',
     ctx_id: readString(payload['ctx_id']) ?? undefined,
     channels,
     threads,
+    has_connected_private_inbox: hasConnectedPrivateInbox,
+    setup_required: setupRequired,
+    setup_message: setupMessage,
   };
 };
 
@@ -2208,6 +2214,19 @@ const buildPrivateMessagesResult = ({
   const unreadThreads = flattened.threads.reduce((total, thread) => {
     return total + (readBoolean(thread['has_unread']) ? 1 : 0);
   }, 0);
+  const setupMessage = flattened.setup_message ?? 'No private inbox channel is connected in Sanka yet.';
+
+  if (flattened.setup_required) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: setupMessage,
+        },
+      ],
+      structuredContent: flattened,
+    };
+  }
 
   return {
     content: [
@@ -3045,6 +3064,74 @@ const buildAuthStatusChallenge = ({
   };
 };
 
+const buildConnectedAuthStatusResult = ({
+  message,
+  reqContext,
+}: {
+  message: string;
+  reqContext: McpRequestContext;
+}): ToolCallResult => ({
+  content: [{ type: 'text', text: message }],
+  structuredContent: {
+    connected: true,
+    auth_mode: reqContext.auth?.authMode ?? 'none',
+    tool_profile: reqContext.toolProfile ?? 'full',
+    scopes: reqContext.auth?.oauth.scopes ?? [],
+    message,
+    resource_url: reqContext.auth?.oauth.resourceUrl,
+  },
+});
+
+const CONNECT_SANKA_PROMPT_MESSAGE =
+  'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.';
+
+export const crmConnectSankaTool: McpTool = {
+  metadata: {
+    resource: 'auth',
+    operation: 'read',
+    tags: ['crm', 'auth'],
+    operationId: 'connect_sanka',
+  },
+  tool: {
+    name: 'connect_sanka',
+    title: 'Connect Sanka CRM',
+    description:
+      'Start or resume the Sanka OAuth connection flow. Use this when the user explicitly asks to connect or reconnect Sanka.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'noauth' }],
+    annotations: {
+      title: 'Connect Sanka CRM',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authMode = reqContext.auth?.authMode ?? 'none';
+
+    if (authMode === 'none') {
+      return buildAuthStatusChallenge({
+        message: CONNECT_SANKA_PROMPT_MESSAGE,
+        reqContext,
+      });
+    }
+
+    const message =
+      authMode === 'api_key' ?
+        'Sanka CRM is already connected with an API key.'
+      : 'Sanka CRM is already connected with OAuth.';
+
+    return buildConnectedAuthStatusResult({
+      message,
+      reqContext,
+    });
+  },
+};
+
 export const crmAuthStatusTool: McpTool = {
   metadata: {
     resource: 'auth',
@@ -3072,11 +3159,10 @@ export const crmAuthStatusTool: McpTool = {
   },
   handler: async ({ reqContext }) => {
     const authMode = reqContext.auth?.authMode ?? 'none';
-    const scopes = reqContext.auth?.oauth.scopes ?? [];
 
     if (authMode === 'none') {
       return buildAuthStatusChallenge({
-        message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+        message: CONNECT_SANKA_PROMPT_MESSAGE,
         reqContext,
       });
     }
@@ -3086,17 +3172,10 @@ export const crmAuthStatusTool: McpTool = {
         'Sanka CRM is connected with an API key.'
       : 'Sanka CRM is connected with OAuth.';
 
-    return {
-      content: [{ type: 'text', text: message }],
-      structuredContent: {
-        connected: true,
-        auth_mode: authMode,
-        tool_profile: reqContext.toolProfile ?? 'full',
-        scopes,
-        message,
-        resource_url: reqContext.auth?.oauth.resourceUrl,
-      },
-    };
+    return buildConnectedAuthStatusResult({
+      message,
+      reqContext,
+    });
   },
 };
 
