@@ -2562,10 +2562,10 @@ describe('ChatGPT CRM tools', () => {
 
     expect(create).toHaveBeenCalledWith(
       {
-        company_id: 'company-1',
-        total_price: 120,
+        companyId: 'company-1',
+        totalPrice: 120,
         currency: 'USD',
-        entry_type: 'item',
+        entryType: 'item',
       },
       undefined,
     );
@@ -2607,7 +2607,7 @@ describe('ChatGPT CRM tools', () => {
       {
         status: 'paid',
         notes: 'Updated payment notes',
-        external_id: 'PAY-1',
+        externalId: 'PAY-1',
       },
       undefined,
     );
