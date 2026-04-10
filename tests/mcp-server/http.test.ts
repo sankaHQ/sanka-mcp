@@ -412,7 +412,9 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toBeNull();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
-    expect(text).toContain('Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.');
+    expect(text).toContain(
+      'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+    );
     expect(text).toContain('"mcp/www_authenticate"');
   });
 
@@ -439,7 +441,9 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toBeNull();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
-    expect(text).toContain('Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.');
+    expect(text).toContain(
+      'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+    );
     expect(text).toContain('"mcp/www_authenticate"');
   });
 

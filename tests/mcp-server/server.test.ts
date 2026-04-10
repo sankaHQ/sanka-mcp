@@ -215,7 +215,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
-    expect(instructions).toContain('If a protected tool reports missing authentication, call auth_status next');
+    expect(instructions).toContain(
+      'If a protected tool reports missing authentication, call auth_status next',
+    );
   });
 
   it('returns hosted instructions without generic docs/code tools', async () => {
@@ -286,6 +288,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
-    expect(instructions).toContain('If a protected tool reports missing authentication, call auth_status next');
+    expect(instructions).toContain(
+      'If a protected tool reports missing authentication, call auth_status next',
+    );
   });
 });
