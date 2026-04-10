@@ -46,6 +46,7 @@ import {
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmConnectSankaTool,
   crmGetBillTool,
   crmGetCalendarBootstrapTool,
   crmGetCompanyTool,
@@ -140,6 +141,7 @@ const oauthContext = (overrides?: {
 
 describe('ChatGPT CRM tools', () => {
   it('advertises auth schemes on CRM tools', () => {
+    expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -287,6 +289,30 @@ describe('ChatGPT CRM tools', () => {
     ]);
   });
 
+  it('returns a reauth challenge when connect_sanka is called without authentication', async () => {
+    const result = await crmConnectSankaTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        toolProfile: 'full',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual({
+      connected: false,
+      auth_mode: 'none',
+      tool_profile: 'full',
+      scopes: [],
+      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      resource_url: 'https://mcp.sanka.com/mcp',
+    });
+    expect(result._meta?.['mcp/www_authenticate']).toEqual([
+      expect.stringContaining('error="invalid_token"'),
+    ]);
+  });
+
   it('reports connected auth status when OAuth is present', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
@@ -304,6 +330,27 @@ describe('ChatGPT CRM tools', () => {
       tool_profile: 'full',
       scopes: [],
       message: 'Sanka CRM is connected with OAuth.',
+      resource_url: 'https://mcp.sanka.com/mcp',
+    });
+  });
+
+  it('reports connected state when connect_sanka is called with OAuth already present', async () => {
+    const result = await crmConnectSankaTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual({
+      connected: true,
+      auth_mode: 'resource_oauth_jwt',
+      tool_profile: 'full',
+      scopes: [],
+      message: 'Sanka CRM is already connected with OAuth.',
       resource_url: 'https://mcp.sanka.com/mcp',
     });
   });

@@ -57,6 +57,7 @@ import {
   crmDeleteTaskTool,
   crmDeleteTicketTool,
   crmAuthStatusTool,
+  crmConnectSankaTool,
   crmGetCalendarBootstrapTool,
   crmGetCompanyTool,
   crmGetCompanyPriceTableTool,
@@ -333,6 +334,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     includedTools.push(docsSearchTool);
   }
   includedTools.push(
+    crmConnectSankaTool,
     crmAuthStatusTool,
     crmListPrivateMessagesTool,
     crmSyncPrivateMessagesTool,
