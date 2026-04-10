@@ -26,6 +26,21 @@ const OAUTH_REGISTER_PATH = '/oauth/register';
 const OAUTH_REVOKE_PATH = '/oauth/revoke';
 const OAUTH_JWKS_PATH = '/oauth/jwks.json';
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
+const AUTHORIZATION_METADATA_PATHS = [
+  DEFAULT_AUTHORIZATION_METADATA_PATH,
+  `${DEFAULT_AUTHORIZATION_METADATA_PATH}${DEFAULT_STREAMABLE_PATH}`,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_AUTHORIZATION_METADATA_PATH}`,
+];
+const OPENID_CONFIGURATION_PATHS = [
+  DEFAULT_OPENID_CONFIGURATION_PATH,
+  `${DEFAULT_OPENID_CONFIGURATION_PATH}${DEFAULT_STREAMABLE_PATH}`,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_OPENID_CONFIGURATION_PATH}`,
+];
+const PROTECTED_RESOURCE_METADATA_PATHS = [
+  DEFAULT_METADATA_PATH,
+  DEFAULT_METADATA_ALIAS_PATH,
+  `${DEFAULT_STREAMABLE_PATH}${DEFAULT_METADATA_PATH}`,
+];
 const TOOL_ACCESS_REQUIREMENTS: Record<
   string,
   {
@@ -543,10 +558,15 @@ export const streamableHTTPApp = ({
       }),
     );
   };
-  app.get(DEFAULT_AUTHORIZATION_METADATA_PATH, sendAuthorizationServerMetadata);
-  app.get(DEFAULT_OPENID_CONFIGURATION_PATH, sendAuthorizationServerMetadata);
-  app.get(DEFAULT_METADATA_PATH, sendProtectedResourceMetadata);
-  app.get(DEFAULT_METADATA_ALIAS_PATH, sendProtectedResourceMetadata);
+  for (const routePath of AUTHORIZATION_METADATA_PATHS) {
+    app.get(routePath, sendAuthorizationServerMetadata);
+  }
+  for (const routePath of OPENID_CONFIGURATION_PATHS) {
+    app.get(routePath, sendAuthorizationServerMetadata);
+  }
+  for (const routePath of PROTECTED_RESOURCE_METADATA_PATHS) {
+    app.get(routePath, sendProtectedResourceMetadata);
+  }
   app.get(OAUTH_AUTHORIZE_PATH, (req: express.Request, res: express.Response) => {
     const upstreamUrl = new URL(req.originalUrl, upstreamAuthorizationServerUrl(mcpOptions));
     res.redirect(302, upstreamUrl.toString());
