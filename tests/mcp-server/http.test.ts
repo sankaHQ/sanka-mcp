@@ -549,6 +549,8 @@ describe('protected resource metadata route', () => {
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('resource_metadata=');
   });
 
   it('returns the connect_sanka fallback payload when authentication is missing', async () => {
