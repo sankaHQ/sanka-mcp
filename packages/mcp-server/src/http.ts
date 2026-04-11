@@ -48,7 +48,6 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
     requiredScopes?: string[];
   }
 > = {
-  auth_status: { authenticationRequired: true },
   list_private_messages: { authenticationRequired: true },
   sync_private_messages: { authenticationRequired: true },
   get_private_message_thread: { authenticationRequired: true },

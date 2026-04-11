@@ -492,7 +492,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('returns an OAuth challenge for auth_status when authentication is missing', async () => {
+  it('returns a tool-level OAuth challenge for auth_status when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -509,15 +509,15 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const text = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use auth_status.',
-    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(text).toContain('Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.');
+    expect(text).toContain('"connected":false');
+    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain('resource_metadata=');
   });
 
   it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {
