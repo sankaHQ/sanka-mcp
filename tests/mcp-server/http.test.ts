@@ -545,11 +545,18 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toBeNull();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
     expect(text).toContain('resource_metadata=');
   });
 
@@ -576,10 +583,18 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toBeNull();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
+    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
   });
 
   it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {
