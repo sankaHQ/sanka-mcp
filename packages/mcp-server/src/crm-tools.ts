@@ -966,12 +966,19 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     connected: { type: 'boolean' },
     auth_mode: { type: 'string' },
     tool_profile: { type: 'string' },
+    client_name: { type: 'string' },
     scopes: {
       type: 'array',
       items: { type: 'string' },
     },
     message: { type: 'string' },
+    authorization_server_url: { type: 'string' },
+    resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
+    reconnect_mode: { type: 'string' },
+    reconnect_instructions: { type: 'string' },
+    reconnect_rpc_method: { type: 'string' },
+    reconnect_server_name: { type: 'string' },
   },
   required: ['connected', 'auth_mode', 'tool_profile', 'scopes', 'message'],
 };
@@ -5844,6 +5851,67 @@ const buildEntityDetailSummary = ({
   return `Loaded ${entity} ${readString(payload['id']) ?? ''}.`.trim();
 };
 
+const buildReconnectMetadata = ({
+  reqContext,
+}: {
+  reqContext: McpRequestContext;
+}): Record<string, unknown> | undefined => {
+  const oauth = reqContext.auth?.oauth;
+  if (!oauth) {
+    return undefined;
+  }
+
+  const clientName = reqContext.mcpClientInfo?.name?.trim();
+  const normalizedClientName = clientName?.toLowerCase() ?? '';
+  const isHosted = reqContext.toolProfile === 'hosted';
+  const base: Record<string, unknown> = {
+    ...(clientName ? { client_name: clientName } : {}),
+    authorization_server_url: oauth.authorizationServerUrl,
+    resource_metadata_url: oauth.resourceMetadataUrl,
+    resource_url: oauth.resourceUrl,
+    reconnect_mode: 'client_native_oauth',
+  };
+  const hostedCodexReconnect =
+    isHosted ?
+      {
+        reconnect_rpc_method: 'mcpServer/oauth/login',
+        reconnect_server_name: 'sanka_plugin',
+      }
+    : {};
+
+  if (normalizedClientName.includes('codex')) {
+    return {
+      ...base,
+      ...hostedCodexReconnect,
+      reconnect_instructions:
+        'Use Codex native MCP OAuth login for this Sanka server, then retry the original request.',
+    };
+  }
+
+  if (normalizedClientName.includes('claude')) {
+    return {
+      ...base,
+      reconnect_instructions:
+        "Use Claude's native connector OAuth approval flow for this Sanka server, then retry the original request.",
+    };
+  }
+
+  if (isHosted) {
+    return {
+      ...base,
+      ...hostedCodexReconnect,
+      reconnect_instructions:
+        "Use your MCP client's native OAuth reconnect flow for this Sanka server. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the native connector OAuth prompt. Then retry the original request.",
+    };
+  }
+
+  return {
+    ...base,
+    reconnect_instructions:
+      "Use your MCP client's native OAuth reconnect flow for this Sanka server, then retry the original request.",
+  };
+};
+
 const buildAuthStatusChallenge = ({
   message,
   reqContext,
@@ -5852,6 +5920,7 @@ const buildAuthStatusChallenge = ({
   reqContext: McpRequestContext;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
+  const reconnectMetadata = buildReconnectMetadata({ reqContext });
   const wwwAuthenticate =
     oauth ?
       buildOAuthWwwAuthenticateHeader({
@@ -5871,7 +5940,7 @@ const buildAuthStatusChallenge = ({
       tool_profile: reqContext.toolProfile ?? 'full',
       scopes: reqContext.auth?.oauth.scopes ?? [],
       message,
-      resource_url: oauth?.resourceUrl,
+      ...reconnectMetadata,
     },
     ...(wwwAuthenticate ?
       {
@@ -5889,17 +5958,22 @@ const buildConnectedAuthStatusResult = ({
 }: {
   message: string;
   reqContext: McpRequestContext;
-}): ToolCallResult => ({
-  content: [{ type: 'text', text: message }],
-  structuredContent: {
-    connected: true,
-    auth_mode: reqContext.auth?.authMode ?? 'none',
-    tool_profile: reqContext.toolProfile ?? 'full',
-    scopes: reqContext.auth?.oauth.scopes ?? [],
-    message,
-    resource_url: reqContext.auth?.oauth.resourceUrl,
-  },
-});
+}): ToolCallResult => {
+  const oauth = reqContext.auth?.oauth;
+  const reconnectMetadata = buildReconnectMetadata({ reqContext });
+
+  return {
+    content: [{ type: 'text', text: message }],
+    structuredContent: {
+      connected: true,
+      auth_mode: reqContext.auth?.authMode ?? 'none',
+      tool_profile: reqContext.toolProfile ?? 'full',
+      scopes: oauth?.scopes ?? [],
+      message,
+      ...reconnectMetadata,
+    },
+  };
+};
 
 const CONNECT_SANKA_PROMPT_MESSAGE =
   'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.';
