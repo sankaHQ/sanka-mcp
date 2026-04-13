@@ -45,6 +45,35 @@ describe('resolveClientAuth', () => {
         return;
       }
 
+      if (req.url === '/oauth/internal/mcp-session-token' && req.method === 'POST') {
+        let rawBody = '';
+        req.setEncoding('utf8');
+        req.on('data', (chunk) => {
+          rawBody += chunk;
+        });
+        req.on('end', () => {
+          const payload = JSON.parse(rawBody || '{}') as { session_id?: string };
+          if (payload.session_id === 'connected-session') {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(
+              JSON.stringify({
+                access_token: 'mcp-session-internal-token',
+                expires_in: 240,
+                token_type: 'Bearer',
+                scope: 'mcp:access',
+              }),
+            );
+            return;
+          }
+
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'session_not_connected' }));
+        });
+        return;
+      }
+
       res.statusCode = 404;
       res.end('Not found');
     });
@@ -186,6 +215,62 @@ describe('resolveClientAuth', () => {
     });
     expect(second).toEqual(first);
     expect(exchangeCallCount).toBe(1);
+  });
+
+  it('resolves approved MCP sessions into internal access tokens', async () => {
+    const resolved = await resolveClientAuth({
+      mcpOptions: {
+        authorizationServerUrl: authServerBaseUrl,
+        tokenExchangeSharedSecret: 'shared-secret',
+      },
+      req: {
+        headers: {
+          'mcp-session-id': 'connected-session',
+        },
+      } as any,
+      resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      resourceUrl: 'https://mcp.sanka.com/mcp',
+    });
+
+    expect(resolved).toEqual({
+      authMode: 'mcp_session',
+      clientOptions: { apiKey: 'mcp-session-internal-token' },
+      oauth: {
+        authorizationServerUrl: authServerBaseUrl,
+        connectUrl: expect.stringContaining('/oauth/mcp/connect?token='),
+        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        scopes: ['mcp:access'],
+      },
+    });
+  });
+
+  it('returns connect metadata when an MCP session exists but is not approved yet', async () => {
+    const resolved = await resolveClientAuth({
+      mcpOptions: {
+        authorizationServerUrl: authServerBaseUrl,
+        tokenExchangeSharedSecret: 'shared-secret',
+      },
+      req: {
+        headers: {
+          'mcp-session-id': 'unapproved-session',
+        },
+      } as any,
+      resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      resourceUrl: 'https://mcp.sanka.com/mcp',
+    });
+
+    expect(resolved).toEqual({
+      authMode: 'none',
+      clientOptions: {},
+      oauth: {
+        authorizationServerUrl: authServerBaseUrl,
+        connectUrl: expect.stringContaining('/oauth/mcp/connect?token='),
+        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        scopes: [],
+      },
+    });
   });
 
   it('returns an OAuth challenge for invalid JWTs', async () => {

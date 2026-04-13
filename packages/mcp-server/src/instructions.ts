@@ -195,7 +195,7 @@ const DEFAULT_FULL_INSTRUCTIONS = [
   '- Use upload_import_file before import_records when the user starts from a local CSV or spreadsheet export.',
   '- Use list_integration_channels before export_records when the user does not already know the destination channel_id.',
   '- Use connect_sanka when the user explicitly asks to connect or reconnect Sanka without retrying a protected action first.',
-  '- If a protected tool reports missing authentication, call auth_status next so the tool result can surface reconnect metadata for the client-native OAuth flow. If reconnect_rpc_method or reconnect_server_name is present, repeat those values exactly. Do not fabricate login URLs. Then tell the user to use that native reconnect action and retry.',
+  '- If a protected tool reports missing authentication, call auth_status next so the tool result can surface reconnect metadata for the client-native OAuth flow. If connect_url is present, repeat it verbatim. Otherwise, if reconnect_rpc_method or reconnect_server_name is present, repeat those values exactly. Do not fabricate login URLs. Then tell the user to use that reconnect action and retry.',
   '- Individual HTTP requests to the API have a 30-second timeout. If a request times out, try a smaller query or add filters.',
   '- Code execution has a total timeout of approximately 5 minutes. If your code times out, simplify it or break it into smaller steps.',
 ].join('\n');
@@ -385,7 +385,7 @@ const DEFAULT_HOSTED_INSTRUCTIONS = [
   '- Use upload_import_file before import_records when the user starts from a local CSV or spreadsheet export.',
   '- Use list_integration_channels before export_records when the user does not already know the destination channel_id.',
   '- Use connect_sanka when the user explicitly asks to connect or reconnect Sanka without retrying a protected action first.',
-  '- If a protected tool reports missing authentication, call auth_status next so the tool result can surface reconnect metadata for the client-native OAuth flow. If reconnect_rpc_method or reconnect_server_name is present, repeat those values exactly. Do not fabricate login URLs. Then tell the user to use that native reconnect action and retry.',
+  '- If a protected tool reports missing authentication, call auth_status next so the tool result can surface reconnect metadata for the client-native OAuth flow. If connect_url is present, repeat it verbatim. Otherwise, if reconnect_rpc_method or reconnect_server_name is present, repeat those values exactly. Do not fabricate login URLs. Then tell the user to use that reconnect action and retry.',
   '- Individual HTTP requests to the API have a 30-second timeout. If a request times out, try a smaller query or add filters.',
 ].join('\n');
 

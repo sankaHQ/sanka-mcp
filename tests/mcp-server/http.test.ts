@@ -15,6 +15,7 @@ describe('protected resource metadata route', () => {
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
         scopesSupported: [AI_CLIENT_MCP_SCOPE],
+        tokenExchangeSharedSecret: 'shared-secret',
       },
     });
 
@@ -277,7 +278,8 @@ describe('protected resource metadata route', () => {
     });
 
     expect(initializeResponse.status).toBe(200);
-    expect(initializeResponse.headers.get('mcp-session-id')).toBeNull();
+    const sessionId = initializeResponse.headers.get('mcp-session-id');
+    expect(sessionId).toBeTruthy();
     await initializeResponse.text();
 
     const listResponse = await fetch(`${baseUrl}/mcp`, {
@@ -287,6 +289,7 @@ describe('protected resource metadata route', () => {
         Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
         'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -305,6 +308,7 @@ describe('protected resource metadata route', () => {
         Accept: 'text/event-stream',
         Authorization: 'Bearer opaque-token',
         'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
     });
 
@@ -543,6 +547,7 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('mcp-session-id')).toBeTruthy();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
     expect(text).toContain('"tool_profile":"hosted"');
@@ -553,6 +558,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
@@ -581,6 +587,7 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('mcp-session-id')).toBeTruthy();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
     expect(text).toContain('"tool_profile":"hosted"');
@@ -591,6 +598,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
