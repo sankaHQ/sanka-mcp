@@ -90,7 +90,7 @@ export const requireScopes = ({
     return null;
   }
 
-  if (auth.authMode === 'api_key') {
+  if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
     return null;
   }
 
@@ -136,7 +136,7 @@ export const requireAuthentication = ({
     return null;
   }
 
-  if (auth.authMode === 'api_key') {
+  if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
     return null;
   }
 

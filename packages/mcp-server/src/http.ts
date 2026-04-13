@@ -6,13 +6,20 @@ import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
-import { buildOAuthWwwAuthenticateHeader, OAuthChallengeError, resolveClientAuth } from './auth';
+import {
+  buildOAuthWwwAuthenticateHeader,
+  extractMcpSessionId,
+  generateMcpSessionId,
+  OAuthChallengeError,
+  resolveClientAuth,
+} from './auth';
 import { getLogger } from './logger';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
-import { initMcpServer, newMcpServer } from './server';
+import { executeHandler, initMcpServer, newMcpServer } from './server';
 import { resolveMissingScopes } from './tool-auth';
+import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
 const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
@@ -168,6 +175,14 @@ const TOOL_ACCESS_REQUIREMENTS: Record<
   cancel_export_job: { authenticationRequired: true },
 };
 
+const INLINE_TOOL_HANDLERS = {
+  auth_status: crmAuthStatusTool,
+  connect_sanka: crmConnectSankaTool,
+} as const;
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const createRequestTransport = async ({
   clientOptions,
   mcpOptions,
@@ -182,9 +197,13 @@ const createRequestTransport = async ({
   toolProfile: ToolProfile;
 }): Promise<{
   auth: Awaited<ReturnType<typeof resolveClientAuth>>;
+  generatedSessionId?: string | undefined;
+  mcpSessionId: string;
   server: McpServer;
   transport: StreamableHTTPServerTransport;
 } | null> => {
+  const incomingSessionId = extractMcpSessionId(req.headers);
+  const mcpSessionId = incomingSessionId || generateMcpSessionId();
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -221,12 +240,16 @@ const createRequestTransport = async ({
     resolvedAuth = await resolveClientAuth({
       advertisedAuthorizationServerUrl: requestAuthorizationServerUrl(req),
       mcpOptions: effectiveMcpOptions,
+      mcpSessionId,
       req,
       resourceMetadataUrl,
       resourceUrl,
     });
   } catch (error) {
     if (error instanceof OAuthChallengeError) {
+      if (!incomingSessionId) {
+        res.setHeader('mcp-session-id', mcpSessionId);
+      }
       res.setHeader('WWW-Authenticate', error.wwwAuthenticate);
       res.status(error.statusCode).json({
         error: 'authentication_failed',
@@ -246,6 +269,7 @@ const createRequestTransport = async ({
       ...clientOptions,
       ...resolvedAuth.clientOptions,
     },
+    mcpSessionId,
     mcpClientInfo:
       typeof req.body?.params?.clientInfo?.name === 'string' ?
         { name: req.body.params.clientInfo.name, version: String(req.body.params.clientInfo.version ?? '') }
@@ -259,6 +283,8 @@ const createRequestTransport = async ({
     server,
     transport,
     auth: resolvedAuth,
+    generatedSessionId: incomingSessionId ? undefined : mcpSessionId,
+    mcpSessionId,
   };
 };
 
@@ -300,7 +326,7 @@ const getRequestAuthPreflight = ({
       continue;
     }
 
-    if (auth.authMode === 'api_key') {
+    if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
       continue;
     }
 
@@ -485,12 +511,71 @@ const proxyOAuthRequest =
 
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
+const maybeHandleInlineToolCall = async ({
+  req,
+  res,
+  toolProfile,
+  transportContext,
+}: {
+  req: express.Request;
+  res: express.Response;
+  toolProfile: ToolProfile;
+  transportContext: Exclude<Awaited<ReturnType<typeof createRequestTransport>>, null>;
+}): Promise<boolean> => {
+  if (
+    !isObjectRecord(req.body) ||
+    req.body['method'] !== 'tools/call' ||
+    !isObjectRecord(req.body['params']) ||
+    typeof req.body['params']['name'] !== 'string'
+  ) {
+    return false;
+  }
+
+  const toolName = req.body['params']['name'];
+  const inlineTool = INLINE_TOOL_HANDLERS[toolName as keyof typeof INLINE_TOOL_HANDLERS];
+  if (!inlineTool) {
+    return false;
+  }
+
+  const result = await executeHandler({
+    handler: inlineTool.handler,
+    reqContext: {
+      client: undefined as any,
+      mcpSessionId: transportContext.mcpSessionId,
+      toolProfile,
+      auth: transportContext.auth,
+    },
+    args: isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : {},
+  });
+
+  res.status(200);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.send(
+    `event: message\ndata: ${JSON.stringify({
+      jsonrpc: '2.0',
+      id: req.body['id'] ?? null,
+      result,
+    })}\n\n`,
+  );
+  return true;
+};
+
 const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
   async (req: express.Request, res: express.Response) => {
     const toolProfile = requestProfile(req);
     const transportContext = await createRequestTransport({ ...options, req, res, toolProfile });
     if (transportContext === null) {
+      return;
+    }
+
+    if (transportContext.generatedSessionId) {
+      res.setHeader('mcp-session-id', transportContext.generatedSessionId);
+    }
+
+    if (await maybeHandleInlineToolCall({ req, res, toolProfile, transportContext })) {
       return;
     }
 

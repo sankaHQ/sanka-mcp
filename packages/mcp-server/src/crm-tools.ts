@@ -975,6 +975,7 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     authorization_server_url: { type: 'string' },
     resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
+    connect_url: { type: 'string' },
     reconnect_mode: { type: 'string' },
     reconnect_instructions: { type: 'string' },
     reconnect_rpc_method: { type: 'string' },
@@ -5867,6 +5868,7 @@ const buildReconnectMetadata = ({
   const base: Record<string, unknown> = {
     ...(clientName ? { client_name: clientName } : {}),
     authorization_server_url: oauth.authorizationServerUrl,
+    ...(oauth.connectUrl ? { connect_url: oauth.connectUrl } : {}),
     resource_metadata_url: oauth.resourceMetadataUrl,
     resource_url: oauth.resourceUrl,
     reconnect_mode: 'client_native_oauth',
@@ -6014,8 +6016,8 @@ export const crmConnectSankaTool: McpTool = {
     }
 
     const message =
-      authMode === 'api_key' ?
-        'Sanka CRM is already connected with an API key.'
+      authMode === 'api_key' ? 'Sanka CRM is already connected with an API key.'
+      : authMode === 'mcp_session' ? 'Sanka CRM is connected for this MCP session.'
       : 'Sanka CRM is already connected with OAuth.';
 
     return buildConnectedAuthStatusResult({
@@ -6061,8 +6063,8 @@ export const crmAuthStatusTool: McpTool = {
     }
 
     const message =
-      authMode === 'api_key' ?
-        'Sanka CRM is connected with an API key.'
+      authMode === 'api_key' ? 'Sanka CRM is connected with an API key.'
+      : authMode === 'mcp_session' ? 'Sanka CRM is connected for this MCP session.'
       : 'Sanka CRM is connected with OAuth.';
 
     return buildConnectedAuthStatusResult({
