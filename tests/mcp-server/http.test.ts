@@ -15,6 +15,7 @@ describe('protected resource metadata route', () => {
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
         scopesSupported: [AI_CLIENT_MCP_SCOPE],
+        tokenExchangeSharedSecret: 'shared-secret',
       },
     });
 
@@ -277,7 +278,8 @@ describe('protected resource metadata route', () => {
     });
 
     expect(initializeResponse.status).toBe(200);
-    expect(initializeResponse.headers.get('mcp-session-id')).toBeNull();
+    const sessionId = initializeResponse.headers.get('mcp-session-id');
+    expect(sessionId).toBeTruthy();
     await initializeResponse.text();
 
     const listResponse = await fetch(`${baseUrl}/mcp`, {
@@ -287,6 +289,7 @@ describe('protected resource metadata route', () => {
         Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
         'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -305,6 +308,7 @@ describe('protected resource metadata route', () => {
         Accept: 'text/event-stream',
         Authorization: 'Bearer opaque-token',
         'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
     });
 
@@ -543,12 +547,58 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('mcp-session-id')).toBeTruthy();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
+    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
+    expect(text).toContain('resource_metadata=');
+  });
+
+  it('includes requested scopes in the auth_status reconnect token payload', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 17,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {
+            required_scopes: ['expenses:write'],
+          },
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toContain('"required_scopes":["expenses:write"]');
+
+    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
+    expect(connectUrlMatch?.[1]).toBeTruthy();
+    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
+    const token = new URL(connectUrl).searchParams.get('token');
+    expect(token).toBeTruthy();
+    const payload = String(token).split('.', 1)[0]!;
+    expect(JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))).toMatchObject({
+      scp: ['expenses:write', 'mcp:access'],
+    });
   });
 
   it('returns the connect_sanka fallback payload when authentication is missing', async () => {
@@ -572,12 +622,22 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('mcp-session-id')).toBeTruthy();
     expect(text).toContain('"connected":false');
     expect(text).toContain('"auth_mode":"none"');
+    expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
+    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
   });
 
   it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {

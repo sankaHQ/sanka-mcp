@@ -1,12 +1,15 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-import { createPublicKey, createVerify } from 'node:crypto';
-import { IncomingMessage } from 'node:http';
+import { createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto';
+import { IncomingMessage, IncomingHttpHeaders } from 'node:http';
 import { ClientOptions } from 'sanka-sdk';
 import { McpOptions } from './options';
 
 const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
 const DEFAULT_LEGACY_JWT_AUDIENCE = 'sanka-api';
+const DEFAULT_MCP_CONNECT_PATH = '/oauth/mcp/connect';
+const DEFAULT_MCP_SESSION_TOKEN_PATH = '/oauth/internal/mcp-session-token';
+const MCP_CONNECT_TOKEN_MAX_AGE_SECONDS = 900;
 const TOKEN_EXCHANGE_SKEW_MS = 10_000;
 
 type JwkKey = Record<string, unknown> & { kid?: string };
@@ -34,13 +37,14 @@ export class OAuthChallengeError extends Error {
   }
 }
 
-export type AuthMode = 'none' | 'api_key' | 'legacy_oauth_jwt' | 'resource_oauth_jwt';
+export type AuthMode = 'none' | 'api_key' | 'legacy_oauth_jwt' | 'resource_oauth_jwt' | 'mcp_session';
 
 export type ResolvedClientAuth = {
   authMode: AuthMode;
   clientOptions: Partial<ClientOptions>;
   oauth: {
     authorizationServerUrl: string;
+    connectUrl?: string | undefined;
     resourceMetadataUrl: string;
     resourceUrl: string;
     scopes: string[];
@@ -56,11 +60,74 @@ type VerifiedOAuthToken = {
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
+const normalizeRequestedScopes = (scopes: string[] | undefined): string[] => {
+  const normalizedScopes =
+    Array.isArray(scopes) ?
+      scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0)
+    : [];
+
+  return [...new Set(['mcp:access', ...normalizedScopes])].sort();
+};
+
 const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
 const isJwtLike = (value: string): boolean => value.split('.').length === 3;
 
 const escapeHeaderValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+export const extractMcpSessionId = (headers: IncomingHttpHeaders): string | undefined => {
+  const sessionId = singleHeader(headers['mcp-session-id'])?.trim();
+  return sessionId ? sessionId : undefined;
+};
+
+export const generateMcpSessionId = (): string => randomUUID();
+
+const buildMcpConnectToken = ({
+  requestedScopes,
+  sessionId,
+  sharedSecret,
+}: {
+  requestedScopes?: string[] | undefined;
+  sessionId: string;
+  sharedSecret: string;
+}): string => {
+  const now = Math.floor(Date.now() / 1000);
+  const normalizedRequestedScopes = normalizeRequestedScopes(requestedScopes);
+  const payload = Buffer.from(
+    JSON.stringify({
+      exp: now + MCP_CONNECT_TOKEN_MAX_AGE_SECONDS,
+      iat: now,
+      ...(normalizedRequestedScopes.length ? { scp: normalizedRequestedScopes } : undefined),
+      sid: sessionId,
+      v: 1,
+    }),
+  ).toString('base64url');
+  const signature = createHmac('sha256', sharedSecret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+};
+
+const buildMcpConnectUrl = ({
+  authorizationServerUrl,
+  requestedScopes,
+  sessionId,
+  tokenExchangeSharedSecret,
+}: {
+  authorizationServerUrl: string;
+  requestedScopes?: string[] | undefined;
+  sessionId?: string | undefined;
+  tokenExchangeSharedSecret?: string | undefined;
+}): string | undefined => {
+  if (!sessionId || !tokenExchangeSharedSecret) {
+    return undefined;
+  }
+
+  const token = buildMcpConnectToken({
+    requestedScopes,
+    sessionId,
+    sharedSecret: tokenExchangeSharedSecret,
+  });
+  return `${authorizationServerUrl}${DEFAULT_MCP_CONNECT_PATH}?token=${encodeURIComponent(token)}`;
+};
 
 export const buildOAuthWwwAuthenticateHeader = ({
   authorizationServerUrl,
@@ -307,29 +374,125 @@ async function exchangeOAuthJwt({
   return payload.access_token;
 }
 
+async function resolveMcpSessionAccessToken({
+  authorizationServerUrl,
+  resourceUrl,
+  sessionId,
+  tokenExchangeSharedSecret,
+}: {
+  authorizationServerUrl: string;
+  resourceUrl: string;
+  sessionId: string;
+  tokenExchangeSharedSecret?: string;
+}): Promise<{ accessToken: string; scopes: string[] } | undefined> {
+  if (!tokenExchangeSharedSecret) {
+    return undefined;
+  }
+
+  const resolvedExchangeUrl = `${authorizationServerUrl}${DEFAULT_MCP_SESSION_TOKEN_PATH}`;
+  const response = await fetch(resolvedExchangeUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Sanka-MCP-Token-Exchange-Secret': tokenExchangeSharedSecret,
+    },
+    body: JSON.stringify({
+      resource: resourceUrl,
+      session_id: sessionId,
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    return undefined;
+  }
+
+  if (!response.ok) {
+    let description = `MCP session token resolve failed with status ${response.status}.`;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload?.error) {
+        description = payload.error;
+      }
+    } catch {
+      // Ignore JSON parse failures.
+    }
+    throw new Error(description);
+  }
+
+  const payload = (await response.json()) as {
+    access_token?: string;
+    scope?: string;
+  };
+  if (!payload.access_token) {
+    throw new Error('MCP session token resolve response did not include access_token.');
+  }
+
+  return {
+    accessToken: payload.access_token,
+    scopes: normalizeScopeClaim(payload.scope),
+  };
+}
+
 export const resolveClientAuth = async ({
   advertisedAuthorizationServerUrl,
   mcpOptions,
+  mcpSessionId,
+  requestedScopes,
   req,
   resourceMetadataUrl,
   resourceUrl,
 }: {
   advertisedAuthorizationServerUrl?: string;
   mcpOptions: McpOptions;
+  mcpSessionId?: string | undefined;
+  requestedScopes?: string[] | undefined;
   req: IncomingMessage;
   resourceMetadataUrl: string;
   resourceUrl: string;
 }): Promise<ResolvedClientAuth> => {
   const authorizationHeader = singleHeader(req.headers.authorization);
   const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
+  const resolvedMcpSessionId = mcpSessionId || extractMcpSessionId(req.headers);
   const internalAuthorizationServerUrl = stripTrailingSlash(
     mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL,
   );
   const authorizationServerUrl = stripTrailingSlash(
     advertisedAuthorizationServerUrl || internalAuthorizationServerUrl,
   );
+  const connectUrl = buildMcpConnectUrl({
+    authorizationServerUrl: internalAuthorizationServerUrl,
+    requestedScopes,
+    sessionId: resolvedMcpSessionId,
+    tokenExchangeSharedSecret: mcpOptions.tokenExchangeSharedSecret,
+  });
 
   if (!authorizationHeader) {
+    if (!apiKeyHeader && resolvedMcpSessionId) {
+      const resolvedSession = await resolveMcpSessionAccessToken({
+        authorizationServerUrl: internalAuthorizationServerUrl,
+        resourceUrl,
+        sessionId: resolvedMcpSessionId,
+        ...(mcpOptions.tokenExchangeSharedSecret !== undefined && {
+          tokenExchangeSharedSecret: mcpOptions.tokenExchangeSharedSecret,
+        }),
+      });
+      if (resolvedSession) {
+        return {
+          authMode: 'mcp_session',
+          clientOptions: {
+            apiKey: resolvedSession.accessToken,
+          },
+          oauth: {
+            authorizationServerUrl,
+            ...(connectUrl ? { connectUrl } : undefined),
+            resourceMetadataUrl,
+            resourceUrl,
+            scopes: resolvedSession.scopes,
+          },
+        };
+      }
+    }
+
     return {
       authMode: apiKeyHeader ? 'api_key' : 'none',
       clientOptions: {
@@ -337,6 +500,7 @@ export const resolveClientAuth = async ({
       },
       oauth: {
         authorizationServerUrl,
+        ...(connectUrl ? { connectUrl } : undefined),
         resourceMetadataUrl,
         resourceUrl,
         scopes: [],
@@ -364,6 +528,7 @@ export const resolveClientAuth = async ({
       clientOptions: { apiKey: token },
       oauth: {
         authorizationServerUrl,
+        ...(connectUrl ? { connectUrl } : undefined),
         resourceMetadataUrl,
         resourceUrl,
         scopes: [],
@@ -386,6 +551,7 @@ export const resolveClientAuth = async ({
       clientOptions: { apiKey: token },
       oauth: {
         authorizationServerUrl,
+        ...(connectUrl ? { connectUrl } : undefined),
         resourceMetadataUrl,
         resourceUrl,
         scopes: normalizeScopeClaim(verified.payload['scope']),
@@ -411,6 +577,7 @@ export const resolveClientAuth = async ({
     clientOptions: { apiKey: exchangedToken },
     oauth: {
       authorizationServerUrl,
+      ...(connectUrl ? { connectUrl } : undefined),
       resourceMetadataUrl,
       resourceUrl,
       scopes: normalizeScopeClaim(verified.payload['scope']),
