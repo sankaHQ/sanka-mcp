@@ -566,6 +566,41 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('resource_metadata=');
   });
 
+  it('includes requested scopes in the auth_status reconnect token payload', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 17,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {
+            required_scopes: ['expenses:write'],
+          },
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toContain('"required_scopes":["expenses:write"]');
+
+    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
+    expect(connectUrlMatch?.[1]).toBeTruthy();
+    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
+    const token = new URL(connectUrl).searchParams.get('token');
+    expect(token).toBeTruthy();
+    const payload = String(token).split('.', 1)[0]!;
+    expect(JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))).toMatchObject({
+      scp: ['expenses:write', 'mcp:access'],
+    });
+  });
+
   it('returns the connect_sanka fallback payload when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',

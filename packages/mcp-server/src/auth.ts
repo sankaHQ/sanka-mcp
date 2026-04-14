@@ -60,6 +60,15 @@ type VerifiedOAuthToken = {
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
+const normalizeRequestedScopes = (scopes: string[] | undefined): string[] => {
+  const normalizedScopes =
+    Array.isArray(scopes) ?
+      scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0)
+    : [];
+
+  return [...new Set(['mcp:access', ...normalizedScopes])].sort();
+};
+
 const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
 const isJwtLike = (value: string): boolean => value.split('.').length === 3;
@@ -74,17 +83,21 @@ export const extractMcpSessionId = (headers: IncomingHttpHeaders): string | unde
 export const generateMcpSessionId = (): string => randomUUID();
 
 const buildMcpConnectToken = ({
+  requestedScopes,
   sessionId,
   sharedSecret,
 }: {
+  requestedScopes?: string[] | undefined;
   sessionId: string;
   sharedSecret: string;
 }): string => {
   const now = Math.floor(Date.now() / 1000);
+  const normalizedRequestedScopes = normalizeRequestedScopes(requestedScopes);
   const payload = Buffer.from(
     JSON.stringify({
       exp: now + MCP_CONNECT_TOKEN_MAX_AGE_SECONDS,
       iat: now,
+      ...(normalizedRequestedScopes.length ? { scp: normalizedRequestedScopes } : undefined),
       sid: sessionId,
       v: 1,
     }),
@@ -95,10 +108,12 @@ const buildMcpConnectToken = ({
 
 const buildMcpConnectUrl = ({
   authorizationServerUrl,
+  requestedScopes,
   sessionId,
   tokenExchangeSharedSecret,
 }: {
   authorizationServerUrl: string;
+  requestedScopes?: string[] | undefined;
   sessionId?: string | undefined;
   tokenExchangeSharedSecret?: string | undefined;
 }): string | undefined => {
@@ -107,6 +122,7 @@ const buildMcpConnectUrl = ({
   }
 
   const token = buildMcpConnectToken({
+    requestedScopes,
     sessionId,
     sharedSecret: tokenExchangeSharedSecret,
   });
@@ -421,6 +437,7 @@ export const resolveClientAuth = async ({
   advertisedAuthorizationServerUrl,
   mcpOptions,
   mcpSessionId,
+  requestedScopes,
   req,
   resourceMetadataUrl,
   resourceUrl,
@@ -428,6 +445,7 @@ export const resolveClientAuth = async ({
   advertisedAuthorizationServerUrl?: string;
   mcpOptions: McpOptions;
   mcpSessionId?: string | undefined;
+  requestedScopes?: string[] | undefined;
   req: IncomingMessage;
   resourceMetadataUrl: string;
   resourceUrl: string;
@@ -443,6 +461,7 @@ export const resolveClientAuth = async ({
   );
   const connectUrl = buildMcpConnectUrl({
     authorizationServerUrl: internalAuthorizationServerUrl,
+    requestedScopes,
     sessionId: resolvedMcpSessionId,
     tokenExchangeSharedSecret: mcpOptions.tokenExchangeSharedSecret,
   });

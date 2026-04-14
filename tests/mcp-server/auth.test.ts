@@ -108,6 +108,13 @@ describe('resolveClientAuth', () => {
   });
 
   const encodeBase64Url = (value: string) => Buffer.from(value).toString('base64url');
+  const decodeConnectTokenPayload = (connectUrl: string) => {
+    const url = new URL(connectUrl);
+    const token = url.searchParams.get('token');
+    expect(token).toBeTruthy();
+    const payload = String(token).split('.', 1)[0]!;
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+  };
 
   const buildJwt = async (audience: string) => {
     const now = Math.floor(Date.now() / 1000);
@@ -271,6 +278,26 @@ describe('resolveClientAuth', () => {
         scopes: [],
       },
     });
+  });
+
+  it('encodes requested reconnect scopes into the MCP connect token', async () => {
+    const resolved = await resolveClientAuth({
+      mcpOptions: {
+        authorizationServerUrl: authServerBaseUrl,
+        tokenExchangeSharedSecret: 'shared-secret',
+      },
+      requestedScopes: ['expenses:write', 'companies:read'],
+      req: {
+        headers: {
+          'mcp-session-id': 'unapproved-session',
+        },
+      } as any,
+      resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      resourceUrl: 'https://mcp.sanka.com/mcp',
+    });
+
+    const connectPayload = decodeConnectTokenPayload(String(resolved.oauth.connectUrl));
+    expect(connectPayload['scp']).toEqual(['companies:read', 'expenses:write', 'mcp:access']);
   });
 
   it('returns an OAuth challenge for invalid JWTs', async () => {
