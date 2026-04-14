@@ -17,8 +17,9 @@ import { getLogger } from './logger';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
-import { executeHandler, initMcpServer, newMcpServer } from './server';
+import { executeHandler, initMcpServer, newMcpServer, selectTools } from './server';
 import { resolveMissingScopes } from './tool-auth';
+import { buildToolAccessRequirements } from './tool-scope-requirements';
 import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
@@ -48,133 +49,6 @@ const PROTECTED_RESOURCE_METADATA_PATHS = [
   DEFAULT_METADATA_ALIAS_PATH,
   `${DEFAULT_STREAMABLE_PATH}${DEFAULT_METADATA_PATH}`,
 ];
-const TOOL_ACCESS_REQUIREMENTS: Record<
-  string,
-  {
-    authenticationRequired: boolean;
-    requiredScopes?: string[];
-  }
-> = {
-  connect_sanka: { authenticationRequired: false },
-  auth_status: { authenticationRequired: false },
-  list_private_messages: { authenticationRequired: true },
-  sync_private_messages: { authenticationRequired: true },
-  get_private_message_thread: { authenticationRequired: true },
-  reply_private_message_thread: { authenticationRequired: true },
-  archive_private_message_thread: { authenticationRequired: true },
-  list_companies: { authenticationRequired: true },
-  get_company: { authenticationRequired: true },
-  create_company: { authenticationRequired: true },
-  update_company: { authenticationRequired: true },
-  delete_company: { authenticationRequired: true },
-  get_company_price_table: { authenticationRequired: true },
-  update_company_price_table_company: { authenticationRequired: true },
-  update_company_price_table_item: { authenticationRequired: true },
-  apply_company_price_table_items: { authenticationRequired: true },
-  list_contacts: { authenticationRequired: true },
-  get_contact: { authenticationRequired: true },
-  create_contact: { authenticationRequired: true },
-  update_contact: { authenticationRequired: true },
-  delete_contact: { authenticationRequired: true },
-  list_deals: { authenticationRequired: true },
-  get_deal: { authenticationRequired: true },
-  create_deal: { authenticationRequired: true },
-  update_deal: { authenticationRequired: true },
-  delete_deal: { authenticationRequired: true },
-  list_deal_pipelines: { authenticationRequired: true },
-  list_items: { authenticationRequired: true },
-  get_item: { authenticationRequired: true },
-  create_item: { authenticationRequired: true },
-  update_item: { authenticationRequired: true },
-  delete_item: { authenticationRequired: true },
-  list_orders: { authenticationRequired: true },
-  get_order: { authenticationRequired: true },
-  download_order_pdf: { authenticationRequired: true },
-  create_order: { authenticationRequired: true },
-  update_order: { authenticationRequired: true },
-  delete_order: { authenticationRequired: true },
-  list_tasks: { authenticationRequired: true },
-  get_task: { authenticationRequired: true },
-  create_task: { authenticationRequired: true },
-  update_task: { authenticationRequired: true },
-  delete_task: { authenticationRequired: true },
-  list_estimates: { authenticationRequired: true },
-  get_estimate: { authenticationRequired: true },
-  download_estimate_pdf: { authenticationRequired: true },
-  create_estimate: { authenticationRequired: true },
-  update_estimate: { authenticationRequired: true },
-  delete_estimate: { authenticationRequired: true },
-  list_invoices: { authenticationRequired: true },
-  list_overdue_invoices: { authenticationRequired: true },
-  get_invoice: { authenticationRequired: true },
-  download_invoice_pdf: { authenticationRequired: true },
-  create_invoice: { authenticationRequired: true },
-  update_invoice: { authenticationRequired: true },
-  delete_invoice: { authenticationRequired: true },
-  list_subscriptions: { authenticationRequired: true },
-  get_subscription: { authenticationRequired: true },
-  create_subscription: { authenticationRequired: true },
-  update_subscription: { authenticationRequired: true },
-  delete_subscription: { authenticationRequired: true },
-  list_payments: { authenticationRequired: true },
-  get_payment: { authenticationRequired: true },
-  create_payment: { authenticationRequired: true },
-  update_payment: { authenticationRequired: true },
-  delete_payment: { authenticationRequired: true },
-  download_payment_pdf: { authenticationRequired: true },
-  download_slip_pdf: { authenticationRequired: true },
-  list_tickets: { authenticationRequired: true },
-  get_ticket: { authenticationRequired: true },
-  create_ticket: { authenticationRequired: true },
-  update_ticket: { authenticationRequired: true },
-  delete_ticket: { authenticationRequired: true },
-  list_ticket_pipelines: { authenticationRequired: true },
-  update_ticket_status: { authenticationRequired: true },
-  list_locations: { authenticationRequired: true },
-  get_location: { authenticationRequired: true },
-  create_location: { authenticationRequired: true },
-  update_location: { authenticationRequired: true },
-  delete_location: { authenticationRequired: true },
-  list_inventories: { authenticationRequired: true },
-  get_inventory: { authenticationRequired: true },
-  create_inventory: { authenticationRequired: true },
-  update_inventory: { authenticationRequired: true },
-  delete_inventory: { authenticationRequired: true },
-  list_inventory_transactions: { authenticationRequired: true },
-  get_inventory_transaction: { authenticationRequired: true },
-  create_inventory_transaction: { authenticationRequired: true },
-  update_inventory_transaction: { authenticationRequired: true },
-  delete_inventory_transaction: { authenticationRequired: true },
-  list_expenses: { authenticationRequired: true },
-  get_expense: { authenticationRequired: true },
-  upload_expense_attachment: { authenticationRequired: true },
-  create_expense: { authenticationRequired: true },
-  update_expense: { authenticationRequired: true },
-  delete_expense: { authenticationRequired: true },
-  list_properties: { authenticationRequired: true },
-  get_property: { authenticationRequired: true },
-  create_property: { authenticationRequired: true },
-  update_property: { authenticationRequired: true },
-  delete_property: { authenticationRequired: true },
-  get_calendar_bootstrap: { authenticationRequired: true },
-  check_calendar_availability: { authenticationRequired: true },
-  create_calendar_attendance: { authenticationRequired: true },
-  cancel_calendar_attendance: { authenticationRequired: true },
-  reschedule_calendar_attendance: { authenticationRequired: true },
-  prospect_companies: { authenticationRequired: true },
-  score_record: { authenticationRequired: true },
-  upload_import_file: { authenticationRequired: true },
-  import_records: { authenticationRequired: true },
-  get_import_job: { authenticationRequired: true },
-  list_import_jobs: { authenticationRequired: true },
-  cancel_import_job: { authenticationRequired: true },
-  list_integration_channels: { authenticationRequired: true },
-  export_records: { authenticationRequired: true },
-  get_export_job: { authenticationRequired: true },
-  list_export_jobs: { authenticationRequired: true },
-  cancel_export_job: { authenticationRequired: true },
-};
-
 const INLINE_TOOL_HANDLERS = {
   auth_status: crmAuthStatusTool,
   connect_sanka: crmConnectSankaTool,
@@ -182,6 +56,31 @@ const INLINE_TOOL_HANDLERS = {
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readStringArray = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0);
+  return normalized.length ? normalized : undefined;
+};
+
+const requestedScopesFromRequestBody = (body: unknown): string[] | undefined => {
+  if (!isObjectRecord(body) || body['method'] !== 'tools/call' || !isObjectRecord(body['params'])) {
+    return undefined;
+  }
+
+  const toolName = typeof body['params']['name'] === 'string' ? body['params']['name'] : undefined;
+  if (toolName !== 'auth_status' && toolName !== 'connect_sanka') {
+    return undefined;
+  }
+
+  const args = isObjectRecord(body['params']['arguments']) ? body['params']['arguments'] : undefined;
+  return readStringArray(args?.['required_scopes']);
+};
 
 const createRequestTransport = async ({
   clientOptions,
@@ -201,6 +100,13 @@ const createRequestTransport = async ({
   mcpSessionId: string;
   server: McpServer;
   transport: StreamableHTTPServerTransport;
+  toolAccessRequirements: Record<
+    string,
+    {
+      authenticationRequired: boolean;
+      requiredScopes: string[];
+    }
+  >;
 } | null> => {
   const incomingSessionId = extractMcpSessionId(req.headers);
   const mcpSessionId = incomingSessionId || generateMcpSessionId();
@@ -241,6 +147,7 @@ const createRequestTransport = async ({
       advertisedAuthorizationServerUrl: requestAuthorizationServerUrl(req),
       mcpOptions: effectiveMcpOptions,
       mcpSessionId,
+      requestedScopes: requestedScopesFromRequestBody(req.body),
       req,
       resourceMetadataUrl,
       resourceUrl,
@@ -279,21 +186,45 @@ const createRequestTransport = async ({
   });
   await server.connect(transport as any);
 
+  const selectedTools = selectTools(effectiveMcpOptions, toolProfile);
+  const argsByToolName =
+    isObjectRecord(req.body) &&
+    req.body['method'] === 'tools/call' &&
+    isObjectRecord(req.body['params']) &&
+    typeof req.body['params']['name'] === 'string' ?
+      {
+        [req.body['params']['name']]:
+          isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : undefined,
+      }
+    : undefined;
+
   return {
     server,
     transport,
     auth: resolvedAuth,
     generatedSessionId: incomingSessionId ? undefined : mcpSessionId,
     mcpSessionId,
+    toolAccessRequirements: buildToolAccessRequirements({
+      tools: selectedTools,
+      argsByToolName,
+    }),
   };
 };
 
 const getRequestAuthPreflight = ({
   auth,
   body,
+  toolAccessRequirements,
 }: {
   auth: Awaited<ReturnType<typeof resolveClientAuth>>;
   body: unknown;
+  toolAccessRequirements: Record<
+    string,
+    {
+      authenticationRequired: boolean;
+      requiredScopes: string[];
+    }
+  >;
 }):
   | {
       error: string;
@@ -321,12 +252,12 @@ const getRequestAuthPreflight = ({
       continue;
     }
 
-    const accessRequirements = TOOL_ACCESS_REQUIREMENTS[toolName];
+    const accessRequirements = toolAccessRequirements[toolName];
     if (!accessRequirements?.authenticationRequired) {
       continue;
     }
 
-    if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
+    if (auth.authMode === 'api_key') {
       continue;
     }
 
@@ -345,7 +276,7 @@ const getRequestAuthPreflight = ({
       };
     }
 
-    const requiredScopes = accessRequirements.requiredScopes ?? [];
+    const requiredScopes = accessRequirements.requiredScopes;
     if (requiredScopes.length === 0) {
       continue;
     }
@@ -582,6 +513,7 @@ const handleStreamableRequest =
     const authPreflight = getRequestAuthPreflight({
       auth: transportContext.auth,
       body: req.body,
+      toolAccessRequirements: transportContext.toolAccessRequirements,
     });
     if (authPreflight) {
       res.setHeader('WWW-Authenticate', authPreflight.wwwAuthenticate);

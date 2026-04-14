@@ -161,6 +161,8 @@ import {
   uploadImportFileTool,
 } from './transfer-tools';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
+import { requireScopes } from './tool-auth';
+import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
 
 export const newMcpServer = async ({
   customInstructionsPath,
@@ -242,7 +244,7 @@ export async function initMcpServer(params: {
   };
 
   const toolProfile = params.toolProfile ?? 'full';
-  const providedTools = selectTools(params.mcpOptions, toolProfile);
+  const providedTools = selectTools(params.mcpOptions, toolProfile).map(applyRequiredScopesToSecuritySchemes);
   const toolMap = Object.fromEntries(providedTools.map((mcpTool) => [mcpTool.tool.name, mcpTool]));
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -256,6 +258,23 @@ export async function initMcpServer(params: {
     const mcpTool = toolMap[name];
     if (!mcpTool) {
       throw new Error(`Unknown tool: ${name}`);
+    }
+
+    const reqContext: McpRequestContext = {
+      client: undefined as any,
+      mcpSessionId: params.mcpSessionId,
+      mcpClientInfo: params.mcpClientInfo,
+      toolProfile,
+      auth: params.auth,
+    };
+
+    const scopeError = requireScopes({
+      reqContext,
+      requiredScopes: getToolRequiredScopes({ tool: mcpTool, args }),
+      toolTitle: mcpTool.tool.title ?? mcpTool.tool.name,
+    });
+    if (scopeError) {
+      return scopeError;
     }
 
     let client: Sanka;
@@ -276,11 +295,8 @@ export async function initMcpServer(params: {
     return executeHandler({
       handler: mcpTool.handler,
       reqContext: {
+        ...reqContext,
         client,
-        mcpSessionId: params.mcpSessionId,
-        mcpClientInfo: params.mcpClientInfo,
-        toolProfile,
-        auth: params.auth,
       },
       args,
     });

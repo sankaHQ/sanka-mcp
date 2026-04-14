@@ -1,7 +1,7 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
-import { requireAuthentication } from './tool-auth';
+import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -960,6 +960,18 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
   required: ['object_name', 'property_ref'],
 };
 
+const AUTH_STATUS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    required_scopes: {
+      type: 'array',
+      description:
+        'Optional OAuth scopes required by the follow-up request. When provided, auth_status/connect_sanka returns reconnect metadata for those scopes too.',
+      items: { type: 'string' },
+    },
+  },
+};
+
 const AUTH_STATUS_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -976,6 +988,14 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
     connect_url: { type: 'string' },
+    required_scopes: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    missing_scopes: {
+      type: 'array',
+      items: { type: 'string' },
+    },
     reconnect_mode: { type: 'string' },
     reconnect_instructions: { type: 'string' },
     reconnect_rpc_method: { type: 'string' },
@@ -5915,11 +5935,19 @@ const buildReconnectMetadata = ({
 };
 
 const buildAuthStatusChallenge = ({
+  connected = false,
+  error = 'invalid_token',
   message,
+  missingScopes,
   reqContext,
+  requiredScopes,
 }: {
+  connected?: boolean;
+  error?: 'insufficient_scope' | 'invalid_token';
   message: string;
+  missingScopes?: string[] | undefined;
   reqContext: McpRequestContext;
+  requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
   const reconnectMetadata = buildReconnectMetadata({ reqContext });
@@ -5928,8 +5956,9 @@ const buildAuthStatusChallenge = ({
       buildOAuthWwwAuthenticateHeader({
         authorizationServerUrl: oauth.authorizationServerUrl,
         description: message,
-        error: 'invalid_token',
+        error,
         resourceMetadataUrl: oauth.resourceMetadataUrl,
+        ...(missingScopes?.length ? { scope: missingScopes.join(' ') } : undefined),
       })
     : undefined;
 
@@ -5937,11 +5966,13 @@ const buildAuthStatusChallenge = ({
     content: [{ type: 'text', text: message }],
     isError: true,
     structuredContent: {
-      connected: false,
+      connected,
       auth_mode: reqContext.auth?.authMode ?? 'none',
       tool_profile: reqContext.toolProfile ?? 'full',
       scopes: reqContext.auth?.oauth.scopes ?? [],
       message,
+      ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
+      ...(missingScopes?.length ? { missing_scopes: missingScopes } : undefined),
       ...reconnectMetadata,
     },
     ...(wwwAuthenticate ?
@@ -5956,10 +5987,14 @@ const buildAuthStatusChallenge = ({
 
 const buildConnectedAuthStatusResult = ({
   message,
+  missingScopes,
   reqContext,
+  requiredScopes,
 }: {
   message: string;
+  missingScopes?: string[] | undefined;
   reqContext: McpRequestContext;
+  requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
   const reconnectMetadata = buildReconnectMetadata({ reqContext });
@@ -5972,6 +6007,8 @@ const buildConnectedAuthStatusResult = ({
       tool_profile: reqContext.toolProfile ?? 'full',
       scopes: oauth?.scopes ?? [],
       message,
+      ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
+      ...(missingScopes?.length ? { missing_scopes: missingScopes } : undefined),
       ...reconnectMetadata,
     },
   };
@@ -5979,6 +6016,33 @@ const buildConnectedAuthStatusResult = ({
 
 const CONNECT_SANKA_PROMPT_MESSAGE =
   'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.';
+
+const requestedScopesFromArgs = (args: Record<string, unknown> | undefined): string[] =>
+  [...new Set(readStringArray(args?.['required_scopes']))].sort();
+
+const resolveAuthStatusMissingScopes = ({
+  authMode,
+  grantedScopes,
+  requiredScopes,
+}: {
+  authMode: string;
+  grantedScopes: string[];
+  requiredScopes: string[];
+}): string[] => {
+  if (requiredScopes.length === 0 || authMode === 'api_key') {
+    return [];
+  }
+
+  const normalizedGrantedScopes = new Set(grantedScopes);
+  if (normalizedGrantedScopes.size === 0 && authMode === 'legacy_oauth_jwt') {
+    return [];
+  }
+
+  return resolveMissingScopes({
+    grantedScopes: normalizedGrantedScopes,
+    requiredScopes,
+  });
+};
 
 export const crmConnectSankaTool: McpTool = {
   metadata: {
@@ -5992,10 +6056,7 @@ export const crmConnectSankaTool: McpTool = {
     title: 'Connect Sanka CRM',
     description:
       'Start or resume the Sanka OAuth connection flow. Use this when the user explicitly asks to connect or reconnect Sanka.',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: AUTH_STATUS_INPUT_SCHEMA,
     outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'noauth' }],
     annotations: {
@@ -6005,12 +6066,30 @@ export const crmConnectSankaTool: McpTool = {
       openWorldHint: false,
     },
   },
-  handler: async ({ reqContext }) => {
+  handler: async ({ reqContext, args }) => {
     const authMode = reqContext.auth?.authMode ?? 'none';
+    const requiredScopes = requestedScopesFromArgs(args);
+    const missingScopes = resolveAuthStatusMissingScopes({
+      authMode,
+      grantedScopes: reqContext.auth?.oauth.scopes ?? [],
+      requiredScopes,
+    });
 
     if (authMode === 'none') {
       return buildAuthStatusChallenge({
         message: CONNECT_SANKA_PROMPT_MESSAGE,
+        requiredScopes,
+        reqContext,
+      });
+    }
+
+    if (missingScopes.length > 0) {
+      return buildAuthStatusChallenge({
+        connected: true,
+        error: 'insufficient_scope',
+        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(', ')}. Reconnect and approve the requested permissions, then retry.`,
+        missingScopes,
+        requiredScopes,
         reqContext,
       });
     }
@@ -6022,6 +6101,7 @@ export const crmConnectSankaTool: McpTool = {
 
     return buildConnectedAuthStatusResult({
       message,
+      requiredScopes,
       reqContext,
     });
   },
@@ -6039,10 +6119,7 @@ export const crmAuthStatusTool: McpTool = {
     title: 'Check CRM authentication status',
     description:
       'Debug whether the Sanka CRM connector is authenticated. Do not use this as a preflight before company or contact lookup tools.',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: AUTH_STATUS_INPUT_SCHEMA,
     outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'noauth' }],
     annotations: {
@@ -6052,12 +6129,30 @@ export const crmAuthStatusTool: McpTool = {
       openWorldHint: false,
     },
   },
-  handler: async ({ reqContext }) => {
+  handler: async ({ reqContext, args }) => {
     const authMode = reqContext.auth?.authMode ?? 'none';
+    const requiredScopes = requestedScopesFromArgs(args);
+    const missingScopes = resolveAuthStatusMissingScopes({
+      authMode,
+      grantedScopes: reqContext.auth?.oauth.scopes ?? [],
+      requiredScopes,
+    });
 
     if (authMode === 'none') {
       return buildAuthStatusChallenge({
         message: CONNECT_SANKA_PROMPT_MESSAGE,
+        requiredScopes,
+        reqContext,
+      });
+    }
+
+    if (missingScopes.length > 0) {
+      return buildAuthStatusChallenge({
+        connected: true,
+        error: 'insufficient_scope',
+        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(', ')}. Reconnect and approve the requested permissions, then retry.`,
+        missingScopes,
+        requiredScopes,
         reqContext,
       });
     }
@@ -6069,6 +6164,7 @@ export const crmAuthStatusTool: McpTool = {
 
     return buildConnectedAuthStatusResult({
       message,
+      requiredScopes,
       reqContext,
     });
   },
