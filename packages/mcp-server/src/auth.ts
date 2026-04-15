@@ -62,9 +62,7 @@ const singleHeader = (value: string | string[] | undefined): string | undefined 
 
 const normalizeRequestedScopes = (scopes: string[] | undefined): string[] => {
   const normalizedScopes =
-    Array.isArray(scopes) ?
-      scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0)
-    : [];
+    Array.isArray(scopes) ? scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0) : [];
 
   return [...new Set(['mcp:access', ...normalizedScopes])].sort();
 };
