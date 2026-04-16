@@ -1,25 +1,13 @@
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import { McpRequestContext, ToolCallResult } from './types';
 
-export const AI_CLIENT_MCP_SCOPE = 'mcp:access';
-export const LEGACY_CRM_READ_SCOPES = ['contacts:read', 'companies:read'] as const;
-
 const scopeSatisfied = ({
   grantedScopes,
   requiredScope,
 }: {
   grantedScopes: Set<string>;
   requiredScope: string;
-}): boolean => {
-  if (requiredScope !== AI_CLIENT_MCP_SCOPE) {
-    return grantedScopes.has(requiredScope);
-  }
-
-  return (
-    grantedScopes.has(AI_CLIENT_MCP_SCOPE) ||
-    LEGACY_CRM_READ_SCOPES.some((legacyScope) => grantedScopes.has(legacyScope))
-  );
-};
+}): boolean => grantedScopes.has(requiredScope);
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -90,10 +78,6 @@ export const requireScopes = ({
     return null;
   }
 
-  if (auth.authMode === 'api_key') {
-    return null;
-  }
-
   if (auth.authMode === 'none') {
     return authErrorResult({
       error: 'invalid_token',
@@ -104,10 +88,6 @@ export const requireScopes = ({
   }
 
   const grantedScopes = new Set(auth.oauth.scopes);
-  if (grantedScopes.size === 0 && auth.authMode === 'legacy_oauth_jwt') {
-    return null;
-  }
-
   const missingScopes = resolveMissingScopes({
     grantedScopes,
     requiredScopes,
@@ -133,10 +113,6 @@ export const requireAuthentication = ({
 }): ToolCallResult | null => {
   const auth = reqContext.auth;
   if (!auth) {
-    return null;
-  }
-
-  if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
     return null;
   }
 

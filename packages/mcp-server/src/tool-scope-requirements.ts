@@ -1,96 +1,14 @@
 import { McpTool } from './types';
 
-const SUPPORTED_SCOPE_KEYS = new Set([
-  'bills',
-  'cases',
-  'companies',
-  'contacts',
-  'deals',
-  'disbursements',
-  'estimates',
-  'expenses',
-  'inventories',
-  'inventory_transactions',
-  'invoices',
-  'items',
-  'locations',
-  'messages',
-  'meters',
-  'orders',
-  'payments',
-  'purchase_orders',
-  'reports',
-  'slips',
-  'subscriptions',
-  'tasks',
-  'tickets',
-  'transfers',
-  'workflows',
-]);
-
-const RESOURCE_SCOPE_KEY_OVERRIDES: Record<string, string> = {
-  account_messages: 'messages',
-  purchaseOrders: 'purchase_orders',
-};
-
-const PROPERTY_OBJECT_SCOPE_KEY_OVERRIDES: Record<string, string> = {
-  'inventory-transactions': 'inventory_transactions',
-  'purchase-orders': 'purchase_orders',
-};
-
-const PROPERTY_OBJECT_SCOPE_KEY_ALIASES: Record<string, string> = {
-  inventory: 'inventories',
-  inventory_transaction: 'inventory-transactions',
-  inventory_transactions: 'inventory-transactions',
-  purchase_orders: 'purchase-orders',
-  purchaseorder: 'purchase-orders',
-};
+export const SANKA_API_ACCESS_SCOPE = 'api-access';
 
 type ToolAccessRequirement = {
   authenticationRequired: boolean;
   requiredScopes: string[];
 };
 
-const normalizePropertyObjectName = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim().toLowerCase().replace(/_/g, '-');
-  if (!trimmed) {
-    return undefined;
-  }
-
-  return PROPERTY_OBJECT_SCOPE_KEY_ALIASES[trimmed] ?? trimmed;
-};
-
-const scopeKeyForResource = (resource: string): string | undefined => {
-  const explicit = RESOURCE_SCOPE_KEY_OVERRIDES[resource];
-  if (explicit) {
-    return explicit;
-  }
-
-  return SUPPORTED_SCOPE_KEYS.has(resource) ? resource : undefined;
-};
-
-const scopeKeyForPropertiesTool = (args: Record<string, unknown> | undefined): string | undefined => {
-  const normalizedObjectName = normalizePropertyObjectName(args?.['object_name']);
-  if (!normalizedObjectName) {
-    return undefined;
-  }
-
-  const explicit = PROPERTY_OBJECT_SCOPE_KEY_OVERRIDES[normalizedObjectName];
-  if (explicit) {
-    return explicit;
-  }
-
-  const direct = normalizedObjectName.replace(/-/g, '_');
-  return SUPPORTED_SCOPE_KEYS.has(direct) ? direct : undefined;
-};
-
 export const getToolRequiredScopes = ({
   tool,
-  args,
 }: {
   tool: McpTool;
   args?: Record<string, unknown> | undefined;
@@ -100,25 +18,11 @@ export const getToolRequiredScopes = ({
     return [];
   }
 
-  if (tool.metadata.resource === 'properties') {
-    const propertyScopeKey = scopeKeyForPropertiesTool(args);
-    if (!propertyScopeKey) {
-      return [];
-    }
-    return [`${propertyScopeKey}:${tool.metadata.operation}`];
-  }
-
-  const scopeKey = scopeKeyForResource(tool.metadata.resource);
-  if (!scopeKey) {
-    return [];
-  }
-
-  return [`${scopeKey}:${tool.metadata.operation}`];
+  return [SANKA_API_ACCESS_SCOPE];
 };
 
 export const buildToolAccessRequirements = ({
   tools,
-  argsByToolName,
 }: {
   tools: McpTool[];
   argsByToolName?: Record<string, Record<string, unknown> | undefined> | undefined;
@@ -127,10 +31,7 @@ export const buildToolAccessRequirements = ({
     tools.map((tool) => {
       const authenticationRequired =
         tool.tool.securitySchemes?.some((scheme) => scheme.type === 'oauth2') ?? false;
-      const requiredScopes = getToolRequiredScopes({
-        tool,
-        args: argsByToolName?.[tool.tool.name],
-      });
+      const requiredScopes = getToolRequiredScopes({ tool });
       return [
         tool.tool.name,
         {

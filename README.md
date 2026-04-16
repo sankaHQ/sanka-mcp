@@ -31,20 +31,46 @@ Staging endpoint:
 
 ## Auth
 
-Remote clients authenticate with either:
+`sanka-mcp` does not run its own OAuth stack. It uses Sanka OAuth directly:
 
-- `Authorization: Bearer <token>`
-- `x-sanka-api-key: <token>`
+- Authorization server: `https://app.sanka.com`
+- Authorization page: `/oauth/authorize`
+- Token endpoint: `/api/v1/oauth/token`
+- Revocation endpoint: `/api/v1/oauth/revoke`
 
-The server forwards those credentials to the Sanka public API.
+For hosted or local HTTP transport, MCP clients should use native OAuth against
+the Sanka authorization server exposed in the protected resource metadata. The
+MCP server accepts only Sanka OAuth bearer tokens and validates them through:
+
+- `GET /api/v1/oauth/introspect`
+
+The same bearer token is then forwarded to the Sanka public API.
+
+Developer API tokens are intentionally not supported for MCP access. They remain
+valid for direct Sanka API and SDK usage outside MCP.
 
 ## Local development
 
 ```sh
 pnpm install
 pnpm build
+export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
+export SANKA_BASE_URL="http://api.localhost:8000"
 node packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
+
+Local Sanka prerequisites:
+
+- `app.localhost:8000` serves `/oauth/authorize` and `/api/v1/oauth/token`
+- `api.localhost:8000` serves `/api/v1/public/*`
+- create the OAuth app/client in Sanka first:
+  - first-party: `/manage/oauth`
+  - third-party: `/:wsid/developers/oauth`
+- register the MCP redirect URI/origin on that OAuth client
+
+If you want to use stdio locally instead of HTTP transport, native OAuth is not
+part of the stdio handshake. In that case pass an already-issued Sanka OAuth
+access token through `SANKA_API_KEY` as a local development convenience.
 
 Then verify:
 
@@ -53,6 +79,18 @@ curl http://127.0.0.1:8080/health
 curl -sS -D - http://127.0.0.1:8080/mcp \
   -H 'content-type: application/json' \
   -H 'accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
+```
+
+For a native OAuth-capable MCP client, point the client at `http://127.0.0.1:8080/mcp` without static auth headers and let the client follow the protected resource metadata to Sanka OAuth.
+
+For manual bearer-token testing:
+
+```sh
+curl -sS -D - http://127.0.0.1:8080/mcp \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -H 'authorization: Bearer soat_your_access_token' \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
 ```
 
@@ -86,7 +124,7 @@ Required Fly apps and secrets:
 
 This repository no longer depends on Stainless project access at runtime or for ongoing development. API coverage should be maintained directly in this repo.
 
-The recommended next step is to adopt open-source OpenAPI tooling for updates to the internal client, rather than reintroducing a hosted generator dependency. See [openapi-maintenance.md](/Users/haegwan/Sites/sanka/sanka-mcp/docs/openapi-maintenance.md).
+The recommended next step is to adopt open-source OpenAPI tooling for updates to the internal client, rather than reintroducing a hosted generator dependency. See [openapi-maintenance.md](docs/openapi-maintenance.md).
 
 The repo now includes a starter typegen command:
 
