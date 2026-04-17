@@ -188,10 +188,12 @@ const createRequestTransport = async ({
 
   const selectedTools = selectTools(effectiveMcpOptions, toolProfile);
   const argsByToolName =
-    isObjectRecord(req.body) &&
-    req.body['method'] === 'tools/call' &&
-    isObjectRecord(req.body['params']) &&
-    typeof req.body['params']['name'] === 'string' ?
+    (
+      isObjectRecord(req.body) &&
+      req.body['method'] === 'tools/call' &&
+      isObjectRecord(req.body['params']) &&
+      typeof req.body['params']['name'] === 'string'
+    ) ?
       {
         [req.body['params']['name']]:
           isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : undefined,

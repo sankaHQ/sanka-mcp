@@ -6087,7 +6087,9 @@ export const crmConnectSankaTool: McpTool = {
       return buildAuthStatusChallenge({
         connected: true,
         error: 'insufficient_scope',
-        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(', ')}. Reconnect and approve the requested permissions, then retry.`,
+        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(
+          ', ',
+        )}. Reconnect and approve the requested permissions, then retry.`,
         missingScopes,
         requiredScopes,
         reqContext,
@@ -6150,7 +6152,9 @@ export const crmAuthStatusTool: McpTool = {
       return buildAuthStatusChallenge({
         connected: true,
         error: 'insufficient_scope',
-        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(', ')}. Reconnect and approve the requested permissions, then retry.`,
+        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(
+          ', ',
+        )}. Reconnect and approve the requested permissions, then retry.`,
         missingScopes,
         requiredScopes,
         reqContext,

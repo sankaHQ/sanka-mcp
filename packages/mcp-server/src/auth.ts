@@ -9,7 +9,7 @@ const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
 const DEFAULT_LEGACY_JWT_AUDIENCE = 'sanka-api';
 const DEFAULT_MCP_CONNECT_PATH = '/oauth/mcp/connect';
 const DEFAULT_MCP_SESSION_TOKEN_PATH = '/oauth/internal/mcp-session-token';
-const MCP_CONNECT_TOKEN_MAX_AGE_SECONDS = 900;
+const MCP_CONNECT_TOKEN_MAX_AGE_SECONDS = 3600;
 const TOKEN_EXCHANGE_SKEW_MS = 10_000;
 
 type JwkKey = Record<string, unknown> & { kid?: string };
@@ -62,9 +62,7 @@ const singleHeader = (value: string | string[] | undefined): string | undefined 
 
 const normalizeRequestedScopes = (scopes: string[] | undefined): string[] => {
   const normalizedScopes =
-    Array.isArray(scopes) ?
-      scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0)
-    : [];
+    Array.isArray(scopes) ? scopes.map((scope) => scope.trim()).filter((scope) => scope.length > 0) : [];
 
   return [...new Set(['mcp:access', ...normalizedScopes])].sort();
 };
