@@ -2,7 +2,8 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { streamableHTTPApp } from '../../packages/mcp-server/src/http';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
-import { AI_CLIENT_MCP_SCOPE } from '../../packages/mcp-server/src/tool-auth';
+
+const TEST_ADVERTISED_SCOPE = 'api-access';
 
 describe('protected resource metadata route', () => {
   let server: http.Server;
@@ -14,8 +15,7 @@ describe('protected resource metadata route', () => {
     const app = streamableHTTPApp({
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
-        scopesSupported: [AI_CLIENT_MCP_SCOPE],
-        tokenExchangeSharedSecret: 'shared-secret',
+        scopesSupported: [TEST_ADVERTISED_SCOPE],
       },
     });
 
@@ -51,10 +51,10 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       resource: `${baseUrl}/mcp`,
-      authorization_servers: [baseUrl],
+      authorization_servers: ['https://app.sanka.com'],
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
   });
 
@@ -65,10 +65,10 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       resource: `${baseUrl}/mcp`,
-      authorization_servers: [baseUrl],
+      authorization_servers: ['https://app.sanka.com'],
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
   });
 
@@ -78,20 +78,18 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      issuer: baseUrl,
-      authorization_endpoint: `${baseUrl}/oauth/authorize`,
-      token_endpoint: `${baseUrl}/oauth/token`,
-      revocation_endpoint: `${baseUrl}/oauth/revoke`,
-      jwks_uri: `${baseUrl}/oauth/jwks.json`,
-      registration_endpoint: `${baseUrl}/oauth/register`,
+      issuer: 'https://app.sanka.com',
+      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
+      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
+      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+      grant_types_supported: ['authorization_code'],
       token_endpoint_auth_methods_supported: ['none'],
       revocation_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
       client_id_metadata_document_supported: false,
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
   });
 
@@ -101,20 +99,18 @@ describe('protected resource metadata route', () => {
 
     expect(suffixResponse.status).toBe(200);
     expect(suffixBody).toEqual({
-      issuer: baseUrl,
-      authorization_endpoint: `${baseUrl}/oauth/authorize`,
-      token_endpoint: `${baseUrl}/oauth/token`,
-      revocation_endpoint: `${baseUrl}/oauth/revoke`,
-      jwks_uri: `${baseUrl}/oauth/jwks.json`,
-      registration_endpoint: `${baseUrl}/oauth/register`,
+      issuer: 'https://app.sanka.com',
+      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
+      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
+      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+      grant_types_supported: ['authorization_code'],
       token_endpoint_auth_methods_supported: ['none'],
       revocation_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
       client_id_metadata_document_supported: false,
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
 
     const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/oauth-authorization-server`);
@@ -130,20 +126,18 @@ describe('protected resource metadata route', () => {
 
     expect(suffixResponse.status).toBe(200);
     expect(suffixBody).toEqual({
-      issuer: baseUrl,
-      authorization_endpoint: `${baseUrl}/oauth/authorize`,
-      token_endpoint: `${baseUrl}/oauth/token`,
-      revocation_endpoint: `${baseUrl}/oauth/revoke`,
-      jwks_uri: `${baseUrl}/oauth/jwks.json`,
-      registration_endpoint: `${baseUrl}/oauth/register`,
+      issuer: 'https://app.sanka.com',
+      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
+      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
+      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
       response_types_supported: ['code'],
       response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+      grant_types_supported: ['authorization_code'],
       token_endpoint_auth_methods_supported: ['none'],
       revocation_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
       client_id_metadata_document_supported: false,
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
 
     const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/openid-configuration`);
@@ -160,14 +154,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       resource: `${baseUrl}/mcp`,
-      authorization_servers: [baseUrl],
+      authorization_servers: ['https://app.sanka.com'],
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
-      scopes_supported: [AI_CLIENT_MCP_SCOPE],
+      scopes_supported: [TEST_ADVERTISED_SCOPE],
     });
   });
 
-  it('returns an OAuth challenge when a JWT bearer token fails verification', async () => {
+  it('returns an OAuth challenge when the bearer token is not a Sanka OAuth access token', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -187,7 +181,7 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(body).toEqual({
       error: 'authentication_failed',
-      error_description: 'OAuth bearer token verification failed.',
+      error_description: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
     });
   });
 
@@ -221,7 +215,7 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).not.toContain('/mcp/crm');
     expect(body).toEqual({
       error: 'authentication_failed',
-      error_description: 'OAuth bearer token verification failed.',
+      error_description: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
     });
   });
 
@@ -259,7 +253,6 @@ describe('protected resource metadata route', () => {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
-        Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -286,7 +279,6 @@ describe('protected resource metadata route', () => {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
-        Authorization: 'Bearer opaque-token',
         'Content-Type': 'application/json',
         'mcp-protocol-version': '2025-11-25',
         ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
@@ -306,7 +298,6 @@ describe('protected resource metadata route', () => {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',
-        Authorization: 'Bearer opaque-token',
         'mcp-protocol-version': '2025-11-25',
         ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       },
@@ -325,7 +316,6 @@ describe('protected resource metadata route', () => {
         'Content-Type': 'application/json',
         'MCP-Protocol-Version': '2025-11-25',
         'User-Agent': 'openai-mcp/1.0.0 (ChatGPT)',
-        Authorization: 'Bearer opaque-token',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -555,10 +545,9 @@ describe('protected resource metadata route', () => {
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
-    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
@@ -566,7 +555,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('resource_metadata=');
   });
 
-  it('includes requested scopes in the auth_status reconnect token payload', async () => {
+  it('includes requested scopes in the auth_status reconnect payload', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -589,16 +578,6 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(text).toContain('"required_scopes":["expenses:write"]');
-
-    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
-    expect(connectUrlMatch?.[1]).toBeTruthy();
-    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
-    const token = new URL(connectUrl).searchParams.get('token');
-    expect(token).toBeTruthy();
-    const payload = String(token).split('.', 1)[0]!;
-    expect(JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))).toMatchObject({
-      scp: ['expenses:write', 'mcp:access'],
-    });
   });
 
   it('returns the connect_sanka fallback payload when authentication is missing', async () => {
@@ -630,10 +609,9 @@ describe('protected resource metadata route', () => {
       'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
     );
     expect(text).toContain('"mcp/www_authenticate"');
-    expect(text).toContain(`"authorization_server_url":"${baseUrl}"`);
+    expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
