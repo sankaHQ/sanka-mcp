@@ -55,9 +55,13 @@ valid for direct Sanka API and SDK usage outside MCP.
 pnpm install
 pnpm build
 export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
+export MCP_SERVER_OAUTH_CLIENT_ID="your-public-oauth-client-id"
 export SANKA_BASE_URL="http://api.localhost:8000"
 node packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
+
+`MCP_SERVER_OAUTH_CLIENT_ID` is optional. When present, the server advertises
+that OAuth `client_id` in its authorization server metadata.
 
 Local Sanka prerequisites:
 

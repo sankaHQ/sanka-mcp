@@ -20,9 +20,13 @@ cd sanka-mcp
 
 ```sh
 export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
+export MCP_SERVER_OAUTH_CLIENT_ID="your-public-oauth-client-id"
 export SANKA_BASE_URL="http://api.localhost:8000"
 node ./packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
+
+`MCP_SERVER_OAUTH_CLIENT_ID` is optional. When set, the MCP server includes
+that `client_id` in its advertised OAuth authorization server metadata.
 
 Before running locally, create the OAuth app/client in Sanka and register the
 local redirect URI on that client:

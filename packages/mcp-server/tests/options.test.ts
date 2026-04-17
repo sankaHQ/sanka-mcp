@@ -9,6 +9,25 @@ const mockArgv = (args: string[]) => {
   };
 };
 
+const mockEnv = (key: string, value: string | undefined) => {
+  const originalValue = process.env[key];
+
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+
+  return () => {
+    if (originalValue === undefined) {
+      delete process.env[key];
+      return;
+    }
+
+    process.env[key] = originalValue;
+  };
+};
+
 describe('parseCLIOptions', () => {
   it('default parsing should be stdio', () => {
     const cleanup = mockArgv([]);
@@ -28,5 +47,29 @@ describe('parseCLIOptions', () => {
     expect(result.transport).toBe('http');
     expect(result.port).toBe(2222);
     cleanup();
+  });
+
+  it('reads oauth client id from env and keeps it optional', () => {
+    const cleanupArgv = mockArgv([]);
+    const cleanupEnv = mockEnv('MCP_SERVER_OAUTH_CLIENT_ID', 'client-from-env');
+
+    const result = parseCLIOptions();
+
+    expect(result.oauthClientId).toBe('client-from-env');
+
+    cleanupEnv();
+    cleanupArgv();
+  });
+
+  it('treats blank oauth client id values as unset', () => {
+    const cleanupArgv = mockArgv([]);
+    const cleanupEnv = mockEnv('MCP_SERVER_OAUTH_CLIENT_ID', '   ');
+
+    const result = parseCLIOptions();
+
+    expect(result.oauthClientId).toBeUndefined();
+
+    cleanupEnv();
+    cleanupArgv();
   });
 });

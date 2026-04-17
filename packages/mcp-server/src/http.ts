@@ -303,11 +303,13 @@ const resolveAdvertisedScopesSupported = (mcpOptions: McpOptions): string[] =>
     mcpOptions.scopesSupported
   : DEFAULT_SCOPES_SUPPORTED;
 
-const buildAuthorizationServerMetadata = ({
+export const buildAuthorizationServerMetadata = ({
   authorizationServerUrl,
+  oauthClientId,
   scopesSupported,
 }: {
   authorizationServerUrl: string;
+  oauthClientId?: string | undefined;
   scopesSupported?: string[] | undefined;
 }) => ({
   issuer: authorizationServerUrl,
@@ -321,6 +323,7 @@ const buildAuthorizationServerMetadata = ({
   revocation_endpoint_auth_methods_supported: ['none'],
   code_challenge_methods_supported: ['S256'],
   client_id_metadata_document_supported: false,
+  ...(oauthClientId ? { client_id: oauthClientId } : {}),
   ...(scopesSupported && scopesSupported.length > 0 ? { scopes_supported: scopesSupported } : {}),
 });
 
@@ -475,6 +478,7 @@ export const streamableHTTPApp = ({
     res.status(200).json(
       buildAuthorizationServerMetadata({
         authorizationServerUrl,
+        oauthClientId: mcpOptions.oauthClientId,
         scopesSupported: resolveAdvertisedScopesSupported(mcpOptions),
       }),
     );

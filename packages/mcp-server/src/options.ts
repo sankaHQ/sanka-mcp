@@ -15,6 +15,7 @@ export type CLIOptions = McpOptions & {
 
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
+  oauthClientId?: string | undefined;
   includeCodeTool?: boolean | undefined;
   includeDocsTools?: boolean | undefined;
   docsDir?: string | undefined;
@@ -27,10 +28,24 @@ export type McpOptions = {
 };
 
 export function parseCLIOptions(): CLIOptions {
+  const optionalString = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
   const opts = yargs(hideBin(process.argv))
     .option('authorization-server-url', {
       type: 'string',
       description: 'Base URL for the Sanka OAuth authorization server, such as https://app.sanka.com',
+    })
+    .option('oauth-client-id', {
+      type: 'string',
+      description:
+        'Optional OAuth client_id to advertise in authorization server metadata. Can also be set with MCP_SERVER_OAUTH_CLIENT_ID.',
     })
     .option('code-allow-http-gets', {
       type: 'boolean',
@@ -119,7 +134,8 @@ export function parseCLIOptions(): CLIOptions {
     : 'json';
 
   return {
-    authorizationServerUrl: argv.authorizationServerUrl,
+    authorizationServerUrl: optionalString(argv.authorizationServerUrl),
+    oauthClientId: optionalString(argv.oauthClientId),
     ...(includeCodeTool !== undefined && { includeCodeTool }),
     ...(includeDocsTools !== undefined && { includeDocsTools }),
     debug: !!argv.debug,
@@ -168,6 +184,7 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
 
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
+    oauthClientId: defaultOptions.oauthClientId,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),
     docsDir: defaultOptions.docsDir,
