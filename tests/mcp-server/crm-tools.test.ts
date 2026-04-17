@@ -125,16 +125,11 @@ import {
   crmUploadExpenseAttachmentTool,
 } from '../../packages/mcp-server/src/crm-tools';
 
-const oauthContext = (overrides?: {
-  authMode?: 'none' | 'api_key' | 'legacy_oauth_jwt' | 'resource_oauth_jwt';
-  connectUrl?: string;
-  scopes?: string[];
-}) => ({
-  authMode: overrides?.authMode ?? 'resource_oauth_jwt',
+const oauthContext = (overrides?: { authMode?: 'none' | 'oauth_bearer'; scopes?: string[] }) => ({
+  authMode: overrides?.authMode ?? 'oauth_bearer',
   clientOptions: {},
   oauth: {
     authorizationServerUrl: 'https://app.sanka.com',
-    ...(overrides?.connectUrl ? { connectUrl: overrides.connectUrl } : {}),
     resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
     resourceUrl: 'https://mcp.sanka.com/mcp',
     scopes: overrides?.scopes ?? [],
@@ -332,8 +327,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext: {
         client: {} as any,
         auth: oauthContext({
-          authMode: 'resource_oauth_jwt',
-          connectUrl: 'https://app.sanka.com/oauth/mcp/connect?token=test-token',
+          authMode: 'oauth_bearer',
           scopes: ['mcp:access'],
         }),
         toolProfile: 'hosted',
@@ -346,13 +340,12 @@ describe('ChatGPT CRM tools', () => {
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toEqual({
       connected: true,
-      auth_mode: 'resource_oauth_jwt',
+      auth_mode: 'oauth_bearer',
       tool_profile: 'hosted',
       scopes: ['mcp:access'],
       message:
         'Sanka CRM is connected, but missing required OAuth scopes: expenses:write. Reconnect and approve the requested permissions, then retry.',
       authorization_server_url: 'https://app.sanka.com',
-      connect_url: 'https://app.sanka.com/oauth/mcp/connect?token=test-token',
       required_scopes: ['expenses:write'],
       missing_scopes: ['expenses:write'],
       resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
@@ -385,11 +378,11 @@ describe('ChatGPT CRM tools', () => {
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toEqual({
       connected: true,
-      auth_mode: 'resource_oauth_jwt',
+      auth_mode: 'oauth_bearer',
       tool_profile: 'hosted',
       client_name: 'Codex',
       scopes: [],
-      message: 'Sanka CRM is connected with OAuth.',
+      message: 'Sanka CRM is connected with Sanka OAuth.',
       authorization_server_url: 'https://app.sanka.com',
       resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
       resource_url: 'https://mcp.sanka.com/mcp',
@@ -418,11 +411,11 @@ describe('ChatGPT CRM tools', () => {
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toEqual({
       connected: true,
-      auth_mode: 'resource_oauth_jwt',
+      auth_mode: 'oauth_bearer',
       tool_profile: 'hosted',
       client_name: 'Claude',
       scopes: [],
-      message: 'Sanka CRM is already connected with OAuth.',
+      message: 'Sanka CRM is already connected with Sanka OAuth.',
       authorization_server_url: 'https://app.sanka.com',
       resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
       resource_url: 'https://mcp.sanka.com/mcp',

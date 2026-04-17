@@ -11,11 +11,8 @@ import {
   uploadImportFileTool,
 } from '../../packages/mcp-server/src/transfer-tools';
 
-const oauthContext = (overrides?: {
-  authMode?: 'none' | 'api_key' | 'legacy_oauth_jwt' | 'resource_oauth_jwt';
-  scopes?: string[];
-}) => ({
-  authMode: overrides?.authMode ?? 'resource_oauth_jwt',
+const oauthContext = (overrides?: { authMode?: 'none' | 'oauth_bearer'; scopes?: string[] }) => ({
+  authMode: overrides?.authMode ?? 'oauth_bearer',
   clientOptions: {},
   oauth: {
     authorizationServerUrl: 'https://app.sanka.com',

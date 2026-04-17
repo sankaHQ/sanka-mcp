@@ -15,7 +15,7 @@ export type CLIOptions = McpOptions & {
 
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
-  legacyJwtAudience?: string | undefined;
+  oauthClientId?: string | undefined;
   includeCodeTool?: boolean | undefined;
   includeDocsTools?: boolean | undefined;
   docsDir?: string | undefined;
@@ -25,15 +25,27 @@ export type McpOptions = {
   customInstructionsPath?: string | undefined;
   resourceUrl?: string | undefined;
   scopesSupported?: string[] | undefined;
-  tokenExchangeSharedSecret?: string | undefined;
-  tokenExchangeUrl?: string | undefined;
 };
 
 export function parseCLIOptions(): CLIOptions {
+  const optionalString = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
   const opts = yargs(hideBin(process.argv))
     .option('authorization-server-url', {
       type: 'string',
-      description: 'OAuth authorization server base URL advertised in protected resource metadata',
+      description: 'Base URL for the Sanka OAuth authorization server, such as https://app.sanka.com',
+    })
+    .option('oauth-client-id', {
+      type: 'string',
+      description:
+        'Optional OAuth client_id to advertise in authorization server metadata. Can also be set with MCP_SERVER_OAUTH_CLIENT_ID.',
     })
     .option('code-allow-http-gets', {
       type: 'boolean',
@@ -55,10 +67,6 @@ export function parseCLIOptions(): CLIOptions {
     .option('custom-instructions-path', {
       type: 'string',
       description: 'Path to custom instructions for the MCP server',
-    })
-    .option('legacy-jwt-audience', {
-      type: 'string',
-      description: 'Legacy OAuth JWT audience accepted for backwards compatibility',
     })
     .option('debug', { type: 'boolean', description: 'Enable debug logging' })
     .option('docs-dir', {
@@ -93,14 +101,6 @@ export function parseCLIOptions(): CLIOptions {
       description: 'OAuth scopes to advertise in protected resource metadata',
     })
     .option('socket', { type: 'string', description: 'Unix socket to serve on if using http transport' })
-    .option('token-exchange-shared-secret', {
-      type: 'string',
-      description: 'Shared secret used to exchange verified MCP OAuth tokens for internal API tokens',
-    })
-    .option('token-exchange-url', {
-      type: 'string',
-      description: 'Internal Django endpoint used for MCP token exchange',
-    })
     .option('tools', {
       type: 'string',
       array: true,
@@ -134,8 +134,8 @@ export function parseCLIOptions(): CLIOptions {
     : 'json';
 
   return {
-    authorizationServerUrl: argv.authorizationServerUrl,
-    legacyJwtAudience: argv.legacyJwtAudience,
+    authorizationServerUrl: optionalString(argv.authorizationServerUrl),
+    oauthClientId: optionalString(argv.oauthClientId),
     ...(includeCodeTool !== undefined && { includeCodeTool }),
     ...(includeDocsTools !== undefined && { includeDocsTools }),
     debug: !!argv.debug,
@@ -146,8 +146,6 @@ export function parseCLIOptions(): CLIOptions {
     customInstructionsPath: argv.customInstructionsPath,
     resourceUrl: argv.resourceUrl,
     scopesSupported: argv.scopesSupported,
-    tokenExchangeSharedSecret: argv.tokenExchangeSharedSecret,
-    tokenExchangeUrl: argv.tokenExchangeUrl,
     transport,
     logFormat,
     port: argv.port,
@@ -186,13 +184,11 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
 
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
-    legacyJwtAudience: defaultOptions.legacyJwtAudience,
+    oauthClientId: defaultOptions.oauthClientId,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),
     docsDir: defaultOptions.docsDir,
     resourceUrl: defaultOptions.resourceUrl,
     scopesSupported: defaultOptions.scopesSupported,
-    tokenExchangeSharedSecret: defaultOptions.tokenExchangeSharedSecret,
-    tokenExchangeUrl: defaultOptions.tokenExchangeUrl,
   };
 }

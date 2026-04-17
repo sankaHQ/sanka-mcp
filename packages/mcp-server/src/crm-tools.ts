@@ -987,7 +987,6 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     authorization_server_url: { type: 'string' },
     resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
-    connect_url: { type: 'string' },
     required_scopes: {
       type: 'array',
       items: { type: 'string' },
@@ -5888,7 +5887,6 @@ const buildReconnectMetadata = ({
   const base: Record<string, unknown> = {
     ...(clientName ? { client_name: clientName } : {}),
     authorization_server_url: oauth.authorizationServerUrl,
-    ...(oauth.connectUrl ? { connect_url: oauth.connectUrl } : {}),
     resource_metadata_url: oauth.resourceMetadataUrl,
     resource_url: oauth.resourceUrl,
     reconnect_mode: 'client_native_oauth',
@@ -6029,15 +6027,11 @@ const resolveAuthStatusMissingScopes = ({
   grantedScopes: string[];
   requiredScopes: string[];
 }): string[] => {
-  if (requiredScopes.length === 0 || authMode === 'api_key') {
+  if (requiredScopes.length === 0 || authMode === 'none') {
     return [];
   }
 
   const normalizedGrantedScopes = new Set(grantedScopes);
-  if (normalizedGrantedScopes.size === 0 && authMode === 'legacy_oauth_jwt') {
-    return [];
-  }
-
   return resolveMissingScopes({
     grantedScopes: normalizedGrantedScopes,
     requiredScopes,
@@ -6096,13 +6090,8 @@ export const crmConnectSankaTool: McpTool = {
       });
     }
 
-    const message =
-      authMode === 'api_key' ? 'Sanka CRM is already connected with an API key.'
-      : authMode === 'mcp_session' ? 'Sanka CRM is connected for this MCP session.'
-      : 'Sanka CRM is already connected with OAuth.';
-
     return buildConnectedAuthStatusResult({
-      message,
+      message: 'Sanka CRM is already connected with Sanka OAuth.',
       requiredScopes,
       reqContext,
     });
@@ -6161,13 +6150,8 @@ export const crmAuthStatusTool: McpTool = {
       });
     }
 
-    const message =
-      authMode === 'api_key' ? 'Sanka CRM is connected with an API key.'
-      : authMode === 'mcp_session' ? 'Sanka CRM is connected for this MCP session.'
-      : 'Sanka CRM is connected with OAuth.';
-
     return buildConnectedAuthStatusResult({
-      message,
+      message: 'Sanka CRM is connected with Sanka OAuth.',
       requiredScopes,
       reqContext,
     });
