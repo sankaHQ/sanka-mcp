@@ -5,6 +5,7 @@ primary_region = "nrt"
   dockerfile = "packages/mcp-server/Dockerfile"
 
 [env]
+  MCP_SERVER_AUTHORIZATION_SERVER_URL = "https://app.sanka.com"
   PORT = "8080"
 
 [http_service]
