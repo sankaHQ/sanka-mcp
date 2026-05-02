@@ -285,7 +285,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        "Use your MCP client's native OAuth reconnect flow for this Sanka server, then retry the original request.",
+        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. Then retry the original request.',
     });
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="invalid_token"'),
@@ -315,7 +315,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        "Use your MCP client's native OAuth reconnect flow for this Sanka server. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the native connector OAuth prompt. Then retry the original request.",
+        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -355,7 +355,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        "Use your MCP client's native OAuth reconnect flow for this Sanka server. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the native connector OAuth prompt. Then retry the original request.",
+        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -392,7 +392,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Use Codex native MCP OAuth login for this Sanka server, then retry the original request.',
+        'Use Codex native MCP OAuth login for this Sanka server. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. Then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -426,7 +426,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        "Use Claude's native connector OAuth approval flow for this Sanka server, then retry the original request.",
+        'Open the exact full connect_url in the visible response body or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
     });
   });
 
