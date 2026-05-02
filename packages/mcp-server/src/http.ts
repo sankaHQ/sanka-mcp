@@ -52,9 +52,15 @@ const INLINE_TOOL_HANDLERS = {
   auth_status: crmAuthStatusTool,
   connect_sanka: crmConnectSankaTool,
 } as const;
+const RECONNECT_RPC_METHOD = 'mcpServer/oauth/login';
+const RECONNECT_SERVER_NAME = 'sanka_plugin';
+const RECONNECT_INSTRUCTIONS =
+  'Use your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.';
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const appendReconnectInstructions = (message: string): string => `${message} ${RECONNECT_INSTRUCTIONS}`;
 
 const createRequestTransport = async ({
   clientOptions,
@@ -202,6 +208,15 @@ const getRequestAuthPreflight = ({
   | {
       error: string;
       errorDescription: string;
+      reconnectMetadata?: {
+        authorization_server_url: string;
+        resource_metadata_url: string;
+        resource_url: string;
+        reconnect_instructions: string;
+        reconnect_mode: 'client_native_oauth';
+        reconnect_rpc_method: typeof RECONNECT_RPC_METHOD;
+        reconnect_server_name: typeof RECONNECT_SERVER_NAME;
+      };
       statusCode: number;
       wwwAuthenticate: string;
     }
@@ -231,10 +246,19 @@ const getRequestAuthPreflight = ({
     }
 
     if (auth.authMode === 'none') {
-      const description = `Authentication required to use ${toolName}.`;
+      const description = appendReconnectInstructions(`Authentication required to use ${toolName}.`);
       return {
         error: 'authentication_required',
         errorDescription: description,
+        reconnectMetadata: {
+          authorization_server_url: auth.oauth.authorizationServerUrl,
+          resource_metadata_url: auth.oauth.resourceMetadataUrl,
+          resource_url: auth.oauth.resourceUrl,
+          reconnect_instructions: RECONNECT_INSTRUCTIONS,
+          reconnect_mode: 'client_native_oauth',
+          reconnect_rpc_method: RECONNECT_RPC_METHOD,
+          reconnect_server_name: RECONNECT_SERVER_NAME,
+        },
         statusCode: 401,
         wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
           authorizationServerUrl: auth.oauth.authorizationServerUrl,
@@ -279,6 +303,12 @@ const getRequestAuthPreflight = ({
 
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
+
+const acceptsEventStream = (req: express.Request): boolean =>
+  (singleHeader(req.headers.accept)?.toLowerCase() ?? '')
+    .split(',')
+    .map((acceptType) => acceptType.split(';')[0]?.trim())
+    .includes('text/event-stream');
 
 const requestOrigin = (req: express.Request): string => {
   const forwardedProto = singleHeader(req.headers['x-forwarded-proto'])?.split(',')[0]?.trim();
@@ -329,11 +359,13 @@ export const buildAuthorizationServerMetadata = ({
 
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
-const prefersToolResultAuthFallback = (req: express.Request): boolean => {
-  const userAgent = singleHeader(req.headers['user-agent'])?.toLowerCase() ?? '';
-  const anthropicClient = singleHeader(req.headers['x-anthropic-client'])?.toLowerCase() ?? '';
-  return userAgent.includes('claude') || anthropicClient.length > 0;
-};
+const shouldReturnToolResultAuthFallback = ({
+  req,
+  toolProfile,
+}: {
+  req: express.Request;
+  toolProfile: ToolProfile;
+}): boolean => toolProfile === 'hosted' && acceptsEventStream(req);
 
 const maybeHandleInlineToolCall = async ({
   req,
@@ -412,7 +444,7 @@ const handleStreamableRequest =
       if (
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
-        prefersToolResultAuthFallback(req)
+        shouldReturnToolResultAuthFallback({ req, toolProfile })
       ) {
         await transportContext.transport.handleRequest(req, res, req.body);
         return;
@@ -421,6 +453,7 @@ const handleStreamableRequest =
       res.status(authPreflight.statusCode).json({
         error: authPreflight.error,
         error_description: authPreflight.errorDescription,
+        ...authPreflight.reconnectMetadata,
       });
       return;
     }
