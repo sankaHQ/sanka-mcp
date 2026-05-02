@@ -4,6 +4,20 @@ import { streamableHTTPApp } from '../../packages/mcp-server/src/http';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 const TEST_ADVERTISED_SCOPE = 'api-access';
+const RECONNECT_INSTRUCTIONS =
+  'Use your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.';
+
+const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
+  error: 'authentication_required',
+  error_description: `Authentication required to use ${toolName}. ${RECONNECT_INSTRUCTIONS}`,
+  authorization_server_url: 'https://app.sanka.com',
+  resource_metadata_url: `${baseUrl}/.well-known/oauth-protected-resource`,
+  resource_url: `${baseUrl}/mcp`,
+  reconnect_instructions: RECONNECT_INSTRUCTIONS,
+  reconnect_mode: 'client_native_oauth',
+  reconnect_rpc_method: 'mcpServer/oauth/login',
+  reconnect_server_name: 'sanka_plugin',
+});
 
 describe('protected resource metadata route', () => {
   let server: http.Server;
@@ -14,8 +28,9 @@ describe('protected resource metadata route', () => {
 
     const app = streamableHTTPApp({
       mcpOptions: {
-        authorizationServerUrl: 'https://app.sanka.com',
+        authorizationServerUrl: 'https://app.sanka.com/',
         scopesSupported: [TEST_ADVERTISED_SCOPE],
+        streamableAuthFallback: 'tool_result',
       },
     });
 
@@ -459,7 +474,7 @@ describe('protected resource metadata route', () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -479,17 +494,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use list_companies.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_companies'));
   });
 
   it('returns an OAuth challenge for reply_private_message_thread when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -510,10 +522,7 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use reply_private_message_thread.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'reply_private_message_thread'));
   });
 
   it('returns the auth_status fallback payload when authentication is missing', async () => {
@@ -622,7 +631,7 @@ describe('protected resource metadata route', () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -640,10 +649,88 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use list_expenses.',
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+  });
+
+  it('keeps the HTTP challenge for streamable tool calls unless tool-result fallback is enabled', async () => {
+    const defaultApp = streamableHTTPApp({
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.sanka.com',
+        scopesSupported: [TEST_ADVERTISED_SCOPE],
+      },
     });
+    let defaultServer: http.Server | undefined;
+    let defaultBaseUrl = '';
+
+    await new Promise<void>((resolve) => {
+      defaultServer = defaultApp.listen(0, () => {
+        const address = defaultServer?.address() as AddressInfo;
+        defaultBaseUrl = `http://127.0.0.1:${address.port}`;
+        resolve();
+      });
+    });
+
+    try {
+      const response = await fetch(`${defaultBaseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 8,
+          method: 'tools/call',
+          params: {
+            name: 'list_expenses',
+            arguments: {},
+          },
+        }),
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+      expect(body).toEqual(oauthReconnectChallengeBody(defaultBaseUrl, 'list_expenses'));
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        defaultServer?.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
+  it('returns visible reconnect details for streamable tool calls when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'list_expenses',
+          arguments: {},
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('mcpServer/oauth/login');
+    expect(text).toContain('sanka_plugin');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
   });
 
   it('returns visible reconnect details for Claude tool calls when authentication is missing', async () => {
@@ -680,7 +767,7 @@ describe('protected resource metadata route', () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -700,17 +787,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_expense.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_expense'));
   });
 
   it('returns an OAuth challenge for create_company when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -731,17 +815,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_company.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_company'));
   });
 
   it('returns an OAuth challenge for get_company_price_table when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -762,17 +843,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use get_company_price_table.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'get_company_price_table'));
   });
 
   it('returns an OAuth challenge for create_ticket when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -792,17 +870,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_ticket.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_ticket'));
   });
 
   it('returns an OAuth challenge for create_calendar_attendance when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -826,17 +901,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_calendar_attendance.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_calendar_attendance'));
   });
 
   it('returns an OAuth challenge for create_order when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -864,17 +936,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_order.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_order'));
   });
 
   it('returns an OAuth challenge for create_estimate when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -895,17 +964,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_estimate.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_estimate'));
   });
 
   it('returns an OAuth challenge for create_invoice when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -926,17 +992,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_invoice.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_invoice'));
   });
 
   it('returns an OAuth challenge for create_payment when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -957,17 +1020,14 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use create_payment.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_payment'));
   });
 
   it('returns an OAuth challenge for score_record when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
-        Accept: 'application/json, text/event-stream',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -988,9 +1048,6 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use score_record.',
-    });
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'score_record'));
   });
 });

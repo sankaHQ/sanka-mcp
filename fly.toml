@@ -6,6 +6,7 @@ primary_region = "nrt"
 
 [env]
   MCP_SERVER_AUTHORIZATION_SERVER_URL = "https://app.sanka.com"
+  MCP_SERVER_STREAMABLE_AUTH_FALLBACK = "tool_result"
   PORT = "8080"
 
 [http_service]
