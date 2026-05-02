@@ -4,6 +4,21 @@ set -exuo pipefail
 
 cd "$(dirname "$0")/.."
 
+run_pnpm() {
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm "$@"
+    return
+  fi
+
+  if command -v corepack >/dev/null 2>&1; then
+    corepack pnpm "$@"
+    return
+  fi
+
+  echo "pnpm is required to build workspace packages" >&2
+  exit 127
+}
+
 node scripts/utils/check-version.cjs
 
 # Build into dist and will publish the package from there,
@@ -53,6 +68,6 @@ fi
 # build all sub-packages
 for dir in packages/*; do
   if [ -d "$dir" ]; then
-      (cd "$dir" && pnpm build)
+      (cd "$dir" && run_pnpm build)
   fi
 done

@@ -19,13 +19,38 @@ cd sanka-mcp
 ## Running locally
 
 ```sh
-export SANKA_API_KEY="your-api-key"
+export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
+export MCP_SERVER_OAUTH_CLIENT_ID="your-public-oauth-client-id"
+export SANKA_BASE_URL="http://api.localhost:8000"
 node ./packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
 
+`MCP_SERVER_OAUTH_CLIENT_ID` is optional. When set, the MCP server includes
+that `client_id` in its advertised OAuth authorization server metadata.
+
+Before running locally, create the OAuth app/client in Sanka and register the
+local redirect URI on that client:
+
+- first-party: `/manage/oauth`
+- third-party: `/:wsid/developers/oauth`
+
 ## MCP client examples
 
-Remote MCP config:
+Remote MCP config using Sanka OAuth:
+
+```json
+{
+  "mcpServers": {
+    "sanka_api": {
+      "url": "https://mcp.sanka.com/mcp"
+    }
+  }
+}
+```
+
+The MCP server advertises Sanka's OAuth authorization server and protected resource metadata. OAuth-capable clients should authenticate against Sanka directly instead of expecting MCP-specific `/oauth/*` endpoints.
+
+Manual bearer-token config:
 
 ```json
 {
@@ -33,14 +58,14 @@ Remote MCP config:
     "sanka_api": {
       "url": "https://mcp.sanka.com/mcp",
       "headers": {
-        "Authorization": "Bearer <auth value>"
+        "Authorization": "Bearer soat_your_sanka_oauth_access_token"
       }
     }
   }
 }
 ```
 
-Local MCP config:
+Local stdio config with an already-issued Sanka token:
 
 ```json
 {
@@ -49,12 +74,16 @@ Local MCP config:
       "command": "node",
       "args": ["/path/to/sanka-mcp/packages/mcp-server/dist/index.js"],
       "env": {
-        "SANKA_API_KEY": "your-api-key"
+        "SANKA_API_KEY": "soat_your_sanka_oauth_access_token"
       }
     }
   }
 }
 ```
+
+`SANKA_API_KEY` in local stdio mode should contain an already-issued
+`soat_...` Sanka OAuth access token. Developer API tokens are not supported by
+the MCP server.
 
 ## Runtime model
 

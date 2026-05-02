@@ -1,25 +1,13 @@
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import { McpRequestContext, ToolCallResult } from './types';
 
-export const AI_CLIENT_MCP_SCOPE = 'mcp:access';
-export const LEGACY_CRM_READ_SCOPES = ['contacts:read', 'companies:read'] as const;
-
 const scopeSatisfied = ({
   grantedScopes,
   requiredScope,
 }: {
   grantedScopes: Set<string>;
   requiredScope: string;
-}): boolean => {
-  if (requiredScope !== AI_CLIENT_MCP_SCOPE) {
-    return grantedScopes.has(requiredScope);
-  }
-
-  return (
-    grantedScopes.has(AI_CLIENT_MCP_SCOPE) ||
-    LEGACY_CRM_READ_SCOPES.some((legacyScope) => grantedScopes.has(legacyScope))
-  );
-};
+}): boolean => grantedScopes.has(requiredScope);
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -58,13 +46,31 @@ const authErrorResult = ({
         ...(requiredScopes?.length ? { scope: requiredScopes.join(' ') } : undefined),
       })
     : undefined;
+  const reconnectMetadata =
+    oauth ?
+      {
+        authorization_server_url: oauth.authorizationServerUrl,
+        resource_metadata_url: oauth.resourceMetadataUrl,
+        resource_url: oauth.resourceUrl,
+        reconnect_mode: 'client_native_oauth',
+        reconnect_rpc_method: 'mcpServer/oauth/login',
+        reconnect_server_name: 'sanka_plugin',
+        reconnect_instructions:
+          'Use your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry the original request.',
+      }
+    : undefined;
+  const visibleMessage =
+    reconnectMetadata ?
+      `${message}\n\nUse your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.`
+    : message;
 
   return {
-    content: [{ type: 'text', text: message }],
+    content: [{ type: 'text', text: visibleMessage }],
     isError: true,
     structuredContent: {
       error,
       ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
+      ...reconnectMetadata,
     },
     ...(wwwAuthenticate ?
       {
@@ -90,10 +96,6 @@ export const requireScopes = ({
     return null;
   }
 
-  if (auth.authMode === 'api_key') {
-    return null;
-  }
-
   if (auth.authMode === 'none') {
     return authErrorResult({
       error: 'invalid_token',
@@ -104,10 +106,6 @@ export const requireScopes = ({
   }
 
   const grantedScopes = new Set(auth.oauth.scopes);
-  if (grantedScopes.size === 0 && auth.authMode === 'legacy_oauth_jwt') {
-    return null;
-  }
-
   const missingScopes = resolveMissingScopes({
     grantedScopes,
     requiredScopes,
@@ -133,10 +131,6 @@ export const requireAuthentication = ({
 }): ToolCallResult | null => {
   const auth = reqContext.auth;
   if (!auth) {
-    return null;
-  }
-
-  if (auth.authMode === 'api_key' || auth.authMode === 'mcp_session') {
     return null;
   }
 
