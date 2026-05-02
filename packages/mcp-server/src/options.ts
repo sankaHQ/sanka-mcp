@@ -16,6 +16,7 @@ export type CLIOptions = McpOptions & {
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
   oauthClientId?: string | undefined;
+  tokenExchangeSharedSecret?: string | undefined;
   streamableAuthFallback?: 'http_challenge' | 'tool_result' | undefined;
   includeCodeTool?: boolean | undefined;
   includeDocsTools?: boolean | undefined;
@@ -47,6 +48,11 @@ export function parseCLIOptions(): CLIOptions {
       type: 'string',
       description:
         'Optional OAuth client_id to advertise in authorization server metadata. Can also be set with MCP_SERVER_OAUTH_CLIENT_ID.',
+    })
+    .option('token-exchange-shared-secret', {
+      type: 'string',
+      description:
+        'Shared secret used to mint Sanka MCP connect URLs and exchange approved mcp-session-id values for short-lived Sanka OAuth access tokens.',
     })
     .option('streamable-auth-fallback', {
       type: 'string',
@@ -143,6 +149,7 @@ export function parseCLIOptions(): CLIOptions {
   return {
     authorizationServerUrl: optionalString(argv.authorizationServerUrl),
     oauthClientId: optionalString(argv.oauthClientId),
+    tokenExchangeSharedSecret: optionalString(argv.tokenExchangeSharedSecret),
     streamableAuthFallback:
       argv.streamableAuthFallback === 'tool_result' || argv.streamableAuthFallback === 'http_challenge' ?
         argv.streamableAuthFallback
@@ -196,6 +203,7 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
     oauthClientId: defaultOptions.oauthClientId,
+    tokenExchangeSharedSecret: defaultOptions.tokenExchangeSharedSecret,
     streamableAuthFallback: defaultOptions.streamableAuthFallback,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),

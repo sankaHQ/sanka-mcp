@@ -8,15 +8,23 @@ const RECONNECT_INSTRUCTIONS =
   'Use your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.';
 
 const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
-  error: 'authentication_required',
-  error_description: `Authentication required to use ${toolName}. ${RECONNECT_INSTRUCTIONS}`,
-  authorization_server_url: 'https://app.sanka.com',
-  resource_metadata_url: `${baseUrl}/.well-known/oauth-protected-resource`,
-  resource_url: `${baseUrl}/mcp`,
-  reconnect_instructions: RECONNECT_INSTRUCTIONS,
-  reconnect_mode: 'client_native_oauth',
-  reconnect_rpc_method: 'mcpServer/oauth/login',
-  reconnect_server_name: 'sanka_plugin',
+  asymmetricMatch: (body: Record<string, unknown>) =>
+    body?.['error'] === 'authentication_required' &&
+    typeof body['error_description'] === 'string' &&
+    body['error_description'].includes(`Authentication required to use ${toolName}.`) &&
+    body['error_description'].includes('Connect Sanka: https://app.sanka.com/oauth/mcp/connect?token=') &&
+    body['error_description'].includes('OAuth authorization URL: https://app.sanka.com/oauth/authorize') &&
+    body['authorization_server_url'] === 'https://app.sanka.com' &&
+    body['authorization_url'] === 'https://app.sanka.com/oauth/authorize' &&
+    typeof body['connect_url'] === 'string' &&
+    body['connect_url'].startsWith('https://app.sanka.com/oauth/mcp/connect?token=') &&
+    body['resource_metadata_url'] === `${baseUrl}/.well-known/oauth-protected-resource` &&
+    body['resource_url'] === `${baseUrl}/mcp` &&
+    body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
+    body['reconnect_mode'] === 'client_native_oauth' &&
+    body['reconnect_rpc_method'] === 'mcpServer/oauth/login' &&
+    body['reconnect_server_name'] === 'sanka_plugin',
+  toString: () => 'OAuth reconnect challenge body',
 });
 
 describe('protected resource metadata route', () => {
@@ -31,6 +39,7 @@ describe('protected resource metadata route', () => {
         authorizationServerUrl: 'https://app.sanka.com/',
         scopesSupported: [TEST_ADVERTISED_SCOPE],
         streamableAuthFallback: 'tool_result',
+        tokenExchangeSharedSecret: 'test-secret',
       },
     });
 
@@ -555,6 +564,8 @@ describe('protected resource metadata route', () => {
     );
     expect(text).toContain('"mcp/www_authenticate"');
     expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
+    expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
@@ -619,6 +630,8 @@ describe('protected resource metadata route', () => {
     );
     expect(text).toContain('"mcp/www_authenticate"');
     expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
+    expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
+    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
@@ -657,6 +670,7 @@ describe('protected resource metadata route', () => {
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
         scopesSupported: [TEST_ADVERTISED_SCOPE],
+        tokenExchangeSharedSecret: 'test-secret',
       },
     });
     let defaultServer: http.Server | undefined;
@@ -727,6 +741,7 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/event-stream');
     expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('Connect Sanka: https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('mcpServer/oauth/login');
     expect(text).toContain('sanka_plugin');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
@@ -757,6 +772,7 @@ describe('protected resource metadata route', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/event-stream');
     expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('Connect Sanka: https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('mcpServer/oauth/login');
     expect(text).toContain('sanka_plugin');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
