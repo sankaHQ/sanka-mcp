@@ -1,13 +1,7 @@
 import { buildOAuthWwwAuthenticateHeader } from './auth';
+import { buildOAuthAuthorizationUrl, normalizeMcpConnectScopes } from './mcp-connect';
+import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
-
-const scopeSatisfied = ({
-  grantedScopes,
-  requiredScope,
-}: {
-  grantedScopes: Set<string>;
-  requiredScope: string;
-}): boolean => grantedScopes.has(requiredScope);
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -18,7 +12,7 @@ export const resolveMissingScopes = ({
 }): string[] =>
   requiredScopes.filter(
     (requiredScope) =>
-      !scopeSatisfied({
+      !oauthScopeSatisfied({
         grantedScopes,
         requiredScope,
       }),
@@ -36,6 +30,10 @@ const authErrorResult = ({
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
+  const authorizationUrl =
+    oauth ? oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl) : undefined;
+  const connectUrl = oauth?.connectUrlForScopes?.(requiredScopes);
+  const connectScopes = normalizeMcpConnectScopes(requiredScopes);
   const wwwAuthenticate =
     oauth ?
       buildOAuthWwwAuthenticateHeader({
@@ -50,6 +48,8 @@ const authErrorResult = ({
     oauth ?
       {
         authorization_server_url: oauth.authorizationServerUrl,
+        authorization_url: authorizationUrl,
+        ...(connectUrl ? { connect_url: connectUrl, connect_scopes: connectScopes } : undefined),
         resource_metadata_url: oauth.resourceMetadataUrl,
         resource_url: oauth.resourceUrl,
         reconnect_mode: 'client_native_oauth',
@@ -61,7 +61,16 @@ const authErrorResult = ({
     : undefined;
   const visibleMessage =
     reconnectMetadata ?
-      `${message}\n\nUse your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.`
+      [
+        message,
+        connectUrl ? `Connect Sanka: ${connectUrl}` : undefined,
+        `OAuth authorization URL: ${authorizationUrl}`,
+        `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
+        'Codex reconnect action: mcpServer/oauth/login for server sanka_plugin.',
+        'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
     : message;
 
   return {

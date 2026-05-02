@@ -14,6 +14,7 @@ import {
   resolveClientAuth,
 } from './auth';
 import { getLogger } from './logger';
+import { buildOAuthAuthorizationUrl, normalizeMcpConnectScopes } from './mcp-connect';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
@@ -60,7 +61,34 @@ const RECONNECT_INSTRUCTIONS =
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const appendReconnectInstructions = (message: string): string => `${message} ${RECONNECT_INSTRUCTIONS}`;
+const toolCallName = (body: unknown): string | undefined => {
+  if (!isObjectRecord(body) || body['method'] !== 'tools/call' || !isObjectRecord(body['params'])) {
+    return undefined;
+  }
+  const name = body['params']['name'];
+  return typeof name === 'string' ? name : undefined;
+};
+
+const appendReconnectInstructions = ({
+  authorizationUrl,
+  connectUrl,
+  message,
+  resourceMetadataUrl,
+}: {
+  authorizationUrl: string;
+  connectUrl?: string | undefined;
+  message: string;
+  resourceMetadataUrl: string;
+}): string =>
+  [
+    message,
+    connectUrl ? `Connect Sanka: ${connectUrl}` : undefined,
+    `OAuth authorization URL: ${authorizationUrl}`,
+    `MCP resource metadata URL: ${resourceMetadataUrl}`,
+    RECONNECT_INSTRUCTIONS,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
 const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
@@ -123,9 +151,12 @@ const createRequestTransport = async ({
   }
 
   const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, effectiveMcpOptions);
+  const requestedToolName = toolCallName(req.body);
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
+      mcpSessionId,
+      mcpSessionIdForExchange: requestedToolName ? incomingSessionId : undefined,
       mcpOptions: effectiveMcpOptions,
       req,
       resourceMetadataUrl,
@@ -212,6 +243,9 @@ const getRequestAuthPreflight = ({
       errorDescription: string;
       reconnectMetadata?: {
         authorization_server_url: string;
+        authorization_url: string;
+        connect_url?: string | undefined;
+        connect_scopes?: string[] | undefined;
         resource_metadata_url: string;
         resource_url: string;
         reconnect_instructions: string;
@@ -248,12 +282,22 @@ const getRequestAuthPreflight = ({
     }
 
     if (auth.authMode === 'none') {
-      const description = appendReconnectInstructions(`Authentication required to use ${toolName}.`);
+      const connectUrl = auth.oauth.connectUrlForScopes?.(accessRequirements.requiredScopes);
+      const connectScopes = normalizeMcpConnectScopes(accessRequirements.requiredScopes);
+      const authorizationUrl = buildOAuthAuthorizationUrl(auth.oauth.authorizationServerUrl);
+      const description = appendReconnectInstructions({
+        authorizationUrl,
+        connectUrl,
+        message: `Authentication required to use ${toolName}.`,
+        resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
+      });
       return {
         error: 'authentication_required',
         errorDescription: description,
         reconnectMetadata: {
           authorization_server_url: auth.oauth.authorizationServerUrl,
+          authorization_url: authorizationUrl,
+          ...(connectUrl ? { connect_url: connectUrl, connect_scopes: connectScopes } : undefined),
           resource_metadata_url: auth.oauth.resourceMetadataUrl,
           resource_url: auth.oauth.resourceUrl,
           reconnect_instructions: RECONNECT_INSTRUCTIONS,

@@ -1,7 +1,9 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
+import { buildOAuthAuthorizationUrl, normalizeMcpConnectScopes } from './mcp-connect';
 import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
+import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -985,6 +987,12 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     },
     message: { type: 'string' },
     authorization_server_url: { type: 'string' },
+    authorization_url: { type: 'string' },
+    connect_url: { type: 'string' },
+    connect_scopes: {
+      type: 'array',
+      items: { type: 'string' },
+    },
     resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
     required_scopes: {
@@ -5872,21 +5880,35 @@ const buildEntityDetailSummary = ({
 };
 
 const buildReconnectMetadata = ({
+  connectScopes,
   reqContext,
+  requiredScopes,
 }: {
+  connectScopes?: string[] | undefined;
   reqContext: McpRequestContext;
+  requiredScopes?: string[] | undefined;
 }): Record<string, unknown> | undefined => {
   const oauth = reqContext.auth?.oauth;
   if (!oauth) {
     return undefined;
   }
 
+  const reconnectScopes = connectScopes ?? requiredScopes;
+  const connectUrl = oauth.connectUrlForScopes?.(reconnectScopes);
+  const authorizationUrl = oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl);
   const clientName = reqContext.mcpClientInfo?.name?.trim();
   const normalizedClientName = clientName?.toLowerCase() ?? '';
   const isHosted = reqContext.toolProfile === 'hosted';
   const base: Record<string, unknown> = {
     ...(clientName ? { client_name: clientName } : {}),
     authorization_server_url: oauth.authorizationServerUrl,
+    authorization_url: authorizationUrl,
+    ...(connectUrl ?
+      {
+        connect_url: connectUrl,
+        connect_scopes: normalizeMcpConnectScopes(reconnectScopes),
+      }
+    : undefined),
     resource_metadata_url: oauth.resourceMetadataUrl,
     resource_url: oauth.resourceUrl,
     reconnect_mode: 'client_native_oauth',
@@ -5932,8 +5954,42 @@ const buildReconnectMetadata = ({
   };
 };
 
+const buildReconnectVisibleMessage = ({
+  message,
+  reconnectMetadata,
+}: {
+  message: string;
+  reconnectMetadata?: Record<string, unknown> | undefined;
+}): string => {
+  if (!reconnectMetadata) {
+    return message;
+  }
+
+  return [
+    message,
+    typeof reconnectMetadata['connect_url'] === 'string' ?
+      `Connect Sanka: ${reconnectMetadata['connect_url']}`
+    : undefined,
+    typeof reconnectMetadata['authorization_url'] === 'string' ?
+      `OAuth authorization URL: ${reconnectMetadata['authorization_url']}`
+    : undefined,
+    typeof reconnectMetadata['resource_metadata_url'] === 'string' ?
+      `MCP resource metadata URL: ${reconnectMetadata['resource_metadata_url']}`
+    : undefined,
+    typeof reconnectMetadata['reconnect_rpc_method'] === 'string' ?
+      `Codex reconnect action: ${reconnectMetadata['reconnect_rpc_method']} for server ${String(
+        reconnectMetadata['reconnect_server_name'] || 'sanka_plugin',
+      )}.`
+    : undefined,
+    'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+};
+
 const buildAuthStatusChallenge = ({
   connected = false,
+  connectScopes,
   error = 'invalid_token',
   message,
   missingScopes,
@@ -5941,6 +5997,7 @@ const buildAuthStatusChallenge = ({
   requiredScopes,
 }: {
   connected?: boolean;
+  connectScopes?: string[] | undefined;
   error?: 'insufficient_scope' | 'invalid_token';
   message: string;
   missingScopes?: string[] | undefined;
@@ -5948,7 +6005,7 @@ const buildAuthStatusChallenge = ({
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
-  const reconnectMetadata = buildReconnectMetadata({ reqContext });
+  const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
   const wwwAuthenticate =
     oauth ?
       buildOAuthWwwAuthenticateHeader({
@@ -5961,7 +6018,7 @@ const buildAuthStatusChallenge = ({
     : undefined;
 
   return {
-    content: [{ type: 'text', text: message }],
+    content: [{ type: 'text', text: buildReconnectVisibleMessage({ message, reconnectMetadata }) }],
     isError: true,
     structuredContent: {
       connected,
@@ -5984,18 +6041,20 @@ const buildAuthStatusChallenge = ({
 };
 
 const buildConnectedAuthStatusResult = ({
+  connectScopes,
   message,
   missingScopes,
   reqContext,
   requiredScopes,
 }: {
+  connectScopes?: string[] | undefined;
   message: string;
   missingScopes?: string[] | undefined;
   reqContext: McpRequestContext;
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
-  const reconnectMetadata = buildReconnectMetadata({ reqContext });
+  const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
 
   return {
     content: [{ type: 'text', text: message }],
@@ -6062,7 +6121,9 @@ export const crmConnectSankaTool: McpTool = {
   },
   handler: async ({ reqContext, args }) => {
     const authMode = reqContext.auth?.authMode ?? 'none';
-    const requiredScopes = requestedScopesFromArgs(args);
+    const requestedScopes = requestedScopesFromArgs(args);
+    const requiredScopes = requestedScopes;
+    const connectScopes = requestedScopes.length > 0 ? requestedScopes : [...DEFAULT_CONNECT_SANKA_SCOPES];
     const missingScopes = resolveAuthStatusMissingScopes({
       authMode,
       grantedScopes: reqContext.auth?.oauth.scopes ?? [],
@@ -6071,6 +6132,7 @@ export const crmConnectSankaTool: McpTool = {
 
     if (authMode === 'none') {
       return buildAuthStatusChallenge({
+        connectScopes,
         message: CONNECT_SANKA_PROMPT_MESSAGE,
         requiredScopes,
         reqContext,

@@ -3,6 +3,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { IncomingHttpHeaders, IncomingMessage } from 'node:http';
 import { ClientOptions } from 'sanka-sdk';
+import { getLogger } from './logger';
+import { buildMcpConnectUrl, buildOAuthAuthorizationUrl } from './mcp-connect';
 import { McpOptions } from './options';
 
 const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
@@ -48,6 +50,9 @@ export type ResolvedClientAuth = {
     resourceMetadataUrl: string;
     resourceUrl: string;
     scopes: string[];
+    authorizationUrl?: string | undefined;
+    connectUrl?: string | undefined;
+    connectUrlForScopes?: ((scopes?: string[] | undefined) => string | undefined) | undefined;
   };
 };
 
@@ -68,6 +73,24 @@ type OAuthIntrospectionEnvelope = {
   error?: string;
   message?: string;
 };
+
+type McpSessionTokenEnvelope = {
+  access_token?: string;
+  error?: string;
+  expires_in?: number;
+  message?: string;
+  scope?: string;
+  token_type?: string;
+};
+
+const mcpSessionTokenCache = new Map<
+  string,
+  {
+    accessToken: string;
+    expiresAt: number;
+    scopes: string[];
+  }
+>();
 
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
@@ -94,6 +117,9 @@ const resolveAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
 
 const resolveIntrospectionUrl = (authorizationServerUrl: string): string =>
   `${authorizationServerUrl}${DEFAULT_INTROSPECTION_PATH}`;
+
+const resolveMcpSessionTokenUrl = (authorizationServerUrl: string): string =>
+  `${authorizationServerUrl}/oauth/internal/mcp-session-token`;
 
 const cacheKeyForToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 
@@ -142,7 +168,7 @@ export const buildOAuthWwwAuthenticateHeader = ({
   `Bearer realm="sanka_mcp", resource_metadata="${escapeHeaderValue(
     resourceMetadataUrl,
   )}", authorization_uri="${escapeHeaderValue(
-    `${authorizationServerUrl}/oauth/authorize`,
+    buildOAuthAuthorizationUrl(authorizationServerUrl),
   )}", error="${escapeHeaderValue(error)}", error_description="${escapeHeaderValue(description)}"${
     scope ? `, scope="${escapeHeaderValue(scope)}"` : ''
   }`;
@@ -217,12 +243,152 @@ const introspectOAuthAccessToken = async ({
   return data;
 };
 
+const readCachedMcpSessionToken = ({
+  authorizationServerUrl,
+  resourceUrl,
+  sessionId,
+}: {
+  authorizationServerUrl: string;
+  resourceUrl: string;
+  sessionId: string;
+}): { accessToken: string; scopes: string[] } | null => {
+  const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
+  const cached = mcpSessionTokenCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+  if (cached.expiresAt <= Date.now()) {
+    mcpSessionTokenCache.delete(cacheKey);
+    return null;
+  }
+  return {
+    accessToken: cached.accessToken,
+    scopes: cached.scopes,
+  };
+};
+
+const writeCachedMcpSessionToken = ({
+  accessToken,
+  authorizationServerUrl,
+  expiresInSeconds,
+  resourceUrl,
+  scopes,
+  sessionId,
+}: {
+  accessToken: string;
+  authorizationServerUrl: string;
+  expiresInSeconds: number;
+  resourceUrl: string;
+  scopes: string[];
+  sessionId: string;
+}): void => {
+  const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
+  mcpSessionTokenCache.set(cacheKey, {
+    accessToken,
+    scopes,
+    expiresAt: Date.now() + Math.max(1, expiresInSeconds - 5) * 1000,
+  });
+};
+
+const exchangeMcpSessionForAccessToken = async ({
+  authorizationServerUrl,
+  resourceUrl,
+  sessionId,
+  sharedSecret,
+}: {
+  authorizationServerUrl: string;
+  resourceUrl: string;
+  sessionId: string | undefined;
+  sharedSecret: string | undefined;
+}): Promise<{ accessToken: string; scopes: string[] } | null> => {
+  const normalizedSessionId = sessionId?.trim();
+  const normalizedSecret = sharedSecret?.trim();
+  if (!normalizedSessionId || !normalizedSecret) {
+    return null;
+  }
+
+  const cached = readCachedMcpSessionToken({
+    authorizationServerUrl,
+    resourceUrl,
+    sessionId: normalizedSessionId,
+  });
+  if (cached) {
+    return cached;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(resolveMcpSessionTokenUrl(authorizationServerUrl), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Sanka-MCP-Token-Exchange-Secret': normalizedSecret,
+      },
+      body: JSON.stringify({
+        resource: resourceUrl,
+        session_id: normalizedSessionId,
+      }),
+    });
+  } catch (error) {
+    getLogger().warn(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'MCP session token exchange request failed',
+    );
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => null)) as McpSessionTokenEnvelope | null;
+  if (!response.ok) {
+    if (response.status !== 404) {
+      getLogger().warn(
+        {
+          status: response.status,
+          error: payload && 'error' in payload ? payload.error : undefined,
+        },
+        'MCP session token exchange failed',
+      );
+    }
+    return null;
+  }
+
+  const accessToken = String(payload?.access_token || '').trim();
+  if (!accessToken || !isSankaOAuthAccessToken(accessToken)) {
+    getLogger().warn('MCP session token exchange returned an invalid Sanka access token');
+    return null;
+  }
+
+  const scopes = normalizeScopeClaim(payload?.scope);
+  writeCachedMcpSessionToken({
+    accessToken,
+    authorizationServerUrl,
+    expiresInSeconds:
+      typeof payload?.expires_in === 'number' && Number.isFinite(payload.expires_in) ?
+        payload.expires_in
+      : 300,
+    resourceUrl,
+    scopes,
+    sessionId: normalizedSessionId,
+  });
+
+  return {
+    accessToken,
+    scopes,
+  };
+};
+
 export const resolveClientAuth = async ({
+  mcpSessionId,
+  mcpSessionIdForExchange,
   mcpOptions,
   req,
   resourceMetadataUrl,
   resourceUrl,
 }: {
+  mcpSessionId?: string | undefined;
+  mcpSessionIdForExchange?: string | undefined;
   mcpOptions: McpOptions;
   req: IncomingMessage;
   resourceMetadataUrl: string;
@@ -232,8 +398,25 @@ export const resolveClientAuth = async ({
   const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
   const authorizationServerUrl = resolveAuthorizationServerUrl(mcpOptions);
 
+  const connectUrlForScopes =
+    mcpSessionId && mcpOptions.tokenExchangeSharedSecret ?
+      (scopes?: string[] | undefined) =>
+        buildMcpConnectUrl({
+          authorizationServerUrl,
+          scopes,
+          sessionId: mcpSessionId,
+          sharedSecret: mcpOptions.tokenExchangeSharedSecret,
+        })
+    : undefined;
   const oauthContext = {
     authorizationServerUrl,
+    authorizationUrl: buildOAuthAuthorizationUrl(authorizationServerUrl),
+    ...(connectUrlForScopes ?
+      {
+        connectUrl: connectUrlForScopes(),
+        connectUrlForScopes,
+      }
+    : undefined),
     resourceMetadataUrl,
     resourceUrl,
   };
@@ -248,6 +431,23 @@ export const resolveClientAuth = async ({
   }
 
   if (!authorizationHeader) {
+    const mcpSessionAccess = await exchangeMcpSessionForAccessToken({
+      authorizationServerUrl,
+      resourceUrl,
+      sessionId: mcpSessionIdForExchange,
+      sharedSecret: mcpOptions.tokenExchangeSharedSecret,
+    });
+    if (mcpSessionAccess) {
+      return {
+        authMode: 'oauth_bearer',
+        clientOptions: { apiKey: mcpSessionAccess.accessToken },
+        oauth: {
+          ...oauthContext,
+          scopes: mcpSessionAccess.scopes,
+        },
+      };
+    }
+
     return {
       authMode: 'none',
       clientOptions: {},
