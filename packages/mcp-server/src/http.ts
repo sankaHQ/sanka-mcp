@@ -62,6 +62,8 @@ const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 
 const appendReconnectInstructions = (message: string): string => `${message} ${RECONNECT_INSTRUCTIONS}`;
 
+const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
+
 const createRequestTransport = async ({
   clientOptions,
   mcpOptions,
@@ -326,7 +328,7 @@ const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
 };
 
 const upstreamAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
-  mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL;
+  stripTrailingSlash(mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL);
 
 const resolveAdvertisedScopesSupported = (mcpOptions: McpOptions): string[] =>
   mcpOptions.scopesSupported && mcpOptions.scopesSupported.length > 0 ?
@@ -360,12 +362,15 @@ export const buildAuthorizationServerMetadata = ({
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
 const shouldReturnToolResultAuthFallback = ({
+  mcpOptions,
   req,
   toolProfile,
 }: {
+  mcpOptions: McpOptions;
   req: express.Request;
   toolProfile: ToolProfile;
-}): boolean => toolProfile === 'hosted' && acceptsEventStream(req);
+}): boolean =>
+  mcpOptions.streamableAuthFallback === 'tool_result' && toolProfile === 'hosted' && acceptsEventStream(req);
 
 const maybeHandleInlineToolCall = async ({
   req,
@@ -444,7 +449,7 @@ const handleStreamableRequest =
       if (
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
-        shouldReturnToolResultAuthFallback({ req, toolProfile })
+        shouldReturnToolResultAuthFallback({ mcpOptions: options.mcpOptions, req, toolProfile })
       ) {
         await transportContext.transport.handleRequest(req, res, req.body);
         return;

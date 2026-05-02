@@ -28,8 +28,9 @@ describe('protected resource metadata route', () => {
 
     const app = streamableHTTPApp({
       mcpOptions: {
-        authorizationServerUrl: 'https://app.sanka.com',
+        authorizationServerUrl: 'https://app.sanka.com/',
         scopesSupported: [TEST_ADVERTISED_SCOPE],
+        streamableAuthFallback: 'tool_result',
       },
     });
 
@@ -649,6 +650,59 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
     expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+  });
+
+  it('keeps the HTTP challenge for streamable tool calls unless tool-result fallback is enabled', async () => {
+    const defaultApp = streamableHTTPApp({
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.sanka.com',
+        scopesSupported: [TEST_ADVERTISED_SCOPE],
+      },
+    });
+    let defaultServer: http.Server | undefined;
+    let defaultBaseUrl = '';
+
+    await new Promise<void>((resolve) => {
+      defaultServer = defaultApp.listen(0, () => {
+        const address = defaultServer?.address() as AddressInfo;
+        defaultBaseUrl = `http://127.0.0.1:${address.port}`;
+        resolve();
+      });
+    });
+
+    try {
+      const response = await fetch(`${defaultBaseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 8,
+          method: 'tools/call',
+          params: {
+            name: 'list_expenses',
+            arguments: {},
+          },
+        }),
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+      expect(body).toEqual(oauthReconnectChallengeBody(defaultBaseUrl, 'list_expenses'));
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        defaultServer?.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
   });
 
   it('returns visible reconnect details for streamable tool calls when authentication is missing', async () => {

@@ -16,6 +16,7 @@ export type CLIOptions = McpOptions & {
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
   oauthClientId?: string | undefined;
+  streamableAuthFallback?: 'http_challenge' | 'tool_result' | undefined;
   includeCodeTool?: boolean | undefined;
   includeDocsTools?: boolean | undefined;
   docsDir?: string | undefined;
@@ -46,6 +47,12 @@ export function parseCLIOptions(): CLIOptions {
       type: 'string',
       description:
         'Optional OAuth client_id to advertise in authorization server metadata. Can also be set with MCP_SERVER_OAUTH_CLIENT_ID.',
+    })
+    .option('streamable-auth-fallback', {
+      type: 'string',
+      choices: ['http_challenge', 'tool_result'],
+      description:
+        'How unauthenticated protected streamable tool calls are reported. Defaults to HTTP 401 challenges unless set to tool_result.',
     })
     .option('code-allow-http-gets', {
       type: 'boolean',
@@ -136,6 +143,10 @@ export function parseCLIOptions(): CLIOptions {
   return {
     authorizationServerUrl: optionalString(argv.authorizationServerUrl),
     oauthClientId: optionalString(argv.oauthClientId),
+    streamableAuthFallback:
+      argv.streamableAuthFallback === 'tool_result' || argv.streamableAuthFallback === 'http_challenge' ?
+        argv.streamableAuthFallback
+      : undefined,
     ...(includeCodeTool !== undefined && { includeCodeTool }),
     ...(includeDocsTools !== undefined && { includeDocsTools }),
     debug: !!argv.debug,
@@ -185,6 +196,7 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
     oauthClientId: defaultOptions.oauthClientId,
+    streamableAuthFallback: defaultOptions.streamableAuthFallback,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),
     docsDir: defaultOptions.docsDir,
