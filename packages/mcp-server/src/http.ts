@@ -329,6 +329,12 @@ export const buildAuthorizationServerMetadata = ({
 
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
+const prefersToolResultAuthFallback = (req: express.Request): boolean => {
+  const userAgent = singleHeader(req.headers['user-agent'])?.toLowerCase() ?? '';
+  const anthropicClient = singleHeader(req.headers['x-anthropic-client'])?.toLowerCase() ?? '';
+  return userAgent.includes('claude') || anthropicClient.length > 0;
+};
+
 const maybeHandleInlineToolCall = async ({
   req,
   res,
@@ -403,6 +409,14 @@ const handleStreamableRequest =
       toolAccessRequirements: transportContext.toolAccessRequirements,
     });
     if (authPreflight) {
+      if (
+        authPreflight.error === 'authentication_required' &&
+        transportContext.auth.authMode === 'none' &&
+        prefersToolResultAuthFallback(req)
+      ) {
+        await transportContext.transport.handleRequest(req, res, req.body);
+        return;
+      }
       res.setHeader('WWW-Authenticate', authPreflight.wwwAuthenticate);
       res.status(authPreflight.statusCode).json({
         error: authPreflight.error,

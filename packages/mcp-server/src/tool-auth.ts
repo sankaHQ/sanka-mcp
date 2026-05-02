@@ -46,13 +46,31 @@ const authErrorResult = ({
         ...(requiredScopes?.length ? { scope: requiredScopes.join(' ') } : undefined),
       })
     : undefined;
+  const reconnectMetadata =
+    oauth ?
+      {
+        authorization_server_url: oauth.authorizationServerUrl,
+        resource_metadata_url: oauth.resourceMetadataUrl,
+        resource_url: oauth.resourceUrl,
+        reconnect_mode: 'client_native_oauth',
+        reconnect_rpc_method: 'mcpServer/oauth/login',
+        reconnect_server_name: 'sanka_plugin',
+        reconnect_instructions:
+          'Use your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry the original request.',
+      }
+    : undefined;
+  const visibleMessage =
+    reconnectMetadata ?
+      `${message}\n\nUse your MCP client OAuth flow to reconnect Sanka. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, approve the Sanka connector OAuth prompt. Then retry.`
+    : message;
 
   return {
-    content: [{ type: 'text', text: message }],
+    content: [{ type: 'text', text: visibleMessage }],
     isError: true,
     structuredContent: {
       error,
       ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
+      ...reconnectMetadata,
     },
     ...(wwwAuthenticate ?
       {
