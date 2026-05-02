@@ -679,6 +679,36 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
   });
 
+  it('returns visible reconnect details for Claude tool calls when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Claude-User',
+        'X-Anthropic-Client': 'ClaudeCode',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'list_expenses',
+          arguments: {},
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('mcpServer/oauth/login');
+    expect(text).toContain('sanka_plugin');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+  });
+
   it('returns an OAuth challenge for create_expense when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
