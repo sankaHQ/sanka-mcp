@@ -3,13 +3,18 @@ import { McpTool } from './types';
 export const SANKA_API_ACCESS_SCOPE = 'api-access';
 export const SANKA_MCP_ACCESS_SCOPE = 'mcp:access';
 
-export const DEFAULT_CONNECT_SANKA_SCOPES = [
+export const DEFAULT_CONNECT_SANKA_SCOPES = [SANKA_MCP_ACCESS_SCOPE] as const;
+
+const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'bills:read',
   'bills:write',
+  'cases:read',
+  'cases:write',
   'companies:read',
   'companies:write',
   'contacts:read',
   'contacts:write',
+  'deals:create',
   'deals:read',
   'deals:write',
   'disbursements:read',
@@ -28,14 +33,19 @@ export const DEFAULT_CONNECT_SANKA_SCOPES = [
   'items:write',
   'locations:read',
   'locations:write',
+  'logs:read',
   'messages:read',
   'messages:write',
+  'meters:read',
+  'meters:write',
   'orders:read',
   'orders:write',
   'payments:read',
   'payments:write',
   'purchase_orders:read',
   'purchase_orders:write',
+  'reports:read',
+  'reports:write',
   'slips:read',
   'slips:write',
   'subscriptions:read',
@@ -44,14 +54,11 @@ export const DEFAULT_CONNECT_SANKA_SCOPES = [
   'tasks:write',
   'tickets:read',
   'tickets:write',
-] as const;
-
-const RESOURCE_SCOPE_PREFIXES: Record<string, string> = {
-  account_messages: 'messages',
-  purchaseOrders: 'purchase_orders',
-};
-
-const CONNECT_SCOPE_SET = new Set<string>(DEFAULT_CONNECT_SANKA_SCOPES);
+  'transfers:read',
+  'transfers:write',
+  'workflows:read',
+  'workflows:write',
+]);
 
 export const oauthScopeSatisfied = ({
   grantedScopes,
@@ -59,7 +66,10 @@ export const oauthScopeSatisfied = ({
 }: {
   grantedScopes: Set<string>;
   requiredScope: string;
-}): boolean => grantedScopes.has(SANKA_API_ACCESS_SCOPE) || grantedScopes.has(requiredScope);
+}): boolean =>
+  grantedScopes.has(SANKA_API_ACCESS_SCOPE) ||
+  grantedScopes.has(requiredScope) ||
+  (grantedScopes.has(SANKA_MCP_ACCESS_SCOPE) && SANKA_MCP_DELEGATED_SCOPES.has(requiredScope));
 
 type ToolAccessRequirement = {
   authenticationRequired: boolean;
@@ -73,17 +83,7 @@ export const getToolRequiredScopes = ({
   args?: Record<string, unknown> | undefined;
 }): string[] => {
   const oauthScheme = tool.tool.securitySchemes?.find((scheme) => scheme.type === 'oauth2');
-  if (!oauthScheme) {
-    return [];
-  }
-
-  const scopePrefix = RESOURCE_SCOPE_PREFIXES[tool.metadata.resource] ?? tool.metadata.resource;
-  const scope = `${scopePrefix}:${tool.metadata.operation}`;
-  if (CONNECT_SCOPE_SET.has(scope)) {
-    return [scope];
-  }
-
-  return [SANKA_MCP_ACCESS_SCOPE];
+  return oauthScheme ? [SANKA_MCP_ACCESS_SCOPE] : [];
 };
 
 export const buildToolAccessRequirements = ({

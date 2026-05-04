@@ -968,7 +968,7 @@ const AUTH_STATUS_INPUT_SCHEMA = {
     required_scopes: {
       type: 'array',
       description:
-        'Optional OAuth scopes required by the follow-up request. When provided, auth_status/connect_sanka returns reconnect metadata for those scopes too.',
+        'Optional Sanka feature scopes for diagnostics. MCP OAuth connects with mcp:access; feature access is enforced by Sanka user permissions.',
       items: { type: 'string' },
     },
   },
