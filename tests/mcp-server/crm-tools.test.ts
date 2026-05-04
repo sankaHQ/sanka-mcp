@@ -324,7 +324,7 @@ describe('ChatGPT CRM tools', () => {
     ]);
   });
 
-  it('returns reconnect metadata when auth status is missing required scopes', async () => {
+  it('treats MCP access as sufficient for Sanka feature scopes', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
         client: {} as any,
@@ -335,22 +335,20 @@ describe('ChatGPT CRM tools', () => {
         toolProfile: 'hosted',
       },
       args: {
-        required_scopes: ['expenses:write'],
+        required_scopes: ['expenses:write', 'deals:read'],
       },
     });
 
-    expect(result.isError).toBe(true);
+    expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toEqual({
       connected: true,
       auth_mode: 'oauth_bearer',
       tool_profile: 'hosted',
       scopes: ['mcp:access'],
-      message:
-        'Sanka CRM is connected, but missing required OAuth scopes: expenses:write. Reconnect and approve the requested permissions, then retry.',
+      message: 'Sanka CRM is connected with Sanka OAuth.',
       authorization_server_url: 'https://app.sanka.com',
       authorization_url: 'https://app.sanka.com/oauth/authorize',
-      required_scopes: ['expenses:write'],
-      missing_scopes: ['expenses:write'],
+      required_scopes: ['deals:read', 'expenses:write'],
       resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
@@ -359,6 +357,35 @@ describe('ChatGPT CRM tools', () => {
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+  });
+
+  it('returns reconnect metadata when auth status is missing an unknown required scope', async () => {
+    const result = await crmAuthStatusTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({
+          authMode: 'oauth_bearer',
+          scopes: ['mcp:access'],
+        }),
+        toolProfile: 'hosted',
+      },
+      args: {
+        required_scopes: ['external:read'],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        connected: true,
+        auth_mode: 'oauth_bearer',
+        tool_profile: 'hosted',
+        scopes: ['mcp:access'],
+        required_scopes: ['external:read'],
+        missing_scopes: ['external:read'],
+      }),
+    );
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="insufficient_scope"'),
     ]);

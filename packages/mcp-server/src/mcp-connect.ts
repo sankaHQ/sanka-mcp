@@ -12,10 +12,7 @@ const base64UrlEncode = (value: Buffer | string): string => Buffer.from(value).t
 export const buildOAuthAuthorizationUrl = (authorizationServerUrl: string): string =>
   `${stripTrailingSlash(authorizationServerUrl)}/oauth/authorize`;
 
-export const normalizeMcpConnectScopes = (scopes?: string[] | undefined): string[] => {
-  const normalized = (scopes ?? []).map((scope) => scope.trim()).filter((scope) => scope.length > 0);
-  return [...new Set([MCP_ACCESS_SCOPE, ...normalized])];
-};
+export const normalizeMcpConnectScopes = (_scopes?: string[] | undefined): string[] => [MCP_ACCESS_SCOPE];
 
 export const buildMcpConnectToken = ({
   now = Date.now(),

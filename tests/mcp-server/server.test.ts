@@ -1,6 +1,7 @@
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 import { selectTools } from '../../packages/mcp-server/src/server';
 import { getInstructions } from '../../packages/mcp-server/src/instructions';
+import { applyRequiredScopesToSecuritySchemes } from '../../packages/mcp-server/src/tool-scope-requirements';
 
 describe('profile-aware tool selection', () => {
   beforeAll(() => {
@@ -279,6 +280,15 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('score_record');
     expect(toolNames).toContain('generate_demo_workspace');
     expect(toolNames).toContain('push_integration_sync');
+  });
+
+  it('advertises MCP access as the only OAuth scope on protected tools', () => {
+    const tools = selectTools(undefined, 'hosted').map(applyRequiredScopesToSecuritySchemes);
+    const listDeals = tools.find((tool) => tool.tool.name === 'list_deals');
+    const listInventories = tools.find((tool) => tool.tool.name === 'list_inventories');
+
+    expect(listDeals?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
+    expect(listInventories?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
   });
 
   it('returns unified instructions from the default profile', async () => {
