@@ -1,6 +1,6 @@
 # Sanka MCP Server
 
-This repository contains the hosted Sanka MCP service and the internal TypeScript API client it depends on. It is now maintained as a normal TypeScript workspace, not as a Stainless-managed repository.
+This repository contains the hosted Sanka MCP service and the TypeScript client it uses to call Sanka's externally callable API surface. It is now maintained as a normal TypeScript workspace, not as a Stainless-managed repository.
 
 The production service is a remote Streamable HTTP MCP endpoint:
 
@@ -22,7 +22,8 @@ Staging endpoint:
 
 ## Repository layout
 
-- `src/`: internal Sanka API client used by the MCP service
+- `src/`: TypeScript client for Sanka's externally callable API surface, used by the MCP service
+- `src/internal/`: package-private SDK runtime helpers, not Sanka private backend code
 - `packages/mcp-server/`: the MCP server application and Docker entrypoint
 - `.github/workflows/`: CI plus staging and production Fly deployment workflows
 - `fly.toml`: production Fly app configuration
@@ -128,7 +129,7 @@ Required Fly apps and secrets:
 
 This repository no longer depends on Stainless project access at runtime or for ongoing development. API coverage should be maintained directly in this repo.
 
-The recommended next step is to adopt open-source OpenAPI tooling for updates to the internal client, rather than reintroducing a hosted generator dependency. See [openapi-maintenance.md](docs/openapi-maintenance.md).
+The recommended next step is to adopt open-source OpenAPI tooling for updates to the TypeScript client, rather than reintroducing a hosted generator dependency. See [openapi-maintenance.md](docs/openapi-maintenance.md).
 
 The repo now includes a starter typegen command:
 

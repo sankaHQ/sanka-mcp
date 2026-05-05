@@ -8,7 +8,7 @@ Keep the hosted MCP service current with the Sanka OpenAPI contract while avoidi
 
 ## Recommended approach
 
-Use an open-source generator only for the internal TypeScript client surface, then keep the MCP-specific server wiring hand-maintained.
+Use an open-source generator only for the TypeScript client surface, then keep the MCP-specific server wiring hand-maintained.
 
 Recommended stack:
 
@@ -44,6 +44,6 @@ For this repository specifically:
 
 ## Update policy
 
-- Small API changes: patch the internal client manually.
+- Small API changes: patch the TypeScript client manually.
 - Larger schema churn: regenerate types, then fix the affected wrappers intentionally.
 - Do not regenerate the entire repository blindly.

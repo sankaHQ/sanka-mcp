@@ -16,7 +16,8 @@ This will install all the required dependencies and build output files to `dist/
 
 This repository is maintained directly. It is no longer treated as generated infrastructure.
 
-- `src/` is the internal API client used by the MCP server.
+- `src/` is the TypeScript client used by the MCP server to call Sanka's externally callable API surface.
+- `src/internal/` contains package-private SDK runtime helpers, not Sanka private backend code.
 - `packages/mcp-server/` contains the MCP transport, tool wiring, and Docker entrypoint.
 - When the Sanka OpenAPI contract changes, update this repo intentionally instead of assuming a hosted generator will rewrite it for you.
 

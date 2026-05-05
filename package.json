@@ -1,7 +1,7 @@
 {
   "name": "sanka-sdk",
   "version": "0.0.1",
-  "description": "Workspace for the hosted Sanka MCP server and its internal API client",
+  "description": "Workspace for the hosted Sanka MCP server and its TypeScript API client",
   "author": "Sanka <>",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",

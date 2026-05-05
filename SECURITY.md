@@ -2,7 +2,7 @@
 
 ## Reporting Security Issues
 
-To report a security issue for the Sanka MCP service or its internal API client, contact the Sanka engineering/security team through the normal internal security channel. If you want a public contact point added here, this file should be updated with the correct address.
+To report a security issue for the Sanka MCP service or its TypeScript API client, contact the Sanka engineering/security team through the normal internal security channel. If you want a public contact point added here, this file should be updated with the correct address.
 
 ## Responsible Disclosure
 
