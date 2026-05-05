@@ -1,5 +1,11 @@
 import { buildOAuthWwwAuthenticateHeader } from './auth';
-import { buildOAuthAuthorizationUrl, normalizeMcpConnectScopes } from './mcp-connect';
+import {
+  buildMcpConnectMarkdownLink,
+  buildMcpConnectStructuredReply,
+  buildMcpConnectUserFacingReply,
+  buildOAuthAuthorizationUrl,
+  normalizeMcpConnectScopes,
+} from './mcp-connect';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
@@ -49,24 +55,28 @@ const authErrorResult = ({
       {
         authorization_server_url: oauth.authorizationServerUrl,
         authorization_url: authorizationUrl,
-        ...(connectUrl ? { connect_url: connectUrl, connect_scopes: connectScopes } : undefined),
+        ...(connectUrl ?
+          {
+            connect_url: connectUrl,
+            connect_scopes: connectScopes,
+            ...buildMcpConnectStructuredReply(connectUrl),
+          }
+        : undefined),
         resource_metadata_url: oauth.resourceMetadataUrl,
         resource_url: oauth.resourceUrl,
         reconnect_mode: 'client_native_oauth',
         reconnect_rpc_method: 'mcpServer/oauth/login',
         reconnect_server_name: 'sanka_plugin',
         reconnect_instructions:
-          'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
+          'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       }
     : undefined;
   const visibleMessage =
     reconnectMetadata ?
       [
         message,
-        connectUrl ? `Connect Sanka: [${connectUrl}](${connectUrl})` : undefined,
-        connectUrl ?
-          `Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href, for example [${connectUrl}](${connectUrl}). Do not use a short label, abbreviate the token, replace it with "...", or refer only to "the link above": ${connectUrl}`
-        : undefined,
+        connectUrl ? `Connect Sanka: ${buildMcpConnectMarkdownLink(connectUrl)}` : undefined,
+        connectUrl ? `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl)}` : undefined,
         `OAuth authorization URL: ${authorizationUrl}`,
         `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
         'Codex reconnect action: mcpServer/oauth/login for server sanka_plugin.',
