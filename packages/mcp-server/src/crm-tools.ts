@@ -5926,7 +5926,7 @@ const buildReconnectMetadata = ({
       ...base,
       ...hostedCodexReconnect,
       reconnect_instructions:
-        'Use Codex native MCP OAuth login for this Sanka server. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. Then retry the original request.',
+        'Use Codex native MCP OAuth login for this Sanka server. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
     };
   }
 
@@ -5934,7 +5934,7 @@ const buildReconnectMetadata = ({
     return {
       ...base,
       reconnect_instructions:
-        'Open the exact full connect_url in the visible response body or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
+        'Open the exact full connect_url shown as visible link text or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
     };
   }
 
@@ -5943,14 +5943,14 @@ const buildReconnectMetadata = ({
       ...base,
       ...hostedCodexReconnect,
       reconnect_instructions:
-        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
+        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
     };
   }
 
   return {
     ...base,
     reconnect_instructions:
-      'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. Then retry the original request.',
+      'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
   };
 };
 
@@ -5968,10 +5968,10 @@ const buildReconnectVisibleMessage = ({
   return [
     message,
     typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Connect Sanka: ${reconnectMetadata['connect_url']}`
+      `Connect Sanka: [${reconnectMetadata['connect_url']}](${reconnectMetadata['connect_url']})`
     : undefined,
     typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Required user-facing reply: include this exact full Connect Sanka URL in the response body as a clickable link. Do not abbreviate the token, replace it with "...", or refer only to "the link above": ${reconnectMetadata['connect_url']}`
+      `Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href, for example [${reconnectMetadata['connect_url']}](${reconnectMetadata['connect_url']}). Do not use a short label, abbreviate the token, replace it with "...", or refer only to "the link above": ${reconnectMetadata['connect_url']}`
     : undefined,
     typeof reconnectMetadata['authorization_url'] === 'string' ?
       `OAuth authorization URL: ${reconnectMetadata['authorization_url']}`
