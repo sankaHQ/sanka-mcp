@@ -419,10 +419,61 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
+        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka',
     });
+  });
+
+  it('does not expose connect URLs when auth_status is checked from hosted Codex without authentication', async () => {
+    const result = await crmAuthStatusTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: {
+          ...oauthContext({ authMode: 'none' }),
+          oauth: {
+            ...oauthContext().oauth,
+            connectUrlForScopes: () => 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
+          },
+        },
+        mcpClientInfo: {
+          name: 'codex-mcp-client',
+          version: '1.0.0',
+        },
+        toolProfile: 'hosted',
+      },
+      args: {
+        required_scopes: ['crm:read'],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    const [content] = result.content;
+    expect(content?.type).toBe('text');
+    const text = content?.type === 'text' ? content.text : '';
+    expect(text).not.toContain('/oauth/mcp/connect');
+    expect(text).not.toContain('Connect Sanka');
+    expect(result.structuredContent).toEqual({
+      connected: false,
+      auth_mode: 'none',
+      tool_profile: 'hosted',
+      client_name: 'codex-mcp-client',
+      scopes: [],
+      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      required_scopes: ['crm:read'],
+      authorization_server_url: 'https://app.sanka.com',
+      authorization_url: 'https://app.sanka.com/oauth/authorize',
+      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      resource_url: 'https://mcp.sanka.com/mcp',
+      reconnect_mode: 'client_native_oauth',
+      reconnect_instructions:
+        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
+      reconnect_rpc_method: 'mcpServer/oauth/login',
+      reconnect_server_name: 'sanka',
+    });
+    expect(result.structuredContent?.['connect_url']).toBeUndefined();
+    expect(result.structuredContent?.['connect_url_markdown']).toBeUndefined();
+    expect(result.structuredContent?.['required_user_facing_reply']).toBeUndefined();
   });
 
   it('reports Claude-specific reconnect metadata when connect_sanka is called from hosted Claude', async () => {
