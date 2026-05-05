@@ -271,6 +271,7 @@ const getRequestAuthPreflight = ({
         reconnect_rpc_method: typeof RECONNECT_RPC_METHOD;
         reconnect_server_name: typeof RECONNECT_SERVER_NAME;
       };
+      nativeErrorDescription?: string | undefined;
       statusCode: number;
       wwwAuthenticate: string;
     }
@@ -300,13 +301,14 @@ const getRequestAuthPreflight = ({
     }
 
     if (auth.authMode === 'none') {
+      const nativeErrorDescription = `Authentication required to use ${toolName}.`;
       const connectUrl = auth.oauth.connectUrlForScopes?.(accessRequirements.requiredScopes);
       const connectScopes = normalizeMcpConnectScopes(accessRequirements.requiredScopes);
       const authorizationUrl = buildOAuthAuthorizationUrl(auth.oauth.authorizationServerUrl);
       const description = appendReconnectInstructions({
         authorizationUrl,
         connectUrl,
-        message: `Authentication required to use ${toolName}.`,
+        message: nativeErrorDescription,
         resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
       });
       return {
@@ -329,6 +331,7 @@ const getRequestAuthPreflight = ({
           reconnect_rpc_method: RECONNECT_RPC_METHOD,
           reconnect_server_name: RECONNECT_SERVER_NAME,
         },
+        nativeErrorDescription,
         statusCode: 401,
         wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
           authorizationServerUrl: auth.oauth.authorizationServerUrl,
@@ -564,9 +567,14 @@ const handleStreamableRequest =
       toolAccessRequirements: transportContext.toolAccessRequirements,
     });
     if (authPreflight) {
+      const shouldUseNativeOAuthChallenge =
+        authPreflight.error === 'authentication_required' &&
+        transportContext.auth.authMode === 'none' &&
+        requestLooksLikeCodex({ mcpClientInfo: transportContext.mcpClientInfo, req });
       if (
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
+        !shouldUseNativeOAuthChallenge &&
         shouldReturnToolResultAuthFallback({
           mcpClientInfo: transportContext.mcpClientInfo,
           mcpOptions: options.mcpOptions,
@@ -577,11 +585,25 @@ const handleStreamableRequest =
         await transportContext.transport.handleRequest(req, res, req.body);
         return;
       }
-      res.setHeader('WWW-Authenticate', authPreflight.wwwAuthenticate);
+      const errorDescription =
+        shouldUseNativeOAuthChallenge ?
+          authPreflight.nativeErrorDescription ?? authPreflight.errorDescription
+        : authPreflight.errorDescription;
+      const wwwAuthenticate =
+        shouldUseNativeOAuthChallenge && transportContext.auth.authMode === 'none' ?
+          buildOAuthWwwAuthenticateHeader({
+            authorizationServerUrl: transportContext.auth.oauth.authorizationServerUrl,
+            description: errorDescription,
+            error: 'invalid_token',
+            resourceMetadataUrl: transportContext.auth.oauth.resourceMetadataUrl,
+          })
+        : authPreflight.wwwAuthenticate;
+
+      res.setHeader('WWW-Authenticate', wwwAuthenticate);
       res.status(authPreflight.statusCode).json({
         error: authPreflight.error,
-        error_description: authPreflight.errorDescription,
-        ...authPreflight.reconnectMetadata,
+        error_description: errorDescription,
+        ...(shouldUseNativeOAuthChallenge ? undefined : authPreflight.reconnectMetadata),
       });
       return;
     }

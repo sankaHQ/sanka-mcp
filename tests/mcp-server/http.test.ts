@@ -32,6 +32,19 @@ const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
   toString: () => 'OAuth reconnect challenge body',
 });
 
+const oauthNativeChallengeBody = (toolName: string) => ({
+  asymmetricMatch: (body: Record<string, unknown>) =>
+    body?.['error'] === 'authentication_required' &&
+    body['error_description'] === `Authentication required to use ${toolName}.` &&
+    body['connect_url'] === undefined &&
+    body['connect_url_markdown'] === undefined &&
+    body['required_user_facing_reply'] === undefined &&
+    body['reconnect_instructions'] === undefined &&
+    body['reconnect_rpc_method'] === undefined &&
+    body['reconnect_server_name'] === undefined,
+  toString: () => 'OAuth native challenge body',
+});
+
 describe('protected resource metadata route', () => {
   let server: http.Server;
   let baseUrl: string;
@@ -788,10 +801,14 @@ describe('protected resource metadata route', () => {
       }),
     });
     const body = await response.json();
+    const wwwAuthenticate = response.headers.get('www-authenticate') ?? '';
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+    expect(wwwAuthenticate).toContain('resource_metadata=');
+    expect(wwwAuthenticate).toContain('authorization_uri=');
+    expect(wwwAuthenticate).not.toContain('/oauth/mcp/connect');
+    expect(wwwAuthenticate).not.toContain('Connect Sanka');
+    expect(body).toEqual(oauthNativeChallengeBody('list_expenses'));
   });
 
   it('uses initialized Codex clientInfo for later streamable tool auth decisions', async () => {
@@ -837,11 +854,15 @@ describe('protected resource metadata route', () => {
       }),
     });
     const body = await response.json();
+    const wwwAuthenticate = response.headers.get('www-authenticate') ?? '';
 
     expect(sessionId).toBeTruthy();
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+    expect(wwwAuthenticate).toContain('resource_metadata=');
+    expect(wwwAuthenticate).toContain('authorization_uri=');
+    expect(wwwAuthenticate).not.toContain('/oauth/mcp/connect');
+    expect(wwwAuthenticate).not.toContain('Connect Sanka');
+    expect(body).toEqual(oauthNativeChallengeBody('list_expenses'));
   });
 
   it('returns visible reconnect details for Claude tool calls when authentication is missing', async () => {
