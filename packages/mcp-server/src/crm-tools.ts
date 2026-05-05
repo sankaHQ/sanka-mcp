@@ -6153,11 +6153,13 @@ const buildReconnectMetadata = ({
   const clientName = reqContext.mcpClientInfo?.name?.trim();
   const normalizedClientName = clientName?.toLowerCase() ?? '';
   const isHosted = reqContext.toolProfile === 'hosted';
+  const isCodex = normalizedClientName.includes('codex');
+  const shouldIncludeConnectUrl = !isCodex;
   const base: Record<string, unknown> = {
     ...(clientName ? { client_name: clientName } : {}),
     authorization_server_url: oauth.authorizationServerUrl,
     authorization_url: authorizationUrl,
-    ...(connectUrl ?
+    ...(connectUrl && shouldIncludeConnectUrl ?
       {
         connect_url: connectUrl,
         connect_scopes: normalizeMcpConnectScopes(reconnectScopes),
@@ -6176,12 +6178,12 @@ const buildReconnectMetadata = ({
       }
     : {};
 
-  if (normalizedClientName.includes('codex')) {
+  if (isCodex) {
     return {
       ...base,
       ...hostedCodexReconnect,
       reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
+        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
     };
   }
 
@@ -6239,7 +6241,9 @@ const buildReconnectVisibleMessage = ({
         reconnectMetadata['reconnect_server_name'] || 'sanka',
       )}.`
     : undefined,
-    'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',
+    typeof reconnectMetadata['connect_url'] === 'string' ?
+      'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.'
+    : undefined,
   ]
     .filter(Boolean)
     .join('\n\n');
