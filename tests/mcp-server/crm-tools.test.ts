@@ -317,7 +317,7 @@ describe('ChatGPT CRM tools', () => {
       reconnect_instructions:
         'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka_plugin',
+      reconnect_server_name: 'sanka',
     });
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="invalid_token"'),
@@ -355,7 +355,7 @@ describe('ChatGPT CRM tools', () => {
       reconnect_instructions:
         'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka_plugin',
+      reconnect_server_name: 'sanka',
     });
     expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
@@ -421,7 +421,7 @@ describe('ChatGPT CRM tools', () => {
       reconnect_instructions:
         'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka_plugin',
+      reconnect_server_name: 'sanka',
     });
   });
 

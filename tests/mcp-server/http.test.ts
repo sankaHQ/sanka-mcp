@@ -28,7 +28,7 @@ const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
     body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
     body['reconnect_mode'] === 'client_native_oauth' &&
     body['reconnect_rpc_method'] === 'mcpServer/oauth/login' &&
-    body['reconnect_server_name'] === 'sanka_plugin',
+    body['reconnect_server_name'] === 'sanka',
   toString: () => 'OAuth reconnect challenge body',
 });
 
@@ -577,7 +577,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
     expect(text).toContain('the assistant must include required_user_facing_reply');
     expect(text).toContain('resource_metadata=');
   });
@@ -655,7 +655,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
     expect(text).toContain('the assistant must include required_user_facing_reply');
   });
 
@@ -764,9 +764,84 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
     expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain('mcpServer/oauth/login');
-    expect(text).toContain('sanka_plugin');
+    expect(text).toContain('sanka');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
+  });
+
+  it('returns an OAuth challenge for Codex streamable tool calls when authentication is missing', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Codex Desktop/0.128.0',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'list_expenses',
+          arguments: {},
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+  });
+
+  it('uses initialized Codex clientInfo for later streamable tool auth decisions', async () => {
+    const initializeResponse = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: {
+            name: 'Codex Desktop',
+            version: '0.128.0',
+          },
+        },
+      }),
+    });
+    const sessionId = initializeResponse.headers.get('mcp-session-id');
+    await initializeResponse.text();
+
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'list_expenses',
+          arguments: {},
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(sessionId).toBeTruthy();
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
   });
 
   it('returns visible reconnect details for Claude tool calls when authentication is missing', async () => {
@@ -797,9 +872,9 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
     expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain('mcpServer/oauth/login');
-    expect(text).toContain('sanka_plugin');
+    expect(text).toContain('sanka');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
   });
 
   it('returns an OAuth challenge for create_expense when authentication is missing', async () => {
