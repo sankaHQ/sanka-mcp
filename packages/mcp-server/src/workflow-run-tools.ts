@@ -8,7 +8,7 @@ const SOURCE_RECORD_SCHEMA = {
       type: 'string',
       enum: ['sanka', 'hubspot'],
       description:
-        'Source system for the record reference. Use sanka for Sanka records, hubspot for synced HubSpot records.',
+        'Source system for the record reference. Use sanka for Sanka records, hubspot for HubSpot deal ids or HubSpot deal URLs.',
     },
     object_type: {
       type: 'string',
@@ -23,6 +23,16 @@ const SOURCE_RECORD_SCHEMA = {
     external_id: {
       type: 'string',
       description: 'External platform record id, such as a HubSpot deal id.',
+    },
+    portal_id: {
+      type: 'string',
+      description:
+        'External portal/account id. For HubSpot deal URLs this is parsed from the URL when omitted.',
+    },
+    url: {
+      type: 'string',
+      description:
+        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate preview; the API uses the synced Sanka deal when available and otherwise performs a read-only HubSpot direct preview.',
     },
   },
 };
@@ -226,7 +236,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft, copied deal totals, and whether existing approval rules require approval. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft, copied deal totals, and whether existing approval rules require approval. Accepts HubSpot deal URLs; if the deal is synced to Sanka it uses the synced deal, otherwise it reads HubSpot directly and returns an external-only preview. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

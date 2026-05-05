@@ -108,6 +108,47 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('previews deal_to_estimate workflows from HubSpot deal URLs', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        source_status: 'external_only',
+        financials: { total_amount: 610000, line_item_count: 3 },
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_estimate',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'deal_to_estimate',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {},
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      source_status: 'external_only',
+      financials: { total_amount: 610000, line_item_count: 3 },
+    });
+  });
+
   it('loads workflow runs by id', async () => {
     const get = jest.fn().mockResolvedValue({
       data: { run_id: 'run/1', status: 'completed' },
