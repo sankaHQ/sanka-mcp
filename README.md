@@ -47,6 +47,11 @@ MCP server accepts only Sanka OAuth bearer tokens and validates them through:
 
 The same bearer token is then forwarded to the Sanka public API.
 
+Native OAuth-capable clients such as Codex and Claude receive an MCP OAuth
+challenge during connection or protected tool calls. Clients that do not support
+native MCP OAuth can still use the protected-tool fallback, which returns a
+Connect Sanka URL for the user to open.
+
 Developer API tokens are intentionally not supported for MCP access. They remain
 valid for direct Sanka API and SDK usage outside MCP.
 

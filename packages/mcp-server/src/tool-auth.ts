@@ -6,11 +6,11 @@ import {
   buildOAuthAuthorizationUrl,
   normalizeMcpConnectScopes,
 } from './mcp-connect';
+import { mcpClientLooksLikeNativeOAuthClient } from './mcp-client-info';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
 const RECONNECT_SERVER_NAME = 'sanka';
-const valueLooksLikeCodex = (value: string | undefined): boolean => /\bcodex\b/i.test(value ?? '');
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -43,10 +43,8 @@ const authErrorResult = ({
     oauth ? oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl) : undefined;
   const connectUrl = oauth?.connectUrlForScopes?.(requiredScopes);
   const connectScopes = normalizeMcpConnectScopes(requiredScopes);
-  const isCodexClient =
-    valueLooksLikeCodex(reqContext.mcpClientInfo?.name) ||
-    valueLooksLikeCodex(reqContext.mcpClientInfo?.version);
-  const shouldIncludeConnectUrl = !isCodexClient;
+  const isNativeOAuthClient = mcpClientLooksLikeNativeOAuthClient(reqContext.mcpClientInfo);
+  const shouldIncludeConnectUrl = !isNativeOAuthClient;
   const wwwAuthenticate =
     oauth ?
       buildOAuthWwwAuthenticateHeader({
@@ -75,7 +73,7 @@ const authErrorResult = ({
         reconnect_rpc_method: 'mcpServer/oauth/login',
         reconnect_server_name: RECONNECT_SERVER_NAME,
         reconnect_instructions:
-          isCodexClient ?
+          isNativeOAuthClient ?
             'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.'
           : 'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       }

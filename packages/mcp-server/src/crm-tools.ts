@@ -7,6 +7,7 @@ import {
   buildOAuthAuthorizationUrl,
   normalizeMcpConnectScopes,
 } from './mcp-connect';
+import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
 import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -6151,10 +6152,11 @@ const buildReconnectMetadata = ({
   const connectUrl = oauth.connectUrlForScopes?.(reconnectScopes);
   const authorizationUrl = oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl);
   const clientName = reqContext.mcpClientInfo?.name?.trim();
-  const normalizedClientName = clientName?.toLowerCase() ?? '';
   const isHosted = reqContext.toolProfile === 'hosted';
-  const isCodex = normalizedClientName.includes('codex');
-  const shouldIncludeConnectUrl = !isCodex;
+  const isCodex = mcpClientLooksLikeCodex(reqContext.mcpClientInfo);
+  const isClaude = mcpClientLooksLikeClaude(reqContext.mcpClientInfo);
+  const isNativeOAuthClient = isCodex || isClaude;
+  const shouldIncludeConnectUrl = !isNativeOAuthClient;
   const base: Record<string, unknown> = {
     ...(clientName ? { client_name: clientName } : {}),
     authorization_server_url: oauth.authorizationServerUrl,
@@ -6187,11 +6189,11 @@ const buildReconnectMetadata = ({
     };
   }
 
-  if (normalizedClientName.includes('claude')) {
+  if (isClaude) {
     return {
       ...base,
       reconnect_instructions:
-        'If connect_url is present, show required_user_facing_reply or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
+        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
     };
   }
 

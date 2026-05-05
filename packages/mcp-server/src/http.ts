@@ -21,6 +21,13 @@ import {
   buildOAuthAuthorizationUrl,
   normalizeMcpConnectScopes,
 } from './mcp-connect';
+import {
+  McpClientInfo,
+  mcpClientLooksLikeNativeOAuthClient,
+  valueLooksLikeClaude,
+  valueLooksLikeCodex,
+  valueLooksLikeNativeOAuthClient,
+} from './mcp-client-info';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
@@ -66,7 +73,7 @@ const RECONNECT_INSTRUCTIONS =
   'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
 const MCP_CLIENT_INFO_CACHE_MAX = 1000;
 
-const mcpClientInfoBySessionId = new Map<string, { name: string; version: string }>();
+const mcpClientInfoBySessionId = new Map<string, McpClientInfo>();
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,6 +84,14 @@ const toolCallName = (body: unknown): string | undefined => {
   }
   const name = body['params']['name'];
   return typeof name === 'string' ? name : undefined;
+};
+
+const jsonRpcMethod = (body: unknown): string | undefined => {
+  if (!isObjectRecord(body)) {
+    return undefined;
+  }
+  const method = body['method'];
+  return typeof method === 'string' ? method : undefined;
 };
 
 const appendReconnectInstructions = ({
@@ -120,7 +135,7 @@ const createRequestTransport = async ({
 }): Promise<{
   auth: Awaited<ReturnType<typeof resolveClientAuth>>;
   generatedSessionId?: string | undefined;
-  mcpClientInfo?: { name: string; version: string } | undefined;
+  mcpClientInfo?: McpClientInfo | undefined;
   mcpSessionId: string;
   server: McpServer;
   transport: StreamableHTTPServerTransport;
@@ -384,7 +399,7 @@ const acceptsEventStream = (req: express.Request): boolean =>
     .map((acceptType) => acceptType.split(';')[0]?.trim())
     .includes('text/event-stream');
 
-const extractRequestMcpClientInfo = (req: express.Request): { name: string; version: string } | undefined => {
+const extractRequestMcpClientInfo = (req: express.Request): McpClientInfo | undefined => {
   const params =
     isObjectRecord(req.body) && isObjectRecord(req.body['params']) ? req.body['params'] : undefined;
   const clientInfo = params && isObjectRecord(params['clientInfo']) ? params['clientInfo'] : undefined;
@@ -398,23 +413,32 @@ const extractRequestMcpClientInfo = (req: express.Request): { name: string; vers
   };
 };
 
-const inferRequestMcpClientInfo = (req: express.Request): { name: string; version: string } | undefined => {
+const inferRequestMcpClientInfo = (req: express.Request): McpClientInfo | undefined => {
   const headerClientValues = [
     singleHeader(req.headers['x-openai-client']),
     singleHeader(req.headers['x-codex-client']),
+    singleHeader(req.headers['x-anthropic-client']),
+    singleHeader(req.headers['x-claude-client']),
     singleHeader(req.headers['user-agent']),
   ];
   const codexClientValue = headerClientValues.find(valueLooksLikeCodex);
-  if (!codexClientValue) {
-    return undefined;
+  if (codexClientValue) {
+    return {
+      name: 'Codex',
+      version: codexClientValue,
+    };
   }
-  return {
-    name: 'Codex',
-    version: codexClientValue,
-  };
+  const claudeClientValue = headerClientValues.find(valueLooksLikeClaude);
+  if (claudeClientValue) {
+    return {
+      name: 'Claude',
+      version: claudeClientValue,
+    };
+  }
+  return undefined;
 };
 
-const rememberMcpClientInfo = (sessionId: string, clientInfo: { name: string; version: string }): void => {
+const rememberMcpClientInfo = (sessionId: string, clientInfo: McpClientInfo): void => {
   if (
     !mcpClientInfoBySessionId.has(sessionId) &&
     mcpClientInfoBySessionId.size >= MCP_CLIENT_INFO_CACHE_MAX
@@ -427,22 +451,21 @@ const rememberMcpClientInfo = (sessionId: string, clientInfo: { name: string; ve
   mcpClientInfoBySessionId.set(sessionId, clientInfo);
 };
 
-const valueLooksLikeCodex = (value: string | undefined): boolean => /\bcodex\b/i.test(value ?? '');
-
-const requestLooksLikeCodex = ({
+const requestLooksLikeNativeOAuthClient = ({
   mcpClientInfo,
   req,
 }: {
-  mcpClientInfo?: { name: string; version: string } | undefined;
+  mcpClientInfo?: McpClientInfo | undefined;
   req: express.Request;
 }): boolean =>
+  mcpClientLooksLikeNativeOAuthClient(mcpClientInfo) ||
   [
-    mcpClientInfo?.name,
-    mcpClientInfo?.version,
     singleHeader(req.headers['user-agent']),
     singleHeader(req.headers['x-openai-client']),
     singleHeader(req.headers['x-codex-client']),
-  ].some(valueLooksLikeCodex);
+    singleHeader(req.headers['x-anthropic-client']),
+    singleHeader(req.headers['x-claude-client']),
+  ].some(valueLooksLikeNativeOAuthClient);
 
 const requestOrigin = (req: express.Request): string => {
   const forwardedProto = singleHeader(req.headers['x-forwarded-proto'])?.split(',')[0]?.trim();
@@ -504,6 +527,51 @@ const shouldReturnToolResultAuthFallback = ({
   toolProfile: ToolProfile;
 }): boolean =>
   mcpOptions.streamableAuthFallback === 'tool_result' && toolProfile === 'hosted' && acceptsEventStream(req);
+
+const getNativeOAuthConnectionAuthChallenge = ({
+  auth,
+  body,
+  mcpClientInfo,
+  req,
+}: {
+  auth: Awaited<ReturnType<typeof resolveClientAuth>>;
+  body: unknown;
+  mcpClientInfo?: McpClientInfo | undefined;
+  req: express.Request;
+}):
+  | {
+      error: 'authentication_required';
+      errorDescription: string;
+      statusCode: 401;
+      wwwAuthenticate: string;
+    }
+  | undefined => {
+  const method = jsonRpcMethod(body);
+  if (
+    auth.authMode !== 'none' ||
+    !requestLooksLikeNativeOAuthClient({ mcpClientInfo, req }) ||
+    !['initialize', 'tools/list'].includes(method ?? '')
+  ) {
+    return undefined;
+  }
+
+  const errorDescription =
+    method === 'initialize' ?
+      'Authentication required to connect Sanka MCP.'
+    : 'Authentication required to list Sanka MCP tools.';
+
+  return {
+    error: 'authentication_required',
+    errorDescription,
+    statusCode: 401,
+    wwwAuthenticate: buildOAuthWwwAuthenticateHeader({
+      authorizationServerUrl: auth.oauth.authorizationServerUrl,
+      description: errorDescription,
+      error: 'invalid_token',
+      resourceMetadataUrl: auth.oauth.resourceMetadataUrl,
+    }),
+  };
+};
 
 const maybeHandleInlineToolCall = async ({
   req,
@@ -570,6 +638,21 @@ const handleStreamableRequest =
       res.setHeader('mcp-session-id', transportContext.generatedSessionId);
     }
 
+    const nativeConnectionAuthChallenge = getNativeOAuthConnectionAuthChallenge({
+      auth: transportContext.auth,
+      body: req.body,
+      mcpClientInfo: transportContext.mcpClientInfo,
+      req,
+    });
+    if (nativeConnectionAuthChallenge) {
+      res.setHeader('WWW-Authenticate', nativeConnectionAuthChallenge.wwwAuthenticate);
+      res.status(nativeConnectionAuthChallenge.statusCode).json({
+        error: nativeConnectionAuthChallenge.error,
+        error_description: nativeConnectionAuthChallenge.errorDescription,
+      });
+      return;
+    }
+
     if (await maybeHandleInlineToolCall({ req, res, toolProfile, transportContext })) {
       return;
     }
@@ -583,10 +666,11 @@ const handleStreamableRequest =
       const shouldUseNativeOAuthChallenge =
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
-        requestLooksLikeCodex({ mcpClientInfo: transportContext.mcpClientInfo, req });
+        requestLooksLikeNativeOAuthClient({ mcpClientInfo: transportContext.mcpClientInfo, req });
       if (
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
+        !shouldUseNativeOAuthChallenge &&
         shouldReturnToolResultAuthFallback({
           mcpOptions: options.mcpOptions,
           req,
