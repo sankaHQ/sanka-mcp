@@ -50,6 +50,141 @@ const LIST_INPUT_SCHEMA = {
   },
 };
 
+const RECORD_FILTER_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    field: {
+      type: 'string',
+      description:
+        'Built-in field to filter, for example address, name, email, status, created_at, or updated_at.',
+    },
+    operator: {
+      type: 'string',
+      description:
+        'Filter operator. Supported values include equals, not_equals, contains, starts_with, ends_with, is_empty, is_not_empty, in, greater_than, greater_than_equal, less_than, and less_than_equal.',
+      default: 'equals',
+    },
+    value: {
+      description: 'Filter value. Omit for is_empty and is_not_empty.',
+    },
+  },
+  required: ['field'],
+};
+
+const RECORD_QUERY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description: 'Record object to query. Currently supports companies and contacts.',
+      enum: ['companies', 'company', 'contacts', 'contact'],
+    },
+    select: {
+      type: 'array',
+      description:
+        'Built-in fields to return. Keep this narrow so the MCP response stays small, for example ["id", "name", "address"].',
+      items: { type: 'string' },
+    },
+    filters: {
+      type: 'array',
+      description: 'Server-side filters. Use these instead of fetching all rows and counting client-side.',
+      items: RECORD_FILTER_SCHEMA,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional free-text search over the default text fields for the object.',
+    },
+    sort: {
+      type: 'string',
+      description: 'Optional built-in sort field, optionally prefixed with "-" for descending order.',
+    },
+    page: {
+      type: 'integer',
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object_type'],
+};
+
+const RECORD_QUERY_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: { type: 'string' },
+    count: { type: 'integer' },
+    page: { type: 'integer' },
+    limit: { type: 'integer' },
+    total: { type: 'integer' },
+    has_next: { type: 'boolean' },
+    message: { type: 'string' },
+    results: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+  },
+  required: ['object_type', 'count', 'page', 'limit', 'total', 'message', 'results'],
+};
+
+const RECORD_AGGREGATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description: 'Record object to aggregate. Currently supports companies and contacts.',
+      enum: ['companies', 'company', 'contacts', 'contact'],
+    },
+    filters: {
+      type: 'array',
+      description:
+        'Server-side filters. For count questions, prefer aggregate_records with filters over list_* pagination.',
+      items: RECORD_FILTER_SCHEMA,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional free-text search over the default text fields for the object.',
+    },
+    metrics: {
+      type: 'array',
+      description: 'Aggregate metrics to compute. Currently supports count.',
+      items: { type: 'string', enum: ['count'] },
+      default: ['count'],
+    },
+    group_by: {
+      type: 'array',
+      description: 'Optional single built-in field to group by.',
+      items: { type: 'string' },
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of groups to return when group_by is used.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object_type'],
+};
+
+const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: { type: 'string' },
+    metrics: { type: 'object' },
+    groups: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+    message: { type: 'string' },
+  },
+  required: ['object_type', 'metrics', 'groups', 'message'],
+};
+
 type OrderLineItem = {
   item_id?: string;
   itemExternalId?: string;
@@ -4429,6 +4564,119 @@ const buildListResult = ({
   };
 };
 
+const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const filters: Record<string, unknown>[] = [];
+  for (const entry of value) {
+    const record = readRecord(entry);
+    const field = readString(record?.['field']);
+    if (!record || !field) {
+      continue;
+    }
+    const operator = readString(record['operator']) ?? 'equals';
+    filters.push({
+      field,
+      operator,
+      ...(Object.prototype.hasOwnProperty.call(record, 'value') ? { value: record['value'] } : undefined),
+    });
+  }
+  return filters;
+};
+
+const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
+  const objectType = readString(args?.['object_type']);
+  const body: Record<string, unknown> = {
+    ...(objectType ? { object_type: objectType } : undefined),
+  };
+  const select = readStringArray(args?.['select']);
+  const filters = buildRecordFilters(args?.['filters']);
+  const search = readString(args?.['search']);
+  const sort = readString(args?.['sort']);
+
+  if (select.length) {
+    body['select'] = select;
+  }
+  if (filters.length) {
+    body['filters'] = filters;
+  }
+  if (search) {
+    body['search'] = search;
+  }
+  if (sort) {
+    body['sort'] = sort;
+  }
+  body['page'] = readNumber(args?.['page'], 1);
+  body['limit'] = readNumber(args?.['limit'], 25);
+  return body;
+};
+
+const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => {
+  const objectType = readString(args?.['object_type']);
+  const filters = buildRecordFilters(args?.['filters']);
+  const search = readString(args?.['search']);
+  const metrics = readStringArray(args?.['metrics']);
+  const groupBy = readStringArray(args?.['group_by'] ?? args?.['groupBy']);
+  const body: Record<string, unknown> = {
+    ...(objectType ? { object_type: objectType } : undefined),
+    metrics: metrics.length ? metrics : ['count'],
+  };
+
+  if (filters.length) {
+    body['filters'] = filters;
+  }
+  if (search) {
+    body['search'] = search;
+  }
+  if (groupBy.length) {
+    body['group_by'] = groupBy;
+  }
+  body['limit'] = readNumber(args?.['limit'], 25);
+  return body;
+};
+
+const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const objectType = readString(payload['object_type']) ?? 'records';
+  const count = readNumber(payload['count'], 0);
+  const total = readNumber(payload['total'], count);
+  const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `query_records returned ${count} of ${total} ${objectType} records.`,
+      },
+    ],
+    structuredContent: {
+      ...payload,
+      results: rows,
+    },
+  };
+};
+
+const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const objectType = readString(payload['object_type']) ?? 'records';
+  const metrics = readRecord(payload['metrics']) ?? {};
+  const count = metrics['count'];
+  const summary =
+    typeof count === 'number' ?
+      `aggregate_records count for ${objectType}: ${count}`
+    : `aggregate_records completed for ${objectType}.`;
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: summary,
+      },
+    ],
+    structuredContent: payload,
+  };
+};
+
 const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
   const search = readString(args?.['search']);
@@ -6227,6 +6475,98 @@ export const crmAuthStatusTool: McpTool = {
       requiredScopes,
       reqContext,
     });
+  },
+};
+
+export const crmQueryRecordsTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'read',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/query',
+    operationId: 'public.records.query',
+  },
+  tool: {
+    name: 'query_records',
+    title: 'Query records',
+    description:
+      'Query Sanka records with server-side filters and field projection. Use this instead of list_* when the user asks for filtered rows or when only a few fields are needed.',
+    inputSchema: RECORD_QUERY_INPUT_SCHEMA,
+    outputSchema: RECORD_QUERY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Query records',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Query records',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildRecordQueryBody(args);
+    if (!body['object_type']) {
+      return asErrorResult('`object_type` is required.');
+    }
+
+    const payload = (await reqContext.client.post('/v1/public/records/query', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildRecordQueryResult(payload);
+  },
+};
+
+export const crmAggregateRecordsTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'read',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/aggregate',
+    operationId: 'public.records.aggregate',
+  },
+  tool: {
+    name: 'aggregate_records',
+    title: 'Aggregate records',
+    description:
+      'Compute counts and grouped counts with server-side filters. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
+    inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
+    outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Aggregate records',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Aggregate records',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildRecordAggregateBody(args);
+    if (!body['object_type']) {
+      return asErrorResult('`object_type` is required.');
+    }
+
+    const payload = (await reqContext.client.post('/v1/public/records/aggregate', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildRecordAggregateResult(payload);
   },
 };
 

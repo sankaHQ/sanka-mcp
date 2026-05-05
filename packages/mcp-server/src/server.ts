@@ -12,6 +12,7 @@ import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
 import {
   crmArchivePrivateMessageThreadTool,
+  crmAggregateRecordsTool,
   crmApplyCompanyPriceTableItemsTool,
   crmCancelCalendarAttendanceTool,
   crmCheckCalendarAvailabilityTool,
@@ -111,6 +112,7 @@ import {
   crmListTicketPipelinesTool,
   crmListTicketsTool,
   crmProspectCompaniesTool,
+  crmQueryRecordsTool,
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
@@ -363,6 +365,8 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmGetPrivateMessageThreadTool,
     crmReplyPrivateMessageThreadTool,
     crmArchivePrivateMessageThreadTool,
+    crmQueryRecordsTool,
+    crmAggregateRecordsTool,
     crmListCompaniesTool,
     crmGetCompanyTool,
     crmCreateCompanyTool,
