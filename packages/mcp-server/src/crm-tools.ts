@@ -6172,7 +6172,7 @@ const buildReconnectMetadata = ({
     isHosted ?
       {
         reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: 'sanka_plugin',
+        reconnect_server_name: 'sanka',
       }
     : {};
 
@@ -6236,7 +6236,7 @@ const buildReconnectVisibleMessage = ({
     : undefined,
     typeof reconnectMetadata['reconnect_rpc_method'] === 'string' ?
       `Codex reconnect action: ${reconnectMetadata['reconnect_rpc_method']} for server ${String(
-        reconnectMetadata['reconnect_server_name'] || 'sanka_plugin',
+        reconnectMetadata['reconnect_server_name'] || 'sanka',
       )}.`
     : undefined,
     'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',

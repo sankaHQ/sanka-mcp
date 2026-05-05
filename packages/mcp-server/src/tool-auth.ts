@@ -9,6 +9,8 @@ import {
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
+const RECONNECT_SERVER_NAME = 'sanka';
+
 export const resolveMissingScopes = ({
   grantedScopes,
   requiredScopes,
@@ -66,7 +68,7 @@ const authErrorResult = ({
         resource_url: oauth.resourceUrl,
         reconnect_mode: 'client_native_oauth',
         reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: 'sanka_plugin',
+        reconnect_server_name: RECONNECT_SERVER_NAME,
         reconnect_instructions:
           'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       }
@@ -79,7 +81,7 @@ const authErrorResult = ({
         connectUrl ? `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl)}` : undefined,
         `OAuth authorization URL: ${authorizationUrl}`,
         `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
-        'Codex reconnect action: mcpServer/oauth/login for server sanka_plugin.',
+        `Codex reconnect action: mcpServer/oauth/login for server ${RECONNECT_SERVER_NAME}.`,
         'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',
       ]
         .filter(Boolean)
