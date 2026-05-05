@@ -115,6 +115,13 @@ const isSankaOAuthAccessToken = (value: string): boolean => value.startsWith(OAU
 const resolveAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
   stripTrailingSlash(mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL);
 
+const resolveInternalAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
+  stripTrailingSlash(
+    mcpOptions.internalAuthorizationServerUrl ||
+      mcpOptions.authorizationServerUrl ||
+      DEFAULT_AUTHORIZATION_SERVER_URL,
+  );
+
 const resolveIntrospectionUrl = (authorizationServerUrl: string): string =>
   `${authorizationServerUrl}${DEFAULT_INTROSPECTION_PATH}`;
 
@@ -196,10 +203,12 @@ const buildOAuthAccessTokenChallenge = ({
 
 const introspectOAuthAccessToken = async ({
   authorizationServerUrl,
+  challengeAuthorizationServerUrl,
   resourceMetadataUrl,
   token,
 }: {
   authorizationServerUrl: string;
+  challengeAuthorizationServerUrl?: string | undefined;
   resourceMetadataUrl: string;
   token: string;
 }): Promise<OAuthIntrospectionPayload> => {
@@ -223,7 +232,7 @@ const introspectOAuthAccessToken = async ({
 
   if (!response.ok) {
     throw buildOAuthAccessTokenChallenge({
-      authorizationServerUrl,
+      authorizationServerUrl: challengeAuthorizationServerUrl ?? authorizationServerUrl,
       description,
       resourceMetadataUrl,
       statusCode: response.status === 400 ? 400 : 401,
@@ -233,7 +242,7 @@ const introspectOAuthAccessToken = async ({
   const data = payload?.data;
   if (!data?.active) {
     throw buildOAuthAccessTokenChallenge({
-      authorizationServerUrl,
+      authorizationServerUrl: challengeAuthorizationServerUrl ?? authorizationServerUrl,
       description: 'OAuth access token is invalid or inactive.',
       resourceMetadataUrl,
     });
@@ -397,6 +406,7 @@ export const resolveClientAuth = async ({
   const authorizationHeader = singleHeader(req.headers.authorization);
   const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
   const authorizationServerUrl = resolveAuthorizationServerUrl(mcpOptions);
+  const internalAuthorizationServerUrl = resolveInternalAuthorizationServerUrl(mcpOptions);
 
   const connectUrlForScopes =
     mcpSessionId && mcpOptions.tokenExchangeSharedSecret ?
@@ -432,7 +442,7 @@ export const resolveClientAuth = async ({
 
   if (!authorizationHeader) {
     const mcpSessionAccess = await exchangeMcpSessionForAccessToken({
-      authorizationServerUrl,
+      authorizationServerUrl: internalAuthorizationServerUrl,
       resourceUrl,
       sessionId: mcpSessionIdForExchange,
       sharedSecret: mcpOptions.tokenExchangeSharedSecret,
@@ -481,7 +491,8 @@ export const resolveClientAuth = async ({
   }
 
   const introspected = await introspectOAuthAccessToken({
-    authorizationServerUrl,
+    authorizationServerUrl: internalAuthorizationServerUrl,
+    challengeAuthorizationServerUrl: authorizationServerUrl,
     resourceMetadataUrl,
     token,
   });
