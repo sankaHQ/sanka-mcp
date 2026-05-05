@@ -32,19 +32,6 @@ const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
   toString: () => 'OAuth reconnect challenge body',
 });
 
-const oauthNativeChallengeBody = (toolName: string) => ({
-  asymmetricMatch: (body: Record<string, unknown>) =>
-    body?.['error'] === 'authentication_required' &&
-    body['error_description'] === `Authentication required to use ${toolName}.` &&
-    body['connect_url'] === undefined &&
-    body['connect_url_markdown'] === undefined &&
-    body['required_user_facing_reply'] === undefined &&
-    body['reconnect_instructions'] === undefined &&
-    body['reconnect_rpc_method'] === undefined &&
-    body['reconnect_server_name'] === undefined,
-  toString: () => 'OAuth native challenge body',
-});
-
 describe('protected resource metadata route', () => {
   let server: http.Server;
   let baseUrl: string;
@@ -782,7 +769,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"reconnect_server_name":"sanka"');
   });
 
-  it('returns an OAuth challenge for Codex streamable tool calls when authentication is missing', async () => {
+  it('returns URL-free reconnect metadata for Codex streamable tool calls when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -800,15 +787,19 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
-    const wwwAuthenticate = response.headers.get('www-authenticate') ?? '';
+    const text = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(wwwAuthenticate).toContain('resource_metadata=');
-    expect(wwwAuthenticate).toContain('authorization_uri=');
-    expect(wwwAuthenticate).not.toContain('/oauth/mcp/connect');
-    expect(wwwAuthenticate).not.toContain('Connect Sanka');
-    expect(body).toEqual(oauthNativeChallengeBody('list_expenses'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('Codex reconnect action: mcpServer/oauth/login for server sanka.');
+    expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
+    expect(text).not.toContain('/oauth/mcp/connect');
+    expect(text).not.toContain('Connect Sanka:');
+    expect(text).not.toContain('required_user_facing_reply');
   });
 
   it('uses initialized Codex clientInfo for later streamable tool auth decisions', async () => {
@@ -853,16 +844,20 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
-    const wwwAuthenticate = response.headers.get('www-authenticate') ?? '';
+    const text = await response.text();
 
     expect(sessionId).toBeTruthy();
-    expect(response.status).toBe(401);
-    expect(wwwAuthenticate).toContain('resource_metadata=');
-    expect(wwwAuthenticate).toContain('authorization_uri=');
-    expect(wwwAuthenticate).not.toContain('/oauth/mcp/connect');
-    expect(wwwAuthenticate).not.toContain('Connect Sanka');
-    expect(body).toEqual(oauthNativeChallengeBody('list_expenses'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(text).toContain('Authentication required to use List expenses.');
+    expect(text).toContain('Codex reconnect action: mcpServer/oauth/login for server sanka.');
+    expect(text).toContain('"mcp/www_authenticate"');
+    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
+    expect(text).not.toContain('/oauth/mcp/connect');
+    expect(text).not.toContain('Connect Sanka:');
+    expect(text).not.toContain('required_user_facing_reply');
   });
 
   it('returns visible reconnect details for Claude tool calls when authentication is missing', async () => {

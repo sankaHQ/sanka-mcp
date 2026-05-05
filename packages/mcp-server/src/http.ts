@@ -133,7 +133,7 @@ const createRequestTransport = async ({
 } | null> => {
   const incomingSessionId = extractMcpSessionId(req.headers);
   const mcpSessionId = incomingSessionId || generateMcpSessionId();
-  const requestMcpClientInfo = extractRequestMcpClientInfo(req);
+  const requestMcpClientInfo = extractRequestMcpClientInfo(req) ?? inferRequestMcpClientInfo(req);
   if (requestMcpClientInfo) {
     rememberMcpClientInfo(mcpSessionId, requestMcpClientInfo);
   }
@@ -397,6 +397,22 @@ const extractRequestMcpClientInfo = (req: express.Request): { name: string; vers
   };
 };
 
+const inferRequestMcpClientInfo = (req: express.Request): { name: string; version: string } | undefined => {
+  const headerClientValues = [
+    singleHeader(req.headers['x-openai-client']),
+    singleHeader(req.headers['x-codex-client']),
+    singleHeader(req.headers['user-agent']),
+  ];
+  const codexClientValue = headerClientValues.find(valueLooksLikeCodex);
+  if (!codexClientValue) {
+    return undefined;
+  }
+  return {
+    name: 'Codex',
+    version: codexClientValue,
+  };
+};
+
 const rememberMcpClientInfo = (sessionId: string, clientInfo: { name: string; version: string }): void => {
   if (
     !mcpClientInfoBySessionId.has(sessionId) &&
@@ -477,20 +493,15 @@ export const buildAuthorizationServerMetadata = ({
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
 const shouldReturnToolResultAuthFallback = ({
-  mcpClientInfo,
   mcpOptions,
   req,
   toolProfile,
 }: {
-  mcpClientInfo?: { name: string; version: string } | undefined;
   mcpOptions: McpOptions;
   req: express.Request;
   toolProfile: ToolProfile;
 }): boolean =>
-  mcpOptions.streamableAuthFallback === 'tool_result' &&
-  toolProfile === 'hosted' &&
-  acceptsEventStream(req) &&
-  !requestLooksLikeCodex({ mcpClientInfo, req });
+  mcpOptions.streamableAuthFallback === 'tool_result' && toolProfile === 'hosted' && acceptsEventStream(req);
 
 const maybeHandleInlineToolCall = async ({
   req,
@@ -574,9 +585,7 @@ const handleStreamableRequest =
       if (
         authPreflight.error === 'authentication_required' &&
         transportContext.auth.authMode === 'none' &&
-        !shouldUseNativeOAuthChallenge &&
         shouldReturnToolResultAuthFallback({
-          mcpClientInfo: transportContext.mcpClientInfo,
           mcpOptions: options.mcpOptions,
           req,
           toolProfile,

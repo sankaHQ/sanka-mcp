@@ -10,6 +10,7 @@ import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
 const RECONNECT_SERVER_NAME = 'sanka';
+const valueLooksLikeCodex = (value: string | undefined): boolean => /\bcodex\b/i.test(value ?? '');
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -42,6 +43,10 @@ const authErrorResult = ({
     oauth ? oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl) : undefined;
   const connectUrl = oauth?.connectUrlForScopes?.(requiredScopes);
   const connectScopes = normalizeMcpConnectScopes(requiredScopes);
+  const isCodexClient =
+    valueLooksLikeCodex(reqContext.mcpClientInfo?.name) ||
+    valueLooksLikeCodex(reqContext.mcpClientInfo?.version);
+  const shouldIncludeConnectUrl = !isCodexClient;
   const wwwAuthenticate =
     oauth ?
       buildOAuthWwwAuthenticateHeader({
@@ -57,7 +62,7 @@ const authErrorResult = ({
       {
         authorization_server_url: oauth.authorizationServerUrl,
         authorization_url: authorizationUrl,
-        ...(connectUrl ?
+        ...(connectUrl && shouldIncludeConnectUrl ?
           {
             connect_url: connectUrl,
             connect_scopes: connectScopes,
@@ -70,19 +75,27 @@ const authErrorResult = ({
         reconnect_rpc_method: 'mcpServer/oauth/login',
         reconnect_server_name: RECONNECT_SERVER_NAME,
         reconnect_instructions:
-          'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
+          isCodexClient ?
+            'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.'
+          : 'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       }
     : undefined;
   const visibleMessage =
     reconnectMetadata ?
       [
         message,
-        connectUrl ? `Connect Sanka: ${buildMcpConnectMarkdownLink(connectUrl)}` : undefined,
-        connectUrl ? `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl)}` : undefined,
+        connectUrl && shouldIncludeConnectUrl ?
+          `Connect Sanka: ${buildMcpConnectMarkdownLink(connectUrl)}`
+        : undefined,
+        connectUrl && shouldIncludeConnectUrl ?
+          `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl)}`
+        : undefined,
         `OAuth authorization URL: ${authorizationUrl}`,
         `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
         `Codex reconnect action: mcpServer/oauth/login for server ${RECONNECT_SERVER_NAME}.`,
-        'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.',
+        shouldIncludeConnectUrl ?
+          'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.'
+        : undefined,
       ]
         .filter(Boolean)
         .join('\n\n')
