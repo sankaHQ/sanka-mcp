@@ -56,7 +56,7 @@ describe('resolveClientAuth', () => {
       introspectionCallCount += 1;
       const authorization = req.headers.authorization ?? '';
 
-      if (authorization === 'Bearer soat_valid_token') {
+      if (authorization === 'Bearer soat_valid_token' || authorization === 'Bearer soat_internal_token') {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(
@@ -300,6 +300,32 @@ describe('resolveClientAuth', () => {
       oauth: {
         authorizationServerUrl: authServerBaseUrl,
         authorizationUrl: `${authServerBaseUrl}/oauth/authorize`,
+        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        scopes: ['companies:read', 'expenses:write'],
+      },
+    });
+    expect(introspectionCallCount).toBe(1);
+  });
+
+  it('uses an internal authorization server for introspection while advertising the public one', async () => {
+    const publicAuthServerUrl = 'https://app.sankastaging.com';
+    const resolved = await resolveClientAuth({
+      ...authRequestContext({
+        authorization: 'Bearer soat_internal_token',
+      }),
+      mcpOptions: {
+        authorizationServerUrl: publicAuthServerUrl,
+        internalAuthorizationServerUrl: authServerBaseUrl,
+      },
+    });
+
+    expect(resolved).toEqual({
+      authMode: 'oauth_bearer',
+      clientOptions: { apiKey: 'soat_internal_token' },
+      oauth: {
+        authorizationServerUrl: publicAuthServerUrl,
+        authorizationUrl: `${publicAuthServerUrl}/oauth/authorize`,
         resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
         resourceUrl: 'https://mcp.sanka.com/mcp',
         scopes: ['companies:read', 'expenses:write'],
