@@ -38,7 +38,8 @@ const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
 const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
 const OAUTH_TOKEN_PATH = '/api/v1/oauth/token';
 const OAUTH_REVOKE_PATH = '/api/v1/oauth/revoke';
-const DEFAULT_SCOPES_SUPPORTED = ['user-scope', 'api-access'];
+const OAUTH_REGISTER_PATH = '/api/v1/oauth/register';
+const DEFAULT_SCOPES_SUPPORTED = ['mcp:access'];
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
 const AUTHORIZATION_METADATA_PATHS = [
   DEFAULT_AUTHORIZATION_METADATA_PATH,
@@ -479,6 +480,7 @@ export const buildAuthorizationServerMetadata = ({
   authorization_endpoint: `${authorizationServerUrl}${OAUTH_AUTHORIZE_PATH}`,
   token_endpoint: `${authorizationServerUrl}${OAUTH_TOKEN_PATH}`,
   revocation_endpoint: `${authorizationServerUrl}${OAUTH_REVOKE_PATH}`,
+  registration_endpoint: `${authorizationServerUrl}${OAUTH_REGISTER_PATH}`,
   response_types_supported: ['code'],
   response_modes_supported: ['query'],
   grant_types_supported: ['authorization_code'],
