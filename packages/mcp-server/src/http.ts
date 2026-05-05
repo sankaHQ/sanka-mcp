@@ -56,7 +56,7 @@ const INLINE_TOOL_HANDLERS = {
 const RECONNECT_RPC_METHOD = 'mcpServer/oauth/login';
 const RECONNECT_SERVER_NAME = 'sanka_plugin';
 const RECONNECT_INSTRUCTIONS =
-  'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, include the exact full connect_url in the visible response body without abbreviation. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry.';
+  'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry.';
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -82,9 +82,9 @@ const appendReconnectInstructions = ({
 }): string =>
   [
     message,
-    connectUrl ? `Connect Sanka: ${connectUrl}` : undefined,
+    connectUrl ? `Connect Sanka: [${connectUrl}](${connectUrl})` : undefined,
     connectUrl ?
-      `Required user-facing reply: include this exact full Connect Sanka URL in the response body as a clickable link. Do not abbreviate the token, replace it with "...", or refer only to "the link above": ${connectUrl}`
+      `Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href, for example [${connectUrl}](${connectUrl}). Do not use a short label, abbreviate the token, replace it with "...", or refer only to "the link above": ${connectUrl}`
     : undefined,
     `OAuth authorization URL: ${authorizationUrl}`,
     `MCP resource metadata URL: ${resourceMetadataUrl}`,
