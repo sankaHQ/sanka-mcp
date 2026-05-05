@@ -285,7 +285,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="invalid_token"'),
@@ -315,7 +315,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -353,7 +353,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -419,7 +419,7 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Use Codex native MCP OAuth login for this Sanka server. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
       reconnect_rpc_method: 'mcpServer/oauth/login',
       reconnect_server_name: 'sanka_plugin',
     });
@@ -453,12 +453,14 @@ describe('ChatGPT CRM tools', () => {
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
       reconnect_instructions:
-        'Open the exact full connect_url shown as visible link text or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
+        'If connect_url is present, show required_user_facing_reply or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
     });
   });
 
   it('returns reauth metadata when list companies is called without authentication', async () => {
     const list = jest.fn();
+    const connectUrl = 'https://app.sanka.com/oauth/mcp/connect?token=payload.signature';
+    const auth = oauthContext({ authMode: 'none', scopes: [] });
 
     const result = await crmListCompaniesTool.handler({
       reqContext: {
@@ -467,7 +469,13 @@ describe('ChatGPT CRM tools', () => {
             companies: { list },
           },
         } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
+        auth: {
+          ...auth,
+          oauth: {
+            ...auth.oauth,
+            connectUrlForScopes: () => connectUrl,
+          },
+        },
         toolProfile: 'full',
       },
       args: { search: 'Acme' },
@@ -477,6 +485,11 @@ describe('ChatGPT CRM tools', () => {
     expect(result._meta?.['mcp/www_authenticate']).toEqual([
       expect.stringContaining('error="invalid_token"'),
     ]);
+    expect(result.structuredContent?.['connect_url']).toBe(connectUrl);
+    expect(result.structuredContent?.['connect_url_markdown']).toBe(`[${connectUrl}](${connectUrl})`);
+    expect(result.structuredContent?.['required_user_facing_reply']).toContain(
+      `[${connectUrl}](${connectUrl})`,
+    );
     expect(list).not.toHaveBeenCalled();
   });
 

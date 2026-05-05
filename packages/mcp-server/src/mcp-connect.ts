@@ -14,6 +14,25 @@ export const buildOAuthAuthorizationUrl = (authorizationServerUrl: string): stri
 
 export const normalizeMcpConnectScopes = (_scopes?: string[] | undefined): string[] => [MCP_ACCESS_SCOPE];
 
+export const buildMcpConnectMarkdownLink = (connectUrl: string): string => `[${connectUrl}](${connectUrl})`;
+
+export const buildMcpConnectUserFacingReply = (connectUrl: string): string =>
+  [
+    'Sanka MCP authentication is required. Open this exact full Connect Sanka URL, then retry:',
+    '',
+    buildMcpConnectMarkdownLink(connectUrl),
+  ].join('\n');
+
+export const buildMcpConnectStructuredReply = (
+  connectUrl: string | undefined,
+): Record<string, unknown> | undefined =>
+  connectUrl ?
+    {
+      connect_url_markdown: buildMcpConnectMarkdownLink(connectUrl),
+      required_user_facing_reply: buildMcpConnectUserFacingReply(connectUrl),
+    }
+  : undefined;
+
 export const buildMcpConnectToken = ({
   now = Date.now(),
   scopes,
