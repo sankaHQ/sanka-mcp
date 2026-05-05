@@ -424,9 +424,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
-    expect(instructions).toContain(
-      'If a protected tool reports missing authentication, call auth_status next',
-    );
+    expect(instructions).toContain('structuredContent.required_user_facing_reply');
     expect(instructions).toContain('generate_demo_workspace');
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
@@ -566,9 +564,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('reschedule_calendar_attendance');
     expect(instructions).toContain('prospect_companies');
     expect(instructions).toContain('score_record');
-    expect(instructions).toContain(
-      'If a protected tool reports missing authentication, call auth_status next',
-    );
+    expect(instructions).toContain('structuredContent.required_user_facing_reply');
     expect(instructions).toContain('generate_demo_workspace');
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');

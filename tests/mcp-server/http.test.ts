@@ -5,7 +5,7 @@ import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 const TEST_ADVERTISED_SCOPE = 'api-access';
 const RECONNECT_INSTRUCTIONS =
-  'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry.';
+  'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
 
 const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
   asymmetricMatch: (body: Record<string, unknown>) =>
@@ -13,14 +13,16 @@ const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
     typeof body['error_description'] === 'string' &&
     body['error_description'].includes(`Authentication required to use ${toolName}.`) &&
     body['error_description'].includes('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=') &&
-    body['error_description'].includes(
-      'Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href',
-    ) &&
+    body['error_description'].includes('Required user-facing reply: Sanka MCP authentication is required.') &&
     body['error_description'].includes('OAuth authorization URL: https://app.sanka.com/oauth/authorize') &&
     body['authorization_server_url'] === 'https://app.sanka.com' &&
     body['authorization_url'] === 'https://app.sanka.com/oauth/authorize' &&
     typeof body['connect_url'] === 'string' &&
     body['connect_url'].startsWith('https://app.sanka.com/oauth/mcp/connect?token=') &&
+    typeof body['connect_url_markdown'] === 'string' &&
+    body['connect_url_markdown'] === `[${body['connect_url']}](${body['connect_url']})` &&
+    typeof body['required_user_facing_reply'] === 'string' &&
+    body['required_user_facing_reply'].includes(`[${body['connect_url']}](${body['connect_url']})`) &&
     body['resource_metadata_url'] === `${baseUrl}/.well-known/oauth-protected-resource` &&
     body['resource_url'] === `${baseUrl}/mcp` &&
     body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
@@ -569,12 +571,14 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
     expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
     expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
-    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
+    expect(text).toContain('the assistant must include required_user_facing_reply');
     expect(text).toContain('resource_metadata=');
   });
 
@@ -645,12 +649,14 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
     expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
     expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
+    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
     expect(text).toContain('"reconnect_server_name":"sanka_plugin"');
-    expect(text).toContain('In Codex, call mcpServer/oauth/login for server sanka_plugin');
+    expect(text).toContain('the assistant must include required_user_facing_reply');
   });
 
   it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {
@@ -755,9 +761,8 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('content-type')).toContain('text/event-stream');
     expect(text).toContain('Authentication required to use List expenses.');
     expect(text).toContain('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain(
-      'Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href',
-    );
+    expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
+    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain('mcpServer/oauth/login');
     expect(text).toContain('sanka_plugin');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
@@ -789,9 +794,8 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('content-type')).toContain('text/event-stream');
     expect(text).toContain('Authentication required to use List expenses.');
     expect(text).toContain('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain(
-      'Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href',
-    );
+    expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
+    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
     expect(text).toContain('mcpServer/oauth/login');
     expect(text).toContain('sanka_plugin');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');

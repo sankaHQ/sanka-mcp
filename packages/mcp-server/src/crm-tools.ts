@@ -1,6 +1,12 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
-import { buildOAuthAuthorizationUrl, normalizeMcpConnectScopes } from './mcp-connect';
+import {
+  buildMcpConnectMarkdownLink,
+  buildMcpConnectStructuredReply,
+  buildMcpConnectUserFacingReply,
+  buildOAuthAuthorizationUrl,
+  normalizeMcpConnectScopes,
+} from './mcp-connect';
 import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -5907,6 +5913,7 @@ const buildReconnectMetadata = ({
       {
         connect_url: connectUrl,
         connect_scopes: normalizeMcpConnectScopes(reconnectScopes),
+        ...buildMcpConnectStructuredReply(connectUrl),
       }
     : undefined),
     resource_metadata_url: oauth.resourceMetadataUrl,
@@ -5926,7 +5933,7 @@ const buildReconnectMetadata = ({
       ...base,
       ...hostedCodexReconnect,
       reconnect_instructions:
-        'Use Codex native MCP OAuth login for this Sanka server. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     };
   }
 
@@ -5934,7 +5941,7 @@ const buildReconnectMetadata = ({
     return {
       ...base,
       reconnect_instructions:
-        'Open the exact full connect_url shown as visible link text or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
+        'If connect_url is present, show required_user_facing_reply or use Claude native connector OAuth approval for this Sanka server, then retry the original request.',
     };
   }
 
@@ -5943,14 +5950,14 @@ const buildReconnectMetadata = ({
       ...base,
       ...hostedCodexReconnect,
       reconnect_instructions:
-        'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. In Codex, call mcpServer/oauth/login for server sanka_plugin. In Claude, open the full Connect Sanka URL or approve the Sanka connector OAuth prompt. Then retry the original request.',
+        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
     };
   }
 
   return {
     ...base,
     reconnect_instructions:
-      'Use your MCP client OAuth flow to reconnect Sanka. If connect_url is present, show the exact full connect_url as the visible link text and href; do not hide it behind a short label. Then retry the original request.',
+      'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
   };
 };
 
@@ -5968,10 +5975,10 @@ const buildReconnectVisibleMessage = ({
   return [
     message,
     typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Connect Sanka: [${reconnectMetadata['connect_url']}](${reconnectMetadata['connect_url']})`
+      `Connect Sanka: ${buildMcpConnectMarkdownLink(reconnectMetadata['connect_url'])}`
     : undefined,
     typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Required user-facing reply: show this exact full Connect Sanka URL as the visible markdown link text and href, for example [${reconnectMetadata['connect_url']}](${reconnectMetadata['connect_url']}). Do not use a short label, abbreviate the token, replace it with "...", or refer only to "the link above": ${reconnectMetadata['connect_url']}`
+      `Required user-facing reply: ${buildMcpConnectUserFacingReply(reconnectMetadata['connect_url'])}`
     : undefined,
     typeof reconnectMetadata['authorization_url'] === 'string' ?
       `OAuth authorization URL: ${reconnectMetadata['authorization_url']}`

@@ -15,6 +15,7 @@ export type CLIOptions = McpOptions & {
 
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
+  internalAuthorizationServerUrl?: string | undefined;
   oauthClientId?: string | undefined;
   tokenExchangeSharedSecret?: string | undefined;
   streamableAuthFallback?: 'http_challenge' | 'tool_result' | undefined;
@@ -43,6 +44,11 @@ export function parseCLIOptions(): CLIOptions {
     .option('authorization-server-url', {
       type: 'string',
       description: 'Base URL for the Sanka OAuth authorization server, such as https://app.sanka.com',
+    })
+    .option('internal-authorization-server-url', {
+      type: 'string',
+      description:
+        'Optional internal base URL for OAuth introspection and mcp-session token exchange. Defaults to authorization-server-url.',
     })
     .option('oauth-client-id', {
       type: 'string',
@@ -148,6 +154,7 @@ export function parseCLIOptions(): CLIOptions {
 
   return {
     authorizationServerUrl: optionalString(argv.authorizationServerUrl),
+    internalAuthorizationServerUrl: optionalString(argv.internalAuthorizationServerUrl),
     oauthClientId: optionalString(argv.oauthClientId),
     tokenExchangeSharedSecret: optionalString(argv.tokenExchangeSharedSecret),
     streamableAuthFallback:
@@ -202,6 +209,7 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
 
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
+    internalAuthorizationServerUrl: defaultOptions.internalAuthorizationServerUrl,
     oauthClientId: defaultOptions.oauthClientId,
     tokenExchangeSharedSecret: defaultOptions.tokenExchangeSharedSecret,
     streamableAuthFallback: defaultOptions.streamableAuthFallback,
