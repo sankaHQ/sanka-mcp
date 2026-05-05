@@ -160,6 +160,12 @@ import {
   listIntegrationChannelsTool,
   uploadImportFileTool,
 } from './transfer-tools';
+import {
+  getWorkflowRunTool,
+  previewWorkflowTool,
+  resolveRecordTool,
+  startWorkflowTool,
+} from './workflow-run-tools';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
@@ -377,6 +383,10 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmUpdateDealTool,
     crmDeleteDealTool,
     crmListDealPipelinesTool,
+    resolveRecordTool,
+    previewWorkflowTool,
+    startWorkflowTool,
+    getWorkflowRunTool,
     crmListItemsTool,
     crmGetItemTool,
     crmCreateItemTool,
