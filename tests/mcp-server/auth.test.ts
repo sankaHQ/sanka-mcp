@@ -303,6 +303,8 @@ describe('resolveClientAuth', () => {
         resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
         resourceUrl: 'https://mcp.sanka.com/mcp',
         scopes: ['companies:read', 'expenses:write'],
+        workspace_id: 'workspace-1',
+        workspace_name: 'Workspace One',
       },
     });
     expect(introspectionCallCount).toBe(1);
@@ -329,6 +331,8 @@ describe('resolveClientAuth', () => {
         resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
         resourceUrl: 'https://mcp.sanka.com/mcp',
         scopes: ['companies:read', 'expenses:write'],
+        workspace_id: 'workspace-1',
+        workspace_name: 'Workspace One',
       },
     });
     expect(introspectionCallCount).toBe(1);
