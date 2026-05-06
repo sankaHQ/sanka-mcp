@@ -53,6 +53,9 @@ export type ResolvedClientAuth = {
     authorizationUrl?: string | undefined;
     connectUrl?: string | undefined;
     connectUrlForScopes?: ((scopes?: string[] | undefined) => string | undefined) | undefined;
+    workspace_id?: string | undefined;
+    workspace_code?: string | undefined;
+    workspace_name?: string | undefined;
   };
 };
 
@@ -65,6 +68,7 @@ type OAuthIntrospectionPayload = {
   session_id?: string | null;
   user_id?: string | null;
   workspace_id?: string | null;
+  workspace_code?: string | null;
   workspace_name?: string | null;
 };
 
@@ -81,6 +85,9 @@ type McpSessionTokenEnvelope = {
   message?: string;
   scope?: string;
   token_type?: string;
+  workspace_id?: string | null;
+  workspace_code?: string | null;
+  workspace_name?: string | null;
 };
 
 const mcpSessionTokenCache = new Map<
@@ -89,6 +96,9 @@ const mcpSessionTokenCache = new Map<
     accessToken: string;
     expiresAt: number;
     scopes: string[];
+    workspace_id?: string | undefined;
+    workspace_code?: string | undefined;
+    workspace_name?: string | undefined;
   }
 >();
 
@@ -260,7 +270,13 @@ const readCachedMcpSessionToken = ({
   authorizationServerUrl: string;
   resourceUrl: string;
   sessionId: string;
-}): { accessToken: string; scopes: string[] } | null => {
+}): {
+  accessToken: string;
+  scopes: string[];
+  workspace_id?: string | undefined;
+  workspace_code?: string | undefined;
+  workspace_name?: string | undefined;
+} | null => {
   const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
   const cached = mcpSessionTokenCache.get(cacheKey);
   if (!cached) {
@@ -273,6 +289,9 @@ const readCachedMcpSessionToken = ({
   return {
     accessToken: cached.accessToken,
     scopes: cached.scopes,
+    ...(cached.workspace_id ? { workspace_id: cached.workspace_id } : undefined),
+    ...(cached.workspace_code ? { workspace_code: cached.workspace_code } : undefined),
+    ...(cached.workspace_name ? { workspace_name: cached.workspace_name } : undefined),
   };
 };
 
@@ -283,6 +302,9 @@ const writeCachedMcpSessionToken = ({
   resourceUrl,
   scopes,
   sessionId,
+  workspace_code,
+  workspace_id,
+  workspace_name,
 }: {
   accessToken: string;
   authorizationServerUrl: string;
@@ -290,12 +312,18 @@ const writeCachedMcpSessionToken = ({
   resourceUrl: string;
   scopes: string[];
   sessionId: string;
+  workspace_code?: string | undefined;
+  workspace_id?: string | undefined;
+  workspace_name?: string | undefined;
 }): void => {
   const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
   mcpSessionTokenCache.set(cacheKey, {
     accessToken,
     scopes,
     expiresAt: Date.now() + Math.max(1, expiresInSeconds - 5) * 1000,
+    ...(workspace_id ? { workspace_id } : undefined),
+    ...(workspace_code ? { workspace_code } : undefined),
+    ...(workspace_name ? { workspace_name } : undefined),
   });
 };
 
@@ -309,7 +337,13 @@ const exchangeMcpSessionForAccessToken = async ({
   resourceUrl: string;
   sessionId: string | undefined;
   sharedSecret: string | undefined;
-}): Promise<{ accessToken: string; scopes: string[] } | null> => {
+}): Promise<{
+  accessToken: string;
+  scopes: string[];
+  workspace_id?: string | undefined;
+  workspace_code?: string | undefined;
+  workspace_name?: string | undefined;
+} | null> => {
   const normalizedSessionId = sessionId?.trim();
   const normalizedSecret = sharedSecret?.trim();
   if (!normalizedSessionId || !normalizedSecret) {
@@ -370,6 +404,9 @@ const exchangeMcpSessionForAccessToken = async ({
   }
 
   const scopes = normalizeScopeClaim(payload?.scope);
+  const workspaceID = typeof payload?.workspace_id === 'string' ? payload.workspace_id.trim() : '';
+  const workspaceCode = typeof payload?.workspace_code === 'string' ? payload.workspace_code.trim() : '';
+  const workspaceName = typeof payload?.workspace_name === 'string' ? payload.workspace_name.trim() : '';
   writeCachedMcpSessionToken({
     accessToken,
     authorizationServerUrl,
@@ -380,11 +417,17 @@ const exchangeMcpSessionForAccessToken = async ({
     resourceUrl,
     scopes,
     sessionId: normalizedSessionId,
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
+    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
   });
 
   return {
     accessToken,
     scopes,
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
+    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
   };
 };
 
@@ -454,6 +497,13 @@ export const resolveClientAuth = async ({
         oauth: {
           ...oauthContext,
           scopes: mcpSessionAccess.scopes,
+          ...(mcpSessionAccess.workspace_id ? { workspace_id: mcpSessionAccess.workspace_id } : undefined),
+          ...(mcpSessionAccess.workspace_code ?
+            { workspace_code: mcpSessionAccess.workspace_code }
+          : undefined),
+          ...(mcpSessionAccess.workspace_name ?
+            { workspace_name: mcpSessionAccess.workspace_name }
+          : undefined),
         },
       };
     }
@@ -503,6 +553,9 @@ export const resolveClientAuth = async ({
     oauth: {
       ...oauthContext,
       scopes: normalizeScopeClaim(introspected.scope),
+      ...(introspected.workspace_id ? { workspace_id: introspected.workspace_id } : undefined),
+      ...(introspected.workspace_code ? { workspace_code: introspected.workspace_code } : undefined),
+      ...(introspected.workspace_name ? { workspace_name: introspected.workspace_name } : undefined),
     },
   };
 };

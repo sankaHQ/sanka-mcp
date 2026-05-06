@@ -12,6 +12,9 @@ import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolC
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
+const WORKSPACE_ID_DESCRIPTION =
+  'Internal workspace UUID. This is not a workspace switcher; do not pass short workspace codes such as 48803074. Usually omit it so Sanka uses the authenticated workspace.';
+
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -413,7 +416,7 @@ const EXPENSE_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -799,7 +802,7 @@ const DEAL_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -908,7 +911,7 @@ const DEAL_PIPELINES_INPUT_SCHEMA = {
   properties: {
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
   },
 };
@@ -1028,7 +1031,7 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -1051,7 +1054,7 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -1145,12 +1148,93 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
     },
+    workspace_id: {
+      type: 'string',
+      description: 'Internal UUID of the workspace bound to the authenticated Sanka credential.',
+    },
+    workspace_code: {
+      type: 'string',
+      description: 'Short numeric workspace code used in Sanka URLs. Do not pass this as workspace_id.',
+    },
+    workspace_name: {
+      type: 'string',
+      description: 'Human-readable name of the workspace bound to the authenticated Sanka credential.',
+    },
     reconnect_mode: { type: 'string' },
     reconnect_instructions: { type: 'string' },
     reconnect_rpc_method: { type: 'string' },
     reconnect_server_name: { type: 'string' },
   },
   required: ['connected', 'auth_mode', 'tool_profile', 'scopes', 'message'],
+};
+
+const WORKSPACE_OPTION_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: {
+      type: 'string',
+      description: 'Internal workspace UUID to pass to switch_workspace.',
+    },
+    name: { type: 'string' },
+    workspace_code: {
+      type: 'string',
+      description: 'Short numeric workspace code used in Sanka URLs. Do not pass this as workspace_id.',
+    },
+    selected: { type: 'boolean' },
+  },
+  required: ['id', 'selected'],
+};
+
+const CURRENT_WORKSPACE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    connected: { type: 'boolean' },
+    auth_mode: { type: 'string' },
+    workspace_id: {
+      type: 'string',
+      description: 'Internal UUID of the workspace bound to the authenticated Sanka credential.',
+    },
+    workspace_code: {
+      type: 'string',
+      description: 'Short numeric workspace code used in Sanka URLs. Do not pass this as workspace_id.',
+    },
+    workspace_name: { type: 'string' },
+    message: { type: 'string' },
+  },
+  required: ['connected', 'auth_mode', 'message'],
+};
+
+const LIST_WORKSPACES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    current_workspace_id: {
+      type: 'string',
+      description: 'Internal UUID of the workspace currently bound to this credential.',
+    },
+    current_workspace_code: {
+      type: 'string',
+      description: 'Short numeric workspace code currently bound to this credential.',
+    },
+    current_workspace_name: { type: 'string' },
+    available_workspaces: {
+      type: 'array',
+      items: WORKSPACE_OPTION_SCHEMA,
+    },
+    message: { type: 'string' },
+  },
+  required: ['available_workspaces', 'message'],
+};
+
+const SWITCH_WORKSPACE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    workspace_id: {
+      type: 'string',
+      description:
+        'Internal workspace UUID from list_workspaces. This switches the authenticated MCP workspace. Do not pass short workspace codes such as 48803074.',
+    },
+  },
+  required: ['workspace_id'],
 };
 
 const COMPANY_OUTPUT_SCHEMA = {
@@ -1501,7 +1585,7 @@ const TASK_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override for reads.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -1528,7 +1612,7 @@ const TASK_RETRIEVE_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override for reads.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -1734,7 +1818,7 @@ const PURCHASE_ORDER_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -1955,7 +2039,7 @@ const ESTIMATE_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -2089,7 +2173,7 @@ const INVOICE_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -2110,7 +2194,7 @@ const INVOICE_OVERDUE_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     as_of_date: {
       type: 'string',
@@ -2272,7 +2356,7 @@ const SLIP_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -2438,7 +2522,7 @@ const BILL_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -2573,7 +2657,7 @@ const DISBURSEMENT_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -2719,7 +2803,7 @@ const TICKET_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
   },
 };
@@ -2737,7 +2821,7 @@ const TICKET_RETRIEVE_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
   },
   required: ['ticket_id'],
@@ -2834,7 +2918,7 @@ const TICKET_PIPELINES_INPUT_SCHEMA = {
   properties: {
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override. Defaults to the authenticated workspace.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
   },
 };
@@ -3167,7 +3251,7 @@ const WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA = {
     },
     workspace_id: {
       type: 'string',
-      description: 'Optional workspace override when the public API supports it.',
+      description: WORKSPACE_ID_DESCRIPTION,
     },
     language: {
       type: 'string',
@@ -4324,6 +4408,78 @@ const readStringArray = (value: unknown): string[] => {
 
   return value.map((entry) => readString(entry)).filter((entry): entry is string => Boolean(entry));
 };
+
+type WorkspaceIdentity = {
+  workspace_id?: string;
+  workspace_code?: string;
+  workspace_name?: string;
+};
+
+type PublicAuthWorkspaceOption = {
+  id?: string;
+  name?: string | null;
+  workspace_code?: string | null;
+  selected?: boolean;
+};
+
+type PublicAuthSessionResponse = {
+  data?: {
+    workspace_id?: string | null;
+    workspace_code?: string | null;
+    workspace_name?: string | null;
+    available_workspaces?: PublicAuthWorkspaceOption[];
+  };
+  message?: string | null;
+};
+
+const workspaceIdentityFromRecord = (record: Record<string, unknown> | undefined): WorkspaceIdentity => {
+  const workspaceID = readString(record?.['workspace_id']);
+  const workspaceCode = readString(record?.['workspace_code']);
+  const workspaceName = readString(record?.['workspace_name']);
+  return {
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
+    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
+  };
+};
+
+const workspaceIdentityFromOauth = (reqContext: McpRequestContext): WorkspaceIdentity =>
+  workspaceIdentityFromRecord(reqContext.auth?.oauth as unknown as Record<string, unknown> | undefined);
+
+const currentWorkspaceLabel = (workspace: WorkspaceIdentity): string =>
+  workspace.workspace_name ?? workspace.workspace_code ?? workspace.workspace_id ?? 'unknown workspace';
+
+const buildCurrentWorkspaceStructuredContent = ({
+  authMode,
+  connected,
+  message,
+  workspace,
+}: {
+  authMode: string;
+  connected: boolean;
+  message: string;
+  workspace: WorkspaceIdentity;
+}): Record<string, unknown> => ({
+  connected,
+  auth_mode: authMode,
+  ...workspace,
+  message,
+});
+
+const normalizeWorkspaceOptions = (
+  options: PublicAuthWorkspaceOption[] | undefined,
+): Record<string, unknown>[] =>
+  (options ?? []).map((workspace) => {
+    const workspaceID = readString(workspace.id);
+    const workspaceName = readString(workspace.name);
+    const workspaceCode = readString(workspace.workspace_code);
+    return {
+      id: workspaceID ?? '',
+      ...(workspaceName ? { name: workspaceName } : undefined),
+      ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
+      selected: workspace.selected === true,
+    };
+  });
 
 const assignStringFields = (
   body: Record<string, unknown>,
@@ -6319,6 +6475,7 @@ const buildConnectedAuthStatusResult = ({
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
   const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
+  const workspace = workspaceIdentityFromOauth(reqContext);
 
   return {
     content: [{ type: 'text', text: message }],
@@ -6330,6 +6487,7 @@ const buildConnectedAuthStatusResult = ({
       message,
       ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
       ...(missingScopes?.length ? { missing_scopes: missingScopes } : undefined),
+      ...workspace,
       ...reconnectMetadata,
     },
   };
@@ -6481,6 +6639,203 @@ export const crmAuthStatusTool: McpTool = {
       requiredScopes,
       reqContext,
     });
+  },
+};
+
+export const crmCurrentWorkspaceTool: McpTool = {
+  metadata: {
+    resource: 'auth',
+    operation: 'read',
+    tags: ['crm', 'auth'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/auth/whoami',
+    operationId: 'current_workspace',
+  },
+  tool: {
+    name: 'current_workspace',
+    title: 'Get current Sanka workspace',
+    description:
+      'Return the Sanka workspace currently bound to this OAuth credential, including workspace_name, workspace_code, and internal workspace_id. Use this to verify workspace context before live Sanka operations.',
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: CURRENT_WORKSPACE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get current Sanka workspace',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get current Sanka workspace',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = await reqContext.client.public.auth.getCurrentIdentity(undefined);
+    const data = readRecord((response as unknown as Record<string, unknown>)['data']);
+    const workspace = workspaceIdentityFromRecord(data);
+    const authMode = readString(data?.['auth_mode']) ?? reqContext.auth?.authMode ?? 'oauth_bearer';
+    const message =
+      workspace.workspace_id ?
+        `Current Sanka workspace is ${currentWorkspaceLabel(workspace)}.`
+      : 'Sanka is connected, but no workspace is bound to this credential.';
+
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: buildCurrentWorkspaceStructuredContent({
+        authMode,
+        connected: true,
+        message,
+        workspace,
+      }),
+    };
+  },
+};
+
+export const crmListWorkspacesTool: McpTool = {
+  metadata: {
+    resource: 'auth',
+    operation: 'read',
+    tags: ['crm', 'auth'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/auth/session',
+    operationId: 'list_workspaces',
+  },
+  tool: {
+    name: 'list_workspaces',
+    title: 'List available Sanka workspaces',
+    description:
+      'List workspaces available to the authenticated Sanka OAuth session. Use the returned internal id with switch_workspace; do not use the short workspace_code as workspace_id.',
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: LIST_WORKSPACES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List available Sanka workspaces',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List available Sanka workspaces',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = await reqContext.client.get<PublicAuthSessionResponse>(
+      '/v1/public/auth/session',
+      undefined,
+    );
+    const data = response.data;
+    const availableWorkspaces = normalizeWorkspaceOptions(data?.available_workspaces);
+    const currentWorkspace = workspaceIdentityFromRecord(
+      data as unknown as Record<string, unknown> | undefined,
+    );
+    const message = `Returned ${availableWorkspaces.length} available Sanka workspaces.`;
+
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: {
+        ...(currentWorkspace.workspace_id ?
+          { current_workspace_id: currentWorkspace.workspace_id }
+        : undefined),
+        ...(currentWorkspace.workspace_code ?
+          { current_workspace_code: currentWorkspace.workspace_code }
+        : undefined),
+        ...(currentWorkspace.workspace_name ?
+          { current_workspace_name: currentWorkspace.workspace_name }
+        : undefined),
+        available_workspaces: availableWorkspaces,
+        message,
+      },
+    };
+  },
+};
+
+export const crmSwitchWorkspaceTool: McpTool = {
+  metadata: {
+    resource: 'auth',
+    operation: 'write',
+    tags: ['crm', 'auth'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/auth/mcp-session/switch-workspace',
+    operationId: 'switch_workspace',
+  },
+  tool: {
+    name: 'switch_workspace',
+    title: 'Switch Sanka workspace',
+    description:
+      'Switch the authenticated Sanka workspace. Pass the internal workspace_id from list_workspaces, not the short workspace_code. After switching, omit workspace_id on normal data tools.',
+    inputSchema: SWITCH_WORKSPACE_INPUT_SCHEMA,
+    outputSchema: LIST_WORKSPACES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Switch Sanka workspace',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Switch Sanka workspace',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const workspaceID = readString(args?.['workspace_id']);
+    if (!workspaceID) {
+      return asErrorResult(
+        '`workspace_id` is required. Use the internal id from list_workspaces, not the short workspace code.',
+      );
+    }
+
+    const path =
+      reqContext.mcpSessionId ?
+        '/v1/public/auth/mcp-session/switch-workspace'
+      : '/v1/public/auth/session/switch-workspace';
+    const response = await reqContext.client.post<PublicAuthSessionResponse>(path, {
+      body: { workspace_id: workspaceID },
+      ...(reqContext.mcpSessionId ?
+        {
+          headers: {
+            'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId,
+          },
+        }
+      : undefined),
+    });
+    const data = response.data;
+    const availableWorkspaces = normalizeWorkspaceOptions(data?.available_workspaces);
+    const currentWorkspace = workspaceIdentityFromRecord(
+      data as unknown as Record<string, unknown> | undefined,
+    );
+    const message = `Switched Sanka workspace to ${currentWorkspaceLabel(currentWorkspace)}.`;
+
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: {
+        ...(currentWorkspace.workspace_id ?
+          { current_workspace_id: currentWorkspace.workspace_id }
+        : undefined),
+        ...(currentWorkspace.workspace_code ?
+          { current_workspace_code: currentWorkspace.workspace_code }
+        : undefined),
+        ...(currentWorkspace.workspace_name ?
+          { current_workspace_name: currentWorkspace.workspace_name }
+        : undefined),
+        available_workspaces: availableWorkspaces,
+        message,
+      },
+    };
   },
 };
 
