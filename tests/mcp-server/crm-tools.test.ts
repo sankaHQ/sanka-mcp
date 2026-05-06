@@ -47,6 +47,7 @@ import {
   crmDeleteTaskTool,
   crmDeleteTicketTool,
   crmConnectSankaTool,
+  crmCurrentWorkspaceTool,
   crmGetBillTool,
   crmGetCalendarBootstrapTool,
   crmGetCompanyTool,
@@ -75,6 +76,7 @@ import {
   crmListContactsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
+  crmListWorkspacesTool,
   crmListDisbursementsTool,
   crmListEstimatesTool,
   crmListExpensesTool,
@@ -99,6 +101,7 @@ import {
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
   crmSyncPrivateMessagesTool,
+  crmSwitchWorkspaceTool,
   crmUpdateBillTool,
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
@@ -125,7 +128,11 @@ import {
   crmUploadExpenseAttachmentTool,
 } from '../../packages/mcp-server/src/crm-tools';
 
-const oauthContext = (overrides?: { authMode?: 'none' | 'oauth_bearer'; scopes?: string[] }) => ({
+const oauthContext = (overrides?: {
+  authMode?: 'none' | 'oauth_bearer';
+  scopes?: string[];
+  workspace?: { id?: string; code?: string; name?: string };
+}) => ({
   authMode: overrides?.authMode ?? 'oauth_bearer',
   clientOptions: {},
   oauth: {
@@ -133,6 +140,9 @@ const oauthContext = (overrides?: { authMode?: 'none' | 'oauth_bearer'; scopes?:
     resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
     resourceUrl: 'https://mcp.sanka.com/mcp',
     scopes: overrides?.scopes ?? [],
+    ...(overrides?.workspace?.id ? { workspace_id: overrides.workspace.id } : undefined),
+    ...(overrides?.workspace?.code ? { workspace_code: overrides.workspace.code } : undefined),
+    ...(overrides?.workspace?.name ? { workspace_name: overrides.workspace.name } : undefined),
   },
 });
 
@@ -140,6 +150,9 @@ describe('ChatGPT CRM tools', () => {
   it('advertises auth schemes on CRM tools', () => {
     expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
+    expect(crmCurrentWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListWorkspacesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSwitchWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -358,6 +371,145 @@ describe('ChatGPT CRM tools', () => {
       reconnect_server_name: 'sanka',
     });
     expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+  });
+
+  it('includes the authenticated workspace when auth_status has OAuth workspace metadata', async () => {
+    const result = await crmAuthStatusTool.handler({
+      reqContext: {
+        client: {} as any,
+        auth: oauthContext({
+          workspace: {
+            id: 'workspace-uuid-1',
+            code: '48803074',
+            name: 'Production Workspace',
+          },
+        }),
+        toolProfile: 'hosted',
+      },
+      args: {},
+    });
+
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        connected: true,
+        workspace_id: 'workspace-uuid-1',
+        workspace_code: '48803074',
+        workspace_name: 'Production Workspace',
+      }),
+    );
+  });
+
+  it('returns the current Sanka workspace from the public auth identity endpoint', async () => {
+    const getCurrentIdentity = jest.fn().mockResolvedValue({
+      data: {
+        auth_mode: 'oauth_app',
+        workspace_id: 'workspace-uuid-1',
+        workspace_code: '48803074',
+        workspace_name: 'Production Workspace',
+      },
+      message: 'ok',
+    });
+
+    const result = await crmCurrentWorkspaceTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            auth: { getCurrentIdentity },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: {},
+    });
+
+    expect(getCurrentIdentity).toHaveBeenCalledWith(undefined);
+    expect(result.structuredContent).toEqual({
+      connected: true,
+      auth_mode: 'oauth_app',
+      workspace_id: 'workspace-uuid-1',
+      workspace_code: '48803074',
+      workspace_name: 'Production Workspace',
+      message: 'Current Sanka workspace is Production Workspace.',
+    });
+  });
+
+  it('lists available workspaces for the current OAuth session', async () => {
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        workspace_id: 'workspace-uuid-1',
+        workspace_code: '39467777',
+        workspace_name: 'Workspace A',
+        available_workspaces: [
+          { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: true },
+          { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: false },
+        ],
+      },
+      message: 'ok',
+    });
+
+    const result = await crmListWorkspacesTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: {},
+    });
+
+    expect(get).toHaveBeenCalledWith('/v1/public/auth/session', undefined);
+    expect(result.structuredContent).toEqual({
+      current_workspace_id: 'workspace-uuid-1',
+      current_workspace_code: '39467777',
+      current_workspace_name: 'Workspace A',
+      available_workspaces: [
+        { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: true },
+        { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: false },
+      ],
+      message: 'Returned 2 available Sanka workspaces.',
+    });
+  });
+
+  it('switches the persistent MCP workspace binding when an MCP session id is available', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workspace_id: 'workspace-uuid-2',
+        workspace_code: '48803074',
+        workspace_name: 'Workspace B',
+        available_workspaces: [
+          { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: false },
+          { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: true },
+        ],
+      },
+      message: 'updated',
+    });
+
+    const result = await crmSwitchWorkspaceTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        mcpSessionId: 'mcp-session-1',
+        toolProfile: 'hosted',
+      },
+      args: { workspace_id: 'workspace-uuid-2' },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/auth/mcp-session/switch-workspace', {
+      body: { workspace_id: 'workspace-uuid-2' },
+      headers: {
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      current_workspace_id: 'workspace-uuid-2',
+      current_workspace_code: '48803074',
+      current_workspace_name: 'Workspace B',
+      available_workspaces: [
+        { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: false },
+        { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: true },
+      ],
+      message: 'Switched Sanka workspace to Workspace B.',
+    });
   });
 
   it('returns reconnect metadata when auth status is missing an unknown required scope', async () => {
