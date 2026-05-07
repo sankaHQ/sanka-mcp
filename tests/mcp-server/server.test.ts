@@ -429,6 +429,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
     expect(instructions).toContain('mcp__sanka_key__*');
+    expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });
 
   it('returns hosted instructions without generic docs/code tools', async () => {
@@ -569,5 +570,6 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
     expect(instructions).toContain('mcp__sanka_key__*');
+    expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });
 });
