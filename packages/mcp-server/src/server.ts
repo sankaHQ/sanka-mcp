@@ -14,7 +14,9 @@ import {
   crmArchivePrivateMessageThreadTool,
   crmAggregateRecordsTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApproveIncentivesTool,
   crmCancelCalendarAttendanceTool,
+  crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
@@ -25,6 +27,7 @@ import {
   crmCreateInvoiceTool,
   crmCreateInventoryTool,
   crmCreateInventoryTransactionTool,
+  crmCreateIncentivePlanTool,
   crmCreateItemTool,
   crmCreateLocationTool,
   crmCreateOrderTool,
@@ -74,6 +77,7 @@ import {
   crmGetExpenseTool,
   crmGetInventoryTool,
   crmGetInventoryTransactionTool,
+  crmGenerateIncentivePaymentNoticeTool,
   crmGetInvoiceTool,
   crmGetItemTool,
   crmGetLocationTool,
@@ -96,6 +100,9 @@ import {
   crmListEstimatesTool,
   crmListExpensesTool,
   crmListInventoriesTool,
+  crmListIncentiveCompanyOptionsTool,
+  crmListIncentivePlansTool,
+  crmListIncentivesTool,
   crmListInvoicesTool,
   crmListOverdueInvoicesTool,
   crmListInventoryTransactionsTool,
@@ -193,6 +200,73 @@ export const newMcpServer = async ({
     },
   );
 
+type ToolCallLogClient = {
+  post: (
+    path: string,
+    options: { body: Record<string, unknown>; headers: Record<string, string> },
+  ) => Promise<unknown>;
+};
+
+type ToolCallLogger = {
+  warn: (message: string, ...rest: unknown[]) => void;
+};
+
+const summarizeToolError = (result: ToolCallResult): string | undefined => {
+  if (!result.isError) {
+    return undefined;
+  }
+  const text = result.content
+    .map((entry) => (entry.type === 'text' ? entry.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+  return text ? text.slice(0, 500) : 'tool_error';
+};
+
+export async function recordMcpToolCall({
+  client,
+  logger,
+  mcpTool,
+  reqContext,
+  result,
+  startedAt,
+}: {
+  client: Sanka;
+  logger: ToolCallLogger;
+  mcpTool: McpTool;
+  reqContext: McpRequestContext;
+  result: ToolCallResult;
+  startedAt: number;
+}): Promise<void> {
+  if (!reqContext.mcpSessionId || reqContext.auth?.authMode !== 'oauth_bearer') {
+    return;
+  }
+
+  const error = summarizeToolError(result);
+  try {
+    await (client as unknown as ToolCallLogClient).post('/v1/public/auth/mcp-session/tool-call-log', {
+      body: {
+        tool_name: mcpTool.tool.name,
+        tool_title: mcpTool.tool.title ?? mcpTool.tool.name,
+        resource: mcpTool.metadata.resource,
+        operation: mcpTool.metadata.operation,
+        success: !result.isError,
+        duration_ms: Math.max(0, Date.now() - startedAt),
+        ...(reqContext.mcpClientInfo?.name ? { client_name: reqContext.mcpClientInfo.name } : undefined),
+        ...(reqContext.mcpClientInfo?.version ?
+          { client_version: reqContext.mcpClientInfo.version }
+        : undefined),
+        ...(error ? { error } : undefined),
+      },
+      headers: {
+        'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId,
+      },
+    });
+  } catch (error) {
+    logger.warn('Failed to record MCP tool call log', error);
+  }
+}
+
 /**
  * Initializes the provided MCP Server with the given tools and handlers.
  * If not provided, the default client, tools and handlers will be used.
@@ -278,6 +352,7 @@ export async function initMcpServer(params: {
       toolProfile,
       auth: params.auth,
     };
+    const startedAt = Date.now();
 
     const scopeError = requireScopes({
       reqContext,
@@ -285,6 +360,22 @@ export async function initMcpServer(params: {
       toolTitle: mcpTool.tool.title ?? mcpTool.tool.name,
     });
     if (scopeError) {
+      try {
+        const client = getClient();
+        await recordMcpToolCall({
+          client,
+          logger,
+          mcpTool,
+          reqContext: {
+            ...reqContext,
+            client,
+          },
+          result: scopeError,
+          startedAt,
+        });
+      } catch (error) {
+        logger.warn('Failed to record MCP tool call scope error log', error);
+      }
       return scopeError;
     }
 
@@ -303,14 +394,45 @@ export async function initMcpServer(params: {
       };
     }
 
-    return executeHandler({
-      handler: mcpTool.handler,
-      reqContext: {
-        ...reqContext,
+    const reqContextWithClient = {
+      ...reqContext,
+      client,
+    };
+
+    try {
+      const result = await executeHandler({
+        handler: mcpTool.handler,
+        reqContext: reqContextWithClient,
+        args,
+      });
+      await recordMcpToolCall({
         client,
-      },
-      args,
-    });
+        logger,
+        mcpTool,
+        reqContext: reqContextWithClient,
+        result,
+        startedAt,
+      });
+      return result;
+    } catch (error) {
+      await recordMcpToolCall({
+        client,
+        logger,
+        mcpTool,
+        reqContext: reqContextWithClient,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: error instanceof Error ? error.message : String(error),
+            },
+          ],
+          isError: true,
+        },
+        startedAt,
+      });
+      throw error;
+    }
   });
 
   server.setRequestHandler(SetLevelRequestSchema, async (request) => {
@@ -486,6 +608,13 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateExpenseTool,
     crmUpdateExpenseTool,
     crmDeleteExpenseTool,
+    crmListIncentivesTool,
+    crmListIncentivePlansTool,
+    crmListIncentiveCompanyOptionsTool,
+    crmCreateIncentivePlanTool,
+    crmCalculateIncentivesTool,
+    crmApproveIncentivesTool,
+    crmGenerateIncentivePaymentNoticeTool,
     crmListPropertiesTool,
     crmGetPropertyTool,
     crmCreatePropertyTool,

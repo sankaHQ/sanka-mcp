@@ -2,8 +2,10 @@ import { File } from 'node:buffer';
 import {
   crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApproveIncentivesTool,
   crmAuthStatusTool,
   crmCancelCalendarAttendanceTool,
+  crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateBillTool,
   crmCreateCalendarAttendanceTool,
@@ -15,6 +17,7 @@ import {
   crmCreateExpenseTool,
   crmCreateInventoryTool,
   crmCreateInventoryTransactionTool,
+  crmCreateIncentivePlanTool,
   crmCreateInvoiceTool,
   crmCreateItemTool,
   crmCreateLocationTool,
@@ -59,6 +62,7 @@ import {
   crmGetExpenseTool,
   crmGetInventoryTool,
   crmGetInventoryTransactionTool,
+  crmGenerateIncentivePaymentNoticeTool,
   crmGetInvoiceTool,
   crmGetItemTool,
   crmGetLocationTool,
@@ -82,6 +86,9 @@ import {
   crmListExpensesTool,
   crmListInventoriesTool,
   crmListInventoryTransactionsTool,
+  crmListIncentiveCompanyOptionsTool,
+  crmListIncentivePlansTool,
+  crmListIncentivesTool,
   crmListInvoicesTool,
   crmListItemsTool,
   crmListLocationsTool,
@@ -261,6 +268,13 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListIncentiveCompanyOptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateIncentivePlanTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCalculateIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmApproveIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGenerateIncentivePaymentNoticeTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPropertiesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPropertyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreatePropertyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -348,7 +362,7 @@ describe('ChatGPT CRM tools', () => {
         toolProfile: 'hosted',
       },
       args: {
-        required_scopes: ['expenses:write', 'deals:read'],
+        required_scopes: ['expenses:write', 'deals:read', 'incentives:read'],
       },
     });
 
@@ -361,7 +375,7 @@ describe('ChatGPT CRM tools', () => {
       message: 'Sanka CRM is connected with Sanka OAuth.',
       authorization_server_url: 'https://app.sanka.com',
       authorization_url: 'https://app.sanka.com/oauth/authorize',
-      required_scopes: ['deals:read', 'expenses:write'],
+      required_scopes: ['deals:read', 'expenses:write', 'incentives:read'],
       resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
       resource_url: 'https://mcp.sanka.com/mcp',
       reconnect_mode: 'client_native_oauth',
@@ -1681,6 +1695,7 @@ describe('ChatGPT CRM tools', () => {
         name: 'Acme renewal',
         case_status: 'opportunities',
         company_id: 'company-1',
+        line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
       },
     });
 
@@ -1690,6 +1705,7 @@ describe('ChatGPT CRM tools', () => {
         name: 'Acme renewal',
         caseStatus: 'opportunities',
         companyId: 'company-1',
+        line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
       },
       undefined,
     );
@@ -1935,7 +1951,7 @@ describe('ChatGPT CRM tools', () => {
           external_id: 'ORD-1',
           company_external_id: 'COMP-1',
           order_at: '2026-04-09T09:00:00Z',
-          items: [{ item_external_id: 'ITEM-1', quantity: 2, price: 50 }],
+          line_items: [{ item_external_id: 'ITEM-1', quantity: 2, unit_price: 50, tax_rate: 10 }],
         },
       },
     });
@@ -1947,7 +1963,7 @@ describe('ChatGPT CRM tools', () => {
           externalId: 'ORD-1',
           companyExternalId: 'COMP-1',
           orderAt: '2026-04-09T09:00:00Z',
-          items: [{ itemExternalId: 'ITEM-1', quantity: 2, price: 50 }],
+          line_items: [{ item_external_id: 'ITEM-1', quantity: 2, unit_price: 50, tax_rate: 10 }],
         },
       },
       undefined,
@@ -2516,6 +2532,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 100,
         currency: 'USD',
+        line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
     });
 
@@ -2524,6 +2541,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 100,
         currency: 'USD',
+        line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
       undefined,
     );
@@ -2751,6 +2769,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 120,
         currency: 'USD',
+        line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
       },
     });
 
@@ -2759,6 +2778,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 120,
         currency: 'USD',
+        line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
       },
       undefined,
     );
@@ -2968,18 +2988,22 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         company_id: 'company-1',
-        total_price: 120,
         currency: 'USD',
         entry_type: 'item',
+        tax_rate: 10,
+        tax_option: 'unified_tax',
+        line_items: [{ item_name: 'Payment row', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
     });
 
     expect(create).toHaveBeenCalledWith(
       {
         companyId: 'company-1',
-        totalPrice: 120,
         currency: 'USD',
         entryType: 'item',
+        taxRate: 10,
+        taxOption: 'unified_tax',
+        line_items: [{ item_name: 'Payment row', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
       undefined,
     );
@@ -3154,6 +3178,7 @@ describe('ChatGPT CRM tools', () => {
         slip_type: 'delivery_slip',
         total_price: 500,
         tax_inclusive: true,
+        line_items: [{ item_name: 'Delivered item', quantity: 5, unit_price: 100, tax_rate: 0 }],
       },
     });
     expect(create).toHaveBeenCalledWith(
@@ -3163,6 +3188,7 @@ describe('ChatGPT CRM tools', () => {
         slip_type: 'delivery_slip',
         total_price: 500,
         tax_inclusive: true,
+        line_items: [{ item_name: 'Delivered item', quantity: 5, unit_price: 100, tax_rate: 0 }],
       },
       undefined,
     );
@@ -3864,25 +3890,31 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('lists expenses with a local result limit', async () => {
-    const list = jest.fn().mockResolvedValue([
-      {
-        id: 'expense-1',
-        description: 'Google Workspace',
-        company_name: 'Google',
-        amount: 20,
-        currency: 'USD',
-      },
-      { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
-      { id: 'expense-3', description: 'Loom', company_name: 'Loom', amount: 5, currency: 'USD' },
-    ]);
+  it('lists expenses with a server-reported total', async () => {
+    const withResponse = jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'expense-1',
+          description: 'Google Workspace',
+          company_name: 'Google',
+          amount: 20,
+          currency: 'USD',
+        },
+        { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
+      ],
+      response: new Response('[]', {
+        headers: {
+          'X-Sanka-Page': '1',
+          'X-Sanka-Total': '2288',
+        },
+      }),
+    });
+    const get = jest.fn().mockReturnValue({ withResponse });
 
     const result = await crmListExpensesTool.handler({
       reqContext: {
         client: {
-          public: {
-            expenses: { list },
-          },
+          get,
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -3890,19 +3922,20 @@ describe('ChatGPT CRM tools', () => {
       args: { limit: 2, language: 'en', workspace_id: 'workspace-1' },
     });
 
-    expect(list).toHaveBeenCalledWith(
-      {
+    expect(get).toHaveBeenCalledWith('/v1/public/expenses', {
+      query: {
+        limit: 2,
+        page: 1,
         workspace_id: 'workspace-1',
         'Accept-Language': 'en',
       },
-      undefined,
-    );
+    });
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toEqual({
       count: 2,
       page: 1,
-      total: 3,
-      message: 'Returned 2 of 3 expenses.',
+      total: 2288,
+      message: 'Returned 2 of 2288 expenses.',
       permission: undefined,
       results: [
         {

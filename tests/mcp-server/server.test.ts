@@ -129,6 +129,13 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_incentives');
+    expect(toolNames).toContain('list_incentive_plans');
+    expect(toolNames).toContain('list_incentive_company_options');
+    expect(toolNames).toContain('create_incentive_plan');
+    expect(toolNames).toContain('calculate_incentives');
+    expect(toolNames).toContain('approve_incentives');
+    expect(toolNames).toContain('generate_incentive_payment_notice');
     expect(toolNames).toContain('list_properties');
     expect(toolNames).toContain('get_property');
     expect(toolNames).toContain('create_property');
@@ -143,6 +150,13 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('score_record');
     expect(toolNames).toContain('generate_demo_workspace');
     expect(toolNames).toContain('push_integration_sync');
+  });
+
+  it('does not register duplicate tool names', () => {
+    for (const profile of ['full', 'hosted'] as const) {
+      const toolNames = selectTools(undefined, profile).map((tool) => tool.tool.name);
+      expect(toolNames).toHaveLength(new Set(toolNames).size);
+    }
   });
 
   it('hides generic docs/code tools from the hosted profile', () => {
@@ -266,6 +280,13 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_incentives');
+    expect(toolNames).toContain('list_incentive_plans');
+    expect(toolNames).toContain('list_incentive_company_options');
+    expect(toolNames).toContain('create_incentive_plan');
+    expect(toolNames).toContain('calculate_incentives');
+    expect(toolNames).toContain('approve_incentives');
+    expect(toolNames).toContain('generate_incentive_payment_notice');
     expect(toolNames).toContain('list_properties');
     expect(toolNames).toContain('get_property');
     expect(toolNames).toContain('create_property');
@@ -412,6 +433,13 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_incentives');
+    expect(instructions).toContain('list_incentive_plans');
+    expect(instructions).toContain('list_incentive_company_options');
+    expect(instructions).toContain('create_incentive_plan');
+    expect(instructions).toContain('calculate_incentives');
+    expect(instructions).toContain('approve_incentives');
+    expect(instructions).toContain('generate_incentive_payment_notice');
     expect(instructions).toContain('list_properties');
     expect(instructions).toContain('get_property');
     expect(instructions).toContain('create_property');
@@ -553,6 +581,13 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_incentives');
+    expect(instructions).toContain('list_incentive_plans');
+    expect(instructions).toContain('list_incentive_company_options');
+    expect(instructions).toContain('create_incentive_plan');
+    expect(instructions).toContain('calculate_incentives');
+    expect(instructions).toContain('approve_incentives');
+    expect(instructions).toContain('generate_incentive_payment_notice');
     expect(instructions).toContain('list_properties');
     expect(instructions).toContain('get_property');
     expect(instructions).toContain('create_property');
