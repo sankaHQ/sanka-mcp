@@ -149,6 +149,57 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('previews Salesforce quote_readiness through the generic workflow endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'quote_readiness',
+        ready: false,
+        hard_blockers: [{ code: 'missing_billing_contact' }],
+        warnings: [{ code: 'missing_payment_terms' }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'quote_readiness',
+        source_record: {
+          source_system: 'salesforce',
+          object_type: 'opportunity',
+          url: 'https://example.my.salesforce.com/lightning/r/Opportunity/006000000000001AAA/view',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'quote_readiness',
+        source_record: {
+          source_system: 'salesforce',
+          object_type: 'opportunity',
+          url: 'https://example.my.salesforce.com/lightning/r/Opportunity/006000000000001AAA/view',
+        },
+        options: {},
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'quote_readiness',
+      ready: false,
+      hard_blockers: [{ code: 'missing_billing_contact' }],
+      warnings: [{ code: 'missing_payment_terms' }],
+    });
+  });
+
+  it('does not introduce a Salesforce-only quote readiness tool', () => {
+    const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
+
+    expect(toolNames).not.toContain('check_salesforce_quote_readiness');
+  });
+
   it('loads workflow runs by id', async () => {
     const get = jest.fn().mockResolvedValue({
       data: { run_id: 'run/1', status: 'completed' },
