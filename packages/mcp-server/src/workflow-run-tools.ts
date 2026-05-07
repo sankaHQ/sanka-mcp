@@ -6,15 +6,16 @@ const SOURCE_RECORD_SCHEMA = {
   properties: {
     source_system: {
       type: 'string',
-      enum: ['sanka', 'hubspot'],
+      enum: ['sanka', 'hubspot', 'salesforce'],
       description:
-        'Source system for the record reference. Use sanka for Sanka records, hubspot for HubSpot deal ids or HubSpot deal URLs.',
+        'Source system for the record reference. Use sanka for Sanka records, hubspot for HubSpot deal ids or URLs, and salesforce for Salesforce Opportunity ids or URLs.',
     },
     object_type: {
       type: 'string',
-      enum: ['deal'],
+      enum: ['deal', 'opportunity'],
       default: 'deal',
-      description: 'Business object type. MVP supports deal.',
+      description:
+        'Business object type. Use deal for Sanka/HubSpot deal workflows and opportunity for Salesforce quote-readiness checks.',
     },
     record_id: {
       type: 'string',
@@ -22,7 +23,7 @@ const SOURCE_RECORD_SCHEMA = {
     },
     external_id: {
       type: 'string',
-      description: 'External platform record id, such as a HubSpot deal id.',
+      description: 'External platform record id, such as a HubSpot deal id or Salesforce Opportunity id.',
     },
     portal_id: {
       type: 'string',
@@ -32,15 +33,16 @@ const SOURCE_RECORD_SCHEMA = {
     url: {
       type: 'string',
       description:
-        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate preview; the API uses the synced Sanka deal when available and otherwise performs a read-only HubSpot direct preview.',
+        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate preview. Salesforce Opportunity URLs are accepted for quote_readiness preview. The API uses synced Sanka records when available and otherwise performs read-only external checks.',
     },
   },
 };
 
 const WORKFLOW_TYPE_SCHEMA = {
   type: 'string',
-  enum: ['deal_to_estimate'],
-  description: 'Workflow type to run. MVP supports deal_to_estimate.',
+  enum: ['deal_to_estimate', 'quote_readiness'],
+  description:
+    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows and quote_readiness for read-only Salesforce Opportunity quote readiness checks.',
 };
 
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
@@ -61,13 +63,14 @@ const RESOLVE_RECORD_INPUT_SCHEMA = {
     },
     object_type: {
       type: 'string',
-      enum: ['deal'],
+      enum: ['deal', 'opportunity'],
       default: 'deal',
-      description: 'Business object type to resolve. MVP supports deal.',
+      description:
+        'Business object type to resolve. Use opportunity when resolving Salesforce Opportunity references.',
     },
     source_system: {
       type: 'string',
-      enum: ['sanka', 'hubspot'],
+      enum: ['sanka', 'hubspot', 'salesforce'],
       description: 'Optional source filter. Omit when the user prompt is ambiguous.',
     },
     limit: {
@@ -184,7 +187,7 @@ export const resolveRecordTool: McpTool = {
   metadata: {
     resource: 'workflow-runs',
     operation: 'read',
-    tags: ['crm', 'workflow-runs', 'deals', 'estimates'],
+    tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'salesforce'],
     httpMethod: 'post',
     httpPath: '/v1/public/workflow-runs/resolve-record',
     operationId: 'public.workflowRuns.resolveRecord',
@@ -193,7 +196,7 @@ export const resolveRecordTool: McpTool = {
     name: 'resolve_record',
     title: 'Resolve record',
     description:
-      'Resolve an ambiguous user phrase such as a company or deal name into candidate Sanka or HubSpot-backed deal records before previewing or starting a workflow.',
+      'Resolve an ambiguous user phrase such as a company, deal, or Salesforce Opportunity reference into candidate records before previewing or starting a workflow.',
     inputSchema: RESOLVE_RECORD_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -227,7 +230,7 @@ export const previewWorkflowTool: McpTool = {
   metadata: {
     resource: 'workflow-runs',
     operation: 'read',
-    tags: ['crm', 'workflow-runs', 'deals', 'estimates'],
+    tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'salesforce'],
     httpMethod: 'post',
     httpPath: '/v1/public/workflow-runs/preview',
     operationId: 'public.workflowRuns.preview',
@@ -236,7 +239,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft, copied deal totals, and whether existing approval rules require approval. Accepts HubSpot deal URLs; if the deal is synced to Sanka it uses the synced deal, otherwise it reads HubSpot directly and returns an external-only preview. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -273,7 +276,7 @@ export const startWorkflowTool: McpTool = {
   metadata: {
     resource: 'workflow-runs',
     operation: 'write',
-    tags: ['crm', 'workflow-runs', 'deals', 'estimates'],
+    tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'salesforce'],
     httpMethod: 'post',
     httpPath: '/v1/public/workflow-runs/start',
     operationId: 'public.workflowRuns.start',
@@ -282,7 +285,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
