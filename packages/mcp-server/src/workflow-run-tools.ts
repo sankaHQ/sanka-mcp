@@ -147,6 +147,9 @@ const readObject = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>;
 };
 
+const isSalesforceQuoteReadinessPreview = (workflowType: string): boolean =>
+  workflowType === 'quote_readiness';
+
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']);
   const message = readString(payload['message']);
@@ -258,6 +261,16 @@ export const previewWorkflowTool: McpTool = {
     }
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
+    }
+    if (isSalesforceQuoteReadinessPreview(workflowType)) {
+      return postWorkflowRunEndpoint({
+        reqContext,
+        path: '/api/v1/salesforce/cpq/preview',
+        body: {
+          source_record: sourceRecord,
+        },
+        summary: 'Previewed Salesforce quote readiness',
+      });
     }
     return postWorkflowRunEndpoint({
       reqContext,

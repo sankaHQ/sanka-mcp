@@ -154,7 +154,7 @@ describe('workflow run MCP tools', () => {
     });
   });
 
-  it('previews Salesforce quote_readiness through the generic workflow endpoint', async () => {
+  it('previews Salesforce quote_readiness through the Salesforce API preview endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
         workflow_type: 'quote_readiness',
@@ -191,15 +191,13 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v1/salesforce/cpq/preview', {
       body: {
-        workflow_type: 'quote_readiness',
         source_record: {
           source_system: 'salesforce',
           object_type: 'opportunity',
           url: 'https://example.my.salesforce.com/lightning/r/Opportunity/006000000000001AAA/view',
         },
-        options: {},
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -218,6 +216,42 @@ describe('workflow run MCP tools', () => {
       },
       hard_blockers: [{ code: 'missing_billing_contact' }],
       warnings: [{ code: 'missing_payment_terms' }],
+    });
+  });
+
+  it('previews quote_readiness Sanka deal references through the Salesforce API preview endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'quote_readiness',
+        source_status: 'synced',
+        read_only: true,
+      },
+      message: 'ok',
+    });
+
+    await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'quote_readiness',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'deal',
+          record_id: 'deal-1',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v1/salesforce/cpq/preview', {
+      body: {
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'deal',
+          record_id: 'deal-1',
+        },
+      },
     });
   });
 
