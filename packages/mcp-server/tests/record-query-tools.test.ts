@@ -39,6 +39,48 @@ describe('record query tools', () => {
     });
   });
 
+  it('aggregate_records forwards integration routing arguments', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      metrics: { count: 224 },
+      groups: [],
+      message: 'OK',
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext,
+      args: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+      body: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        metrics: ['count'],
+        limit: 25,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      metrics: { count: 224 },
+    });
+  });
+
   it('query_records projects only requested fields', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'companies',
@@ -77,6 +119,54 @@ describe('record query tools', () => {
       count: 1,
       total: 1,
       results: [{ id: 'company-1', name: 'Acme', address: '' }],
+    });
+  });
+
+  it('query_records forwards integration routing arguments', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      data: [{ id: 'hs-1', name: 'Acme' }],
+      page: 1,
+      limit: 10,
+      count: 1,
+      total: 1,
+      has_next: false,
+      message: 'OK',
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext,
+      args: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        select: ['id', 'name'],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        select: ['id', 'name'],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'hubspot',
+      results: [{ id: 'hs-1', name: 'Acme' }],
     });
   });
 });

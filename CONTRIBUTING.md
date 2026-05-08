@@ -21,8 +21,6 @@ This repository is maintained directly. It is no longer treated as generated inf
 - `packages/mcp-server/` contains the MCP transport, tool wiring, and Docker entrypoint.
 - When the Sanka OpenAPI contract changes, update this repo intentionally instead of assuming a hosted generator will rewrite it for you.
 
-See [docs/openapi-maintenance.md](/Users/haegwan/Sites/sanka/sanka-mcp/docs/openapi-maintenance.md) for the preferred update workflow.
-
 ## Adding and running examples
 
 If you add examples or local verification scripts, keep them runnable against the current hosted/local MCP service.

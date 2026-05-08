@@ -1176,6 +1176,55 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('passes integration scope arguments through list_companies', async () => {
+    const list = jest.fn().mockResolvedValue({
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      count: 1,
+      data: [{ id: 'hs-1', name: 'Acme' }],
+      message: 'OK',
+      page: 1,
+      total: 77,
+    });
+
+    const result = await crmListCompaniesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            companies: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        limit: 5,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        limit: 5,
+        page: 1,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      total: 77,
+      results: [{ id: 'hs-1', name: 'Acme' }],
+    });
+  });
+
   it('gets one company when authentication is present', async () => {
     const retrieve = jest.fn().mockResolvedValue({
       id: 'company-1',
@@ -1259,6 +1308,59 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('passes integration mutation arguments through create_company', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      target: 'integration',
+      provider: 'hubspot',
+      dry_run: true,
+      remote: { properties: { name: 'Acme', segment: 'enterprise' } },
+    });
+
+    const result = await crmCreateCompanyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            companies: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'companies',
+        operation: 'create',
+        dry_run: true,
+        name: 'Acme',
+        custom_fields: { segment: 'enterprise' },
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'companies',
+        operation: 'create',
+        dry_run: true,
+        name: 'Acme',
+        custom_fields: { segment: 'enterprise' },
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'dry_run',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+  });
+
   it('updates a company', async () => {
     const update = jest.fn().mockResolvedValue({
       ok: true,
@@ -1295,6 +1397,55 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'updated',
       company_id: 'company-1',
+    });
+  });
+
+  it('passes integration dedupe arguments through update_company', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      target: 'integration',
+      operation: 'dedupe_apply',
+      dry_run: true,
+    });
+
+    const result = await crmUpdateCompanyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            companies: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'primary',
+        target: 'integration',
+        provider: 'hubspot',
+        operation: 'dedupe_apply',
+        primary_external_id: 'primary',
+        secondary_external_ids: ['dupe-1', 'dupe-2'],
+        dry_run: true,
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'primary',
+      {
+        target: 'integration',
+        provider: 'hubspot',
+        operation: 'dedupe_apply',
+        primary_external_id: 'primary',
+        secondary_external_ids: ['dupe-1', 'dupe-2'],
+        dry_run: true,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'dry_run',
+      operation: 'dedupe_apply',
     });
   });
 
@@ -1335,6 +1486,54 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('passes integration delete safety arguments through delete_company', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      target: 'integration',
+      dry_run: true,
+      external_id: 'hs-1',
+    });
+
+    const result = await crmDeleteCompanyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            companies: { delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'hs-1',
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_id: 'hs-1',
+        dry_run: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith(
+      'hs-1',
+      {
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_id: 'hs-1',
+        dry_run: true,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'dry_run',
+      target: 'integration',
+      dry_run: true,
+    });
+  });
+
   it('lists contacts when authentication is present', async () => {
     const list = jest.fn().mockResolvedValue({
       count: 1,
@@ -1372,6 +1571,55 @@ describe('ChatGPT CRM tools', () => {
       message: 'ok',
       permission: 'view',
       results: [{ id: 'contact-1', name: 'Jane Doe' }],
+    });
+  });
+
+  it('passes integration scope arguments through list_contacts', async () => {
+    const list = jest.fn().mockResolvedValue({
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      count: 1,
+      data: [{ id: 'hs-contact-1', name: 'Jane Doe' }],
+      message: 'OK',
+      page: 1,
+      total: 12,
+    });
+
+    const result = await crmListContactsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            contacts: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        limit: 5,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        limit: 5,
+        page: 1,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      total: 12,
+      results: [{ id: 'hs-contact-1', name: 'Jane Doe' }],
     });
   });
 
@@ -1623,6 +1871,78 @@ describe('ChatGPT CRM tools', () => {
           name: 'Globex POC',
           stage_label: 'Discovery',
           pipeline_name: 'Sales',
+        },
+      ],
+    });
+  });
+
+  it('routes integration list_deals through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'deals',
+      scope: 'integration',
+      provider: 'salesforce',
+      channel_id: 'channel-1',
+      count: 1,
+      data: [
+        {
+          id: '006000000000001AAA',
+          name: 'Enterprise Renewal',
+          amount: 100000,
+          case_status: 'Proposal',
+        },
+      ],
+      message: 'OK',
+      page: 1,
+      total: 7,
+    });
+    const list = jest.fn();
+
+    const result = await crmListDealsTool.handler({
+      reqContext: {
+        client: {
+          post,
+          public: {
+            deals: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        scope: 'integration',
+        provider: 'salesforce',
+        channel_id: 'channel-1',
+        external_object_type: 'opportunity',
+        search: 'Renewal',
+        limit: 5,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'deals',
+        scope: 'integration',
+        provider: 'salesforce',
+        channel_id: 'channel-1',
+        external_object_type: 'opportunity',
+        search: 'Renewal',
+        page: 1,
+        limit: 5,
+        select: ['id', 'name', 'amount', 'case_status', 'updated_at'],
+      },
+    });
+    expect(list).not.toHaveBeenCalled();
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'salesforce',
+      channel_id: 'channel-1',
+      total: 7,
+      results: [
+        {
+          id: '006000000000001AAA',
+          name: 'Enterprise Renewal',
+          amount: 100000,
+          case_status: 'Proposal',
         },
       ],
     });
@@ -2141,8 +2461,8 @@ describe('ChatGPT CRM tools', () => {
         contact_id: 'contact-1',
         currency: 'USD',
         date: '2026-04-09',
-        total_price: 1200,
-        tax_rate: 0.1,
+        tax_rate: 10,
+        line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
     });
     expect(create).toHaveBeenCalledWith(
@@ -2151,8 +2471,8 @@ describe('ChatGPT CRM tools', () => {
         contact_id: 'contact-1',
         currency: 'USD',
         date: '2026-04-09',
-        total_price: 1200,
-        tax_rate: 0.1,
+        tax_rate: 10,
+        line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
       undefined,
     );
@@ -3324,18 +3644,18 @@ describe('ChatGPT CRM tools', () => {
       args: {
         company_id: 'company-1',
         currency: 'USD',
-        amount: 1200,
         due_date: '2026-04-20',
         tax_inclusive: false,
+        line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
     });
     expect(create).toHaveBeenCalledWith(
       {
         company_id: 'company-1',
         currency: 'USD',
-        amount: 1200,
         due_date: '2026-04-20',
         tax_inclusive: false,
+        line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
       undefined,
     );
@@ -3471,18 +3791,18 @@ describe('ChatGPT CRM tools', () => {
       args: {
         company_id: 'company-1',
         currency: 'USD',
-        total_price: 800,
         fee: 25,
         tax_inclusive: true,
+        line_items: [{ item_name: 'Disbursement row', quantity: 2, unit_price: 400, tax_rate: 0 }],
       },
     });
     expect(create).toHaveBeenCalledWith(
       {
         company_id: 'company-1',
         currency: 'USD',
-        total_price: 800,
         fee: 25,
         tax_inclusive: true,
+        line_items: [{ item_name: 'Disbursement row', quantity: 2, unit_price: 400, tax_rate: 0 }],
       },
       undefined,
     );

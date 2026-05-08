@@ -15,9 +15,93 @@ import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 const WORKSPACE_ID_DESCRIPTION =
   'Internal workspace UUID. This is not a workspace switcher; do not pass short workspace codes such as 48803074. Usually omit it so Sanka uses the authenticated workspace.';
 
+const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
+  scope: {
+    type: 'string',
+    description:
+      'Data scope. Use "sanka" for Sanka records, or "integration" to read live records from a connected integration.',
+    enum: ['sanka', 'integration'],
+    default: 'sanka',
+  },
+  source: {
+    type: 'string',
+    description: 'Alias for scope. Prefer scope.',
+    enum: ['sanka', 'integration'],
+  },
+  provider: {
+    type: 'string',
+    description:
+      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or with scope="sanka" to filter Sanka records linked to that provider.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account". Usually omit it.',
+  },
+};
+
+const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka only, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description:
+      'Connected integration provider for target="integration" or target="both". Company integration mutations currently support HubSpot; Salesforce integration records are read-only here.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  external_object_type: {
+    type: 'string',
+    description: 'Optional provider object type override, for example HubSpot "companies". Usually omit it.',
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'Preview the remote mutation without writing to the integration. Use this before remote delete or dedupe.',
+    default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description:
+      'Required to execute destructive remote mutations such as integration delete or dedupe_apply after reviewing dry_run output.',
+    default: false,
+  },
+  operation: {
+    type: 'string',
+    description:
+      'Optional remote operation override. Supported values include create, update, upsert, delete, dedupe_preview, and dedupe_apply.',
+    enum: ['create', 'update', 'upsert', 'delete', 'dedupe_preview', 'dedupe_apply'],
+  },
+  primary_external_id: {
+    type: 'string',
+    description: 'Primary provider record id for integration dedupe operations.',
+  },
+  secondary_external_ids: {
+    type: 'array',
+    description: 'Provider record ids to merge into primary_external_id for integration dedupe operations.',
+    items: { type: 'string' },
+  },
+};
+
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     search: {
       type: 'string',
       description: 'Free-text search query.',
@@ -51,6 +135,12 @@ const LIST_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
     },
+    select: {
+      type: 'array',
+      description:
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "url"].',
+      items: { type: 'string' },
+    },
   },
 };
 
@@ -78,10 +168,11 @@ const RECORD_FILTER_SCHEMA = {
 const RECORD_QUERY_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to query. Currently supports companies and contacts.',
-      enum: ['companies', 'company', 'contacts', 'contact'],
+      description: 'Record object to query. Currently supports companies, contacts, and deals.',
+      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
     },
     select: {
       type: 'array',
@@ -121,6 +212,14 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     object_type: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
+    next_cursor: { type: 'string' },
     count: { type: 'integer' },
     page: { type: 'integer' },
     limit: { type: 'integer' },
@@ -138,10 +237,11 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
 const RECORD_AGGREGATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to aggregate. Currently supports companies and contacts.',
-      enum: ['companies', 'company', 'contacts', 'contact'],
+      description: 'Record object to aggregate. Currently supports companies, contacts, and deals.',
+      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
     },
     filters: {
       type: 'array',
@@ -179,6 +279,13 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     object_type: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
     metrics: { type: 'object' },
     groups: {
       type: 'array',
@@ -243,6 +350,7 @@ type TaskMutationPayload = {
 };
 
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
+  ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
   address: {
     type: 'string',
     description: 'Company address.',
@@ -257,7 +365,13 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   },
   external_id: {
     type: 'string',
-    description: 'External reference used for idempotent create/update flows.',
+    description:
+      'External reference used for Sanka idempotent create/update flows, or the provider record id for integration update/delete.',
+  },
+  custom_fields: {
+    type: 'object',
+    description:
+      'Custom field values. For integration mutations these are forwarded as provider property names.',
   },
   name: {
     type: 'string',
@@ -280,7 +394,7 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
 const COMPANY_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: COMPANY_MUTATION_INPUT_PROPERTIES,
-  required: ['external_id'],
+  required: [],
 };
 
 const COMPANY_RETRIEVE_INPUT_SCHEMA = {
@@ -317,6 +431,7 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Company identifier to delete.',
     },
+    ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -821,6 +936,14 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
 const LIST_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
+    next_cursor: { type: 'string' },
     count: { type: 'integer' },
     page: { type: 'integer' },
     total: { type: 'integer' },
@@ -1094,6 +1217,7 @@ const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
 const DEAL_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     limit: {
       type: 'integer',
       description: 'Maximum number of deals to return from the deal list.',
@@ -1108,6 +1232,22 @@ const DEAL_LIST_INPUT_SCHEMA = {
     language: {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number for record-query backed deal lists.',
+      minimum: 1,
+      default: 1,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional free-text search over deal names/stages when record-query routing is used.',
+    },
+    select: {
+      type: 'array',
+      description:
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status"].',
+      items: { type: 'string' },
     },
   },
 };
@@ -1610,6 +1750,16 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     company_id: { type: 'string' },
     external_id: { type: 'string' },
+    target: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    operation: { type: 'string' },
+    dry_run: { type: 'boolean' },
+    sync_state: { type: 'object' },
+    remote: { type: 'object' },
+    message: { type: 'string' },
   },
   required: ['ok', 'status'],
 };
@@ -2105,6 +2255,12 @@ const PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this purchase order. When provided, Sanka creates/replaces the purchase order detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -2825,6 +2981,12 @@ const BILL_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Tax rate.',
   },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this bill. When provided, Sanka creates/replaces the bill detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
+  },
 };
 
 const BILL_CREATE_INPUT_SCHEMA = {
@@ -2959,6 +3121,12 @@ const DISBURSEMENT_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this disbursement. When provided, Sanka creates/replaces the disbursement detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -5066,6 +5234,14 @@ const buildListResult = ({
 }: {
   label: string;
   payload: {
+    scope?: string | null;
+    provider?: string | null;
+    channel_id?: string | null;
+    channel_name?: string | null;
+    external_object_type?: string | null;
+    sync_state?: Record<string, unknown> | null;
+    unavailable_reason?: string | null;
+    next_cursor?: string | null;
     count: number;
     data: Array<Record<string, unknown>>;
     message: string;
@@ -5097,6 +5273,14 @@ const buildListResult = ({
       },
     ],
     structuredContent: {
+      scope: payload.scope ?? undefined,
+      provider: payload.provider ?? undefined,
+      channel_id: payload.channel_id ?? undefined,
+      channel_name: payload.channel_name ?? undefined,
+      external_object_type: payload.external_object_type ?? undefined,
+      sync_state: payload.sync_state ?? undefined,
+      unavailable_reason: payload.unavailable_reason ?? undefined,
+      next_cursor: payload.next_cursor ?? undefined,
       count: payload.count,
       page: payload.page,
       total: payload.total,
@@ -5140,8 +5324,16 @@ const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
 
 const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
+  const scope = readString(args?.['scope'] ?? args?.['source']);
+  const provider = readString(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
   };
   const select = readStringArray(args?.['select']);
   const filters = buildRecordFilters(args?.['filters']);
@@ -5167,12 +5359,20 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
 
 const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
+  const scope = readString(args?.['scope'] ?? args?.['source']);
+  const provider = readString(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const filters = buildRecordFilters(args?.['filters']);
   const search = readString(args?.['search']);
   const metrics = readStringArray(args?.['metrics']);
   const groupBy = readStringArray(args?.['group_by'] ?? args?.['groupBy']);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     metrics: metrics.length ? metrics : ['count'],
   };
 
@@ -5229,8 +5429,28 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   };
 };
 
+const readIntegrationScope = (value: unknown): 'sanka' | 'integration' | undefined => {
+  const scope = readString(value);
+  if (scope === 'sanka' || scope === 'integration') {
+    return scope;
+  }
+  return undefined;
+};
+
+const readIntegrationProvider = (value: unknown): 'hubspot' | 'salesforce' | undefined => {
+  const provider = readString(value);
+  if (provider === 'hubspot' || provider === 'salesforce') {
+    return provider;
+  }
+  return undefined;
+};
+
 const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const search = readString(args?.['search']);
   const sort = readString(args?.['sort']);
   const view = readString(args?.['view']);
@@ -5239,12 +5459,65 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   return {
     limit: readNumber(args?.['limit'], 10),
     page: readNumber(args?.['page'], 1),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     ...(referenceID ? { reference_id: referenceID } : undefined),
     ...(search ? { search } : undefined),
     ...(sort ? { sort } : undefined),
     ...(view ? { view } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
+};
+
+const hasCompanyRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
+  if (!args) {
+    return false;
+  }
+  return Boolean(readStringArray(args['select']).length);
+};
+
+const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
+  if (!args) {
+    return false;
+  }
+  return Boolean(
+    readIntegrationScope(args['scope'] ?? args['source']) ||
+      readIntegrationProvider(args['provider']) ||
+      readString(args['channel_id'] ?? args['channelId']) ||
+      readString(args['external_object_type'] ?? args['externalObjectType']) ||
+      readString(args['search']) ||
+      readStringArray(args['select']).length,
+  );
+};
+
+const buildCompanyRecordQueryBody = (args: Record<string, unknown> | undefined) => {
+  const body = buildRecordQueryBody({
+    ...(args ?? {}),
+    object_type: 'companies',
+  });
+  if (!Array.isArray(body['select'])) {
+    body['select'] = ['id', 'name', 'url', 'phone_number', 'updated_at'];
+  }
+  return body;
+};
+
+const buildDealRecordQueryBody = (args: Record<string, unknown> | undefined) => {
+  const body = buildRecordQueryBody({
+    ...(args ?? {}),
+    object_type: 'deals',
+  });
+  if (!Array.isArray(body['select'])) {
+    body['select'] =
+      (
+        readIntegrationScope(args?.['scope'] ?? args?.['source']) ||
+        readIntegrationProvider(args?.['provider'])
+      ) ?
+        ['id', 'name', 'amount', 'case_status', 'updated_at']
+      : ['id', 'name', 'case_status', 'updated_at'];
+  }
+  return body;
 };
 
 const buildCompanyRetrieveParams = (args: Record<string, unknown> | undefined) => {
@@ -5263,15 +5536,47 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'address',
+    'channel_id',
     'email',
     'external_id',
+    'external_object_type',
     'name',
+    'operation',
     'phone_number',
+    'primary_external_id',
+    'provider',
     'status',
+    'target',
     'url',
   ]);
-  assignBooleanFields(body, args, ['allowed_in_store']);
+  assignBooleanFields(body, args, ['allowed_in_store', 'confirm', 'dry_run']);
+  const secondaryExternalIDs = readStringArray(args?.['secondary_external_ids']);
+  if (secondaryExternalIDs.length > 0) {
+    body['secondary_external_ids'] = secondaryExternalIDs;
+  }
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
   return body;
+};
+
+const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const companyID = readString(args?.['company_id']);
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, [
+    'channel_id',
+    'external_id',
+    'external_object_type',
+    'provider',
+    'target',
+  ]);
+  assignBooleanFields(params, args, ['confirm', 'dry_run']);
+
+  return {
+    companyID,
+    params,
+  };
 };
 
 const buildContactRetrieveParams = (args: Record<string, unknown> | undefined) => {
@@ -5930,6 +6235,10 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
       body[key] = numericValue;
     }
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -6024,6 +6333,10 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -6066,6 +6379,10 @@ const buildDisbursementMutationBody = (args: Record<string, unknown> | undefined
     if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
       body[key] = numericValue;
     }
+  }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
   }
 
   return body;
@@ -7621,7 +7938,19 @@ export const crmListCompaniesTool: McpTool = {
       return authError;
     }
 
-    const payload = await reqContext.client.public.companies.list(buildListParams(args), undefined);
+    const payload =
+      hasCompanyRecordRoutingArgs(args) ?
+        ((await reqContext.client.post('/v1/public/records/query', {
+          body: buildCompanyRecordQueryBody(args),
+        })) as {
+          count: number;
+          data: Array<Record<string, unknown>>;
+          message: string;
+          page: number;
+          total: number;
+          permission?: string | null;
+        })
+      : await reqContext.client.public.companies.list(buildListParams(args), undefined);
 
     return buildListResult({
       label: 'companies',
@@ -7836,7 +8165,7 @@ export const crmDeleteCompanyTool: McpTool = {
       return authError;
     }
 
-    const { companyID, params } = buildCompanyRetrieveParams(args);
+    const { companyID, params } = buildCompanyDeleteParams(args);
     if (!companyID) {
       return asErrorResult('`company_id` is required.');
     }
@@ -8929,6 +9258,24 @@ export const crmListDealsTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+
+    if (hasDealRecordRoutingArgs(args)) {
+      const payload = (await reqContext.client.post('/v1/public/records/query', {
+        body: buildDealRecordQueryBody(args),
+      })) as {
+        count: number;
+        data: Array<Record<string, unknown>>;
+        message: string;
+        page: number;
+        total: number;
+        permission?: string | null;
+      };
+      return buildListResult({
+        label: 'deals',
+        payload,
+        previewKeys: ['name', 'case_status', 'stage_key', 'deal_id'],
+      });
     }
 
     const { limit, params } = buildDealListParams(args);
