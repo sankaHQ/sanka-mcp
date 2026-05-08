@@ -9436,10 +9436,10 @@ export const crmCreateOrderTool: McpTool = {
       ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
     };
 
-    const response = (await reqContext.client.public.orders.create(payload, undefined)) as unknown as Record<
-      string,
-      unknown
-    >;
+    const response = (await reqContext.client.public.orders.create(
+      payload as Parameters<typeof reqContext.client.public.orders.create>[0],
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [{ type: 'text', text: buildOrderMutationSummary(response, 'created') }],
@@ -9509,7 +9509,7 @@ export const crmUpdateOrderTool: McpTool = {
 
     const response = (await reqContext.client.public.orders.update(
       orderID,
-      payload,
+      payload as Parameters<typeof reqContext.client.public.orders.update>[1],
       undefined,
     )) as unknown as Record<string, unknown>;
 
