@@ -62,9 +62,18 @@ export class Companies extends APIResource {
     params: CompanyDeleteParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PublicCompanyResponse> {
-    const { external_id } = params ?? {};
+    const { channel_id, confirm, dry_run, external_id, external_object_type, provider, target } =
+      params ?? {};
     return this._client.delete(path`/v1/public/companies/${companyID}`, {
-      query: { external_id },
+      query: {
+        channel_id,
+        confirm,
+        dry_run,
+        external_id,
+        external_object_type,
+        provider,
+        target,
+      },
       ...options,
     });
   }
@@ -132,15 +141,35 @@ export interface PublicCompanyRequest {
 
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
+
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   name?: string | null;
+
+  operation?: string | null;
 
   phone_number?: string | null;
 
+  primary_external_id?: string | null;
+
+  provider?: string | null;
+
+  secondary_external_ids?: Array<string> | null;
+
   status?: string | null;
+
+  target?: string | null;
 
   url?: string | null;
 }
@@ -150,11 +179,31 @@ export interface PublicCompanyResponse {
 
   status: string;
 
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
   company_id?: string | null;
 
   ctx_id?: string | null;
 
+  dry_run?: boolean | null;
+
   external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  message?: string | null;
+
+  operation?: string | null;
+
+  provider?: string | null;
+
+  remote?: Record<string, unknown> | null;
+
+  sync_state?: Record<string, unknown> | null;
+
+  target?: string | null;
 }
 
 export interface CompanyRetrieveResponse {
@@ -190,9 +239,25 @@ export interface CompanyListResponse {
 
   total: number;
 
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
   ctx_id?: string | null;
 
+  external_object_type?: string | null;
+
+  next_cursor?: string | null;
+
   permission?: string | null;
+
+  provider?: string | null;
+
+  scope?: string | null;
+
+  sync_state?: { [key: string]: unknown } | null;
+
+  unavailable_reason?: string | null;
 }
 
 export interface CompanyPriceTableItem {
@@ -262,15 +327,35 @@ export interface CompanyCreateParams {
 
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
+
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   name?: string | null;
+
+  operation?: string | null;
 
   phone_number?: string | null;
 
+  primary_external_id?: string | null;
+
+  provider?: string | null;
+
+  secondary_external_ids?: Array<string> | null;
+
   status?: string | null;
+
+  target?: string | null;
 
   url?: string | null;
 }
@@ -284,20 +369,50 @@ export interface CompanyUpdateParams {
 
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
+
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   name?: string | null;
+
+  operation?: string | null;
 
   phone_number?: string | null;
 
+  primary_external_id?: string | null;
+
+  provider?: string | null;
+
+  secondary_external_ids?: Array<string> | null;
+
   status?: string | null;
+
+  target?: string | null;
 
   url?: string | null;
 }
 
 export interface CompanyListParams {
+  /**
+   * Query param
+   */
+  channel_id?: string | null;
+
+  /**
+   * Query param
+   */
+  external_object_type?: string | null;
+
   /**
    * Query param
    */
@@ -321,6 +436,16 @@ export interface CompanyListParams {
   /**
    * Query param
    */
+  provider?: 'hubspot' | 'salesforce' | null;
+
+  /**
+   * Query param
+   */
+  scope?: 'sanka' | 'integration' | null;
+
+  /**
+   * Query param
+   */
   sort?: string | null;
 
   /**
@@ -335,7 +460,19 @@ export interface CompanyListParams {
 }
 
 export interface CompanyDeleteParams {
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  dry_run?: boolean | null;
+
   external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  provider?: string | null;
+
+  target?: string | null;
 }
 
 export interface CompanyPriceTableQueryParams {
