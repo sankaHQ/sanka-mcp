@@ -2,6 +2,7 @@ import { File } from 'node:buffer';
 import {
   crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmAggregateRecordsTool,
   crmApproveIncentivesTool,
   crmAuthStatusTool,
   crmCancelCalendarAttendanceTool,
@@ -92,6 +93,7 @@ import {
   crmListInvoicesTool,
   crmListItemsTool,
   crmListLocationsTool,
+  crmListObjectSchemasTool,
   crmListOrdersTool,
   crmListOverdueInvoicesTool,
   crmListPaymentsTool,
@@ -103,7 +105,9 @@ import {
   crmListTasksTool,
   crmListTicketPipelinesTool,
   crmListTicketsTool,
+  crmMutateObjectSchemaTool,
   crmProspectCompaniesTool,
+  crmQueryRecordsTool,
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
@@ -275,6 +279,8 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCalculateIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmApproveIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGenerateIncentivePaymentNoticeTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListObjectSchemasTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmMutateObjectSchemaTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPropertiesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPropertyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreatePropertyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -721,6 +727,94 @@ describe('ChatGPT CRM tools', () => {
       reconnect_instructions:
         'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
     });
+  });
+
+  it('passes dedupe candidate arguments through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      scope: 'sanka',
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 5,
+      metrics: { candidate_count: 1, scanned_count: 20 },
+      data: [{ match_key: 'name:acme', count: 2, record_ids: ['company-1', 'company-2'] }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        mode: 'dedupe_candidates',
+        match_fields: ['name'],
+        min_count: 2,
+        scan_limit: 20,
+        limit: 5,
+        select: ['id', 'name', 'external_id'],
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'companies',
+        mode: 'dedupe_candidates',
+        match_fields: ['name'],
+        page: 1,
+        limit: 5,
+        min_count: 2,
+        scan_limit: 20,
+        select: ['id', 'name', 'external_id'],
+      },
+    });
+    expect(result.content[0]?.text).toBe('query_records found 1 duplicate candidate groups for companies.');
+  });
+
+  it('passes dedupe candidate arguments through aggregate_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      scope: 'integration',
+      provider: 'hubspot',
+      metrics: { candidate_count: 1, scanned_count: 50 },
+      groups: [{ match_key: 'name:acme', count: 2, external_ids: ['hs-1', 'hs-2'] }],
+      message: 'OK',
+    });
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        mode: 'dedupe_candidates',
+        match_fields: ['name'],
+        scan_limit: 50,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+      body: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        metrics: ['count'],
+        mode: 'dedupe_candidates',
+        match_fields: ['name'],
+        limit: 25,
+        scan_limit: 50,
+      },
+    });
+    expect(result.content[0]?.text).toBe(
+      'aggregate_records found 1 duplicate candidate groups for companies.',
+    );
   });
 
   it('returns reauth metadata when list companies is called without authentication', async () => {
@@ -1405,8 +1499,14 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'dry_run',
       target: 'integration',
+      provider: 'hubspot',
       operation: 'dedupe_apply',
       dry_run: true,
+      external_id: 'primary',
+      remote: {
+        primary_external_id: 'primary',
+        secondary_external_ids: ['dupe-1', 'dupe-2'],
+      },
     });
 
     const result = await crmUpdateCompanyTool.handler({
@@ -1447,6 +1547,9 @@ describe('ChatGPT CRM tools', () => {
       status: 'dry_run',
       operation: 'dedupe_apply',
     });
+    expect(result.content[0]?.text).toBe(
+      'Company hubspot dedupe preview prepared: primary=primary merge_count=2.',
+    );
   });
 
   it('deletes a company', async () => {
@@ -4925,6 +5028,117 @@ describe('ChatGPT CRM tools', () => {
       ctx_id: 'ctx-remote-delete',
       target: 'integration',
       provider: 'hubspot',
+    });
+  });
+
+  it('lists routed object schemas from integration scope', async () => {
+    const get = jest.fn().mockResolvedValue([
+      {
+        id: '2-123',
+        name: 'asset',
+        slug: 'asset',
+        scope: 'integration',
+        provider: 'hubspot',
+        external_id: '2-123',
+      },
+    ]);
+
+    const result = await crmListObjectSchemasTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        search: 'asset',
+        limit: 5,
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/v1/public/object-schemas', {
+      query: {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        search: 'asset',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      total: 1,
+      results: [
+        {
+          id: '2-123',
+          name: 'asset',
+          provider: 'hubspot',
+        },
+      ],
+    });
+  });
+
+  it('mutates Salesforce object schema through Metadata API dry-run routing', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      operation: 'create',
+      target: 'integration',
+      provider: 'salesforce',
+      external_id: 'Asset__c',
+      object_schema_id: 'Asset__c',
+      remote: {
+        request: {
+          metadata_api: true,
+          soap_action: 'createMetadata',
+          metadata_type: 'CustomObject',
+          fullName: 'Asset__c',
+        },
+      },
+      ctx_id: 'ctx-schema',
+    });
+
+    const result = await crmMutateObjectSchemaTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        operation: 'create',
+        target: 'integration',
+        provider: 'salesforce',
+        external_object_type: 'Asset__c',
+        name: 'Asset',
+        plural_label: 'Assets',
+        primary_display_property: 'Asset Name',
+        dry_run: true,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/object-schemas', {
+      body: {
+        operation: 'create',
+        target: 'integration',
+        provider: 'salesforce',
+        external_object_type: 'Asset__c',
+        name: 'Asset',
+        plural_label: 'Assets',
+        primary_display_property: 'Asset Name',
+        dry_run: true,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      status: 'dry_run',
+      provider: 'salesforce',
+      remote: {
+        request: {
+          metadata_api: true,
+          soap_action: 'createMetadata',
+          metadata_type: 'CustomObject',
+        },
+      },
     });
   });
 

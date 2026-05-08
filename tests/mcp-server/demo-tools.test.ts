@@ -117,6 +117,11 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
         workspace_id: 'workspace-1',
         workspace_name: 'Acme Demo',
         workspace_short_id: 42,
+        target: 'sanka',
+        provider: null,
+        channel_id: null,
+        channel_name: null,
+        dry_run: null,
         template: 'b2b_saas',
         country: 'us',
         seed: 7,
@@ -133,6 +138,8 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
           companies: ['company-1', 'company-2'],
           contacts: ['contact-1'],
         },
+        remote: null,
+        warnings: null,
         message: 'Created new demo workspace Acme Demo',
       });
       const firstBlock = result.content[0];
@@ -178,6 +185,93 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
       });
       expect(result.isError).toBeUndefined();
       expect(result.structuredContent?.['created']).toBe(false);
+    });
+
+    it('passes direct integration demo dry-run arguments through generate_demo_workspace', async () => {
+      const generate = jest.fn().mockResolvedValue({
+        workspace_id: 'workspace-1',
+        workspace_name: 'Integration Demo',
+        workspace_short_id: 75097015,
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        channel_name: 'HubSpot',
+        dry_run: true,
+        template: 'b2b_saas',
+        country: 'us',
+        seed: 7,
+        created: false,
+        counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
+        sample_record_ids: { companies: [], contacts: [], deals: [], custom_objects: [] },
+        remote: {
+          planned_counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
+          custom_object_plan: [{ external_object_type: '2-123', records: [{ name: 'Ticket Demo 1' }] }],
+        },
+        warnings: ['integration_channel_shadow_mode', 'custom_object_schema_must_exist_in_provider'],
+        message: 'Demo integration dry run prepared',
+      });
+
+      const result = await demoGenerateTool.handler({
+        reqContext: {
+          client: {
+            demo: { generate },
+          } as any,
+          auth: oauthContext(),
+          toolProfile: 'full',
+        },
+        args: {
+          target: 'integration',
+          provider: 'hubspot',
+          channel_id: 'channel-1',
+          template: 'b2b_saas',
+          country: 'us',
+          seed: 7,
+          dry_run: true,
+          custom_objects: [
+            {
+              external_object_type: '2-123',
+              label: 'Service Ticket',
+              name_property: 'name',
+              count: 2,
+            },
+          ],
+        },
+      });
+
+      expect(generate).toHaveBeenCalledWith({
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        template: 'b2b_saas',
+        country: 'us',
+        seed: 7,
+        dry_run: true,
+        custom_objects: [
+          {
+            external_object_type: '2-123',
+            label: 'Service Ticket',
+            name_property: 'name',
+            count: 2,
+          },
+        ],
+      });
+      expect(result.structuredContent).toMatchObject({
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        dry_run: true,
+        remote: {
+          planned_counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
+          custom_object_plan: [{ external_object_type: '2-123', records: [{ name: 'Ticket Demo 1' }] }],
+        },
+        warnings: ['integration_channel_shadow_mode', 'custom_object_schema_must_exist_in_provider'],
+      });
+      const firstBlock = result.content[0];
+      expect(firstBlock).toMatchObject({ type: 'text' });
+      if (firstBlock && firstBlock.type === 'text') {
+        expect(firstBlock.text).toContain('Prepared direct hubspot demo dry run');
+        expect(firstBlock.text).toContain('2 custom object records');
+      }
     });
   });
 

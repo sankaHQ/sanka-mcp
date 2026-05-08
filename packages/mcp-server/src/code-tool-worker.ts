@@ -207,6 +207,8 @@ const fuse = new Fuse(
     'client.public.properties.list',
     'client.public.properties.retrieve',
     'client.public.properties.update',
+    'client.public.objectSchemas.list',
+    'client.public.objectSchemas.mutate',
     'client.public.purchaseOrders.create',
     'client.public.purchaseOrders.delete',
     'client.public.purchaseOrders.list',
