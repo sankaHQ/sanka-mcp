@@ -76,8 +76,11 @@ export class Properties extends APIResource {
     params: PropertyDeleteParams,
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
-    const { object_name } = params;
-    return this._client.delete(path`/v1/public/properties/${object_name}/${propertyRef}`, options);
+    const { object_name, ...query } = params;
+    return this._client.delete(path`/v1/public/properties/${object_name}/${propertyRef}`, {
+      query,
+      ...options,
+    });
   }
 }
 
@@ -98,9 +101,29 @@ export interface Property {
 
   created_at?: string | null;
 
+  external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  field_type?: string | null;
+
+  group_name?: string | null;
+
   description?: string | null;
 
+  options?: Array<{ [key: string]: unknown }> | null;
+
+  provider?: string | null;
+
+  raw?: { [key: string]: unknown } | null;
+
+  scope?: string | null;
+
   internal_name?: string | null;
+
+  channel_id?: string | null;
+
+  channel_name?: string | null;
 
   multiple_select?: boolean | null;
 
@@ -133,6 +156,24 @@ export interface PropertyMutation {
   property_id: string;
 
   status: string;
+
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
+  dry_run?: boolean | null;
+
+  external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  message?: string | null;
+
+  provider?: string | null;
+
+  remote?: { [key: string]: unknown } | null;
+
+  target?: string | null;
 }
 
 export interface PropertyUpsert {
@@ -142,9 +183,23 @@ export interface PropertyUpsert {
 
   conditional_choice_mapping?: { [key: string]: unknown } | null;
 
+  confirm?: boolean | null;
+
   description?: string | null;
 
+  dry_run?: boolean | null;
+
+  external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  field_type?: string | null;
+
+  group_name?: string | null;
+
   internal_name?: string | null;
+
+  channel_id?: string | null;
 
   multiple_select?: boolean | null;
 
@@ -152,13 +207,19 @@ export interface PropertyUpsert {
 
   number_format?: string | null;
 
+  options?: Array<{ [key: string]: unknown }> | null;
+
   order?: number | null;
+
+  provider?: string | null;
 
   required_field?: boolean | null;
 
   show_badge?: boolean | null;
 
   tag_values?: Array<string> | null;
+
+  target?: string | null;
 
   type?: string | null;
 
@@ -174,9 +235,23 @@ export interface PropertyCreateParams {
 
   conditional_choice_mapping?: { [key: string]: unknown } | null;
 
+  confirm?: boolean | null;
+
   description?: string | null;
 
+  dry_run?: boolean | null;
+
+  external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  field_type?: string | null;
+
+  group_name?: string | null;
+
   internal_name?: string | null;
+
+  channel_id?: string | null;
 
   multiple_select?: boolean | null;
 
@@ -184,13 +259,19 @@ export interface PropertyCreateParams {
 
   number_format?: string | null;
 
+  options?: Array<{ [key: string]: unknown }> | null;
+
   order?: number | null;
+
+  provider?: string | null;
 
   required_field?: boolean | null;
 
   show_badge?: boolean | null;
 
   tag_values?: Array<string> | null;
+
+  target?: string | null;
 
   type?: string | null;
 
@@ -211,7 +292,32 @@ export interface PropertyRetrieveParams {
   /**
    * Query param
    */
+  channel_id?: string | null;
+
+  /**
+   * Query param
+   */
+  external_object_type?: string | null;
+
+  /**
+   * Query param
+   */
   language?: string | null;
+
+  /**
+   * Query param
+   */
+  provider?: string | null;
+
+  /**
+   * Query param
+   */
+  scope?: string | null;
+
+  /**
+   * Query param
+   */
+  source?: string | null;
 
   /**
    * Query param
@@ -243,12 +349,47 @@ export interface PropertyUpdateParams {
   /**
    * Body param
    */
+  channel_id?: string | null;
+
+  /**
+   * Body param
+   */
   conditional_choice_mapping?: { [key: string]: unknown } | null;
 
   /**
    * Body param
    */
+  confirm?: boolean | null;
+
+  /**
+   * Body param
+   */
   description?: string | null;
+
+  /**
+   * Body param
+   */
+  dry_run?: boolean | null;
+
+  /**
+   * Body param
+   */
+  external_id?: string | null;
+
+  /**
+   * Body param
+   */
+  external_object_type?: string | null;
+
+  /**
+   * Body param
+   */
+  field_type?: string | null;
+
+  /**
+   * Body param
+   */
+  group_name?: string | null;
 
   /**
    * Body param
@@ -273,7 +414,17 @@ export interface PropertyUpdateParams {
   /**
    * Body param
    */
+  options?: Array<{ [key: string]: unknown }> | null;
+
+  /**
+   * Body param
+   */
   order?: number | null;
+
+  /**
+   * Body param
+   */
+  provider?: string | null;
 
   /**
    * Body param
@@ -289,6 +440,11 @@ export interface PropertyUpdateParams {
    * Body param
    */
   tag_values?: Array<string> | null;
+
+  /**
+   * Body param
+   */
+  target?: string | null;
 
   /**
    * Body param
@@ -310,12 +466,42 @@ export interface PropertyListParams {
   /**
    * Query param
    */
+  channel_id?: string | null;
+
+  /**
+   * Query param
+   */
+  external_object_type?: string | null;
+
+  /**
+   * Query param
+   */
   lang?: string | null;
 
   /**
    * Query param
    */
   language?: string | null;
+
+  /**
+   * Query param
+   */
+  provider?: string | null;
+
+  /**
+   * Query param
+   */
+  scope?: string | null;
+
+  /**
+   * Query param
+   */
+  search?: string | null;
+
+  /**
+   * Query param
+   */
+  source?: string | null;
 
   /**
    * Query param
@@ -330,6 +516,18 @@ export interface PropertyListParams {
 
 export interface PropertyDeleteParams {
   object_name: string;
+
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  dry_run?: boolean | null;
+
+  external_object_type?: string | null;
+
+  provider?: string | null;
+
+  target?: string | null;
 }
 
 export declare namespace Properties {

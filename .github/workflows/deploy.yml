@@ -5,6 +5,15 @@ on:
     types:
       - published
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Exact main commit SHA expected by the upstream Sanka deploy.'
+        required: false
+        type: string
+      trigger_id:
+        description: 'Optional upstream Sanka deploy identifier for audit/log correlation.'
+        required: false
+        type: string
 
 concurrency:
   group: deploy-production
@@ -27,6 +36,30 @@ jobs:
         if: github.event_name == 'release'
         with:
           ref: refs/tags/${{ github.event.release.tag_name }}
+
+      - name: Validate workflow dispatch target
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.expected_sha != ''
+        env:
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+          TRIGGER_ID: ${{ github.event.inputs.trigger_id }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "sanka-mcp deploy expected_sha mismatch."
+            echo "expected_sha=${EXPECTED_SHA}"
+            echo "actual_sha=${actual_sha}"
+            exit 1
+          fi
+          {
+            echo "## sanka-mcp Deploy Target"
+            echo ""
+            echo "- Expected SHA: \`${EXPECTED_SHA}\`"
+            echo "- Actual SHA: \`${actual_sha}\`"
+            if [ -n "${TRIGGER_ID:-}" ]; then
+              echo "- Trigger ID: \`${TRIGGER_ID}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Ensure release tag points to main history
         if: github.event_name == 'release'

@@ -129,9 +129,25 @@ export interface ContactListResponse {
 
   total: number;
 
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
   ctx_id?: string | null;
 
+  external_object_type?: string | null;
+
+  next_cursor?: string | null;
+
   permission?: string | null;
+
+  provider?: string | null;
+
+  scope?: string | null;
+
+  sync_state?: Record<string, unknown> | null;
+
+  unavailable_reason?: string | null;
 }
 
 export interface ContactCreateParams {
@@ -178,6 +194,16 @@ export interface ContactListParams {
   /**
    * Query param
    */
+  channel_id?: string | null;
+
+  /**
+   * Query param
+   */
+  external_object_type?: string | null;
+
+  /**
+   * Query param
+   */
   limit?: number | null;
 
   /**
@@ -194,6 +220,16 @@ export interface ContactListParams {
    * Query param
    */
   search?: string | null;
+
+  /**
+   * Query param
+   */
+  provider?: 'hubspot' | 'salesforce' | null;
+
+  /**
+   * Query param
+   */
+  scope?: 'sanka' | 'integration' | null;
 
   /**
    * Query param

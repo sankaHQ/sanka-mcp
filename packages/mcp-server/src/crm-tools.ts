@@ -15,71 +15,94 @@ import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 const WORKSPACE_ID_DESCRIPTION =
   'Internal workspace UUID. This is not a workspace switcher; do not pass short workspace codes such as 48803074. Usually omit it so Sanka uses the authenticated workspace.';
 
-const INTEGRATION_READ_INPUT_PROPERTIES = {
+const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      '`sanka` reads records stored in Sanka. `integration` reads live provider-side records through the connected integration API. Defaults to `sanka`; do not fall back to Sanka if an integration read returns unavailable_reason.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live provider-side records through the connected integration API. Do not fall back to Sanka if an integration read returns unavailable_reason.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
+  source: {
+    type: 'string',
+    description: 'Alias for scope. Prefer scope.',
+    enum: ['sanka', 'integration'],
+  },
   provider: {
     type: 'string',
     description:
-      'Integration provider for scoped reads. Use `salesforce` to select the Salesforce adapter. With scope=sanka, this filters Sanka records linked to that provider; with scope=integration, this queries the live provider side.',
+      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or with scope="sanka" to filter Sanka records linked to that provider.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
     type: 'string',
     description:
-      'Optional integration channel UUID. Use this when the workspace has multiple channels for the same provider.',
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
   },
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider-side object type, for example Salesforce Account for Sanka companies, Contact for Sanka contacts, or Product2/PricebookEntry for Sanka items where supported.',
+      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". Usually omit it.',
   },
 };
 
-const INTEGRATION_MUTATION_INPUT_PROPERTIES = {
+const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka only, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
   provider: {
     type: 'string',
-    description: 'Integration provider for integration or both-target mutations, for example `salesforce`.',
+    description:
+      'Connected integration provider for target="integration" or target="both". Company integration mutations support HubSpot/Salesforce where the API allows them.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
     type: 'string',
-    description: 'Optional integration channel UUID for provider-side mutations.',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
   },
   external_object_type: {
     type: 'string',
-    description: 'Optional provider-side object type, for example Salesforce Account.',
-  },
-  target: {
-    type: 'string',
     description:
-      '`sanka` mutates Sanka only. `integration` mutates only the connected provider. `both` mutates both when the API allows it. Defaults to `sanka`.',
-    enum: ['sanka', 'integration', 'both'],
-    default: 'sanka',
-  },
-  operation: {
-    type: 'string',
-    description:
-      'Generic mutation operation. Use `upsert` for create/update, `archive` for delete/archive, `dedupe_preview` for read-only duplicate checks where supported, and `dedupe_apply` only with explicit governance.',
-    enum: ['upsert', 'archive', 'dedupe_preview', 'dedupe_apply'],
+      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account". Usually omit it.',
   },
   dry_run: {
     type: 'boolean',
     description:
-      'When true, ask the API to preview the mutation without writing. Required for destructive integration archive/delete flows.',
+      'Preview the remote mutation without writing to the integration. Use this before remote delete or dedupe.',
     default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description:
+      'Required to execute destructive remote mutations such as integration delete or dedupe_apply after reviewing dry_run output.',
+    default: false,
+  },
+  operation: {
+    type: 'string',
+    description:
+      'Optional remote operation override. Supported values include create, update, upsert, archive, delete, dedupe_preview, and dedupe_apply.',
+    enum: ['create', 'update', 'upsert', 'archive', 'delete', 'dedupe_preview', 'dedupe_apply'],
+  },
+  primary_external_id: {
+    type: 'string',
+    description: 'Primary provider record id for integration dedupe operations.',
+  },
+  secondary_external_ids: {
+    type: 'array',
+    description: 'Provider record ids to merge into primary_external_id for integration dedupe operations.',
+    items: { type: 'string' },
   },
 };
 
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    ...INTEGRATION_READ_INPUT_PROPERTIES,
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     search: {
       type: 'string',
       description: 'Free-text search query.',
@@ -113,6 +136,12 @@ const LIST_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
     },
+    select: {
+      type: 'array',
+      description:
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "url"].',
+      items: { type: 'string' },
+    },
   },
 };
 
@@ -140,11 +169,11 @@ const RECORD_FILTER_SCHEMA = {
 const RECORD_QUERY_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    ...INTEGRATION_READ_INPUT_PROPERTIES,
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to query. Currently supports companies and contacts.',
-      enum: ['companies', 'company', 'contacts', 'contact'],
+      description: 'Record object to query. Currently supports companies, contacts, and deals.',
+      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
     },
     select: {
       type: 'array',
@@ -156,6 +185,32 @@ const RECORD_QUERY_INPUT_SCHEMA = {
       type: 'array',
       description: 'Server-side filters. Use these instead of fetching all rows and counting client-side.',
       items: RECORD_FILTER_SCHEMA,
+    },
+    mode: {
+      type: 'string',
+      description:
+        'Optional query mode. Use "dedupe_candidates" to find likely duplicate groups without mutating records.',
+      enum: ['dedupe_candidates'],
+    },
+    match_fields: {
+      type: 'array',
+      description:
+        'Fields used by mode="dedupe_candidates", for example ["name"] for companies or ["email"] for contacts.',
+      items: { type: 'string' },
+    },
+    min_count: {
+      type: 'integer',
+      description: 'Minimum records per duplicate candidate group. Defaults to 2.',
+      minimum: 2,
+      default: 2,
+    },
+    scan_limit: {
+      type: 'integer',
+      description:
+        'Maximum records to scan while finding duplicate candidates. Keep this bounded for live integrations.',
+      minimum: 1,
+      maximum: 500,
+      default: 250,
     },
     search: {
       type: 'string',
@@ -184,18 +239,22 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     object_type: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
+    next_cursor: { type: 'string' },
     count: { type: 'integer' },
     page: { type: 'integer' },
     limit: { type: 'integer' },
     total: { type: 'integer' },
     has_next: { type: 'boolean' },
     message: { type: 'string' },
-    scope: { type: 'string' },
-    provider: { type: 'string' },
-    channel_id: { type: 'string' },
     data_origin: { type: 'string' },
     source_of_truth: { type: 'string' },
-    unavailable_reason: { type: 'string' },
     results: {
       type: 'array',
       items: { type: 'object' },
@@ -207,17 +266,43 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
 const RECORD_AGGREGATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    ...INTEGRATION_READ_INPUT_PROPERTIES,
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to aggregate. Currently supports companies and contacts.',
-      enum: ['companies', 'company', 'contacts', 'contact'],
+      description: 'Record object to aggregate. Currently supports companies, contacts, and deals.',
+      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
     },
     filters: {
       type: 'array',
       description:
         'Server-side filters. For count questions, prefer aggregate_records with filters over list_* pagination.',
       items: RECORD_FILTER_SCHEMA,
+    },
+    mode: {
+      type: 'string',
+      description:
+        'Optional aggregate mode. Use "dedupe_candidates" to return likely duplicate groups without mutating records.',
+      enum: ['dedupe_candidates'],
+    },
+    match_fields: {
+      type: 'array',
+      description:
+        'Fields used by mode="dedupe_candidates", for example ["name"] for companies or ["email"] for contacts.',
+      items: { type: 'string' },
+    },
+    min_count: {
+      type: 'integer',
+      description: 'Minimum records per duplicate candidate group. Defaults to 2.',
+      minimum: 2,
+      default: 2,
+    },
+    scan_limit: {
+      type: 'integer',
+      description:
+        'Maximum records to scan while finding duplicate candidates. Keep this bounded for live integrations.',
+      minimum: 1,
+      maximum: 500,
+      default: 250,
     },
     search: {
       type: 'string',
@@ -249,18 +334,21 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     object_type: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
     metrics: { type: 'object' },
     groups: {
       type: 'array',
       items: { type: 'object' },
     },
     message: { type: 'string' },
-    scope: { type: 'string' },
-    provider: { type: 'string' },
-    channel_id: { type: 'string' },
     data_origin: { type: 'string' },
     source_of_truth: { type: 'string' },
-    unavailable_reason: { type: 'string' },
   },
   required: ['object_type', 'metrics', 'groups', 'message'],
 };
@@ -319,7 +407,7 @@ type TaskMutationPayload = {
 };
 
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
-  ...INTEGRATION_MUTATION_INPUT_PROPERTIES,
+  ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
   address: {
     type: 'string',
     description: 'Company address.',
@@ -335,7 +423,12 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   external_id: {
     type: 'string',
     description:
-      'External reference used for idempotent create/update flows. Required by the Sanka API when target=sanka; provider-side create operations may return the external id.',
+      'External reference used for Sanka idempotent create/update flows, or the provider record id for integration update/delete.',
+  },
+  custom_fields: {
+    type: 'object',
+    description:
+      'Custom field values. For integration mutations these are forwarded as provider property names.',
   },
   name: {
     type: 'string',
@@ -358,6 +451,7 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
 const COMPANY_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: COMPANY_MUTATION_INPUT_PROPERTIES,
+  required: [],
 };
 
 const COMPANY_RETRIEVE_INPUT_SCHEMA = {
@@ -394,11 +488,11 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Company identifier to delete.',
     },
+    ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
     },
-    ...INTEGRATION_MUTATION_INPUT_PROPERTIES,
   },
   required: ['company_id'],
 };
@@ -899,6 +993,14 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
 const LIST_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
+    sync_state: { type: 'object' },
+    unavailable_reason: { type: 'string' },
+    next_cursor: { type: 'string' },
     count: { type: 'integer' },
     page: { type: 'integer' },
     total: { type: 'integer' },
@@ -1178,6 +1280,7 @@ const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
 const DEAL_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     limit: {
       type: 'integer',
       description: 'Maximum number of deals to return from the deal list.',
@@ -1192,6 +1295,22 @@ const DEAL_LIST_INPUT_SCHEMA = {
     language: {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number for record-query backed deal lists.',
+      minimum: 1,
+      default: 1,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional free-text search over deal names/stages when record-query routing is used.',
+    },
+    select: {
+      type: 'array',
+      description:
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status"].',
+      items: { type: 'string' },
     },
   },
 };
@@ -1383,6 +1502,46 @@ const PROPERTY_CHOICE_VALUES_SCHEMA = {
 };
 
 const PROPERTY_MUTATION_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description:
+      'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+  },
+  external_id: {
+    type: 'string',
+    description:
+      'Provider property API name for integration create, for example HubSpot "customer_tier" or Salesforce "CustomerTier__c".',
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'Preview the integration property mutation without writing. Use this before remote deletes or Salesforce metadata changes.',
+    default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description:
+      'Required to execute destructive integration property deletes after reviewing dry_run output.',
+    default: false,
+  },
   badge_color: {
     type: 'string',
     description: 'Optional badge color token.',
@@ -1403,6 +1562,16 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   internal_name: {
     type: 'string',
     description: 'Internal property name.',
+  },
+  field_type: {
+    type: 'string',
+    description:
+      'Provider-specific field type override, for example HubSpot "select" or Salesforce "Picklist". Usually omit it.',
+  },
+  group_name: {
+    type: 'string',
+    description:
+      'Provider property group name for integration targets, for example HubSpot "companyinformation".',
   },
   multiple_select: {
     type: 'boolean',
@@ -1433,6 +1602,12 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     description: 'Optional tag values for enumerated property types.',
     items: { type: 'string' },
   },
+  options: {
+    type: 'array',
+    description:
+      'Provider option rows for picklist/enumeration properties. Each row should include label and value.',
+    items: { type: 'object', additionalProperties: true },
+  },
   type: {
     type: 'string',
     description: 'Property type.',
@@ -1453,6 +1628,38 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     custom_only: {
       type: 'boolean',
       description: 'When true, only return custom properties.',
+    },
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom properties, or "integration" to read live property definitions from a connected CRM.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+    },
+    search: {
+      type: 'string',
+      description: 'Optional provider property search text applied server-side or after provider fetch.',
     },
     limit: {
       type: 'integer',
@@ -1483,6 +1690,34 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
     property_ref: {
       type: 'string',
       description: 'Property identifier or reference.',
+    },
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom properties, or "integration" for a live CRM property definition.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
     },
     workspace_id: {
       type: 'string',
@@ -1535,8 +1770,225 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Property identifier or reference to delete.',
     },
+    target: {
+      type: 'string',
+      description:
+        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
+      enum: ['sanka', 'integration', 'both'],
+      default: 'sanka',
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+    },
+    dry_run: {
+      type: 'boolean',
+      description: 'Preview the integration property delete without writing.',
+      default: false,
+    },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required to execute destructive integration property deletes after reviewing dry_run output.',
+      default: false,
+    },
   },
   required: ['object_name', 'property_ref'],
+};
+
+const OBJECT_SCHEMA_COMMON_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka custom object schema, "integration" for HubSpot/Salesforce only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description: 'Connected integration provider for target="integration" or target="both".',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  schema_ref: {
+    type: 'string',
+    description:
+      'Existing object schema id, object type id, or API name for update/delete, for example HubSpot "2-123" or Salesforce "Asset__c".',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Provider object type/API name, for example HubSpot custom object name or Salesforce "Asset__c".',
+  },
+  name: {
+    type: 'string',
+    description: 'Display name for the object schema.',
+  },
+  slug: {
+    type: 'string',
+    description: 'Sanka slug or provider API name seed for the object schema.',
+  },
+  singular_label: {
+    type: 'string',
+    description: 'Singular label for provider object schema creation.',
+  },
+  plural_label: {
+    type: 'string',
+    description: 'Plural label for provider object schema creation.',
+  },
+  labels: {
+    type: 'object',
+    description: 'Provider labels object, usually with singular and plural.',
+    additionalProperties: true,
+  },
+  description: {
+    type: 'string',
+    description: 'Object schema description.',
+  },
+  primary_display_property: {
+    type: 'string',
+    description:
+      'Primary display property. HubSpot uses this as primaryDisplayProperty; Salesforce uses it as nameField.label.',
+  },
+  required_properties: {
+    type: 'array',
+    description: 'Provider required property API names.',
+    items: { type: 'string' },
+  },
+  searchable_properties: {
+    type: 'array',
+    description: 'Provider searchable property API names.',
+    items: { type: 'string' },
+  },
+  secondary_display_properties: {
+    type: 'array',
+    description: 'Provider secondary display property API names.',
+    items: { type: 'string' },
+  },
+  properties: {
+    type: 'array',
+    description:
+      'Provider property definitions to create with a HubSpot object schema. Salesforce custom fields should be managed with property tools.',
+    items: { type: 'object', additionalProperties: true },
+  },
+  associations: {
+    type: 'array',
+    description: 'Optional HubSpot associated object definitions for schema creation.',
+    items: { type: 'object', additionalProperties: true },
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'Preview the schema mutation without writing. Use this first for all HubSpot/Salesforce schema changes.',
+    default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description: 'Required to execute destructive schema deletes after reviewing dry_run output.',
+    default: false,
+  },
+};
+
+const OBJECT_SCHEMA_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom object schemas, or "integration" to inspect live HubSpot/Salesforce schemas.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description: 'Connected integration provider for scope="integration".',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    custom_only: {
+      type: 'boolean',
+      description: 'When true, only return custom object schemas.',
+      default: true,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional schema search text.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of schemas to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const OBJECT_SCHEMA_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    operation: {
+      type: 'string',
+      description: 'Schema mutation operation.',
+      enum: ['create', 'update', 'delete'],
+      default: 'create',
+    },
+    ...OBJECT_SCHEMA_COMMON_INPUT_PROPERTIES,
+  },
+  required: ['operation'],
+};
+
+const OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    operation: { type: 'string' },
+    target: { type: 'string' },
+    object_schema_id: { type: ['string', 'null'] as any },
+    name: { type: ['string', 'null'] as any },
+    slug: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    sanka_action: { type: ['object', 'null'] as any },
+    remote: { type: ['object', 'null'] as any },
+    warnings: { type: ['array', 'null'] as any, items: { type: 'string' } },
+    message: { type: ['string', 'null'] as any },
+    ctx_id: { type: 'string' },
+  },
 };
 
 const AUTH_STATUS_INPUT_SCHEMA = {
@@ -1694,10 +2146,15 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     company_id: { type: 'string' },
     external_id: { type: 'string' },
+    target: { type: 'string' },
     provider: { type: 'string' },
     channel_id: { type: 'string' },
-    target: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_object_type: { type: 'string' },
     operation: { type: 'string' },
+    dry_run: { type: 'boolean' },
+    sync_state: { type: 'object' },
+    remote: { type: 'object' },
     data_origin: { type: 'string' },
     source_of_truth: { type: 'string' },
     unavailable_reason: { type: 'string' },
@@ -2197,6 +2654,12 @@ const PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this purchase order. When provided, Sanka creates/replaces the purchase order detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -2917,6 +3380,12 @@ const BILL_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Tax rate.',
   },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this bill. When provided, Sanka creates/replaces the bill detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
+  },
 };
 
 const BILL_CREATE_INPUT_SCHEMA = {
@@ -3051,6 +3520,12 @@ const DISBURSEMENT_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this disbursement. When provided, Sanka creates/replaces the disbursement detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -5158,13 +5633,22 @@ const buildListResult = ({
 }: {
   label: string;
   payload: {
+    scope?: string | null;
+    provider?: string | null;
+    channel_id?: string | null;
+    channel_name?: string | null;
+    external_object_type?: string | null;
+    data_origin?: string | null;
+    source_of_truth?: string | null;
+    sync_state?: Record<string, unknown> | null;
+    unavailable_reason?: string | null;
+    next_cursor?: string | null;
     count: number;
     data: Array<Record<string, unknown>>;
     message: string;
     page: number;
     total: number;
     permission?: string | null;
-    unavailable_reason?: string | null;
   };
   previewKeys?: string[];
 }): ToolCallResult => {
@@ -5193,7 +5677,16 @@ const buildListResult = ({
       },
     ],
     structuredContent: {
-      ...payload,
+      ...(payload.scope ? { scope: payload.scope } : undefined),
+      ...(payload.provider ? { provider: payload.provider } : undefined),
+      ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
+      ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
+      ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
+      ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
+      ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
+      ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
+      ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
+      ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
       count: payload.count,
       page: payload.page,
       total: payload.total,
@@ -5235,29 +5728,23 @@ const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
   return filters;
 };
 
-const assignIntegrationReadFields = (
-  body: Record<string, unknown>,
-  args: Record<string, unknown> | undefined,
-) => {
-  assignStringFields(body, args, ['scope', 'provider', 'channel_id', 'external_object_type']);
-};
-
-const assignIntegrationMutationFields = (
-  body: Record<string, unknown>,
-  args: Record<string, unknown> | undefined,
-) => {
-  assignStringFields(body, args, ['provider', 'channel_id', 'external_object_type', 'target', 'operation']);
-  assignBooleanFields(body, args, ['dry_run']);
-};
-
 const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
+  const scope = readString(args?.['scope'] ?? args?.['source']);
+  const provider = readString(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
   };
-  assignIntegrationReadFields(body, args);
   const select = readStringArray(args?.['select']);
   const filters = buildRecordFilters(args?.['filters']);
+  const mode = readString(args?.['mode']);
+  const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
   const search = readString(args?.['search']);
   const sort = readString(args?.['sort']);
 
@@ -5267,6 +5754,12 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   if (filters.length) {
     body['filters'] = filters;
   }
+  if (mode) {
+    body['mode'] = mode;
+  }
+  if (matchFields.length) {
+    body['match_fields'] = matchFields;
+  }
   if (search) {
     body['search'] = search;
   }
@@ -5275,23 +5768,48 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   }
   body['page'] = readNumber(args?.['page'], 1);
   body['limit'] = readNumber(args?.['limit'], 25);
+  const minCountValue = args?.['min_count'] ?? args?.['minCount'];
+  if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
+    const minCount = minCountValue;
+    body['min_count'] = Math.trunc(minCount);
+  }
+  const scanLimitValue = args?.['scan_limit'] ?? args?.['scanLimit'];
+  if (typeof scanLimitValue === 'number' && Number.isFinite(scanLimitValue)) {
+    const scanLimit = scanLimitValue;
+    body['scan_limit'] = Math.trunc(scanLimit);
+  }
   return body;
 };
 
 const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
+  const scope = readString(args?.['scope'] ?? args?.['source']);
+  const provider = readString(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const filters = buildRecordFilters(args?.['filters']);
+  const mode = readString(args?.['mode']);
+  const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
   const search = readString(args?.['search']);
   const metrics = readStringArray(args?.['metrics']);
   const groupBy = readStringArray(args?.['group_by'] ?? args?.['groupBy']);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     metrics: metrics.length ? metrics : ['count'],
   };
-  assignIntegrationReadFields(body, args);
 
   if (filters.length) {
     body['filters'] = filters;
+  }
+  if (mode) {
+    body['mode'] = mode;
+  }
+  if (matchFields.length) {
+    body['match_fields'] = matchFields;
   }
   if (search) {
     body['search'] = search;
@@ -5300,6 +5818,16 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
     body['group_by'] = groupBy;
   }
   body['limit'] = readNumber(args?.['limit'], 25);
+  const minCountValue = args?.['min_count'] ?? args?.['minCount'];
+  if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
+    const minCount = minCountValue;
+    body['min_count'] = Math.trunc(minCount);
+  }
+  const scanLimitValue = args?.['scan_limit'] ?? args?.['scanLimit'];
+  if (typeof scanLimitValue === 'number' && Number.isFinite(scanLimitValue)) {
+    const scanLimit = scanLimitValue;
+    body['scan_limit'] = Math.trunc(scanLimit);
+  }
   return body;
 };
 
@@ -5308,6 +5836,22 @@ const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResul
   const count = readNumber(payload['count'], 0);
   const total = readNumber(payload['total'], count);
   const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+  const metrics = readRecord(payload['metrics']);
+  const candidateCount = metrics?.['candidate_count'];
+  if (typeof candidateCount === 'number') {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `query_records found ${candidateCount} duplicate candidate groups for ${objectType}.`,
+        },
+      ],
+      structuredContent: {
+        ...payload,
+        results: rows,
+      },
+    };
+  }
 
   return {
     content: [
@@ -5328,9 +5872,12 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   const metrics = readRecord(payload['metrics']) ?? {};
   const count = metrics['count'];
   const unavailableReason = readString(payload['unavailable_reason']);
+  const candidateCount = metrics['candidate_count'];
   const summary =
     unavailableReason ?
       `aggregate_records unavailable: ${unavailableReason}. ${readString(payload['message']) ?? ''}`.trim()
+    : typeof candidateCount === 'number' ?
+      `aggregate_records found ${candidateCount} duplicate candidate groups for ${objectType}.`
     : typeof count === 'number' ? `aggregate_records count for ${objectType}: ${count}`
     : `aggregate_records completed for ${objectType}.`;
 
@@ -5345,16 +5892,32 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   };
 };
 
+const readIntegrationScope = (value: unknown): 'sanka' | 'integration' | undefined => {
+  const scope = readString(value);
+  if (scope === 'sanka' || scope === 'integration') {
+    return scope;
+  }
+  return undefined;
+};
+
+const readIntegrationProvider = (value: unknown): 'hubspot' | 'salesforce' | undefined => {
+  const provider = readString(value);
+  if (provider === 'hubspot' || provider === 'salesforce') {
+    return provider;
+  }
+  return undefined;
+};
+
 const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const search = readString(args?.['search']);
   const sort = readString(args?.['sort']);
   const view = readString(args?.['view']);
   const language = readString(args?.['language']);
-  const scope = readString(args?.['scope']);
-  const provider = readString(args?.['provider']);
-  const channelID = readString(args?.['channel_id']);
-  const externalObjectType = readString(args?.['external_object_type']);
 
   return {
     limit: readNumber(args?.['limit'], 10),
@@ -5371,6 +5934,55 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   };
 };
 
+const hasCompanyRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
+  if (!args) {
+    return false;
+  }
+  return Boolean(readStringArray(args['select']).length);
+};
+
+const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
+  if (!args) {
+    return false;
+  }
+  return Boolean(
+    readIntegrationScope(args['scope'] ?? args['source']) ||
+      readIntegrationProvider(args['provider']) ||
+      readString(args['channel_id'] ?? args['channelId']) ||
+      readString(args['external_object_type'] ?? args['externalObjectType']) ||
+      readString(args['search']) ||
+      readStringArray(args['select']).length,
+  );
+};
+
+const buildCompanyRecordQueryBody = (args: Record<string, unknown> | undefined) => {
+  const body = buildRecordQueryBody({
+    ...(args ?? {}),
+    object_type: 'companies',
+  });
+  if (!Array.isArray(body['select'])) {
+    body['select'] = ['id', 'name', 'url', 'phone_number', 'updated_at'];
+  }
+  return body;
+};
+
+const buildDealRecordQueryBody = (args: Record<string, unknown> | undefined) => {
+  const body = buildRecordQueryBody({
+    ...(args ?? {}),
+    object_type: 'deals',
+  });
+  if (!Array.isArray(body['select'])) {
+    body['select'] =
+      (
+        readIntegrationScope(args?.['scope'] ?? args?.['source']) ||
+        readIntegrationProvider(args?.['provider'])
+      ) ?
+        ['id', 'name', 'amount', 'case_status', 'updated_at']
+      : ['id', 'name', 'case_status', 'updated_at'];
+  }
+  return body;
+};
+
 const buildCompanyRetrieveParams = (args: Record<string, unknown> | undefined) => {
   const companyID = readString(args?.['company_id']);
   const externalID = readString(args?.['external_id']);
@@ -5385,27 +5997,46 @@ const buildCompanyRetrieveParams = (args: Record<string, unknown> | undefined) =
 
 const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
-  assignIntegrationMutationFields(body, args);
   assignStringFields(body, args, [
     'address',
+    'channel_id',
     'email',
     'external_id',
+    'external_object_type',
     'name',
+    'operation',
     'phone_number',
+    'primary_external_id',
+    'provider',
     'status',
+    'target',
     'url',
   ]);
-  assignBooleanFields(body, args, ['allowed_in_store']);
+  assignBooleanFields(body, args, ['allowed_in_store', 'confirm', 'dry_run']);
+  const secondaryExternalIDs = readStringArray(args?.['secondary_external_ids']);
+  if (secondaryExternalIDs.length > 0) {
+    body['secondary_external_ids'] = secondaryExternalIDs;
+  }
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
   return body;
 };
 
 const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const companyID = readString(args?.['company_id']);
-  const externalID = readString(args?.['external_id']);
-  const params: Record<string, unknown> = {
-    ...(externalID ? { external_id: externalID } : undefined),
-  };
-  assignIntegrationMutationFields(params, args);
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, [
+    'channel_id',
+    'external_id',
+    'external_object_type',
+    'operation',
+    'provider',
+    'target',
+  ]);
+  assignBooleanFields(params, args, ['confirm', 'dry_run']);
+
   return {
     companyID,
     params,
@@ -6068,6 +6699,10 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
       body[key] = numericValue;
     }
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -6162,6 +6797,10 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -6204,6 +6843,10 @@ const buildDisbursementMutationBody = (args: Record<string, unknown> | undefined
     if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
       body[key] = numericValue;
     }
+  }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
   }
 
   return body;
@@ -6535,6 +7178,11 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const customOnly = readBoolean(args?.['custom_only']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const search = readString(args?.['search']);
   const rawLimit = readNumber(args?.['limit'], 25);
   const limit = Math.max(1, Math.min(100, rawLimit));
 
@@ -6543,6 +7191,11 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
     limit,
     params: {
       ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+      ...(search ? { search } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -6554,12 +7207,20 @@ const buildPropertyRetrieveParams = (args: Record<string, unknown> | undefined) 
   const propertyRef = readString(args?.['property_ref']);
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
 
   return {
     objectName,
     propertyRef,
     params: {
       ...(objectName ? { object_name: objectName } : undefined),
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -6570,18 +7231,33 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'badge_color',
+    'channel_id',
     'description',
+    'external_id',
+    'external_object_type',
+    'field_type',
+    'group_name',
     'internal_name',
     'name',
     'number_format',
+    'provider',
+    'target',
     'type',
   ]);
-  assignBooleanFields(body, args, ['multiple_select', 'required_field', 'show_badge', 'unique']);
+  assignBooleanFields(body, args, [
+    'confirm',
+    'dry_run',
+    'multiple_select',
+    'required_field',
+    'show_badge',
+    'unique',
+  ]);
   assignIntegerFields(body, args, ['order']);
 
   const choiceValues = args?.['choice_values'];
   const conditionalChoiceMapping = readRecord(args?.['conditional_choice_mapping']);
   const tagValues = args?.['tag_values'];
+  const options = args?.['options'];
 
   if (Array.isArray(choiceValues)) {
     body['choice_values'] = readStringArray(choiceValues);
@@ -6600,7 +7276,133 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     body['tag_values'] = readStringArray(tagValues);
   }
 
+  if (Array.isArray(options)) {
+    body['options'] = options
+      .map((option) => readRecord(option))
+      .filter((option): option is Record<string, unknown> => Boolean(option));
+  }
+
   return body;
+};
+
+const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const objectName = readString(args?.['object_name']);
+  const propertyRef = readString(args?.['property_ref']);
+  const target = readString(args?.['target']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const dryRun = readBoolean(args?.['dry_run']);
+  const confirm = readBoolean(args?.['confirm']);
+
+  return {
+    objectName,
+    propertyRef,
+    params: {
+      ...(objectName ? { object_name: objectName } : undefined),
+      ...(target ? { target } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+      ...(dryRun !== undefined ? { dry_run: dryRun } : undefined),
+      ...(confirm !== undefined ? { confirm } : undefined),
+    },
+  };
+};
+
+const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const rows = value
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  return rows.length > 0 ? rows : undefined;
+};
+
+const buildObjectSchemaListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const customOnly = readBoolean(args?.['custom_only']);
+  const search = readString(args?.['search']);
+  const rawLimit = readNumber(args?.['limit'], 25);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
+      ...(search ? { search } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    },
+  };
+};
+
+const buildObjectSchemaMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'channel_id',
+    'description',
+    'external_object_type',
+    'name',
+    'operation',
+    'plural_label',
+    'primary_display_property',
+    'provider',
+    'schema_ref',
+    'singular_label',
+    'slug',
+    'target',
+  ]);
+  assignBooleanFields(body, args, ['confirm', 'dry_run']);
+  const labels = readRecord(args?.['labels']);
+  if (labels) {
+    body['labels'] = labels;
+  }
+  const requiredProperties = readStringArray(args?.['required_properties'] ?? args?.['requiredProperties']);
+  if (requiredProperties.length > 0) {
+    body['required_properties'] = requiredProperties;
+  }
+  const searchableProperties = readStringArray(
+    args?.['searchable_properties'] ?? args?.['searchableProperties'],
+  );
+  if (searchableProperties.length > 0) {
+    body['searchable_properties'] = searchableProperties;
+  }
+  const secondaryDisplayProperties = readStringArray(
+    args?.['secondary_display_properties'] ?? args?.['secondaryDisplayProperties'],
+  );
+  if (secondaryDisplayProperties.length > 0) {
+    body['secondary_display_properties'] = secondaryDisplayProperties;
+  }
+  const properties = readObjectArray(args?.['properties']);
+  if (properties) {
+    body['properties'] = properties;
+  }
+  const associations = readObjectArray(args?.['associations']);
+  if (associations) {
+    body['associations'] = associations;
+  }
+  return body;
+};
+
+const objectSchemaMutationAction = (
+  response: Record<string, unknown>,
+  body: Record<string, unknown>,
+): 'created' | 'updated' | 'deleted' => {
+  const status = readString(response['status']) ?? readString(body['operation']) ?? '';
+  if (status === 'delete' || status === 'deleted') {
+    return 'deleted';
+  }
+  if (status === 'update' || status === 'updated') {
+    return 'updated';
+  }
+  return 'created';
 };
 
 const buildWorkspaceLanguageListParams = (args: Record<string, unknown> | undefined) => {
@@ -7052,6 +7854,36 @@ const buildEntityMutationSummary = ({
   payload: Record<string, unknown>;
   idKeys: string[];
 }): string => {
+  const target = readString(payload['target']);
+  const operation = readString(payload['operation']);
+  const provider = readString(payload['provider']) || 'integration';
+  const dryRun = readBoolean(payload['dry_run']);
+  if (target === 'integration' && operation?.startsWith('dedupe_')) {
+    const remote = readRecord(payload['remote']);
+    const primary =
+      readString(remote?.['primary_external_id']) ||
+      readString(payload['primary_external_id']) ||
+      readString(payload['external_id']);
+    const secondaries =
+      readStringArray(remote?.['secondary_external_ids']).length > 0 ?
+        readStringArray(remote?.['secondary_external_ids'])
+      : readStringArray(payload['secondary_external_ids']);
+    const mergeCount = secondaries.length;
+    const previewText = dryRun || operation === 'dedupe_preview' ? 'preview prepared' : 'applied';
+    const primaryText = primary ? ` primary=${primary}` : '';
+    const mergeText = mergeCount > 0 ? ` merge_count=${mergeCount}` : '';
+    return `${entity} ${provider} dedupe ${previewText}:${primaryText}${mergeText}.`;
+  }
+
+  if (target === 'integration') {
+    const reference =
+      readString(payload['external_id']) ||
+      readString(payload['status']) ||
+      readString(payload['operation']) ||
+      entity;
+    return `${entity} ${provider} ${operation || action}: ${reference}.`;
+  }
+
   const reference =
     idKeys.map((key) => readString(payload[key])).find((value): value is string => Boolean(value)) ||
     readString(payload['external_id']) ||
@@ -7759,7 +8591,19 @@ export const crmListCompaniesTool: McpTool = {
       return authError;
     }
 
-    const payload = await reqContext.client.public.companies.list(buildListParams(args), undefined);
+    const payload =
+      hasCompanyRecordRoutingArgs(args) ?
+        ((await reqContext.client.post('/v1/public/records/query', {
+          body: buildCompanyRecordQueryBody(args),
+        })) as {
+          count: number;
+          data: Array<Record<string, unknown>>;
+          message: string;
+          page: number;
+          total: number;
+          permission?: string | null;
+        })
+      : await reqContext.client.public.companies.list(buildListParams(args), undefined);
 
     return buildListResult({
       label: 'companies',
@@ -7895,7 +8739,7 @@ export const crmUpdateCompanyTool: McpTool = {
     name: 'update_company',
     title: 'Update company',
     description:
-      'Update an existing company. Default target=sanka mutates Sanka only. Use target=integration with provider=salesforce for Salesforce-only updates, or target=both when the API allows both-side sync.',
+      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -9069,6 +9913,24 @@ export const crmListDealsTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+
+    if (hasDealRecordRoutingArgs(args)) {
+      const payload = (await reqContext.client.post('/v1/public/records/query', {
+        body: buildDealRecordQueryBody(args),
+      })) as {
+        count: number;
+        data: Array<Record<string, unknown>>;
+        message: string;
+        page: number;
+        total: number;
+        permission?: string | null;
+      };
+      return buildListResult({
+        label: 'deals',
+        payload,
+        previewKeys: ['name', 'case_status', 'stage_key', 'deal_id'],
+      });
     }
 
     const { limit, params } = buildDealListParams(args);
@@ -12615,6 +13477,118 @@ export const crmUpdateTicketStatusTool: McpTool = {
   },
 };
 
+export const crmListObjectSchemasTool: McpTool = {
+  metadata: {
+    resource: 'object-schemas',
+    operation: 'read',
+    tags: ['crm', 'schema', 'custom-objects'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/object-schemas',
+    operationId: 'public.objectSchemas.list',
+  },
+  tool: {
+    name: 'list_object_schemas',
+    title: 'List object schemas',
+    description:
+      'List Sanka custom object schemas or live HubSpot/Salesforce object schemas. Use scope="integration" with provider to inspect provider custom objects.',
+    inputSchema: OBJECT_SCHEMA_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List object schemas',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List object schemas',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildObjectSchemaListParams(args);
+    const schemas = (await reqContext.client.get('/v1/public/object-schemas', {
+      query: params,
+    })) as Array<Record<string, unknown>>;
+    const results = schemas.slice(0, limit);
+
+    return buildListResult({
+      label: 'object schemas',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${schemas.length} object schemas.`,
+        page: 1,
+        total: schemas.length,
+      },
+      previewKeys: ['name', 'slug', 'external_id'],
+    });
+  },
+};
+
+export const crmMutateObjectSchemaTool: McpTool = {
+  metadata: {
+    resource: 'object-schemas',
+    operation: 'write',
+    tags: ['crm', 'schema', 'custom-objects'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/object-schemas',
+    operationId: 'public.objectSchemas.mutate',
+  },
+  tool: {
+    name: 'mutate_object_schema',
+    title: 'Mutate object schema',
+    description:
+      'Create, update, or delete a Sanka, HubSpot, or Salesforce custom object schema through routed arguments. Run dry_run=true first for HubSpot/Salesforce and set confirm=true before deletes. Salesforce schema writes use Metadata API.',
+    inputSchema: OBJECT_SCHEMA_MUTATION_INPUT_SCHEMA,
+    outputSchema: OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Mutate object schema',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Mutate object schema',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildObjectSchemaMutationBody(args);
+    if (!body['operation']) {
+      return asErrorResult('`operation` is required.');
+    }
+
+    const response = (await reqContext.client.post('/v1/public/object-schemas', {
+      body,
+    })) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Object schema',
+            action: objectSchemaMutationAction(response, body),
+            payload: response,
+            idKeys: ['object_schema_id', 'external_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
 export const crmListPropertiesTool: McpTool = {
   metadata: {
     resource: 'properties',
@@ -12893,8 +13867,7 @@ export const crmDeletePropertyTool: McpTool = {
       return authError;
     }
 
-    const objectName = readString(args?.['object_name']);
-    const propertyRef = readString(args?.['property_ref']);
+    const { objectName, propertyRef, params } = buildPropertyDeleteParams(args);
     if (!objectName) {
       return asErrorResult('`object_name` is required.');
     }
@@ -12904,7 +13877,15 @@ export const crmDeletePropertyTool: McpTool = {
 
     const response = (await reqContext.client.public.properties.delete(
       propertyRef,
-      { object_name: objectName },
+      params as {
+        object_name: string;
+        target?: string;
+        provider?: string;
+        channel_id?: string;
+        external_object_type?: string;
+        dry_run?: boolean;
+        confirm?: boolean;
+      },
       undefined,
     )) as unknown as Record<string, unknown>;
 
