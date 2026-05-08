@@ -205,7 +205,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v1/salesforce/cpq/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
       body: {
         source_record: {
           source_system: 'salesforce',
@@ -272,7 +272,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v1/salesforce/cpq/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
       body: {
         source_record: {
           source_system: 'sanka',

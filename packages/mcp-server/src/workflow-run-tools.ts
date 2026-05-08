@@ -265,7 +265,7 @@ export const previewWorkflowTool: McpTool = {
     if (isSalesforceQuoteReadinessPreview(workflowType)) {
       return postWorkflowRunEndpoint({
         reqContext,
-        path: '/api/v1/salesforce/cpq/preview',
+        path: '/v1/public/salesforce/cpq/preview',
         body: {
           source_record: sourceRecord,
         },
