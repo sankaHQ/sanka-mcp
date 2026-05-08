@@ -1006,12 +1006,8 @@ const LIST_OUTPUT_SCHEMA = {
     total: { type: 'integer' },
     message: { type: 'string' },
     permission: { type: 'string' },
-    scope: { type: 'string' },
-    provider: { type: 'string' },
-    channel_id: { type: 'string' },
     data_origin: { type: 'string' },
     source_of_truth: { type: 'string' },
-    unavailable_reason: { type: 'string' },
     results: {
       type: 'array',
       items: {
