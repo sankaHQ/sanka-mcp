@@ -635,6 +635,18 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/properties/{object_name}/{property_ref}',
   },
   {
+    clientCallName: 'client.public.objectSchemas.list',
+    fullyQualifiedName: 'public.objectSchemas.list',
+    httpMethod: 'get',
+    httpPath: '/v1/public/object-schemas',
+  },
+  {
+    clientCallName: 'client.public.objectSchemas.mutate',
+    fullyQualifiedName: 'public.objectSchemas.mutate',
+    httpMethod: 'post',
+    httpPath: '/v1/public/object-schemas',
+  },
+  {
     clientCallName: 'client.public.purchaseOrders.create',
     fullyQualifiedName: 'public.purchaseOrders.create',
     httpMethod: 'post',

@@ -8,8 +8,23 @@ import { requireAuthentication } from './tool-auth';
 
 // Re-export the generated types via the Sanka namespace so we don't need to
 // reach into subpath modules (which do not resolve under moduleResolution:node).
-type DemoGenerateParams = Sanka.DemoGenerateParams;
-type DemoGenerateResponse = Sanka.DemoGenerateResponse;
+type DemoGenerateParams = Sanka.DemoGenerateParams & {
+  target?: string;
+  provider?: string;
+  channel_id?: string;
+  dry_run?: boolean;
+  confirm?: boolean;
+  custom_objects?: Array<Record<string, unknown>>;
+};
+type DemoGenerateResponse = Sanka.DemoGenerateResponse & {
+  target?: string | null;
+  provider?: string | null;
+  channel_id?: string | null;
+  channel_name?: string | null;
+  dry_run?: boolean | null;
+  remote?: Record<string, unknown> | null;
+  warnings?: string[] | null;
+};
 type IntegrationSyncPushParams = Sanka.IntegrationSyncPushParams;
 type IntegrationSyncPushResponse = Sanka.IntegrationSyncPushResponse;
 
@@ -24,6 +39,81 @@ const DEMO_GENERATE_INPUT_SCHEMA = {
       description:
         'Demo template slug. Use "b2b_saas" for horizontal B2B SaaS, "dtc_subscription" for a direct-to-consumer subscription brand, or "agency_services" for a boutique creative/digital agency.',
       enum: [...SUPPORTED_TEMPLATES],
+    },
+    target: {
+      type: 'string',
+      description:
+        'Demo destination. Use "sanka" to seed Sanka, "integration" to create directly in HubSpot/Salesforce, or "both" to do both.',
+      enum: ['sanka', 'integration', 'both'],
+      default: 'sanka',
+    },
+    provider: {
+      type: 'string',
+      description: 'Connected CRM provider for target="integration" or target="both".',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one HubSpot/Salesforce connection.',
+    },
+    dry_run: {
+      type: 'boolean',
+      description:
+        'Preview direct integration demo creation without writing provider records. Use this first for HubSpot/Salesforce demos.',
+      default: false,
+    },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required when target includes integration and dry_run=false because this creates records directly in the provider.',
+      default: false,
+    },
+    custom_objects: {
+      type: 'array',
+      description:
+        'Optional custom object record plans for direct HubSpot/Salesforce demos. The provider custom object schema must already exist. Use external_object_type plus records or count/name_property.',
+      items: {
+        type: 'object',
+        properties: {
+          external_object_type: {
+            type: 'string',
+            description:
+              'Provider custom object API name or object type id, for example a HubSpot custom object type id or Salesforce Demo_Object__c.',
+          },
+          label: {
+            type: 'string',
+            description: 'Optional display label used for generated sample record names.',
+          },
+          name_property: {
+            type: 'string',
+            description:
+              'Provider property used for generated names. Defaults to name for HubSpot and Name for Salesforce.',
+          },
+          count: {
+            type: 'integer',
+            description: 'Number of generated records when records is omitted.',
+            minimum: 0,
+            maximum: 50,
+            default: 3,
+          },
+          properties: {
+            type: 'object',
+            description: 'Default provider properties applied to every generated custom object record.',
+            additionalProperties: true,
+          },
+          records: {
+            type: 'array',
+            description:
+              'Explicit provider property dictionaries. When set, these records are used instead of generated sample records.',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+            },
+          },
+        },
+        required: ['external_object_type'],
+      },
     },
     country: {
       type: 'string',
@@ -51,6 +141,11 @@ const DEMO_GENERATE_OUTPUT_SCHEMA = {
     workspace_id: { type: 'string' },
     workspace_name: { type: 'string' },
     workspace_short_id: { type: ['integer', 'null'] as any },
+    target: { type: 'string' },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
     template: { type: 'string' },
     country: { type: 'string' },
     seed: { type: 'integer' },
@@ -62,6 +157,11 @@ const DEMO_GENERATE_OUTPUT_SCHEMA = {
     sample_record_ids: {
       type: 'object',
       additionalProperties: { type: 'array', items: { type: 'string' } },
+    },
+    remote: { type: ['object', 'null'] as any },
+    warnings: {
+      type: ['array', 'null'] as any,
+      items: { type: 'string' },
     },
     message: { type: 'string' },
   },
@@ -159,11 +259,61 @@ const readStringArray = (value: unknown): string[] | undefined => {
   return result.length > 0 ? result : undefined;
 };
 
+const readPlainObject = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+};
+
+const readCustomObjectPlans = (value: unknown): Array<Record<string, unknown>> | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const plans = value
+    .map((entry) => readPlainObject(entry))
+    .filter((entry): entry is Record<string, unknown> => {
+      const externalObjectType = readString(entry?.['external_object_type'] ?? entry?.['externalObjectType']);
+      return Boolean(externalObjectType);
+    })
+    .map((entry) => {
+      const plan: Record<string, unknown> = {
+        external_object_type: readString(entry['external_object_type'] ?? entry['externalObjectType']),
+      };
+      const label = readString(entry['label']);
+      if (label) {
+        plan['label'] = label;
+      }
+      const nameProperty = readString(entry['name_property'] ?? entry['nameProperty']);
+      if (nameProperty) {
+        plan['name_property'] = nameProperty;
+      }
+      const count = readNumber(entry['count']);
+      if (count !== undefined) {
+        plan['count'] = Math.trunc(count);
+      }
+      const properties = readPlainObject(entry['properties']);
+      if (properties) {
+        plan['properties'] = properties;
+      }
+      if (Array.isArray(entry['records'])) {
+        plan['records'] = entry['records']
+          .map((record) => readPlainObject(record))
+          .filter((record): record is Record<string, unknown> => Boolean(record));
+      }
+      return plan;
+    });
+  return plans.length > 0 ? plans : undefined;
+};
+
 const buildDemoSummary = (response: DemoGenerateResponse): string => {
   const parts: string[] = [];
   parts.push(
-    response.created ?
-      `Created new demo workspace "${response.workspace_name}"`
+    response.target === 'integration' ?
+      response.dry_run ?
+        `Prepared direct ${response.provider ?? 'integration'} demo dry run for "${response.workspace_name}"`
+      : `Created direct ${response.provider ?? 'integration'} demo records for "${response.workspace_name}"`
+    : response.created ? `Created new demo workspace "${response.workspace_name}"`
     : `Seeded existing workspace "${response.workspace_name}"`,
   );
   parts.push(
@@ -173,6 +323,10 @@ const buildDemoSummary = (response: DemoGenerateResponse): string => {
       response.counts?.['invoices'] ?? 0
     } invoices, ${response.counts?.['receipts'] ?? 0} receipts.`,
   );
+  const customObjectCount = response.counts?.['custom_objects'];
+  if (typeof customObjectCount === 'number' && customObjectCount > 0) {
+    parts.push(`${customObjectCount} custom object records are included.`);
+  }
   return parts.join(' ');
 };
 
@@ -196,7 +350,7 @@ export const demoGenerateTool: McpTool = {
     name: 'generate_demo_workspace',
     title: 'Generate demo workspace',
     description:
-      'Seed a Sanka workspace with a curated lead-to-cash demo (companies, contacts, items, deals, subscriptions, invoices, receipts). Use this when the user asks for an instant demo workspace or a reproducible sandbox. When the user has no workspace yet, omit workspace_id to auto-provision one.',
+      'Seed a Sanka workspace or create records directly in HubSpot/Salesforce with a curated lead-to-cash demo. For direct provider creation, set target="integration", provider, dry_run=true first, then rerun with confirm=true only after explicit approval. For provider custom object records, pass custom_objects with external_object_type; the custom object schema must already exist.',
     inputSchema: DEMO_GENERATE_INPUT_SCHEMA,
     outputSchema: DEMO_GENERATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -234,6 +388,30 @@ export const demoGenerateTool: McpTool = {
       template,
       country,
     };
+    const target = readString(args?.['target']);
+    if (target) {
+      body.target = target;
+    }
+    const provider = readString(args?.['provider']);
+    if (provider) {
+      body.provider = provider;
+    }
+    const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+    if (channelID) {
+      body.channel_id = channelID;
+    }
+    const dryRun = typeof args?.['dry_run'] === 'boolean' ? args['dry_run'] : undefined;
+    if (dryRun !== undefined) {
+      body.dry_run = dryRun;
+    }
+    const confirm = typeof args?.['confirm'] === 'boolean' ? args['confirm'] : undefined;
+    if (confirm !== undefined) {
+      body.confirm = confirm;
+    }
+    const customObjects = readCustomObjectPlans(args?.['custom_objects'] ?? args?.['customObjects']);
+    if (customObjects) {
+      body.custom_objects = customObjects;
+    }
     const workspaceId = readString(args?.['workspace_id']);
     if (workspaceId) {
       body.workspace_id = workspaceId;
@@ -243,7 +421,7 @@ export const demoGenerateTool: McpTool = {
       body.seed = Math.trunc(seed);
     }
 
-    const response = await reqContext.client.demo.generate(body);
+    const response = (await reqContext.client.demo.generate(body)) as DemoGenerateResponse;
 
     return {
       content: [
@@ -256,12 +434,19 @@ export const demoGenerateTool: McpTool = {
         workspace_id: response.workspace_id,
         workspace_name: response.workspace_name,
         workspace_short_id: response.workspace_short_id ?? null,
+        target: response.target ?? 'sanka',
+        provider: response.provider ?? null,
+        channel_id: response.channel_id ?? null,
+        channel_name: response.channel_name ?? null,
+        dry_run: response.dry_run ?? null,
         template: response.template,
         country: response.country,
         seed: response.seed,
         created: response.created,
         counts: response.counts ?? {},
         sample_record_ids: response.sample_record_ids ?? {},
+        remote: response.remote ?? null,
+        warnings: response.warnings ?? null,
         message: response.message,
       },
     };

@@ -185,6 +185,32 @@ const RECORD_QUERY_INPUT_SCHEMA = {
       description: 'Server-side filters. Use these instead of fetching all rows and counting client-side.',
       items: RECORD_FILTER_SCHEMA,
     },
+    mode: {
+      type: 'string',
+      description:
+        'Optional query mode. Use "dedupe_candidates" to find likely duplicate groups without mutating records.',
+      enum: ['dedupe_candidates'],
+    },
+    match_fields: {
+      type: 'array',
+      description:
+        'Fields used by mode="dedupe_candidates", for example ["name"] for companies or ["email"] for contacts.',
+      items: { type: 'string' },
+    },
+    min_count: {
+      type: 'integer',
+      description: 'Minimum records per duplicate candidate group. Defaults to 2.',
+      minimum: 2,
+      default: 2,
+    },
+    scan_limit: {
+      type: 'integer',
+      description:
+        'Maximum records to scan while finding duplicate candidates. Keep this bounded for live integrations.',
+      minimum: 1,
+      maximum: 500,
+      default: 250,
+    },
     search: {
       type: 'string',
       description: 'Optional free-text search over the default text fields for the object.',
@@ -248,6 +274,32 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
       description:
         'Server-side filters. For count questions, prefer aggregate_records with filters over list_* pagination.',
       items: RECORD_FILTER_SCHEMA,
+    },
+    mode: {
+      type: 'string',
+      description:
+        'Optional aggregate mode. Use "dedupe_candidates" to return likely duplicate groups without mutating records.',
+      enum: ['dedupe_candidates'],
+    },
+    match_fields: {
+      type: 'array',
+      description:
+        'Fields used by mode="dedupe_candidates", for example ["name"] for companies or ["email"] for contacts.',
+      items: { type: 'string' },
+    },
+    min_count: {
+      type: 'integer',
+      description: 'Minimum records per duplicate candidate group. Defaults to 2.',
+      minimum: 2,
+      default: 2,
+    },
+    scan_limit: {
+      type: 'integer',
+      description:
+        'Maximum records to scan while finding duplicate candidates. Keep this bounded for live integrations.',
+      minimum: 1,
+      maximum: 500,
+      default: 250,
     },
     search: {
       type: 'string',
@@ -1743,6 +1795,189 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['object_name', 'property_ref'],
+};
+
+const OBJECT_SCHEMA_COMMON_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka custom object schema, "integration" for HubSpot/Salesforce only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description: 'Connected integration provider for target="integration" or target="both".',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  schema_ref: {
+    type: 'string',
+    description:
+      'Existing object schema id, object type id, or API name for update/delete, for example HubSpot "2-123" or Salesforce "Asset__c".',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Provider object type/API name, for example HubSpot custom object name or Salesforce "Asset__c".',
+  },
+  name: {
+    type: 'string',
+    description: 'Display name for the object schema.',
+  },
+  slug: {
+    type: 'string',
+    description: 'Sanka slug or provider API name seed for the object schema.',
+  },
+  singular_label: {
+    type: 'string',
+    description: 'Singular label for provider object schema creation.',
+  },
+  plural_label: {
+    type: 'string',
+    description: 'Plural label for provider object schema creation.',
+  },
+  labels: {
+    type: 'object',
+    description: 'Provider labels object, usually with singular and plural.',
+    additionalProperties: true,
+  },
+  description: {
+    type: 'string',
+    description: 'Object schema description.',
+  },
+  primary_display_property: {
+    type: 'string',
+    description:
+      'Primary display property. HubSpot uses this as primaryDisplayProperty; Salesforce uses it as nameField.label.',
+  },
+  required_properties: {
+    type: 'array',
+    description: 'Provider required property API names.',
+    items: { type: 'string' },
+  },
+  searchable_properties: {
+    type: 'array',
+    description: 'Provider searchable property API names.',
+    items: { type: 'string' },
+  },
+  secondary_display_properties: {
+    type: 'array',
+    description: 'Provider secondary display property API names.',
+    items: { type: 'string' },
+  },
+  properties: {
+    type: 'array',
+    description:
+      'Provider property definitions to create with a HubSpot object schema. Salesforce custom fields should be managed with property tools.',
+    items: { type: 'object', additionalProperties: true },
+  },
+  associations: {
+    type: 'array',
+    description: 'Optional HubSpot associated object definitions for schema creation.',
+    items: { type: 'object', additionalProperties: true },
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'Preview the schema mutation without writing. Use this first for all HubSpot/Salesforce schema changes.',
+    default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description: 'Required to execute destructive schema deletes after reviewing dry_run output.',
+    default: false,
+  },
+};
+
+const OBJECT_SCHEMA_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom object schemas, or "integration" to inspect live HubSpot/Salesforce schemas.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description: 'Connected integration provider for scope="integration".',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    custom_only: {
+      type: 'boolean',
+      description: 'When true, only return custom object schemas.',
+      default: true,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional schema search text.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of schemas to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const OBJECT_SCHEMA_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    operation: {
+      type: 'string',
+      description: 'Schema mutation operation.',
+      enum: ['create', 'update', 'delete'],
+      default: 'create',
+    },
+    ...OBJECT_SCHEMA_COMMON_INPUT_PROPERTIES,
+  },
+  required: ['operation'],
+};
+
+const OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    operation: { type: 'string' },
+    target: { type: 'string' },
+    object_schema_id: { type: ['string', 'null'] as any },
+    name: { type: ['string', 'null'] as any },
+    slug: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    sanka_action: { type: ['object', 'null'] as any },
+    remote: { type: ['object', 'null'] as any },
+    warnings: { type: ['array', 'null'] as any, items: { type: 'string' } },
+    message: { type: ['string', 'null'] as any },
+    ctx_id: { type: 'string' },
+  },
 };
 
 const AUTH_STATUS_INPUT_SCHEMA = {
@@ -5487,6 +5722,8 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   };
   const select = readStringArray(args?.['select']);
   const filters = buildRecordFilters(args?.['filters']);
+  const mode = readString(args?.['mode']);
+  const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
   const search = readString(args?.['search']);
   const sort = readString(args?.['sort']);
 
@@ -5496,6 +5733,12 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   if (filters.length) {
     body['filters'] = filters;
   }
+  if (mode) {
+    body['mode'] = mode;
+  }
+  if (matchFields.length) {
+    body['match_fields'] = matchFields;
+  }
   if (search) {
     body['search'] = search;
   }
@@ -5504,6 +5747,16 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   }
   body['page'] = readNumber(args?.['page'], 1);
   body['limit'] = readNumber(args?.['limit'], 25);
+  const minCountValue = args?.['min_count'] ?? args?.['minCount'];
+  if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
+    const minCount = minCountValue;
+    body['min_count'] = Math.trunc(minCount);
+  }
+  const scanLimitValue = args?.['scan_limit'] ?? args?.['scanLimit'];
+  if (typeof scanLimitValue === 'number' && Number.isFinite(scanLimitValue)) {
+    const scanLimit = scanLimitValue;
+    body['scan_limit'] = Math.trunc(scanLimit);
+  }
   return body;
 };
 
@@ -5514,6 +5767,8 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const filters = buildRecordFilters(args?.['filters']);
+  const mode = readString(args?.['mode']);
+  const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
   const search = readString(args?.['search']);
   const metrics = readStringArray(args?.['metrics']);
   const groupBy = readStringArray(args?.['group_by'] ?? args?.['groupBy']);
@@ -5529,6 +5784,12 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   if (filters.length) {
     body['filters'] = filters;
   }
+  if (mode) {
+    body['mode'] = mode;
+  }
+  if (matchFields.length) {
+    body['match_fields'] = matchFields;
+  }
   if (search) {
     body['search'] = search;
   }
@@ -5536,6 +5797,16 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
     body['group_by'] = groupBy;
   }
   body['limit'] = readNumber(args?.['limit'], 25);
+  const minCountValue = args?.['min_count'] ?? args?.['minCount'];
+  if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
+    const minCount = minCountValue;
+    body['min_count'] = Math.trunc(minCount);
+  }
+  const scanLimitValue = args?.['scan_limit'] ?? args?.['scanLimit'];
+  if (typeof scanLimitValue === 'number' && Number.isFinite(scanLimitValue)) {
+    const scanLimit = scanLimitValue;
+    body['scan_limit'] = Math.trunc(scanLimit);
+  }
   return body;
 };
 
@@ -5544,6 +5815,22 @@ const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResul
   const count = readNumber(payload['count'], 0);
   const total = readNumber(payload['total'], count);
   const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+  const metrics = readRecord(payload['metrics']);
+  const candidateCount = metrics?.['candidate_count'];
+  if (typeof candidateCount === 'number') {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `query_records found ${candidateCount} duplicate candidate groups for ${objectType}.`,
+        },
+      ],
+      structuredContent: {
+        ...payload,
+        results: rows,
+      },
+    };
+  }
 
   return {
     content: [
@@ -5563,9 +5850,11 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   const objectType = readString(payload['object_type']) ?? 'records';
   const metrics = readRecord(payload['metrics']) ?? {};
   const count = metrics['count'];
+  const candidateCount = metrics['candidate_count'];
   const summary =
-    typeof count === 'number' ?
-      `aggregate_records count for ${objectType}: ${count}`
+    typeof candidateCount === 'number' ?
+      `aggregate_records found ${candidateCount} duplicate candidate groups for ${objectType}.`
+    : typeof count === 'number' ? `aggregate_records count for ${objectType}: ${count}`
     : `aggregate_records completed for ${objectType}.`;
 
   return {
@@ -6996,6 +7285,101 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
   };
 };
 
+const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const rows = value
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  return rows.length > 0 ? rows : undefined;
+};
+
+const buildObjectSchemaListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const customOnly = readBoolean(args?.['custom_only']);
+  const search = readString(args?.['search']);
+  const rawLimit = readNumber(args?.['limit'], 25);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  return {
+    limit,
+    params: {
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
+      ...(search ? { search } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    },
+  };
+};
+
+const buildObjectSchemaMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'channel_id',
+    'description',
+    'external_object_type',
+    'name',
+    'operation',
+    'plural_label',
+    'primary_display_property',
+    'provider',
+    'schema_ref',
+    'singular_label',
+    'slug',
+    'target',
+  ]);
+  assignBooleanFields(body, args, ['confirm', 'dry_run']);
+  const labels = readRecord(args?.['labels']);
+  if (labels) {
+    body['labels'] = labels;
+  }
+  const requiredProperties = readStringArray(args?.['required_properties'] ?? args?.['requiredProperties']);
+  if (requiredProperties.length > 0) {
+    body['required_properties'] = requiredProperties;
+  }
+  const searchableProperties = readStringArray(
+    args?.['searchable_properties'] ?? args?.['searchableProperties'],
+  );
+  if (searchableProperties.length > 0) {
+    body['searchable_properties'] = searchableProperties;
+  }
+  const secondaryDisplayProperties = readStringArray(
+    args?.['secondary_display_properties'] ?? args?.['secondaryDisplayProperties'],
+  );
+  if (secondaryDisplayProperties.length > 0) {
+    body['secondary_display_properties'] = secondaryDisplayProperties;
+  }
+  const properties = readObjectArray(args?.['properties']);
+  if (properties) {
+    body['properties'] = properties;
+  }
+  const associations = readObjectArray(args?.['associations']);
+  if (associations) {
+    body['associations'] = associations;
+  }
+  return body;
+};
+
+const objectSchemaMutationAction = (
+  response: Record<string, unknown>,
+  body: Record<string, unknown>,
+): 'created' | 'updated' | 'deleted' => {
+  const status = readString(response['status']) ?? readString(body['operation']) ?? '';
+  if (status === 'delete' || status === 'deleted') {
+    return 'deleted';
+  }
+  if (status === 'update' || status === 'updated') {
+    return 'updated';
+  }
+  return 'created';
+};
+
 const buildWorkspaceLanguageListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
@@ -7445,6 +7829,36 @@ const buildEntityMutationSummary = ({
   payload: Record<string, unknown>;
   idKeys: string[];
 }): string => {
+  const target = readString(payload['target']);
+  const operation = readString(payload['operation']);
+  const provider = readString(payload['provider']) || 'integration';
+  const dryRun = readBoolean(payload['dry_run']);
+  if (target === 'integration' && operation?.startsWith('dedupe_')) {
+    const remote = readRecord(payload['remote']);
+    const primary =
+      readString(remote?.['primary_external_id']) ||
+      readString(payload['primary_external_id']) ||
+      readString(payload['external_id']);
+    const secondaries =
+      readStringArray(remote?.['secondary_external_ids']).length > 0 ?
+        readStringArray(remote?.['secondary_external_ids'])
+      : readStringArray(payload['secondary_external_ids']);
+    const mergeCount = secondaries.length;
+    const previewText = dryRun || operation === 'dedupe_preview' ? 'preview prepared' : 'applied';
+    const primaryText = primary ? ` primary=${primary}` : '';
+    const mergeText = mergeCount > 0 ? ` merge_count=${mergeCount}` : '';
+    return `${entity} ${provider} dedupe ${previewText}:${primaryText}${mergeText}.`;
+  }
+
+  if (target === 'integration') {
+    const reference =
+      readString(payload['external_id']) ||
+      readString(payload['status']) ||
+      readString(payload['operation']) ||
+      entity;
+    return `${entity} ${provider} ${operation || action}: ${reference}.`;
+  }
+
   const reference =
     idKeys.map((key) => readString(payload[key])).find((value): value is string => Boolean(value)) ||
     readString(payload['external_id']) ||
@@ -8299,7 +8713,8 @@ export const crmUpdateCompanyTool: McpTool = {
   tool: {
     name: 'update_company',
     title: 'Update company',
-    description: 'Update an existing company in Sanka.',
+    description:
+      'Update an existing company in Sanka. For HubSpot company dedupe, use target="integration", operation="dedupe_preview", primary_external_id, and secondary_external_ids first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13028,6 +13443,118 @@ export const crmUpdateTicketStatusTool: McpTool = {
             action: 'updated',
             payload: response,
             idKeys: ['ticket_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListObjectSchemasTool: McpTool = {
+  metadata: {
+    resource: 'object-schemas',
+    operation: 'read',
+    tags: ['crm', 'schema', 'custom-objects'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/object-schemas',
+    operationId: 'public.objectSchemas.list',
+  },
+  tool: {
+    name: 'list_object_schemas',
+    title: 'List object schemas',
+    description:
+      'List Sanka custom object schemas or live HubSpot/Salesforce object schemas. Use scope="integration" with provider to inspect provider custom objects.',
+    inputSchema: OBJECT_SCHEMA_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List object schemas',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List object schemas',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildObjectSchemaListParams(args);
+    const schemas = (await reqContext.client.get('/v1/public/object-schemas', {
+      query: params,
+    })) as Array<Record<string, unknown>>;
+    const results = schemas.slice(0, limit);
+
+    return buildListResult({
+      label: 'object schemas',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${schemas.length} object schemas.`,
+        page: 1,
+        total: schemas.length,
+      },
+      previewKeys: ['name', 'slug', 'external_id'],
+    });
+  },
+};
+
+export const crmMutateObjectSchemaTool: McpTool = {
+  metadata: {
+    resource: 'object-schemas',
+    operation: 'write',
+    tags: ['crm', 'schema', 'custom-objects'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/object-schemas',
+    operationId: 'public.objectSchemas.mutate',
+  },
+  tool: {
+    name: 'mutate_object_schema',
+    title: 'Mutate object schema',
+    description:
+      'Create, update, or delete a Sanka, HubSpot, or Salesforce custom object schema through routed arguments. Run dry_run=true first for HubSpot/Salesforce and set confirm=true before deletes. Salesforce schema writes use Metadata API.',
+    inputSchema: OBJECT_SCHEMA_MUTATION_INPUT_SCHEMA,
+    outputSchema: OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Mutate object schema',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Mutate object schema',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildObjectSchemaMutationBody(args);
+    if (!body['operation']) {
+      return asErrorResult('`operation` is required.');
+    }
+
+    const response = (await reqContext.client.post('/v1/public/object-schemas', {
+      body,
+    })) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Object schema',
+            action: objectSchemaMutationAction(response, body),
+            payload: response,
+            idKeys: ['object_schema_id', 'external_id'],
           }),
         },
       ],
