@@ -4576,6 +4576,73 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists integration properties with provider routing', async () => {
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'hs/lifecycle_stage',
+        name: 'Lifecycle stage',
+        internal_name: 'lifecycle_stage',
+        object: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        is_custom: false,
+        immutable: false,
+      },
+    ]);
+
+    const result = await crmListPropertiesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'companies',
+        search: 'lifecycle',
+        limit: 2,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      'companies',
+      {
+        scope: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'companies',
+        search: 'lifecycle',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 1,
+      message: 'Returned 1 of 1 properties.',
+      permission: undefined,
+      results: [
+        {
+          id: 'hs/lifecycle_stage',
+          name: 'Lifecycle stage',
+          internal_name: 'lifecycle_stage',
+          object: 'companies',
+          scope: 'integration',
+          provider: 'hubspot',
+          is_custom: false,
+          immutable: false,
+        },
+      ],
+    });
+  });
+
   it('gets one property when authentication is present', async () => {
     const retrieve = jest.fn().mockResolvedValue({
       id: 'prop-1',
@@ -4665,6 +4732,65 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('creates an integration property with mutation routing', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      object: 'deals',
+      property_id: 'CodexSmokeField__c',
+      ctx_id: 'ctx-remote',
+      target: 'integration',
+      provider: 'salesforce',
+      dry_run: true,
+    });
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'deals',
+        target: 'integration',
+        provider: 'salesforce',
+        external_object_type: 'Opportunity',
+        external_id: 'CodexSmokeField__c',
+        dry_run: true,
+        name: 'Codex Smoke Field',
+        type: 'text',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      'deals',
+      {
+        external_id: 'CodexSmokeField__c',
+        external_object_type: 'Opportunity',
+        name: 'Codex Smoke Field',
+        provider: 'salesforce',
+        target: 'integration',
+        type: 'text',
+        dry_run: true,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'dry_run',
+      object: 'deals',
+      property_id: 'CodexSmokeField__c',
+      ctx_id: 'ctx-remote',
+      target: 'integration',
+      provider: 'salesforce',
+      dry_run: true,
+    });
+  });
+
   it('updates a property', async () => {
     const update = jest.fn().mockResolvedValue({
       ok: true,
@@ -4748,6 +4874,57 @@ describe('ChatGPT CRM tools', () => {
       object: 'orders',
       property_id: 'prop-1',
       ctx_id: 'ctx-3',
+    });
+  });
+
+  it('deletes an integration property with confirmation routing', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      object: 'deals',
+      property_id: 'codex_smoke_field',
+      ctx_id: 'ctx-remote-delete',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+
+    const result = await crmDeletePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'deals',
+        property_ref: 'codex_smoke_field',
+        target: 'integration',
+        provider: 'hubspot',
+        confirm: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith(
+      'codex_smoke_field',
+      {
+        object_name: 'deals',
+        target: 'integration',
+        provider: 'hubspot',
+        confirm: true,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      object: 'deals',
+      property_id: 'codex_smoke_field',
+      ctx_id: 'ctx-remote-delete',
+      target: 'integration',
+      provider: 'hubspot',
     });
   });
 

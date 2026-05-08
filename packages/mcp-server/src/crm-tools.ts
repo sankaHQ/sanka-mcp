@@ -1439,6 +1439,46 @@ const PROPERTY_CHOICE_VALUES_SCHEMA = {
 };
 
 const PROPERTY_MUTATION_INPUT_PROPERTIES = {
+  target: {
+    type: 'string',
+    description:
+      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description:
+      'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+  },
+  external_id: {
+    type: 'string',
+    description:
+      'Provider property API name for integration create, for example HubSpot "customer_tier" or Salesforce "CustomerTier__c".',
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'Preview the integration property mutation without writing. Use this before remote deletes or Salesforce metadata changes.',
+    default: false,
+  },
+  confirm: {
+    type: 'boolean',
+    description:
+      'Required to execute destructive integration property deletes after reviewing dry_run output.',
+    default: false,
+  },
   badge_color: {
     type: 'string',
     description: 'Optional badge color token.',
@@ -1459,6 +1499,16 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   internal_name: {
     type: 'string',
     description: 'Internal property name.',
+  },
+  field_type: {
+    type: 'string',
+    description:
+      'Provider-specific field type override, for example HubSpot "select" or Salesforce "Picklist". Usually omit it.',
+  },
+  group_name: {
+    type: 'string',
+    description:
+      'Provider property group name for integration targets, for example HubSpot "companyinformation".',
   },
   multiple_select: {
     type: 'boolean',
@@ -1489,6 +1539,12 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     description: 'Optional tag values for enumerated property types.',
     items: { type: 'string' },
   },
+  options: {
+    type: 'array',
+    description:
+      'Provider option rows for picklist/enumeration properties. Each row should include label and value.',
+    items: { type: 'object', additionalProperties: true },
+  },
   type: {
     type: 'string',
     description: 'Property type.',
@@ -1509,6 +1565,38 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     custom_only: {
       type: 'boolean',
       description: 'When true, only return custom properties.',
+    },
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom properties, or "integration" to read live property definitions from a connected CRM.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+    },
+    search: {
+      type: 'string',
+      description: 'Optional provider property search text applied server-side or after provider fetch.',
     },
     limit: {
       type: 'integer',
@@ -1539,6 +1627,34 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
     property_ref: {
       type: 'string',
       description: 'Property identifier or reference.',
+    },
+    scope: {
+      type: 'string',
+      description:
+        'Data scope. Use "sanka" for Sanka custom properties, or "integration" for a live CRM property definition.',
+      enum: ['sanka', 'integration'],
+      default: 'sanka',
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer scope.',
+      enum: ['sanka', 'integration'],
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
     },
     workspace_id: {
       type: 'string',
@@ -1590,6 +1706,40 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     property_ref: {
       type: 'string',
       description: 'Property identifier or reference to delete.',
+    },
+    target: {
+      type: 'string',
+      description:
+        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
+      enum: ['sanka', 'integration', 'both'],
+      default: 'sanka',
+    },
+    provider: {
+      type: 'string',
+      description:
+        'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+      enum: ['hubspot', 'salesforce'],
+    },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional integration channel UUID. Pass this when a workspace has more than one channel for the provider.',
+    },
+    external_object_type: {
+      type: 'string',
+      description:
+        'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
+    },
+    dry_run: {
+      type: 'boolean',
+      description: 'Preview the integration property delete without writing.',
+      default: false,
+    },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required to execute destructive integration property deletes after reviewing dry_run output.',
+      default: false,
     },
   },
   required: ['object_name', 'property_ref'],
@@ -6714,6 +6864,11 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const customOnly = readBoolean(args?.['custom_only']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const search = readString(args?.['search']);
   const rawLimit = readNumber(args?.['limit'], 25);
   const limit = Math.max(1, Math.min(100, rawLimit));
 
@@ -6722,6 +6877,11 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
     limit,
     params: {
       ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+      ...(search ? { search } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -6733,12 +6893,20 @@ const buildPropertyRetrieveParams = (args: Record<string, unknown> | undefined) 
   const propertyRef = readString(args?.['property_ref']);
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
+  const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
 
   return {
     objectName,
     propertyRef,
     params: {
       ...(objectName ? { object_name: objectName } : undefined),
+      ...(scope ? { scope } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -6749,18 +6917,33 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'badge_color',
+    'channel_id',
     'description',
+    'external_id',
+    'external_object_type',
+    'field_type',
+    'group_name',
     'internal_name',
     'name',
     'number_format',
+    'provider',
+    'target',
     'type',
   ]);
-  assignBooleanFields(body, args, ['multiple_select', 'required_field', 'show_badge', 'unique']);
+  assignBooleanFields(body, args, [
+    'confirm',
+    'dry_run',
+    'multiple_select',
+    'required_field',
+    'show_badge',
+    'unique',
+  ]);
   assignIntegerFields(body, args, ['order']);
 
   const choiceValues = args?.['choice_values'];
   const conditionalChoiceMapping = readRecord(args?.['conditional_choice_mapping']);
   const tagValues = args?.['tag_values'];
+  const options = args?.['options'];
 
   if (Array.isArray(choiceValues)) {
     body['choice_values'] = readStringArray(choiceValues);
@@ -6779,7 +6962,38 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     body['tag_values'] = readStringArray(tagValues);
   }
 
+  if (Array.isArray(options)) {
+    body['options'] = options
+      .map((option) => readRecord(option))
+      .filter((option): option is Record<string, unknown> => Boolean(option));
+  }
+
   return body;
+};
+
+const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const objectName = readString(args?.['object_name']);
+  const propertyRef = readString(args?.['property_ref']);
+  const target = readString(args?.['target']);
+  const provider = readIntegrationProvider(args?.['provider']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
+  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const dryRun = readBoolean(args?.['dry_run']);
+  const confirm = readBoolean(args?.['confirm']);
+
+  return {
+    objectName,
+    propertyRef,
+    params: {
+      ...(objectName ? { object_name: objectName } : undefined),
+      ...(target ? { target } : undefined),
+      ...(provider ? { provider } : undefined),
+      ...(channelID ? { channel_id: channelID } : undefined),
+      ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+      ...(dryRun !== undefined ? { dry_run: dryRun } : undefined),
+      ...(confirm !== undefined ? { confirm } : undefined),
+    },
+  };
 };
 
 const buildWorkspaceLanguageListParams = (args: Record<string, unknown> | undefined) => {
@@ -13100,8 +13314,7 @@ export const crmDeletePropertyTool: McpTool = {
       return authError;
     }
 
-    const objectName = readString(args?.['object_name']);
-    const propertyRef = readString(args?.['property_ref']);
+    const { objectName, propertyRef, params } = buildPropertyDeleteParams(args);
     if (!objectName) {
       return asErrorResult('`object_name` is required.');
     }
@@ -13111,7 +13324,15 @@ export const crmDeletePropertyTool: McpTool = {
 
     const response = (await reqContext.client.public.properties.delete(
       propertyRef,
-      { object_name: objectName },
+      params as {
+        object_name: string;
+        target?: string;
+        provider?: string;
+        channel_id?: string;
+        external_object_type?: string;
+        dry_run?: boolean;
+        confirm?: boolean;
+      },
       undefined,
     )) as unknown as Record<string, unknown>;
 
