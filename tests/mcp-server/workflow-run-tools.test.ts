@@ -34,6 +34,11 @@ describe('workflow run MCP tools', () => {
     expect(getWorkflowRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
   });
 
+  it('marks workflow preview as read-only', () => {
+    expect(previewWorkflowTool.tool.annotations?.readOnlyHint).toBe(true);
+    expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
+  });
+
   it('resolves records through the public workflow-runs endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: { candidates: [{ record_ref: { record_id: 'deal-1' } }] },
@@ -154,6 +159,17 @@ describe('workflow run MCP tools', () => {
       data: {
         workflow_type: 'quote_readiness',
         ready: false,
+        read_only: true,
+        target_record: {
+          object_type: 'estimate',
+          operation: 'preview_create',
+          amount: 32400,
+          currency: 'USD',
+        },
+        approval: {
+          required: false,
+          matched_rules: [],
+        },
         hard_blockers: [{ code: 'missing_billing_contact' }],
         warnings: [{ code: 'missing_payment_terms' }],
       },
@@ -189,6 +205,17 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       workflow_type: 'quote_readiness',
       ready: false,
+      read_only: true,
+      target_record: {
+        object_type: 'estimate',
+        operation: 'preview_create',
+        amount: 32400,
+        currency: 'USD',
+      },
+      approval: {
+        required: false,
+        matched_rules: [],
+      },
       hard_blockers: [{ code: 'missing_billing_contact' }],
       warnings: [{ code: 'missing_payment_terms' }],
     });
