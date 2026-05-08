@@ -43,9 +43,9 @@ describe('record query tools', () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'companies',
       scope: 'integration',
-      provider: 'hubspot',
+      provider: 'salesforce',
       channel_id: 'channel-1',
-      metrics: { count: 224 },
+      metrics: { count: 12 },
       groups: [],
       message: 'OK',
     });
@@ -58,8 +58,9 @@ describe('record query tools', () => {
       args: {
         object_type: 'companies',
         scope: 'integration',
-        provider: 'hubspot',
+        provider: 'salesforce',
         channel_id: 'channel-1',
+        external_object_type: 'Account',
       },
     });
 
@@ -67,17 +68,18 @@ describe('record query tools', () => {
       body: {
         object_type: 'companies',
         scope: 'integration',
-        provider: 'hubspot',
+        provider: 'salesforce',
         channel_id: 'channel-1',
+        external_object_type: 'Account',
         metrics: ['count'],
         limit: 25,
       },
     });
     expect(result.structuredContent).toMatchObject({
       scope: 'integration',
-      provider: 'hubspot',
+      provider: 'salesforce',
       channel_id: 'channel-1',
-      metrics: { count: 224 },
+      metrics: { count: 12 },
     });
   });
 

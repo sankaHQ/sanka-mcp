@@ -147,6 +147,9 @@ const readObject = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>;
 };
 
+const isSalesforceQuoteReadinessPreview = (workflowType: string): boolean =>
+  workflowType === 'quote_readiness';
+
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']);
   const message = readString(payload['message']);
@@ -239,7 +242,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, source links, and the generic Sanka platform-mapping reuse/create plan. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -258,6 +261,16 @@ export const previewWorkflowTool: McpTool = {
     }
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
+    }
+    if (isSalesforceQuoteReadinessPreview(workflowType)) {
+      return postWorkflowRunEndpoint({
+        reqContext,
+        path: '/v1/public/salesforce/cpq/preview',
+        body: {
+          source_record: sourceRecord,
+        },
+        summary: 'Previewed Salesforce quote readiness',
+      });
     }
     return postWorkflowRunEndpoint({
       reqContext,
@@ -285,7 +298,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. Do not use start_workflow for quote_readiness unless the generic workflow-run API supports a start path; quote readiness is preview-only today.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

@@ -19,7 +19,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      'Data scope. Use "sanka" for Sanka records, or "integration" to read live records from a connected integration.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live provider-side records through the connected integration API. Do not fall back to Sanka if an integration read returns unavailable_reason.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
@@ -42,7 +42,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". Usually omit it.',
   },
 };
 
@@ -57,7 +57,7 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Company integration mutations currently support HubSpot; Salesforce integration records are read-only here.',
+      'Connected integration provider for target="integration" or target="both". Company integration mutations support HubSpot/Salesforce where the API allows them.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
@@ -67,7 +67,8 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   },
   external_object_type: {
     type: 'string',
-    description: 'Optional provider object type override, for example HubSpot "companies". Usually omit it.',
+    description:
+      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account". Usually omit it.',
   },
   dry_run: {
     type: 'boolean',
@@ -84,8 +85,8 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   operation: {
     type: 'string',
     description:
-      'Optional remote operation override. Supported values include create, update, upsert, delete, dedupe_preview, and dedupe_apply.',
-    enum: ['create', 'update', 'upsert', 'delete', 'dedupe_preview', 'dedupe_apply'],
+      'Optional remote operation override. Supported values include create, update, upsert, archive, delete, dedupe_preview, and dedupe_apply.',
+    enum: ['create', 'update', 'upsert', 'archive', 'delete', 'dedupe_preview', 'dedupe_apply'],
   },
   primary_external_id: {
     type: 'string',
@@ -252,6 +253,8 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
     total: { type: 'integer' },
     has_next: { type: 'boolean' },
     message: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
     results: {
       type: 'array',
       items: { type: 'object' },
@@ -344,6 +347,8 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
       items: { type: 'object' },
     },
     message: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
   },
   required: ['object_type', 'metrics', 'groups', 'message'],
 };
@@ -1001,6 +1006,8 @@ const LIST_OUTPUT_SCHEMA = {
     total: { type: 'integer' },
     message: { type: 'string' },
     permission: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
     results: {
       type: 'array',
       items: {
@@ -2144,6 +2151,9 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
     dry_run: { type: 'boolean' },
     sync_state: { type: 'object' },
     remote: { type: 'object' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    unavailable_reason: { type: 'string' },
     message: { type: 'string' },
   },
   required: ['ok', 'status'],
@@ -5624,6 +5634,8 @@ const buildListResult = ({
     channel_id?: string | null;
     channel_name?: string | null;
     external_object_type?: string | null;
+    data_origin?: string | null;
+    source_of_truth?: string | null;
     sync_state?: Record<string, unknown> | null;
     unavailable_reason?: string | null;
     next_cursor?: string | null;
@@ -5654,18 +5666,23 @@ const buildListResult = ({
     content: [
       {
         type: 'text',
-        text: buildListSummary(summaryInput),
+        text:
+          payload.unavailable_reason ?
+            `${label} are unavailable: ${payload.unavailable_reason}. ${payload.message}`
+          : buildListSummary(summaryInput),
       },
     ],
     structuredContent: {
-      scope: payload.scope ?? undefined,
-      provider: payload.provider ?? undefined,
-      channel_id: payload.channel_id ?? undefined,
-      channel_name: payload.channel_name ?? undefined,
-      external_object_type: payload.external_object_type ?? undefined,
-      sync_state: payload.sync_state ?? undefined,
-      unavailable_reason: payload.unavailable_reason ?? undefined,
-      next_cursor: payload.next_cursor ?? undefined,
+      ...(payload.scope ? { scope: payload.scope } : undefined),
+      ...(payload.provider ? { provider: payload.provider } : undefined),
+      ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
+      ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
+      ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
+      ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
+      ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
+      ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
+      ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
+      ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
       count: payload.count,
       page: payload.page,
       total: payload.total,
@@ -5850,9 +5867,12 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   const objectType = readString(payload['object_type']) ?? 'records';
   const metrics = readRecord(payload['metrics']) ?? {};
   const count = metrics['count'];
+  const unavailableReason = readString(payload['unavailable_reason']);
   const candidateCount = metrics['candidate_count'];
   const summary =
-    typeof candidateCount === 'number' ?
+    unavailableReason ?
+      `aggregate_records unavailable: ${unavailableReason}. ${readString(payload['message']) ?? ''}`.trim()
+    : typeof candidateCount === 'number' ?
       `aggregate_records found ${candidateCount} duplicate candidate groups for ${objectType}.`
     : typeof count === 'number' ? `aggregate_records count for ${objectType}: ${count}`
     : `aggregate_records completed for ${objectType}.`;
@@ -6007,6 +6027,7 @@ const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => 
     'channel_id',
     'external_id',
     'external_object_type',
+    'operation',
     'provider',
     'target',
   ]);
@@ -8454,7 +8475,7 @@ export const crmQueryRecordsTool: McpTool = {
     name: 'query_records',
     title: 'Query records',
     description:
-      'Query Sanka records with server-side filters and field projection. Use this instead of list_* when the user asks for filtered rows or when only a few fields are needed.',
+      'Query records with server-side filters and field projection. Default scope=sanka reads Sanka records. Use scope=integration with provider=salesforce for live Salesforce-side records; if unavailable_reason is returned, do not silently fall back to Sanka.',
     inputSchema: RECORD_QUERY_INPUT_SCHEMA,
     outputSchema: RECORD_QUERY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -8500,7 +8521,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Compute counts and grouped counts with server-side filters. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
+      'Compute counts and grouped counts. Default scope=sanka counts Sanka records; scope=sanka with provider=salesforce counts records linked to Salesforce, while scope=integration with provider=salesforce counts live Salesforce-side records. Do not fall back to Sanka when integration reads return unavailable_reason.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -8546,7 +8567,7 @@ export const crmListCompaniesTool: McpTool = {
     name: 'list_companies',
     title: 'List companies',
     description:
-      'Search and review companies in Sanka. Use this when the user wants to find or inspect companies, not to create or update them.',
+      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts, while scope=integration with provider=salesforce lists live Salesforce Accounts.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -8659,7 +8680,7 @@ export const crmCreateCompanyTool: McpTool = {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create a company in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only and requires external_id. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -8714,7 +8735,7 @@ export const crmUpdateCompanyTool: McpTool = {
     name: 'update_company',
     title: 'Update company',
     description:
-      'Update an existing company in Sanka. For HubSpot company dedupe, use target="integration", operation="dedupe_preview", primary_external_id, and secondary_external_ids first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
+      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -8774,7 +8795,8 @@ export const crmDeleteCompanyTool: McpTool = {
   tool: {
     name: 'delete_company',
     title: 'Delete company',
-    description: 'Archive or delete a company in Sanka by company id or external reference.',
+    description:
+      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce only with dry_run/governance for provider-side archive/delete checks.',
     inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
