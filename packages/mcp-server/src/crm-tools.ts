@@ -15,9 +15,71 @@ import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 const WORKSPACE_ID_DESCRIPTION =
   'Internal workspace UUID. This is not a workspace switcher; do not pass short workspace codes such as 48803074. Usually omit it so Sanka uses the authenticated workspace.';
 
+const INTEGRATION_READ_INPUT_PROPERTIES = {
+  scope: {
+    type: 'string',
+    description:
+      '`sanka` reads records stored in Sanka. `integration` reads live provider-side records through the connected integration API. Defaults to `sanka`; do not fall back to Sanka if an integration read returns unavailable_reason.',
+    enum: ['sanka', 'integration'],
+    default: 'sanka',
+  },
+  provider: {
+    type: 'string',
+    description:
+      'Integration provider for scoped reads. Use `salesforce` to select the Salesforce adapter. With scope=sanka, this filters Sanka records linked to that provider; with scope=integration, this queries the live provider side.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description:
+      'Optional integration channel UUID. Use this when the workspace has multiple channels for the same provider.',
+  },
+  external_object_type: {
+    type: 'string',
+    description:
+      'Optional provider-side object type, for example Salesforce Account for Sanka companies, Contact for Sanka contacts, or Product2/PricebookEntry for Sanka items where supported.',
+  },
+};
+
+const INTEGRATION_MUTATION_INPUT_PROPERTIES = {
+  provider: {
+    type: 'string',
+    description: 'Integration provider for integration or both-target mutations, for example `salesforce`.',
+    enum: ['hubspot', 'salesforce'],
+  },
+  channel_id: {
+    type: 'string',
+    description: 'Optional integration channel UUID for provider-side mutations.',
+  },
+  external_object_type: {
+    type: 'string',
+    description: 'Optional provider-side object type, for example Salesforce Account.',
+  },
+  target: {
+    type: 'string',
+    description:
+      '`sanka` mutates Sanka only. `integration` mutates only the connected provider. `both` mutates both when the API allows it. Defaults to `sanka`.',
+    enum: ['sanka', 'integration', 'both'],
+    default: 'sanka',
+  },
+  operation: {
+    type: 'string',
+    description:
+      'Generic mutation operation. Use `upsert` for create/update, `archive` for delete/archive, `dedupe_preview` for read-only duplicate checks where supported, and `dedupe_apply` only with explicit governance.',
+    enum: ['upsert', 'archive', 'dedupe_preview', 'dedupe_apply'],
+  },
+  dry_run: {
+    type: 'boolean',
+    description:
+      'When true, ask the API to preview the mutation without writing. Required for destructive integration archive/delete flows.',
+    default: false,
+  },
+};
+
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_READ_INPUT_PROPERTIES,
     search: {
       type: 'string',
       description: 'Free-text search query.',
@@ -78,6 +140,7 @@ const RECORD_FILTER_SCHEMA = {
 const RECORD_QUERY_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_READ_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
       description: 'Record object to query. Currently supports companies and contacts.',
@@ -127,6 +190,12 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
     total: { type: 'integer' },
     has_next: { type: 'boolean' },
     message: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    unavailable_reason: { type: 'string' },
     results: {
       type: 'array',
       items: { type: 'object' },
@@ -138,6 +207,7 @@ const RECORD_QUERY_OUTPUT_SCHEMA = {
 const RECORD_AGGREGATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    ...INTEGRATION_READ_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
       description: 'Record object to aggregate. Currently supports companies and contacts.',
@@ -185,6 +255,12 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
       items: { type: 'object' },
     },
     message: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    unavailable_reason: { type: 'string' },
   },
   required: ['object_type', 'metrics', 'groups', 'message'],
 };
@@ -243,6 +319,7 @@ type TaskMutationPayload = {
 };
 
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
+  ...INTEGRATION_MUTATION_INPUT_PROPERTIES,
   address: {
     type: 'string',
     description: 'Company address.',
@@ -257,7 +334,8 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   },
   external_id: {
     type: 'string',
-    description: 'External reference used for idempotent create/update flows.',
+    description:
+      'External reference used for idempotent create/update flows. Required by the Sanka API when target=sanka; provider-side create operations may return the external id.',
   },
   name: {
     type: 'string',
@@ -280,7 +358,6 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
 const COMPANY_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: COMPANY_MUTATION_INPUT_PROPERTIES,
-  required: ['external_id'],
 };
 
 const COMPANY_RETRIEVE_INPUT_SCHEMA = {
@@ -321,6 +398,7 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
     },
+    ...INTEGRATION_MUTATION_INPUT_PROPERTIES,
   },
   required: ['company_id'],
 };
@@ -826,6 +904,12 @@ const LIST_OUTPUT_SCHEMA = {
     total: { type: 'integer' },
     message: { type: 'string' },
     permission: { type: 'string' },
+    scope: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    unavailable_reason: { type: 'string' },
     results: {
       type: 'array',
       items: {
@@ -1610,6 +1694,14 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     company_id: { type: 'string' },
     external_id: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    target: { type: 'string' },
+    operation: { type: 'string' },
+    data_origin: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    unavailable_reason: { type: 'string' },
+    message: { type: 'string' },
   },
   required: ['ok', 'status'],
 };
@@ -5072,6 +5164,7 @@ const buildListResult = ({
     page: number;
     total: number;
     permission?: string | null;
+    unavailable_reason?: string | null;
   };
   previewKeys?: string[];
 }): ToolCallResult => {
@@ -5093,10 +5186,14 @@ const buildListResult = ({
     content: [
       {
         type: 'text',
-        text: buildListSummary(summaryInput),
+        text:
+          payload.unavailable_reason ?
+            `${label} are unavailable: ${payload.unavailable_reason}. ${payload.message}`
+          : buildListSummary(summaryInput),
       },
     ],
     structuredContent: {
+      ...payload,
       count: payload.count,
       page: payload.page,
       total: payload.total,
@@ -5138,11 +5235,27 @@ const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
   return filters;
 };
 
+const assignIntegrationReadFields = (
+  body: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
+) => {
+  assignStringFields(body, args, ['scope', 'provider', 'channel_id', 'external_object_type']);
+};
+
+const assignIntegrationMutationFields = (
+  body: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
+) => {
+  assignStringFields(body, args, ['provider', 'channel_id', 'external_object_type', 'target', 'operation']);
+  assignBooleanFields(body, args, ['dry_run']);
+};
+
 const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
   };
+  assignIntegrationReadFields(body, args);
   const select = readStringArray(args?.['select']);
   const filters = buildRecordFilters(args?.['filters']);
   const search = readString(args?.['search']);
@@ -5175,6 +5288,7 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
     ...(objectType ? { object_type: objectType } : undefined),
     metrics: metrics.length ? metrics : ['count'],
   };
+  assignIntegrationReadFields(body, args);
 
   if (filters.length) {
     body['filters'] = filters;
@@ -5213,9 +5327,11 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   const objectType = readString(payload['object_type']) ?? 'records';
   const metrics = readRecord(payload['metrics']) ?? {};
   const count = metrics['count'];
+  const unavailableReason = readString(payload['unavailable_reason']);
   const summary =
-    typeof count === 'number' ?
-      `aggregate_records count for ${objectType}: ${count}`
+    unavailableReason ?
+      `aggregate_records unavailable: ${unavailableReason}. ${readString(payload['message']) ?? ''}`.trim()
+    : typeof count === 'number' ? `aggregate_records count for ${objectType}: ${count}`
     : `aggregate_records completed for ${objectType}.`;
 
   return {
@@ -5235,10 +5351,18 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   const sort = readString(args?.['sort']);
   const view = readString(args?.['view']);
   const language = readString(args?.['language']);
+  const scope = readString(args?.['scope']);
+  const provider = readString(args?.['provider']);
+  const channelID = readString(args?.['channel_id']);
+  const externalObjectType = readString(args?.['external_object_type']);
 
   return {
     limit: readNumber(args?.['limit'], 10),
     page: readNumber(args?.['page'], 1),
+    ...(scope ? { scope } : undefined),
+    ...(provider ? { provider } : undefined),
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     ...(referenceID ? { reference_id: referenceID } : undefined),
     ...(search ? { search } : undefined),
     ...(sort ? { sort } : undefined),
@@ -5261,6 +5385,7 @@ const buildCompanyRetrieveParams = (args: Record<string, unknown> | undefined) =
 
 const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
+  assignIntegrationMutationFields(body, args);
   assignStringFields(body, args, [
     'address',
     'email',
@@ -5272,6 +5397,19 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
   ]);
   assignBooleanFields(body, args, ['allowed_in_store']);
   return body;
+};
+
+const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const companyID = readString(args?.['company_id']);
+  const externalID = readString(args?.['external_id']);
+  const params: Record<string, unknown> = {
+    ...(externalID ? { external_id: externalID } : undefined),
+  };
+  assignIntegrationMutationFields(params, args);
+  return {
+    companyID,
+    params,
+  };
 };
 
 const buildContactRetrieveParams = (args: Record<string, unknown> | undefined) => {
@@ -7509,7 +7647,7 @@ export const crmQueryRecordsTool: McpTool = {
     name: 'query_records',
     title: 'Query records',
     description:
-      'Query Sanka records with server-side filters and field projection. Use this instead of list_* when the user asks for filtered rows or when only a few fields are needed.',
+      'Query records with server-side filters and field projection. Default scope=sanka reads Sanka records. Use scope=integration with provider=salesforce for live Salesforce-side records; if unavailable_reason is returned, do not silently fall back to Sanka.',
     inputSchema: RECORD_QUERY_INPUT_SCHEMA,
     outputSchema: RECORD_QUERY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7555,7 +7693,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Compute counts and grouped counts with server-side filters. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
+      'Compute counts and grouped counts. Default scope=sanka counts Sanka records; scope=sanka with provider=salesforce counts records linked to Salesforce, while scope=integration with provider=salesforce counts live Salesforce-side records. Do not fall back to Sanka when integration reads return unavailable_reason.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7601,7 +7739,7 @@ export const crmListCompaniesTool: McpTool = {
     name: 'list_companies',
     title: 'List companies',
     description:
-      'Search and review companies in Sanka. Use this when the user wants to find or inspect companies, not to create or update them.',
+      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts, while scope=integration with provider=salesforce lists live Salesforce Accounts.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7702,7 +7840,7 @@ export const crmCreateCompanyTool: McpTool = {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create a company in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only and requires external_id. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7756,7 +7894,8 @@ export const crmUpdateCompanyTool: McpTool = {
   tool: {
     name: 'update_company',
     title: 'Update company',
-    description: 'Update an existing company in Sanka.',
+    description:
+      'Update an existing company. Default target=sanka mutates Sanka only. Use target=integration with provider=salesforce for Salesforce-only updates, or target=both when the API allows both-side sync.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7816,7 +7955,8 @@ export const crmDeleteCompanyTool: McpTool = {
   tool: {
     name: 'delete_company',
     title: 'Delete company',
-    description: 'Archive or delete a company in Sanka by company id or external reference.',
+    description:
+      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce only with dry_run/governance for provider-side archive/delete checks.',
     inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -7836,7 +7976,7 @@ export const crmDeleteCompanyTool: McpTool = {
       return authError;
     }
 
-    const { companyID, params } = buildCompanyRetrieveParams(args);
+    const { companyID, params } = buildCompanyDeleteParams(args);
     if (!companyID) {
       return asErrorResult('`company_id` is required.');
     }

@@ -39,6 +39,49 @@ describe('record query tools', () => {
     });
   });
 
+  it('aggregate_records forwards integration read scope arguments', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      metrics: { count: 12 },
+      groups: [],
+      scope: 'integration',
+      provider: 'salesforce',
+      channel_id: 'channel-1',
+      message: 'OK',
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext,
+      args: {
+        object_type: 'companies',
+        scope: 'integration',
+        provider: 'salesforce',
+        channel_id: 'channel-1',
+        external_object_type: 'Account',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+      body: {
+        object_type: 'companies',
+        metrics: ['count'],
+        scope: 'integration',
+        provider: 'salesforce',
+        channel_id: 'channel-1',
+        external_object_type: 'Account',
+        limit: 25,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      scope: 'integration',
+      provider: 'salesforce',
+      channel_id: 'channel-1',
+    });
+  });
+
   it('query_records projects only requested fields', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'companies',
