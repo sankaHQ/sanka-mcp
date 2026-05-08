@@ -771,7 +771,11 @@ describe('ChatGPT CRM tools', () => {
         select: ['id', 'name', 'external_id'],
       },
     });
-    expect(result.content[0]?.text).toBe('query_records found 1 duplicate candidate groups for companies.');
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'query_records found 1 duplicate candidate groups for companies.',
+      }),
+    );
   });
 
   it('passes dedupe candidate arguments through aggregate_records', async () => {
@@ -812,8 +816,10 @@ describe('ChatGPT CRM tools', () => {
         scan_limit: 50,
       },
     });
-    expect(result.content[0]?.text).toBe(
-      'aggregate_records found 1 duplicate candidate groups for companies.',
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'aggregate_records found 1 duplicate candidate groups for companies.',
+      }),
     );
   });
 
@@ -1547,8 +1553,10 @@ describe('ChatGPT CRM tools', () => {
       status: 'dry_run',
       operation: 'dedupe_apply',
     });
-    expect(result.content[0]?.text).toBe(
-      'Company hubspot dedupe preview prepared: primary=primary merge_count=2.',
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'Company hubspot dedupe preview prepared: primary=primary merge_count=2.',
+      }),
     );
   });
 
