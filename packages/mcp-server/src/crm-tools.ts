@@ -198,9 +198,12 @@ type OrderLineItem = {
   tax_rate?: number;
 };
 
+type PublicLineItem = Record<string, unknown>;
+
 type OrderPayload = {
   externalId: string;
-  items: OrderLineItem[];
+  items?: OrderLineItem[];
+  line_items?: PublicLineItem[];
   companyExternalId?: string;
   companyId?: string;
   deliveryStatus?: string;
@@ -209,6 +212,7 @@ type OrderPayload = {
 
 type OrderPayloadDraft = Partial<OrderPayload> & {
   items?: OrderLineItem[];
+  line_items?: PublicLineItem[];
 };
 
 type OrderMutationPayload = {
@@ -414,6 +418,12 @@ const EXPENSE_LIST_INPUT_SCHEMA = {
       maximum: 100,
       default: 10,
     },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
@@ -528,6 +538,265 @@ const EXPENSE_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['expense_id'],
+};
+
+const INCENTIVE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of incentives to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    period: {
+      type: 'string',
+      description: 'Optional incentive period in YYYY-MM format.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional incentive status filter, for example draft, approved, paid, or reversed.',
+    },
+    owner_user_id: {
+      type: 'string',
+      description:
+        'Optional owner UserManagement id. Finance users can filter any owner; managers are scoped by Sanka permissions.',
+    },
+    source_object_type: {
+      type: 'string',
+      description: 'Optional source object type, for example invoices, receipts, or commerce_orders.',
+    },
+    search: {
+      type: 'string',
+      description: 'Search rule name, payee, source label, owner, or source record id.',
+    },
+    sort: {
+      type: 'string',
+      description: 'Optional sort field.',
+    },
+    sort_direction: {
+      type: 'string',
+      description: 'Optional sort direction: asc or desc.',
+      enum: ['asc', 'desc'],
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const INCENTIVE_PLAN_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const INCENTIVE_COMPANY_OPTIONS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    q: {
+      type: 'string',
+      description: 'Company name, company id, or UUID search text.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of company options to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 30,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const INCENTIVE_PLAN_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: {
+      type: 'string',
+      description: 'Rule name.',
+    },
+    base_event: {
+      type: 'string',
+      description: 'Trigger event: order_confirmed, payment_received, or invoice_paid.',
+      enum: ['order_confirmed', 'payment_received', 'invoice_paid'],
+    },
+    source_status: {
+      type: 'string',
+      description: 'Optional source status filter, for example paid for invoice_paid.',
+    },
+    source_company_id: {
+      type: 'string',
+      description:
+        'Optional source customer company UUID. Use list_companies or list_incentive_company_options to resolve it.',
+    },
+    payee_type: {
+      type: 'string',
+      description: 'Payee object type. Use company for partner commissions and user for employee incentives.',
+      enum: ['company', 'user'],
+      default: 'user',
+    },
+    payee_company_id: {
+      type: 'string',
+      description: 'Required when payee_type is company. Company UUID to receive commission.',
+    },
+    amount_basis: {
+      type: 'string',
+      description: 'Amount basis for invoice calculations.',
+      enum: ['tax_exclusive', 'tax_inclusive'],
+      default: 'tax_exclusive',
+    },
+    rate_type: {
+      type: 'string',
+      description: 'Calculation method: percentage or fixed.',
+      enum: ['percentage', 'fixed'],
+    },
+    rate_value: {
+      type: 'number',
+      description: 'Percentage value or fixed amount.',
+    },
+    effective_from: {
+      type: 'string',
+      description: 'Rule start date in YYYY-MM-DD format.',
+    },
+    effective_to: {
+      type: 'string',
+      description: 'Optional rule end date in YYYY-MM-DD format.',
+    },
+    status: {
+      type: 'string',
+      description: 'Plan status.',
+      enum: ['active', 'inactive'],
+      default: 'active',
+    },
+    min_amount: {
+      type: 'number',
+      description: 'Optional minimum base amount required for payout.',
+    },
+    max_payout_amount: {
+      type: 'number',
+      description: 'Optional maximum payout per incentive.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['name', 'base_event', 'rate_type', 'rate_value', 'effective_from'],
+};
+
+const INCENTIVE_CALCULATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    period: {
+      type: 'string',
+      description: 'Incentive period in YYYY-MM format.',
+    },
+    plan_id: {
+      type: 'string',
+      description: 'Optional rule id. Omit to use the active rule for the period.',
+    },
+    owner_user_id: {
+      type: 'string',
+      description: 'Optional owner UserManagement id for user incentives.',
+    },
+    dry_run: {
+      type: 'boolean',
+      description: 'When true, preview candidate incentives without storing drafts.',
+      default: true,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['period'],
+};
+
+const INCENTIVE_APPROVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    incentive_id: {
+      type: 'string',
+      description: 'Single incentive UUID to approve.',
+    },
+    ids: {
+      type: 'array',
+      description: 'Multiple incentive UUIDs to approve in one request.',
+      items: { type: 'string' },
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const INCENTIVE_NOTICE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    period_from: {
+      type: 'string',
+      description: 'First incentive period in YYYY-MM format.',
+    },
+    period_to: {
+      type: 'string',
+      description: 'Last incentive period in YYYY-MM format. Defaults to period_from.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional incentive status filter. For payment requests, approved is usually appropriate.',
+    },
+    payee_company_id: {
+      type: 'string',
+      description: 'Optional partner/payee company UUID.',
+    },
+    payee_company_name: {
+      type: 'string',
+      description: 'Optional partner/payee company name to display when no rows are returned.',
+    },
+    request_date: {
+      type: 'string',
+      description: 'Optional request date in YYYY-MM-DD format. Defaults to today.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Notice language. Use ja for Japanese output.',
+      default: 'ja',
+    },
+  },
+  required: ['period_from'],
 };
 
 const EXPENSE_UPLOAD_INPUT_SCHEMA = {
@@ -779,6 +1048,38 @@ const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const INCENTIVE_ACTION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['data', 'message'],
+};
+
+const INCENTIVE_NOTICE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    notice: { type: 'string' },
+    count: { type: 'integer' },
+    total_payout: { type: 'number' },
+    total_base_amount: { type: 'number' },
+    periods: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    results: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+  },
+  required: ['notice', 'count', 'total_payout', 'total_base_amount', 'periods', 'results'],
+};
+
 const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -830,6 +1131,48 @@ const DEAL_RETRIEVE_INPUT_SCHEMA = {
   required: ['case_id'],
 };
 
+const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    item_id: {
+      type: 'string',
+      description: 'Optional Sanka item UUID or item identifier to link this row to an item.',
+    },
+    item_external_id: {
+      type: 'string',
+      description: 'Optional external item reference when the target object supports item external ids.',
+    },
+    item_name: {
+      type: 'string',
+      description: 'Line item label when no item id is available, or an override for the linked item name.',
+    },
+    quantity: {
+      type: 'number',
+      description: 'Quantity for this line item.',
+    },
+    unit_price: {
+      type: 'number',
+      description: 'Unit price for this line item.',
+    },
+    tax_rate: {
+      type: 'number',
+      description:
+        'Line item tax rate percentage. The document tax settings may override this unless using item-based tax.',
+    },
+    line_item_properties: {
+      type: 'object',
+      description: 'Optional line-item custom field values keyed by custom field id.',
+      additionalProperties: {
+        type: 'object',
+        properties: {
+          value: { type: 'string' },
+          value_number_format: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
 const DEAL_MUTATION_INPUT_PROPERTIES = {
   case_status: {
     type: 'string',
@@ -858,6 +1201,11 @@ const DEAL_MUTATION_INPUT_PROPERTIES = {
   external_id: {
     type: 'string',
     description: 'External reference stored on the deal.',
+  },
+  line_items: {
+    type: 'array',
+    description: 'Line items for this deal. When provided, Sanka creates/replaces the deal detail rows.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
   name: {
     type: 'string',
@@ -1409,8 +1757,14 @@ const ORDER_BODY_INPUT_SCHEMA = {
       description: 'Order line items.',
       items: ORDER_ITEM_INPUT_SCHEMA,
     },
+    line_items: {
+      type: 'array',
+      description:
+        'Common line item contract. When provided, Sanka converts these rows into order item rows.',
+      items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
+    },
   },
-  required: ['external_id', 'items'],
+  required: ['external_id'],
 };
 
 const ORDER_CREATE_INPUT_SCHEMA = {
@@ -1890,6 +2244,8 @@ const TASK_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const FINANCIAL_DOCUMENT_LINE_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
+
 const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
   company_external_id: {
     type: 'string',
@@ -1950,6 +2306,12 @@ const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this document. When provided, Sanka creates/replaces the detail rows and recalculates totals.',
+    items: FINANCIAL_DOCUMENT_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -2290,6 +2652,12 @@ const SLIP_MUTATION_INPUT_PROPERTIES = {
   total_price_without_tax: {
     type: 'number',
     description: 'Total price before tax.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this document. When provided, Sanka creates/replaces the detail rows and recalculates totals.',
+    items: FINANCIAL_DOCUMENT_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -3582,6 +3950,18 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Total payment amount before tax.',
   },
+  tax_rate: {
+    type: 'number',
+    description: 'Payment-level tax rate used when tax_option is unified_tax.',
+  },
+  tax_inclusive: {
+    type: 'boolean',
+    description: 'Whether line item prices are tax inclusive.',
+  },
+  tax_option: {
+    type: 'string',
+    description: 'Payment tax option.',
+  },
   entry_type: {
     type: 'string',
     description: 'Payment entry type.',
@@ -3589,6 +3969,12 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
   notes: {
     type: 'string',
     description: 'Payment notes.',
+  },
+  line_items: {
+    type: 'array',
+    description:
+      'Line items for this payment/receipt. When provided, Sanka creates/replaces the receipt detail rows and recalculates totals.',
+    items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
   },
 };
 
@@ -4721,6 +5107,15 @@ const buildListResult = ({
   };
 };
 
+const readHeaderNumber = (headers: Headers, name: string): number | undefined => {
+  const value = headers.get(name);
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+};
+
 const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -4910,11 +5305,16 @@ const buildExpenseListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const rawLimit = readNumber(args?.['limit'], 10);
+  const rawPage = readNumber(args?.['page'], 1);
   const limit = Math.max(1, Math.min(100, rawLimit));
+  const page = Math.max(1, rawPage);
 
   return {
     limit,
+    page,
     params: {
+      limit,
+      page,
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -4968,6 +5368,241 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
   }
 
   return body;
+};
+
+const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const rawLimit = readNumber(args?.['limit'], 25);
+  const rawPage = readNumber(args?.['page'], 1);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+  const page = Math.max(1, rawPage);
+  const params: Record<string, unknown> = {
+    limit,
+    page,
+  };
+  assignStringFields(params, args, [
+    'period',
+    'status',
+    'owner_user_id',
+    'source_object_type',
+    'search',
+    'sort',
+    'sort_direction',
+  ]);
+  if (workspaceID) {
+    params['workspace_id'] = workspaceID;
+  }
+  if (language) {
+    params['Accept-Language'] = language;
+  }
+  return { limit, page, params };
+};
+
+const buildIncentivePlanListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  return {
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildIncentiveCompanyOptionsParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const q = readString(args?.['q']);
+  const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 30)));
+  return {
+    limit,
+    ...(q ? { q } : undefined),
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildIncentivePlanCreateBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'name',
+    'base_event',
+    'source_status',
+    'source_company_id',
+    'payee_type',
+    'payee_company_id',
+    'amount_basis',
+    'rate_type',
+    'effective_from',
+    'effective_to',
+    'status',
+  ]);
+  assignMappedNumberFields(body, args, [
+    ['rate_value', 'rate_value'],
+    ['min_amount', 'min_amount'],
+    ['max_payout_amount', 'max_payout_amount'],
+  ]);
+  return body;
+};
+
+const buildIncentiveCalculateBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['period', 'plan_id', 'owner_user_id']);
+  const dryRun = readBoolean(args?.['dry_run']);
+  if (dryRun !== undefined) {
+    body['dry_run'] = dryRun;
+  }
+  return body;
+};
+
+const buildIncentiveWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  return workspaceID ? { workspace_id: workspaceID } : undefined;
+};
+
+const buildIncentiveMutationSummary = ({
+  action,
+  payload,
+}: {
+  action: string;
+  payload: Record<string, unknown>;
+}): string => {
+  const data = readRecord(payload['data']) ?? payload;
+  const reference =
+    readString(data['name']) ||
+    readString(data['id']) ||
+    readString(data['period']) ||
+    readString(payload['message']) ||
+    'incentive';
+  return `Incentive ${action}: ${reference}.`;
+};
+
+const normalizePeriod = (period: string | undefined): string | undefined => {
+  const match = /^(\d{4})-(\d{2})$/.exec(period ?? '');
+  if (!match) {
+    return undefined;
+  }
+  return `${match[1]}-${match[2]}`;
+};
+
+const periodsBetween = (periodFrom: string, periodTo?: string): string[] => {
+  const start = normalizePeriod(periodFrom);
+  const end = normalizePeriod(periodTo) ?? start;
+  if (!start || !end) {
+    return [];
+  }
+  const [startYearRaw, startMonthRaw] = start.split('-').map((value) => Number.parseInt(value, 10));
+  const [endYearRaw, endMonthRaw] = end.split('-').map((value) => Number.parseInt(value, 10));
+  if (
+    startYearRaw === undefined ||
+    startMonthRaw === undefined ||
+    endYearRaw === undefined ||
+    endMonthRaw === undefined
+  ) {
+    return [];
+  }
+  const startYear = startYearRaw;
+  const startMonth = startMonthRaw;
+  const endYear = endYearRaw;
+  const endMonth = endMonthRaw;
+  if (
+    !Number.isFinite(startYear) ||
+    !Number.isFinite(startMonth) ||
+    !Number.isFinite(endYear) ||
+    !Number.isFinite(endMonth)
+  ) {
+    return [];
+  }
+  const results: string[] = [];
+  let cursor = startYear * 12 + startMonth - 1;
+  const endIndex = endYear * 12 + endMonth - 1;
+  while (cursor <= endIndex && results.length < 24) {
+    const year = Math.floor(cursor / 12);
+    const month = (cursor % 12) + 1;
+    results.push(`${year}-${String(month).padStart(2, '0')}`);
+    cursor += 1;
+  }
+  return results;
+};
+
+const periodLabelJa = (period: string): string => {
+  const [year, month] = period.split('-');
+  return `${year}年${Number.parseInt(month ?? '1', 10)}月`;
+};
+
+const formatYen = (value: number): string =>
+  new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const buildIncentiveNotice = ({
+  rows,
+  periods,
+  requestDate,
+  payeeCompanyName,
+}: {
+  rows: Array<Record<string, unknown>>;
+  periods: string[];
+  requestDate: string;
+  payeeCompanyName?: string;
+}): { notice: string; totalPayout: number; totalBaseAmount: number } => {
+  const totalPayout = rows.reduce((sum, row) => {
+    const amount = row['incentive_amount'];
+    return sum + (typeof amount === 'number' ? amount : 0);
+  }, 0);
+  const totalBaseAmount = rows.reduce((sum, row) => {
+    const amount = row['base_amount'];
+    return sum + (typeof amount === 'number' ? amount : 0);
+  }, 0);
+  const partnerName =
+    payeeCompanyName ||
+    rows
+      .map((row) => readString(row['payee_company_name']))
+      .find((value): value is string => Boolean(value)) ||
+    'ご担当者様';
+  const firstRate = rows.map((row) => row['rate_value']).find((value) => typeof value === 'number');
+  const rateLabel = typeof firstRate === 'number' ? `${firstRate}%` : '-';
+  const periodLabel =
+    periods.length > 1 ?
+      `${periodLabelJa(periods[0] ?? '')} - ${periodLabelJa(periods[periods.length - 1] ?? '')}`
+    : periodLabelJa(periods[0] ?? '');
+  const sourceLines = rows
+    .map((row) => {
+      const period = readString(row['period']) ?? '';
+      const source = readString(row['source_label']) || readString(row['source_record_id']) || '-';
+      const baseAmount = typeof row['base_amount'] === 'number' ? row['base_amount'] : 0;
+      return `${period}  ${source}  ${formatYen(baseAmount)}`;
+    })
+    .join('\n');
+
+  const notice = [
+    `${partnerName}`,
+    'ご担当者様',
+    '',
+    '【請求依頼書】',
+    '',
+    `■パートナー名（宛先）： ${partnerName}`,
+    `■依頼日： ${requestDate}`,
+    `■対象期間： ${periodLabel}`,
+    '■計算対象案件： 以下参照',
+    `■振込予定金額（税込）： ${formatYen(totalPayout)}（${rateLabel}）`,
+    '',
+    '貴社にて上記の金額で、「株式会社サンカ」宛へ請求書のご発行をお願いいたします。',
+    '',
+    '【計算対象請求】',
+    sourceLines || '対象請求はありません。',
+    '',
+    '【請求宛先】',
+    '株式会社サンカ',
+    '東京都江東区豊洲1-3-2',
+    '経理担当 (hey@sanka.com) へメールでご請求内容を送付いただければ幸いです。',
+    '',
+    '以上、何卒よろしくお願い致します。',
+    '株式会社サンカ　経理担当',
+  ].join('\n');
+
+  return { notice, totalPayout, totalBaseAmount };
 };
 
 const parseBase64Content = (raw: string): { data: string; mimeType?: string } => {
@@ -5074,6 +5709,10 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   if (externalID) {
     body['externalId'] = externalID;
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -5168,9 +5807,12 @@ const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
     const items = record['items']
       .map((item) => buildOrderLineItem(item))
       .filter((item): item is OrderLineItem => Boolean(item));
-    if (items.length > 0) {
-      order.items = items;
-    }
+    order.items = items;
+  }
+
+  const lineItems = record['line_items'] ?? record['lineItems'];
+  if (Array.isArray(lineItems)) {
+    order.line_items = lineItems.filter((item): item is PublicLineItem => Boolean(readRecord(item)));
   }
 
   return Object.keys(order).length > 0 ? order : undefined;
@@ -5259,6 +5901,10 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
       body[key] = numericValue;
     }
   }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -5327,6 +5973,10 @@ const buildSlipMutationBody = (args: Record<string, unknown> | undefined) => {
     if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
       body[key] = numericValue;
     }
+  }
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
   }
 
   return body;
@@ -5999,11 +6649,18 @@ const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => 
     ['notes', 'notes'],
     ['start_date', 'startDate'],
     ['status', 'status'],
+    ['tax_option', 'taxOption'],
   ]);
+  assignMappedBooleanFields(body, args, [['tax_inclusive', 'taxInclusive']]);
   assignMappedNumberFields(body, args, [
+    ['tax_rate', 'taxRate'],
     ['total_price', 'totalPrice'],
     ['total_price_without_tax', 'totalPriceWithoutTax'],
   ]);
+  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
+  if (Array.isArray(lineItems)) {
+    body['line_items'] = lineItems;
+  }
 
   return body;
 };
@@ -7517,17 +8174,23 @@ export const crmListExpensesTool: McpTool = {
     }
 
     const { limit, params } = buildExpenseListParams(args);
-    const expenses = await reqContext.client.public.expenses.list(params, undefined);
+    const { data: expenses, response } = await reqContext.client
+      .get<Array<Record<string, unknown>>>('/v1/public/expenses', {
+        query: params,
+      })
+      .withResponse();
     const results = expenses.slice(0, limit).map((expense) => expense as unknown as Record<string, unknown>);
+    const total = readHeaderNumber(response.headers, 'x-sanka-total') ?? expenses.length;
+    const page = readHeaderNumber(response.headers, 'x-sanka-page') ?? params.page;
 
     return buildListResult({
       label: 'expenses',
       payload: {
         count: results.length,
         data: results,
-        message: `Returned ${results.length} of ${expenses.length} expenses.`,
-        page: 1,
-        total: expenses.length,
+        message: `Returned ${results.length} of ${total} expenses.`,
+        page,
+        total,
       },
       previewKeys: ['description', 'company_name', 'contact_name', 'id_pm'],
     });
@@ -7795,6 +8458,442 @@ export const crmDeleteExpenseTool: McpTool = {
         { type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) },
       ],
       structuredContent: response,
+    };
+  },
+};
+
+export const crmListIncentivesTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'read',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/incentives',
+    operationId: 'public.incentives.list',
+  },
+  tool: {
+    name: 'list_incentives',
+    title: 'List incentives',
+    description:
+      'Review calculated incentive and commission records in Sanka. Use this for partner commission or employee incentive payout checks.',
+    inputSchema: INCENTIVE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List incentives',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List incentives',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildIncentiveListParams(args);
+    const { data: incentives, response } = await reqContext.client
+      .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
+        query: params,
+      })
+      .withResponse();
+    const results = incentives.slice(0, limit).map((incentive) => incentive as Record<string, unknown>);
+    const total = readHeaderNumber(response.headers, 'x-sanka-total') ?? incentives.length;
+    const page = readHeaderNumber(response.headers, 'x-sanka-page') ?? Number(params['page'] ?? 1);
+
+    return buildListResult({
+      label: 'incentives',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} of ${total} incentives.`,
+        page,
+        total,
+      },
+      previewKeys: ['payee_company_name', 'owner_name', 'plan_name', 'source_label', 'id_inc'],
+    });
+  },
+};
+
+export const crmListIncentivePlansTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'read',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/incentives/plans',
+    operationId: 'public.incentives.plans.list',
+  },
+  tool: {
+    name: 'list_incentive_plans',
+    title: 'List incentive plans',
+    description: 'Review active and inactive incentive rules in Sanka.',
+    inputSchema: INCENTIVE_PLAN_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List incentive plans',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List incentive plans',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const plans = (await reqContext.client.get('/v1/public/incentives/plans', {
+      query: buildIncentivePlanListParams(args),
+    })) as Array<Record<string, unknown>>;
+
+    return buildListResult({
+      label: 'incentive plans',
+      payload: {
+        count: plans.length,
+        data: plans,
+        message: `Returned ${plans.length} incentive plans.`,
+        page: 1,
+        total: plans.length,
+      },
+      previewKeys: ['name', 'base_event', 'payee_company_name'],
+    });
+  },
+};
+
+export const crmListIncentiveCompanyOptionsTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'read',
+    tags: ['crm', 'incentives', 'finance', 'companies'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/incentives/company-options',
+    operationId: 'public.incentives.companyOptions.list',
+  },
+  tool: {
+    name: 'list_incentive_company_options',
+    title: 'List incentive company options',
+    description: 'Search companies that can be used as incentive source companies or partner company payees.',
+    inputSchema: INCENTIVE_COMPANY_OPTIONS_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List incentive company options',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List incentive company options',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const companies = (await reqContext.client.get('/v1/public/incentives/company-options', {
+      query: buildIncentiveCompanyOptionsParams(args),
+    })) as Array<Record<string, unknown>>;
+
+    return buildListResult({
+      label: 'incentive company options',
+      payload: {
+        count: companies.length,
+        data: companies,
+        message: `Returned ${companies.length} company options.`,
+        page: 1,
+        total: companies.length,
+      },
+      previewKeys: ['label', 'id'],
+    });
+  },
+};
+
+export const crmCreateIncentivePlanTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'write',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/incentives/plans',
+    operationId: 'public.incentives.plans.create',
+  },
+  tool: {
+    name: 'create_incentive_plan',
+    title: 'Create incentive plan',
+    description:
+      'Create an incentive or partner commission rule in Sanka. Use company payee type for partner commissions.',
+    inputSchema: INCENTIVE_PLAN_CREATE_INPUT_SCHEMA,
+    outputSchema: INCENTIVE_ACTION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create incentive plan',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create incentive plan',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildIncentivePlanCreateBody(args);
+    if (!readString(body['name'])) {
+      return asErrorResult('`name` is required.');
+    }
+    if (!readString(body['base_event'])) {
+      return asErrorResult('`base_event` is required.');
+    }
+    if (!readString(body['rate_type'])) {
+      return asErrorResult('`rate_type` is required.');
+    }
+    if (typeof body['rate_value'] !== 'number') {
+      return asErrorResult('`rate_value` is required.');
+    }
+    if (!readString(body['effective_from'])) {
+      return asErrorResult('`effective_from` is required.');
+    }
+
+    const response = (await reqContext.client.post('/v1/public/incentives/plans', {
+      body,
+      query: buildIncentiveWorkspaceQuery(args),
+    })) as Record<string, unknown>;
+
+    return {
+      content: [
+        { type: 'text', text: buildIncentiveMutationSummary({ action: 'plan created', payload: response }) },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCalculateIncentivesTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'write',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/incentives/calculate',
+    operationId: 'public.incentives.calculate',
+  },
+  tool: {
+    name: 'calculate_incentives',
+    title: 'Calculate incentives',
+    description:
+      'Calculate incentives for a period. Defaults to dry_run=true for a safe preview; set dry_run=false only when the user explicitly wants drafts stored.',
+    inputSchema: INCENTIVE_CALCULATE_INPUT_SCHEMA,
+    outputSchema: INCENTIVE_ACTION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Calculate incentives',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Calculate incentives',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildIncentiveCalculateBody(args);
+    if (!readString(body['period'])) {
+      return asErrorResult('`period` is required.');
+    }
+    if (body['dry_run'] === undefined) {
+      body['dry_run'] = true;
+    }
+
+    const response = (await reqContext.client.post('/v1/public/incentives/calculate', {
+      body,
+      query: buildIncentiveWorkspaceQuery(args),
+    })) as Record<string, unknown>;
+    const data = readRecord(response['data']) ?? {};
+    const summary = readRecord(data['summary']) ?? {};
+    const storedCount = typeof summary['stored_count'] === 'number' ? summary['stored_count'] : 0;
+    const candidateCount = typeof summary['candidate_count'] === 'number' ? summary['candidate_count'] : 0;
+    const dryRun = readBoolean(summary['dry_run']) ?? readBoolean(body['dry_run']) ?? false;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text:
+            dryRun ?
+              `Previewed ${candidateCount} incentive candidates.`
+            : `Calculated incentives and stored ${storedCount} drafts from ${candidateCount} candidates.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmApproveIncentivesTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'write',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/incentives/approve-bulk',
+    operationId: 'public.incentives.approve',
+  },
+  tool: {
+    name: 'approve_incentives',
+    title: 'Approve incentives',
+    description: 'Approve one or more draft incentives after the user explicitly confirms approval.',
+    inputSchema: INCENTIVE_APPROVE_INPUT_SCHEMA,
+    outputSchema: INCENTIVE_ACTION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Approve incentives',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Approve incentives',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const incentiveID = readString(args?.['incentive_id']);
+    const ids = readStringArray(args?.['ids']);
+    if (!incentiveID && ids.length === 0) {
+      return asErrorResult('`incentive_id` or `ids` is required.');
+    }
+
+    const query = buildIncentiveWorkspaceQuery(args);
+    const response =
+      ids.length > 0 ?
+        ((await reqContext.client.post('/v1/public/incentives/approve-bulk', {
+          body: { ids },
+          query,
+        })) as Record<string, unknown>)
+      : ((await reqContext.client.post(`/v1/public/incentives/${incentiveID}/approve`, {
+          query,
+        })) as Record<string, unknown>);
+
+    return {
+      content: [
+        { type: 'text', text: buildIncentiveMutationSummary({ action: 'approved', payload: response }) },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
+  metadata: {
+    resource: 'incentives',
+    operation: 'read',
+    tags: ['crm', 'incentives', 'finance'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/incentives',
+    operationId: 'public.incentives.paymentNotice.generate',
+  },
+  tool: {
+    name: 'generate_incentive_payment_notice',
+    title: 'Generate incentive payment notice',
+    description:
+      'Generate a Japanese partner payment request notice from calculated incentive rows. This does not create or update Sanka records.',
+    inputSchema: INCENTIVE_NOTICE_INPUT_SCHEMA,
+    outputSchema: INCENTIVE_NOTICE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Generate incentive payment notice',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Generate incentive payment notice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const periodFrom = readString(args?.['period_from']);
+    const periods = periodFrom ? periodsBetween(periodFrom, readString(args?.['period_to'])) : [];
+    if (!periodFrom || periods.length === 0) {
+      return asErrorResult('`period_from` must be YYYY-MM.');
+    }
+
+    const payeeCompanyID = readString(args?.['payee_company_id']);
+    const payeeCompanyName = readString(args?.['payee_company_name']);
+    const status = readString(args?.['status']);
+    const workspaceID = readString(args?.['workspace_id']);
+    const language = readString(args?.['language']);
+    const rows: Array<Record<string, unknown>> = [];
+
+    for (const period of periods) {
+      const { data: incentives } = await reqContext.client
+        .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
+          query: {
+            period,
+            limit: 100,
+            page: 1,
+            ...(status ? { status } : undefined),
+            ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+            ...(language ? { 'Accept-Language': language } : undefined),
+          },
+        })
+        .withResponse();
+      rows.push(
+        ...incentives.filter((row) => {
+          if (!payeeCompanyID) {
+            return true;
+          }
+          return readString(row['payee_company_id']) === payeeCompanyID;
+        }),
+      );
+    }
+
+    const requestDate = readString(args?.['request_date']) ?? new Date().toISOString().slice(0, 10);
+    const { notice, totalPayout, totalBaseAmount } = buildIncentiveNotice({
+      rows,
+      periods,
+      requestDate,
+      ...(payeeCompanyName ? { payeeCompanyName } : undefined),
+    });
+
+    return {
+      content: [{ type: 'text', text: notice }],
+      structuredContent: {
+        notice,
+        count: rows.length,
+        total_payout: totalPayout,
+        total_base_amount: totalBaseAmount,
+        periods,
+        results: rows,
+      },
     };
   },
 };
@@ -8319,14 +9418,15 @@ export const crmCreateOrderTool: McpTool = {
     if (!body.order?.externalId) {
       return asErrorResult('`order.external_id` is required.');
     }
-    if (!body.order.items?.length) {
-      return asErrorResult('`order.items` must contain at least one line item.');
+    if (!body.order.items?.length && !body.order.line_items?.length) {
+      return asErrorResult('`order.items` or `order.line_items` must contain at least one line item.');
     }
 
     const payload: OrderMutationPayload = {
       order: {
         externalId: body.order.externalId,
-        items: body.order.items,
+        ...(body.order.items !== undefined ? { items: body.order.items } : {}),
+        ...(body.order.line_items !== undefined ? { line_items: body.order.line_items } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
@@ -8336,10 +9436,10 @@ export const crmCreateOrderTool: McpTool = {
       ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
     };
 
-    const response = (await reqContext.client.public.orders.create(payload, undefined)) as unknown as Record<
-      string,
-      unknown
-    >;
+    const response = (await reqContext.client.public.orders.create(
+      payload as Parameters<typeof reqContext.client.public.orders.create>[0],
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [{ type: 'text', text: buildOrderMutationSummary(response, 'created') }],
@@ -8389,14 +9489,15 @@ export const crmUpdateOrderTool: McpTool = {
     if (!body.order?.externalId) {
       return asErrorResult('`order.external_id` is required.');
     }
-    if (!body.order.items?.length) {
-      return asErrorResult('`order.items` must contain at least one line item.');
+    if (!body.order.items?.length && !body.order.line_items?.length) {
+      return asErrorResult('`order.items` or `order.line_items` must contain at least one line item.');
     }
 
     const payload: OrderMutationPayload = {
       order: {
         externalId: body.order.externalId,
-        items: body.order.items,
+        ...(body.order.items !== undefined ? { items: body.order.items } : {}),
+        ...(body.order.line_items !== undefined ? { line_items: body.order.line_items } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
@@ -8408,7 +9509,7 @@ export const crmUpdateOrderTool: McpTool = {
 
     const response = (await reqContext.client.public.orders.update(
       orderID,
-      payload,
+      payload as Parameters<typeof reqContext.client.public.orders.update>[1],
       undefined,
     )) as unknown as Record<string, unknown>;
 
