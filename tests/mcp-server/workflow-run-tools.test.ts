@@ -154,6 +154,55 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('previews deal_to_invoice workflows from HubSpot deal URLs', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        source_status: 'synced',
+        financials: { total_amount: 250000, line_item_count: 2 },
+        duplicate_check: {
+          existing_invoices: [],
+          would_create_invoice: true,
+        },
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {},
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      source_status: 'synced',
+      financials: { total_amount: 250000, line_item_count: 2 },
+      duplicate_check: {
+        existing_invoices: [],
+        would_create_invoice: true,
+      },
+    });
+  });
+
   it('previews Salesforce quote_readiness through the generic workflow endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
