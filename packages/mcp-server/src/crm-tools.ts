@@ -1218,6 +1218,20 @@ const EXPENSE_OUTPUT_SCHEMA = {
   required: ['id', 'created_at'],
 };
 
+const GOVERNANCE_ADVISORY_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    code: { type: 'string' },
+    severity: { type: 'string' },
+    field_group: { type: 'string' },
+    message: { type: 'string' },
+    requires_confirmation: { type: 'boolean' },
+    suggested_next_action: { type: 'string' },
+    details: { type: 'object', additionalProperties: true },
+  },
+};
+
 const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1226,6 +1240,10 @@ const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     expense_id: { type: 'string' },
     external_id: { type: 'string' },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -2757,6 +2775,10 @@ const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     purchase_order_id: { type: 'string' },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -2987,6 +3009,10 @@ const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     estimate_id: { type: 'string' },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -3627,6 +3653,10 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     invoice_id: { type: 'string' },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -3689,6 +3719,10 @@ const BILL_MUTATION_OUTPUT_SCHEMA = {
     bill_id: { type: 'string' },
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -5358,6 +5392,39 @@ const readStringArray = (value: unknown): string[] => {
   return value.map((entry) => readString(entry)).filter((entry): entry is string => Boolean(entry));
 };
 
+const readGovernanceAdvisories = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const advisories = payload['advisories'];
+  if (!Array.isArray(advisories)) {
+    return [];
+  }
+
+  return advisories
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+};
+
+const buildGovernanceAdvisorySummary = (payload: Record<string, unknown>): string | undefined => {
+  const advisories = readGovernanceAdvisories(payload);
+  const missingPartnerAdvisory = advisories.find(
+    (advisory) => readString(advisory['code']) === 'missing_recommended_partner',
+  );
+  if (missingPartnerAdvisory) {
+    return (
+      'Partner fields are missing. Ask the user for explicit permission before creating or linking a ' +
+      'company/contact, then update this record.'
+    );
+  }
+
+  const firstAdvisory = advisories[0];
+  const message = firstAdvisory ? readString(firstAdvisory['message']) : undefined;
+  return message ? `Governance advisory: ${message}` : undefined;
+};
+
+const appendGovernanceAdvisorySummary = (summary: string, payload: Record<string, unknown>): string => {
+  const advisorySummary = buildGovernanceAdvisorySummary(payload);
+  return advisorySummary ? `${summary} ${advisorySummary}` : summary;
+};
+
 type WorkspaceIdentity = {
   workspace_id?: string;
   workspace_code?: string;
@@ -6397,7 +6464,7 @@ const buildExpenseMutationSummary = ({
     readString(payload['external_id']) ||
     readString(payload['status']) ||
     'expense';
-  return `Expense ${action}: ${reference}.`;
+  return appendGovernanceAdvisorySummary(`Expense ${action}: ${reference}.`, payload);
 };
 
 const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => {
@@ -7886,7 +7953,7 @@ const buildEntityMutationSummary = ({
     readString(payload['status']) ||
     entity;
 
-  return `${entity} ${action}: ${reference}.`;
+  return appendGovernanceAdvisorySummary(`${entity} ${action}: ${reference}.`, payload);
 };
 
 const buildEntityDetailSummary = ({
