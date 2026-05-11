@@ -3731,6 +3731,13 @@ describe('ChatGPT CRM tools', () => {
       status: 'created',
       expense_id: 'expense-1',
       external_id: 'EXP-1',
+      advisories: [
+        {
+          code: 'missing_recommended_partner',
+          message: 'Created without a linked company or contact.',
+          requires_confirmation: true,
+        },
+      ],
     });
 
     const result = await crmCreateExpenseTool.handler({
@@ -3769,7 +3776,19 @@ describe('ChatGPT CRM tools', () => {
       status: 'created',
       expense_id: 'expense-1',
       external_id: 'EXP-1',
+      advisories: [
+        {
+          code: 'missing_recommended_partner',
+          message: 'Created without a linked company or contact.',
+          requires_confirmation: true,
+        },
+      ],
     });
+    const summaryBlock = result.content?.[0];
+    expect(summaryBlock?.type).toBe('text');
+    const summaryText = summaryBlock?.type === 'text' ? summaryBlock.text : '';
+    expect(summaryText).toContain('Partner fields are missing');
+    expect(summaryText).toContain('explicit permission');
   });
 
   it('updates an expense', async () => {
