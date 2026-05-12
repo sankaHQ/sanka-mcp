@@ -203,6 +203,60 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('starts deal_to_invoice workflows with idempotency and explicit duplicate override', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'run-invoice-1',
+        status: 'completed',
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          channel_id: 'channel-1',
+          allow_multiple_invoices: true,
+        },
+        idempotency_key: 'deal-to-invoice:46558049080',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          channel_id: 'channel-1',
+          allow_multiple_invoices: true,
+        },
+        idempotency_key: 'deal-to-invoice:46558049080',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'run-invoice-1',
+      status: 'completed',
+    });
+  });
+
   it('previews Salesforce quote_readiness through the generic workflow endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {

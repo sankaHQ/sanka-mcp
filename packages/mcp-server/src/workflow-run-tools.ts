@@ -30,6 +30,11 @@ const SOURCE_RECORD_SCHEMA = {
       description:
         'External portal/account id. For HubSpot deal URLs this is parsed from the URL when omitted.',
     },
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional Sanka integration channel id when the workspace has multiple HubSpot or Salesforce connections.',
+    },
     url: {
       type: 'string',
       description:
@@ -91,7 +96,20 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
     source_record: SOURCE_RECORD_SCHEMA,
     options: {
       type: 'object',
-      description: 'Optional workflow-specific controls.',
+      description:
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, supports channel_id, search filters, close date filters, billing_status, fulfillment_status, and allow_multiple_invoices for previewing duplicate override behavior.',
+      properties: {
+        channel_id: { type: 'string' },
+        close_date_from: { type: 'string' },
+        close_date_to: { type: 'string' },
+        billing_status: { type: 'string' },
+        fulfillment_status: { type: 'string' },
+        allow_multiple_invoices: { type: 'boolean' },
+        filters: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+      },
     },
   },
   required: ['workflow_type', 'source_record'],
@@ -104,7 +122,12 @@ const START_WORKFLOW_INPUT_SCHEMA = {
     source_record: SOURCE_RECORD_SCHEMA,
     options: {
       type: 'object',
-      description: 'Optional workflow-specific controls.',
+      description:
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, pass channel_id when needed and set allow_multiple_invoices only when the user explicitly asks to create another invoice for the same deal.',
+      properties: {
+        channel_id: { type: 'string' },
+        allow_multiple_invoices: { type: 'boolean' },
+      },
     },
     idempotency_key: {
       type: 'string',
@@ -239,7 +262,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, duplicate check, and approval state from a HubSpot deal. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, customer resolution, line items, duplicate check, and approval state from a HubSpot deal without freee sync. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -285,7 +308,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a synced HubSpot deal with duplicate protection and platform mapping. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a HubSpot deal with duplicate protection, customer resolution, and platform mapping; it does not sync to freee. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
