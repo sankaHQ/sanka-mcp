@@ -295,6 +295,32 @@ describe('ChatGPT CRM tools', () => {
     expect(crmScoreRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
   });
 
+  it('keeps customer and supplier create schemas open to company and contact records', () => {
+    const companyOrContactTools = [
+      crmCreateExpenseTool,
+      crmCreatePurchaseOrderTool,
+      crmCreateEstimateTool,
+      crmCreateInvoiceTool,
+      crmCreateSlipTool,
+      crmCreateBillTool,
+      crmCreateDisbursementTool,
+    ];
+
+    for (const tool of companyOrContactTools) {
+      const properties = (tool.tool.inputSchema as any).properties;
+      expect(properties.company_id).toBeDefined();
+      expect(properties.contact_id).toBeDefined();
+    }
+
+    expect((crmCreateOrderTool.tool.inputSchema as any).properties.order.properties.company_id).toBeDefined();
+
+    const subscriptionSchema = crmCreateSubscriptionTool.tool.inputSchema as any;
+    expect(subscriptionSchema.properties.company_id).toBeDefined();
+    expect(subscriptionSchema.properties.contact_id).toBeDefined();
+    expect(subscriptionSchema.properties.customer_id).toBeDefined();
+    expect(subscriptionSchema.required).toEqual(['items', 'subscription_status']);
+  });
+
   it('returns a reauth challenge when auth status is checked without authentication', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
@@ -5593,6 +5619,85 @@ describe('ChatGPT CRM tools', () => {
         text: 'Deleted company price-table override for item item-1.',
       },
     ]);
+  });
+
+  it('creates a subscription with a company customer', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      contact_info: [],
+      items: [],
+      created_at: '2026-05-13T00:00:00Z',
+      number_item: 2,
+    });
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-uuid',
+        items: [{ id: 'item-1', amount: 2, price: 30000 }],
+        subscription_status: 'active',
+        currency: 'JPY',
+        start_date: '2026-04-28',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        cid: 'company-uuid',
+        items: [{ id: 'item-1', amount: 2, price: 30000 }],
+        subscription_status: 'active',
+        currency: 'JPY',
+        start_date: '2026-04-28',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      contact_info: [],
+      items: [],
+      created_at: '2026-05-13T00:00:00Z',
+      number_item: 2,
+    });
+  });
+
+  it('rejects conflicting subscription customer fields', async () => {
+    const create = jest.fn();
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-uuid',
+        contact_id: 'contact-uuid',
+        items: [{ id: 'item-1', amount: 1 }],
+        subscription_status: 'active',
+      },
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      content: [{ type: 'text', text: 'Provide only one of `customer_id`, `company_id`, or `contact_id`.' }],
+      isError: true,
+    });
   });
 
   it('updates a subscription with lookup_external_id', async () => {

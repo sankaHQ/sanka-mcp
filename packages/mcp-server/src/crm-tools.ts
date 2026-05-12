@@ -4373,9 +4373,17 @@ const SUBSCRIPTION_ITEM_INPUT_SCHEMA = {
 const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    company_id: {
+      type: 'string',
+      description: 'Sanka company UUID to use as the subscription customer.',
+    },
     contact_id: {
       type: 'string',
-      description: 'Contact identifier used as the `cid` field in the public API.',
+      description: 'Sanka contact UUID to use as the subscription customer.',
+    },
+    customer_id: {
+      type: 'string',
+      description: 'Sanka company or contact UUID to use as the subscription customer.',
     },
     items: {
       type: 'array',
@@ -4416,7 +4424,7 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       description: 'Shipping cost tax status.',
     },
   },
-  required: ['contact_id', 'items', 'subscription_status'],
+  required: ['items', 'subscription_status'],
 };
 
 const SUBSCRIPTION_RETRIEVE_INPUT_SCHEMA = {
@@ -7570,13 +7578,18 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
   const body: Record<string, unknown> = {};
 
   assignMappedStringFields(body, args, [
-    ['contact_id', 'cid'],
     ['subscription_status', 'subscription_status'],
     ['currency', 'currency'],
     ['frequency_time', 'frequency_time'],
     ['shipping_cost_tax_status', 'shipping_cost_tax_status'],
     ['start_date', 'start_date'],
   ]);
+
+  const subscriptionCustomerID = readSubscriptionCustomerID(args).customerID;
+  if (subscriptionCustomerID) {
+    body['cid'] = subscriptionCustomerID;
+  }
+
   assignMappedIntegerFields(body, args, [['frequency', 'frequency']]);
   assignMappedNumberFields(body, args, [
     ['tax', 'tax'],
@@ -7589,6 +7602,31 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
   }
 
   return body;
+};
+
+const readSubscriptionCustomerID = (
+  args: Record<string, unknown> | undefined,
+): { customerID?: string; error?: string } => {
+  const candidates = [
+    ['customer_id', readString(args?.['customer_id']) ?? readString(args?.['cid'])],
+    ['company_id', readString(args?.['company_id'])],
+    ['contact_id', readString(args?.['contact_id'])],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+
+  if (candidates.length === 0) {
+    return {};
+  }
+
+  const uniqueValues = new Set(candidates.map(([, value]) => value));
+  if (uniqueValues.size > 1) {
+    return { error: 'Provide only one of `customer_id`, `company_id`, or `contact_id`.' };
+  }
+
+  const firstCandidate = candidates[0];
+  if (!firstCandidate) {
+    return {};
+  }
+  return { customerID: firstCandidate[1] };
 };
 
 const buildSubscriptionRetrieveParams = (args: Record<string, unknown> | undefined) => {
@@ -14667,8 +14705,12 @@ export const crmCreateSubscriptionTool: McpTool = {
     }
 
     const body = buildSubscriptionCreateBody(args);
+    const customer = readSubscriptionCustomerID(args);
+    if (customer.error) {
+      return asErrorResult(customer.error);
+    }
     if (!readString(body['cid'])) {
-      return asErrorResult('`contact_id` is required.');
+      return asErrorResult('`customer_id`, `company_id`, or `contact_id` is required.');
     }
     if (!Array.isArray(body['items']) || body['items'].length === 0) {
       return asErrorResult('`items` must contain at least one subscription item.');
