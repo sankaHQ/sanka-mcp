@@ -39,14 +39,17 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
-  it('keeps freee sync inside generic workflow tools', () => {
+  it('keeps freee sync and revenue summaries inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
 
     expect(workflowTypeSchema.enum).toContain('invoice_export');
+    expect(workflowTypeSchema.enum).toContain('revenue_control_summary');
     expect(toolNames).not.toContain('sync_sanka_invoice_to_freee');
     expect(toolNames).not.toContain('create_freee_invoice_draft');
     expect(toolNames).not.toContain('sync_hubspot_deals_to_freee');
+    expect(toolNames).not.toContain('summarize_hubspot_revenue_control');
+    expect(toolNames).not.toContain('get_hubspot_revenue_bucket');
   });
 
   it('resolves records through the public workflow-runs endpoint', async () => {
@@ -376,6 +379,106 @@ describe('workflow run MCP tools', () => {
       run_id: 'freee-run-1',
       workflow_type: 'invoice_export',
       status: 'completed',
+    });
+  });
+
+  it('previews HubSpot revenue control summaries through the generic workflow endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'revenue_control_summary',
+        source_system: 'hubspot',
+        mode: 'read_only',
+        read_only: true,
+        totals: {
+          total_closed_won_amount: { JPY: 18600000 },
+          record_count_by_bucket: {
+            won: 8,
+            unbilled: 3,
+            approval_pending: 1,
+            unpaid: 2,
+          },
+        },
+        buckets: {
+          won: [],
+          quote_drafted: [],
+          approval_pending: [],
+          unbilled: [],
+          invoiced: [],
+          unpaid: [],
+          blocked: [],
+        },
+        top_blockers: [{ blocker_type: 'approval_pending_too_long' }],
+        next_actions: [{ action: 'Review the pending approval request.' }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'revenue_control_summary',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          start_date: '2026-05-01',
+          end_date: '2026-05-31',
+          include_records: true,
+          include_freee_status: true,
+          aging_as_of: '2026-05-12',
+          limit_per_bucket: 10,
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'revenue_control_summary',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          start_date: '2026-05-01',
+          end_date: '2026-05-31',
+          include_records: true,
+          include_freee_status: true,
+          aging_as_of: '2026-05-12',
+          limit_per_bucket: 10,
+        },
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'revenue_control_summary',
+      source_system: 'hubspot',
+      mode: 'read_only',
+      read_only: true,
+      totals: {
+        total_closed_won_amount: { JPY: 18600000 },
+        record_count_by_bucket: {
+          won: 8,
+          unbilled: 3,
+          approval_pending: 1,
+          unpaid: 2,
+        },
+      },
+      buckets: {
+        won: [],
+        quote_drafted: [],
+        approval_pending: [],
+        unbilled: [],
+        invoiced: [],
+        unpaid: [],
+        blocked: [],
+      },
+      top_blockers: [{ blocker_type: 'approval_pending_too_long' }],
+      next_actions: [{ action: 'Review the pending approval request.' }],
     });
   });
 
