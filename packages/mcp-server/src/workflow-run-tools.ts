@@ -12,10 +12,10 @@ const SOURCE_RECORD_SCHEMA = {
     },
     object_type: {
       type: 'string',
-      enum: ['deal', 'opportunity'],
+      enum: ['deal', 'opportunity', 'invoice'],
       default: 'deal',
       description:
-        'Business object type. Use deal for Sanka/HubSpot deal workflows and opportunity for Salesforce quote-readiness checks.',
+        'Business object type. Use deal for Sanka/HubSpot deal workflows, opportunity for Salesforce quote-readiness checks, and invoice for Sanka invoice export workflows.',
     },
     record_id: {
       type: 'string',
@@ -38,16 +38,16 @@ const SOURCE_RECORD_SCHEMA = {
     url: {
       type: 'string',
       description:
-        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate and deal_to_invoice preview. Salesforce Opportunity URLs are accepted for quote_readiness preview. The API uses synced Sanka records when available and otherwise performs read-only external checks.',
+        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate and deal_to_invoice preview. Salesforce Opportunity URLs are accepted for quote_readiness preview. invoice_export uses Sanka invoice ids, record ids, filters, or workflow run ids instead of external URLs.',
     },
   },
 };
 
 const WORKFLOW_TYPE_SCHEMA = {
   type: 'string',
-  enum: ['deal_to_estimate', 'deal_to_invoice', 'quote_readiness'],
+  enum: ['deal_to_estimate', 'deal_to_invoice', 'invoice_export', 'quote_readiness'],
   description:
-    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_invoice for invoice draft workflows from HubSpot deals, and quote_readiness for read-only Salesforce Opportunity quote readiness checks.',
+    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_invoice for invoice draft workflows from HubSpot deals, invoice_export for syncing selected Sanka invoice drafts to freee invoice drafts, and quote_readiness for read-only Salesforce Opportunity quote readiness checks.',
 };
 
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
@@ -97,17 +97,62 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For HubSpot deal_to_invoice, supports channel_id, search filters, close date filters, billing_status, fulfillment_status, and allow_multiple_invoices for previewing duplicate override behavior.',
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, supports channel_id, search filters, close date filters, billing_status, fulfillment_status, and allow_multiple_invoices for previewing duplicate override behavior. For invoice_export to freee, provide an explicit sync_scope such as created_in_workflow_run, selected_invoice_ids, selected_record_ids, filtered_unsynced_invoices, or all_eligible_unsynced. Ambiguous freee sync requests return needs_confirmation and do not mutate.',
       properties: {
         channel_id: { type: 'string' },
+        target_system: { type: 'string', enum: ['freee'] },
+        sync_scope: {
+          type: 'string',
+          enum: [
+            'created_in_workflow_run',
+            'created_in_current_workflow_run',
+            'selected_invoice_ids',
+            'selected_record_ids',
+            'filtered_unsynced_invoices',
+            'all_eligible_unsynced',
+            'preview_only',
+          ],
+          description:
+            'Explicit freee sync scope. Do not use all_eligible_unsynced unless the user explicitly confirms broad sync.',
+        },
+        workflow_run_id: { type: 'string' },
+        workflow_run_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        invoice_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        record_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
         close_date_from: { type: 'string' },
         close_date_to: { type: 'string' },
         billing_status: { type: 'string' },
         fulfillment_status: { type: 'string' },
         allow_multiple_invoices: { type: 'boolean' },
+        allow_resync: { type: 'boolean' },
+        allow_multiple_freee_drafts: { type: 'boolean' },
+        confirm_all: { type: 'boolean' },
+        freee_channel_id: { type: 'string' },
+        freee_company_id: { type: 'string' },
+        freee_args: {
+          type: 'object',
+          description:
+            'Allow-listed freee export arguments such as payment_type, issue_date, payment_date, subject, invoice_note, or supported line-item mapping keys. Unknown keys are rejected by the API.',
+        },
         filters: {
-          type: 'array',
-          items: { type: 'object' },
+          oneOf: [
+            {
+              type: 'array',
+              items: { type: 'object' },
+            },
+            {
+              type: 'object',
+            },
+          ],
         },
       },
     },
@@ -123,10 +168,48 @@ const START_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For HubSpot deal_to_invoice, pass channel_id when needed and set allow_multiple_invoices only when the user explicitly asks to create another invoice for the same deal.',
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, pass channel_id when needed and set allow_multiple_invoices only when the user explicitly asks to create another invoice for the same deal. For invoice_export to freee, start only after explicit scope/confirmation; pass sync_scope, invoice_ids or workflow_run_id, freee_channel_id, idempotency_key, and confirm_all only when the user explicitly approved all eligible unsynced invoices.',
       properties: {
         channel_id: { type: 'string' },
+        target_system: { type: 'string', enum: ['freee'] },
+        sync_scope: {
+          type: 'string',
+          enum: [
+            'created_in_workflow_run',
+            'created_in_current_workflow_run',
+            'selected_invoice_ids',
+            'selected_record_ids',
+            'filtered_unsynced_invoices',
+            'all_eligible_unsynced',
+          ],
+        },
+        workflow_run_id: { type: 'string' },
+        workflow_run_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        invoice_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        record_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
         allow_multiple_invoices: { type: 'boolean' },
+        allow_resync: { type: 'boolean' },
+        allow_multiple_freee_drafts: { type: 'boolean' },
+        confirm_all: { type: 'boolean' },
+        freee_channel_id: { type: 'string' },
+        freee_company_id: { type: 'string' },
+        freee_args: {
+          type: 'object',
+          description:
+            'Allow-listed freee export arguments. Unknown keys are rejected by the API and arbitrary freee payloads are not accepted.',
+        },
+        filters: {
+          type: 'object',
+        },
       },
     },
     idempotency_key: {
@@ -262,7 +345,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, customer resolution, line items, duplicate check, and approval state from a HubSpot deal without freee sync. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, customer resolution, line items, duplicate check, and approval state from a HubSpot deal. For invoice_export, previews syncing explicitly scoped Sanka invoice drafts to freee invoice drafts and returns needs_confirmation for ambiguous or broad sync requests without writing records. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, and source links. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -308,7 +391,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a HubSpot deal with duplicate protection, customer resolution, and platform mapping; it does not sync to freee. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a HubSpot deal with duplicate protection, customer resolution, and platform mapping. For invoice_export, syncs only explicitly scoped Sanka invoice drafts to freee invoice drafts after duplicate/idempotency checks; do not use it for an ambiguous sync-all request. Do not use start_workflow for quote_readiness; quote readiness is preview-only.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
