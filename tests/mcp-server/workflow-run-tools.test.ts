@@ -482,7 +482,7 @@ describe('workflow run MCP tools', () => {
     });
   });
 
-  it('previews Salesforce quote_readiness through the generic workflow endpoint', async () => {
+  it('previews Salesforce quote_readiness through the Salesforce API preview endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
         workflow_type: 'quote_readiness',
@@ -500,6 +500,20 @@ describe('workflow run MCP tools', () => {
         },
         hard_blockers: [{ code: 'missing_billing_contact' }],
         warnings: [{ code: 'missing_payment_terms' }],
+        orchestration_plan: {
+          read_only: true,
+          would_reuse_company: false,
+          would_create_company: true,
+          would_reuse_contact: false,
+          would_create_contact: true,
+          would_reuse_items: [],
+          would_create_items: [{ platform_mapping: { platform_id: '01t000000000001AAA' } }],
+          platform_mappings_that_would_be_written: [
+            { platform_id: '001000000000001AAA', target_object_type: 'company' },
+            { platform_id: '003000000000001AAA', target_object_type: 'contact' },
+            { platform_id: '01t000000000001AAA', target_object_type: 'item' },
+          ],
+        },
       },
       message: 'ok',
     });
@@ -519,15 +533,13 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
       body: {
-        workflow_type: 'quote_readiness',
         source_record: {
           source_system: 'salesforce',
           object_type: 'opportunity',
           url: 'https://example.my.salesforce.com/lightning/r/Opportunity/006000000000001AAA/view',
         },
-        options: {},
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -546,6 +558,56 @@ describe('workflow run MCP tools', () => {
       },
       hard_blockers: [{ code: 'missing_billing_contact' }],
       warnings: [{ code: 'missing_payment_terms' }],
+      orchestration_plan: {
+        read_only: true,
+        would_reuse_company: false,
+        would_create_company: true,
+        would_reuse_contact: false,
+        would_create_contact: true,
+        would_reuse_items: [],
+        would_create_items: [{ platform_mapping: { platform_id: '01t000000000001AAA' } }],
+        platform_mappings_that_would_be_written: [
+          { platform_id: '001000000000001AAA', target_object_type: 'company' },
+          { platform_id: '003000000000001AAA', target_object_type: 'contact' },
+          { platform_id: '01t000000000001AAA', target_object_type: 'item' },
+        ],
+      },
+    });
+  });
+
+  it('previews quote_readiness Sanka deal references through the Salesforce API preview endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'quote_readiness',
+        source_status: 'synced',
+        read_only: true,
+      },
+      message: 'ok',
+    });
+
+    await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'quote_readiness',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'deal',
+          record_id: 'deal-1',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
+      body: {
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'deal',
+          record_id: 'deal-1',
+        },
+      },
     });
   });
 
@@ -553,6 +615,11 @@ describe('workflow run MCP tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
 
     expect(toolNames).not.toContain('check_salesforce_quote_readiness');
+    expect(toolNames).not.toContain('create_draft_estimate_from_salesforce_opportunity');
+    expect(toolNames).not.toContain('create_quote_from_salesforce_opportunity');
+    expect(toolNames).not.toContain('salesforce_opportunity_to_estimate');
+    expect(toolNames).not.toContain('start_salesforce_quote_workflow');
+    expect(toolNames).not.toContain('check_and_create_salesforce_estimate');
   });
 
   it('loads workflow runs by id', async () => {
