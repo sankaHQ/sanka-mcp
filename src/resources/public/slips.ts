@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Slips extends APIResource {
   /**
@@ -105,6 +106,8 @@ export interface Slip {
   due_date?: string | null;
 
   id_slip?: number | null;
+
+  line_items?: Array<PublicLineItem>;
 
   slip_type?: string | null;
 

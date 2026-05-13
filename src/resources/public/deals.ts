@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Deals extends APIResource {
   /**
@@ -98,6 +99,8 @@ export interface Case {
   currency?: string | null;
 
   deal_id?: number | null;
+
+  line_items?: Array<PublicLineItem>;
 
   name?: string | null;
 

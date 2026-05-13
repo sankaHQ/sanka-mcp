@@ -2169,6 +2169,7 @@ describe('ChatGPT CRM tools', () => {
       name: 'Acme renewal',
       stage_label: 'Negotiation',
       pipeline_name: 'Sales',
+      line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -2201,6 +2202,7 @@ describe('ChatGPT CRM tools', () => {
       name: 'Acme renewal',
       stage_label: 'Negotiation',
       pipeline_name: 'Sales',
+      line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -2531,6 +2533,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id: 'order-1',
       order_id: 501,
+      line_items: [{ item_name: 'Widget', quantity: 1, unit_price: 250 }],
       order_at: '2026-04-09T09:00:00Z',
       created_at: '2026-04-09T09:00:00Z',
       updated_at: '2026-04-09T10:00:00Z',
@@ -2559,6 +2562,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       id: 'order-1',
       order_id: 501,
+      line_items: [{ item_name: 'Widget', quantity: 1, unit_price: 250 }],
       order_at: '2026-04-09T09:00:00Z',
       created_at: '2026-04-09T09:00:00Z',
       updated_at: '2026-04-09T10:00:00Z',
@@ -2702,6 +2706,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_po: 901,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -2767,6 +2772,7 @@ describe('ChatGPT CRM tools', () => {
     expect(getResult.structuredContent).toEqual({
       id_po: 901,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3114,6 +3120,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_est: 1,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3142,6 +3149,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       id_est: 1,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3351,6 +3359,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_inv: 1,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3379,6 +3388,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       id_inv: 1,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3572,6 +3582,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_rcp: 301,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Payment row', quantity: 2, unit_price: 50 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3600,6 +3611,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       id_rcp: 301,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Payment row', quantity: 2, unit_price: 50 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3738,6 +3750,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_slip: 401,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Delivered item', quantity: 5, unit_price: 100 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3803,6 +3816,7 @@ describe('ChatGPT CRM tools', () => {
     expect(getResult.structuredContent).toEqual({
       id_slip: 401,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Delivered item', quantity: 5, unit_price: 100 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3887,6 +3901,7 @@ describe('ChatGPT CRM tools', () => {
     const retrieve = jest.fn().mockResolvedValue({
       id_bill: 501,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -3952,6 +3967,7 @@ describe('ChatGPT CRM tools', () => {
     expect(getResult.structuredContent).toEqual({
       id_bill: 501,
       company_name: 'Acme',
+      line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
