@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Orders extends APIResource {
   /**
@@ -166,6 +167,8 @@ export interface OrderRetrieveResponse {
   currency?: string | null;
 
   delivery_status?: string | null;
+
+  line_items?: Array<PublicLineItem>;
 
   number_item?: number | null;
 

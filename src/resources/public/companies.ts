@@ -62,7 +62,7 @@ export class Companies extends APIResource {
     params: CompanyDeleteParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PublicCompanyResponse> {
-    const { channel_id, confirm, dry_run, external_id, external_object_type, provider, target } =
+    const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
     return this._client.delete(path`/v1/public/companies/${companyID}`, {
       query: {
@@ -71,6 +71,7 @@ export class Companies extends APIResource {
         dry_run,
         external_id,
         external_object_type,
+        operation,
         provider,
         target,
       },
@@ -469,6 +470,8 @@ export interface CompanyDeleteParams {
   external_id?: string | null;
 
   external_object_type?: string | null;
+
+  operation?: string | null;
 
   provider?: string | null;
 

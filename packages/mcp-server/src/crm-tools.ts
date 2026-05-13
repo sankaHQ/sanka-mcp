@@ -57,7 +57,7 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Company integration mutations support HubSpot/Salesforce where the API allows them.',
+      'Connected integration provider for target="integration" or target="both". Integration mutations support HubSpot and Salesforce for companies, contacts, and deals where the API allows them.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
@@ -68,7 +68,7 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies"/"contacts"/"deals" or Salesforce "Account"/"Contact"/"Opportunity". Usually omit it.',
   },
   dry_run: {
     type: 'boolean',
@@ -96,6 +96,21 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
     type: 'array',
     description: 'Provider record ids to merge into primary_external_id for integration dedupe operations.',
     items: { type: 'string' },
+  },
+};
+
+const RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
+  target: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.target,
+  provider: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.provider,
+  channel_id: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.channel_id,
+  external_object_type: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.external_object_type,
+  dry_run: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.dry_run,
+  confirm: COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES.confirm,
+  operation: {
+    type: 'string',
+    description:
+      'Optional remote operation override for contact/deal integration mutations. Supported values include create, update, upsert, archive, and delete.',
+    enum: ['create', 'update', 'upsert', 'archive', 'delete'],
   },
 };
 
@@ -498,6 +513,7 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
 };
 
 const CONTACT_MUTATION_INPUT_PROPERTIES = {
+  ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
   allowed_in_store: {
     type: 'boolean',
     description: 'Whether the contact is allowed in store.',
@@ -509,6 +525,11 @@ const CONTACT_MUTATION_INPUT_PROPERTIES = {
   email: {
     type: 'string',
     description: 'Contact email address.',
+  },
+  custom_fields: {
+    type: 'object',
+    description:
+      'Custom field values. For integration mutations these are forwarded as provider property names.',
   },
   external_id: {
     type: 'string',
@@ -535,7 +556,7 @@ const CONTACT_MUTATION_INPUT_PROPERTIES = {
 const CONTACT_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: CONTACT_MUTATION_INPUT_PROPERTIES,
-  required: ['external_id'],
+  required: [],
 };
 
 const CONTACT_RETRIEVE_INPUT_SCHEMA = {
@@ -572,6 +593,7 @@ const CONTACT_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Contact identifier to delete.',
     },
+    ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -1391,6 +1413,7 @@ const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
 };
 
 const DEAL_MUTATION_INPUT_PROPERTIES = {
+  ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
   case_status: {
     type: 'string',
     description: 'Deal stage/status key.',
@@ -1415,6 +1438,11 @@ const DEAL_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Deal currency code.',
   },
+  custom_fields: {
+    type: 'object',
+    description:
+      'Custom field values. For integration mutations these are forwarded as provider property names.',
+  },
   external_id: {
     type: 'string',
     description: 'External reference stored on the deal.',
@@ -1437,7 +1465,7 @@ const DEAL_MUTATION_INPUT_PROPERTIES = {
 const DEAL_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: DEAL_MUTATION_INPUT_PROPERTIES,
-  required: ['external_id'],
+  required: [],
 };
 
 const DEAL_UPDATE_INPUT_SCHEMA = {
@@ -1463,6 +1491,7 @@ const DEAL_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Deal identifier to delete.',
     },
+    ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -6121,16 +6150,44 @@ const buildContactRetrieveParams = (args: Record<string, unknown> | undefined) =
 const buildContactMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
+    'channel_id',
     'company',
     'email',
     'external_id',
+    'external_object_type',
     'last_name',
     'name',
+    'operation',
     'phone_number',
+    'provider',
     'status',
+    'target',
   ]);
-  assignBooleanFields(body, args, ['allowed_in_store']);
+  assignBooleanFields(body, args, ['allowed_in_store', 'confirm', 'dry_run']);
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
   return body;
+};
+
+const buildContactDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const contactID = readString(args?.['contact_id']);
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, [
+    'channel_id',
+    'external_id',
+    'external_object_type',
+    'operation',
+    'provider',
+    'target',
+  ]);
+  assignBooleanFields(params, args, ['confirm', 'dry_run']);
+
+  return {
+    contactID,
+    params,
+  };
 };
 
 const buildExpenseListParams = (args: Record<string, unknown> | undefined) => {
@@ -6514,7 +6571,17 @@ const buildDealRetrieveParams = (args: Record<string, unknown> | undefined) => {
 
 const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
-  assignStringFields(body, args, ['currency', 'name', 'status']);
+  assignStringFields(body, args, [
+    'channel_id',
+    'currency',
+    'external_object_type',
+    'name',
+    'operation',
+    'provider',
+    'status',
+    'target',
+  ]);
+  assignBooleanFields(body, args, ['confirm', 'dry_run']);
 
   const caseStatus = readString(args?.['case_status']);
   const companyExternalID = readString(args?.['company_external_id']);
@@ -6545,6 +6612,10 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   if (Array.isArray(lineItems)) {
     body['line_items'] = lineItems;
   }
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
 
   return body;
 };
@@ -6559,6 +6630,25 @@ const buildDealUpdateParams = (args: Record<string, unknown> | undefined) => {
       ...(lookupExternalID ? { external_id: lookupExternalID } : undefined),
       ...buildDealMutationBody(args),
     },
+  };
+};
+
+const buildDealDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const caseID = readString(args?.['case_id']);
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, [
+    'channel_id',
+    'external_id',
+    'external_object_type',
+    'operation',
+    'provider',
+    'target',
+  ]);
+  assignBooleanFields(params, args, ['confirm', 'dry_run']);
+
+  return {
+    caseID,
+    params,
   };
 };
 
@@ -9025,7 +9115,7 @@ export const crmCreateContactTool: McpTool = {
     name: 'create_contact',
     title: 'Create contact',
     description:
-      'Create a contact in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
+      'Create a contact in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: CONTACT_CREATE_INPUT_SCHEMA,
     outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -9079,7 +9169,7 @@ export const crmUpdateContactTool: McpTool = {
   tool: {
     name: 'update_contact',
     title: 'Update contact',
-    description: 'Update an existing contact in Sanka.',
+    description: 'Update an existing contact in Sanka or a connected CRM.',
     inputSchema: CONTACT_UPDATE_INPUT_SCHEMA,
     outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -9139,7 +9229,8 @@ export const crmDeleteContactTool: McpTool = {
   tool: {
     name: 'delete_contact',
     title: 'Delete contact',
-    description: 'Archive or delete a contact in Sanka by contact id or external reference.',
+    description:
+      'Archive or delete a contact in Sanka or a connected CRM by contact id or external reference.',
     inputSchema: CONTACT_DELETE_INPUT_SCHEMA,
     outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -9159,7 +9250,7 @@ export const crmDeleteContactTool: McpTool = {
       return authError;
     }
 
-    const { contactID, params } = buildContactRetrieveParams(args);
+    const { contactID, params } = buildContactDeleteParams(args);
     if (!contactID) {
       return asErrorResult('`contact_id` is required.');
     }
@@ -10129,7 +10220,7 @@ export const crmCreateDealTool: McpTool = {
     name: 'create_deal',
     title: 'Create deal',
     description:
-      'Create a deal in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
+      'Create a deal in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: DEAL_CREATE_INPUT_SCHEMA,
     outputSchema: DEAL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -10184,7 +10275,7 @@ export const crmUpdateDealTool: McpTool = {
     name: 'update_deal',
     title: 'Update deal',
     description:
-      'Update an existing deal in Sanka. Use `lookup_external_id` when the path identifier is not the external reference you want to resolve by.',
+      'Update an existing deal in Sanka or a connected CRM. Use `lookup_external_id` when the path identifier is not the external reference you want to resolve by.',
     inputSchema: DEAL_UPDATE_INPUT_SCHEMA,
     outputSchema: DEAL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -10244,7 +10335,8 @@ export const crmDeleteDealTool: McpTool = {
   tool: {
     name: 'delete_deal',
     title: 'Delete deal',
-    description: 'Archive or delete a deal in Sanka by case id, numeric id, or external reference.',
+    description:
+      'Archive or delete a deal in Sanka or a connected CRM by case id, numeric id, or external reference.',
     inputSchema: DEAL_DELETE_INPUT_SCHEMA,
     outputSchema: DEAL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -10264,17 +10356,14 @@ export const crmDeleteDealTool: McpTool = {
       return authError;
     }
 
-    const caseID = readString(args?.['case_id']);
-    const externalID = readString(args?.['external_id']);
+    const { caseID, params } = buildDealDeleteParams(args);
     if (!caseID) {
       return asErrorResult('`case_id` is required.');
     }
 
     const response = (await reqContext.client.public.deals.delete(
       caseID,
-      {
-        ...(externalID ? { external_id: externalID } : undefined),
-      },
+      params,
       undefined,
     )) as unknown as Record<string, unknown>;
 

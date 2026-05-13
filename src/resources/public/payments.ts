@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Payments extends APIResource {
   /**
@@ -155,6 +156,8 @@ export interface Receipt {
   entry_type?: string | null;
 
   id_rcp?: number | null;
+
+  line_items?: Array<PublicLineItem>;
 
   start_date?: string | null;
 

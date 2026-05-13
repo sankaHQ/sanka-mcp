@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Bills extends APIResource {
   /**
@@ -89,6 +90,8 @@ export interface Bill {
   id_bill?: number | null;
 
   issued_date?: string | null;
+
+  line_items?: Array<PublicLineItem>;
 
   payment_date?: string | null;
 

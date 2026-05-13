@@ -62,9 +62,10 @@ export class Contacts extends APIResource {
     params: ContactDeleteParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PublicContactResponse> {
-    const { external_id } = params ?? {};
+    const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
+      params ?? {};
     return this._client.delete(path`/v1/public/contacts/${contactID}`, {
-      query: { external_id },
+      query: { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target },
       ...options,
     });
   }
@@ -73,19 +74,35 @@ export class Contacts extends APIResource {
 export interface PublicContactRequest {
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
   company?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
 
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   last_name?: string | null;
 
   name?: string | null;
 
+  operation?: string | null;
+
   phone_number?: string | null;
 
+  provider?: string | null;
+
   status?: string | null;
+
+  target?: string | null;
 }
 
 export interface PublicContactResponse {
@@ -98,6 +115,28 @@ export interface PublicContactResponse {
   ctx_id?: string | null;
 
   external_id?: string | null;
+
+  target?: string | null;
+
+  provider?: string | null;
+
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
+  external_object_type?: string | null;
+
+  operation?: string | null;
+
+  dry_run?: boolean | null;
+
+  remote?: Record<string, unknown> | null;
+
+  sync_state?: Record<string, unknown> | null;
+
+  warnings?: Array<string> | null;
+
+  message?: string | null;
 }
 
 export interface ContactRetrieveResponse {
@@ -153,19 +192,35 @@ export interface ContactListResponse {
 export interface ContactCreateParams {
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
   company?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
 
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   last_name?: string | null;
 
   name?: string | null;
 
+  operation?: string | null;
+
   phone_number?: string | null;
 
+  provider?: string | null;
+
   status?: string | null;
+
+  target?: string | null;
 }
 
 export interface ContactRetrieveParams {
@@ -175,19 +230,35 @@ export interface ContactRetrieveParams {
 export interface ContactUpdateParams {
   allowed_in_store?: boolean | null;
 
+  channel_id?: string | null;
+
   company?: string | null;
+
+  confirm?: boolean | null;
+
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
 
   email?: string | null;
 
   external_id?: string | null;
 
+  external_object_type?: string | null;
+
   last_name?: string | null;
 
   name?: string | null;
 
+  operation?: string | null;
+
   phone_number?: string | null;
 
+  provider?: string | null;
+
   status?: string | null;
+
+  target?: string | null;
 }
 
 export interface ContactListParams {
@@ -248,7 +319,21 @@ export interface ContactListParams {
 }
 
 export interface ContactDeleteParams {
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  dry_run?: boolean | null;
+
   external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  operation?: string | null;
+
+  provider?: string | null;
+
+  target?: string | null;
 }
 
 export declare namespace Contacts {

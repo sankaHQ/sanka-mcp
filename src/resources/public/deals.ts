@@ -5,6 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { PublicLineItem } from './line-items';
 
 export class Deals extends APIResource {
   /**
@@ -67,8 +68,12 @@ export class Deals extends APIResource {
     params: DealDeleteParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PublicCaseResponse> {
-    const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/deals/${caseID}`, { query: { external_id }, ...options });
+    const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
+      params ?? {};
+    return this._client.delete(path`/v1/public/deals/${caseID}`, {
+      query: { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target },
+      ...options,
+    });
   }
 
   /**
@@ -95,6 +100,8 @@ export interface Case {
 
   deal_id?: number | null;
 
+  line_items?: Array<PublicLineItem>;
+
   name?: string | null;
 
   pipeline_name?: string | null;
@@ -115,9 +122,13 @@ export interface Case {
 export interface PublicCaseRequest {
   caseStatus?: string | null;
 
+  channel_id?: string | null;
+
   companyExternalId?: string | null;
 
   companyId?: string | null;
+
+  confirm?: boolean | null;
 
   contactExternalId?: string | null;
 
@@ -125,11 +136,23 @@ export interface PublicCaseRequest {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
+
   externalId?: string | null;
+
+  external_object_type?: string | null;
 
   name?: string | null;
 
+  operation?: string | null;
+
+  provider?: string | null;
+
   status?: string | null;
+
+  target?: string | null;
 }
 
 export interface PublicCaseResponse {
@@ -142,6 +165,28 @@ export interface PublicCaseResponse {
   ctx_id?: string | null;
 
   external_id?: string | null;
+
+  target?: string | null;
+
+  provider?: string | null;
+
+  channel_id?: string | null;
+
+  channel_name?: string | null;
+
+  external_object_type?: string | null;
+
+  operation?: string | null;
+
+  dry_run?: boolean | null;
+
+  remote?: Record<string, unknown> | null;
+
+  sync_state?: Record<string, unknown> | null;
+
+  warnings?: Array<string> | null;
+
+  message?: string | null;
 }
 
 export type DealListResponse = Array<Case>;
@@ -181,9 +226,13 @@ export namespace DealListPipelinesResponse {
 export interface DealCreateParams {
   caseStatus?: string | null;
 
+  channel_id?: string | null;
+
   companyExternalId?: string | null;
 
   companyId?: string | null;
+
+  confirm?: boolean | null;
 
   contactExternalId?: string | null;
 
@@ -191,11 +240,23 @@ export interface DealCreateParams {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
+  dry_run?: boolean | null;
+
   externalId?: string | null;
+
+  external_object_type?: string | null;
 
   name?: string | null;
 
+  operation?: string | null;
+
+  provider?: string | null;
+
   status?: string | null;
+
+  target?: string | null;
 }
 
 export interface DealRetrieveParams {
@@ -229,6 +290,11 @@ export interface DealUpdateParams {
   /**
    * Body param
    */
+  channel_id?: string | null;
+
+  /**
+   * Body param
+   */
   caseStatus?: string | null;
 
   /**
@@ -240,6 +306,11 @@ export interface DealUpdateParams {
    * Body param
    */
   companyId?: string | null;
+
+  /**
+   * Body param
+   */
+  confirm?: boolean | null;
 
   /**
    * Body param
@@ -259,7 +330,22 @@ export interface DealUpdateParams {
   /**
    * Body param
    */
+  custom_fields?: Record<string, unknown> | null;
+
+  /**
+   * Body param
+   */
+  dry_run?: boolean | null;
+
+  /**
+   * Body param
+   */
   externalId?: string | null;
+
+  /**
+   * Body param
+   */
+  external_object_type?: string | null;
 
   /**
    * Body param
@@ -269,10 +355,35 @@ export interface DealUpdateParams {
   /**
    * Body param
    */
+  operation?: string | null;
+
+  /**
+   * Body param
+   */
+  provider?: string | null;
+
+  /**
+   * Body param
+   */
   status?: string | null;
+
+  /**
+   * Body param
+   */
+  target?: string | null;
 }
 
 export interface DealListParams {
+  /**
+   * Query param
+   */
+  channel_id?: string | null;
+
+  /**
+   * Query param
+   */
+  external_object_type?: string | null;
+
   /**
    * Query param
    */
@@ -286,6 +397,36 @@ export interface DealListParams {
   /**
    * Query param
    */
+  limit?: number | null;
+
+  /**
+   * Query param
+   */
+  page?: number | null;
+
+  /**
+   * Query param
+   */
+  provider?: 'hubspot' | 'salesforce' | null;
+
+  /**
+   * Query param
+   */
+  scope?: 'sanka' | 'integration' | null;
+
+  /**
+   * Query param
+   */
+  search?: string | null;
+
+  /**
+   * Query param
+   */
+  select?: Array<string> | null;
+
+  /**
+   * Query param
+   */
   workspace_id?: string | null;
 
   /**
@@ -295,7 +436,21 @@ export interface DealListParams {
 }
 
 export interface DealDeleteParams {
+  channel_id?: string | null;
+
+  confirm?: boolean | null;
+
+  dry_run?: boolean | null;
+
   external_id?: string | null;
+
+  external_object_type?: string | null;
+
+  operation?: string | null;
+
+  provider?: string | null;
+
+  target?: string | null;
 }
 
 export interface DealListPipelinesParams {

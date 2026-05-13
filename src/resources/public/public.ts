@@ -23,6 +23,7 @@ import {
 } from './account-messages/account-messages';
 import * as AuthAPI from './auth';
 import { Auth, AuthGetCurrentIdentityResponse } from './auth';
+import { PublicLineItem } from './line-items';
 import * as BillsAPI from './bills';
 import {
   Bill,
@@ -432,6 +433,8 @@ Public.Calendar = Calendar;
 Public.Auth = Auth;
 
 export declare namespace Public {
+  export { type PublicLineItem as PublicLineItem };
+
   export {
     AccountMessages as AccountMessages,
     type AccountMessageChannel as AccountMessageChannel,
