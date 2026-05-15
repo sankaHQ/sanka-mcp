@@ -39,17 +39,21 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
-  it('keeps freee sync and revenue summaries inside generic workflow tools', () => {
+  it('keeps freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
 
     expect(workflowTypeSchema.enum).toContain('invoice_export');
     expect(workflowTypeSchema.enum).toContain('revenue_control_summary');
+    expect(workflowTypeSchema.enum).toContain('sales_incentive_commission');
     expect(toolNames).not.toContain('sync_sanka_invoice_to_freee');
     expect(toolNames).not.toContain('create_freee_invoice_draft');
     expect(toolNames).not.toContain('sync_hubspot_deals_to_freee');
     expect(toolNames).not.toContain('summarize_hubspot_revenue_control');
     expect(toolNames).not.toContain('get_hubspot_revenue_bucket');
+    expect(toolNames).not.toContain('calculate_hubspot_commissions');
+    expect(toolNames).not.toContain('calculate_salesforce_commissions');
+    expect(toolNames).not.toContain('calculate_rep_commission');
   });
 
   it('resolves records through the public workflow-runs endpoint', async () => {
@@ -479,6 +483,124 @@ describe('workflow run MCP tools', () => {
       },
       top_blockers: [{ blocker_type: 'approval_pending_too_long' }],
       next_actions: [{ action: 'Review the pending approval request.' }],
+    });
+  });
+
+  it('previews sales incentive commission reports through the generic workflow endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'sales_incentive_commission',
+        source_system: 'hubspot',
+        mode: 'read_only',
+        read_only: true,
+        compensation_rule_snapshot: {
+          id: 'plan-1',
+          rate_type: 'percentage',
+          rate_value: 10,
+        },
+        totals: {
+          total_reps: 2,
+          total_deals_read: 5,
+          total_included_deals: 3,
+          total_excluded_deals: 1,
+          total_flagged_deals: 1,
+          total_eligible_amount_by_currency: { USD: 3000 },
+          total_commission_by_currency: { USD: 300 },
+        },
+        summary_by_rep: [{ rep: { id: 'rep-1' }, included_deal_count: 2 }],
+        deal_results: [
+          {
+            crm_deal_id: '1001',
+            status: 'flagged',
+            reason_codes: ['low_gross_margin'],
+          },
+        ],
+        exclusions: [{ hubspot_deal_id: '1002', reason_codes: ['unpaid_invoice'] }],
+        exceptions: [{ hubspot_deal_id: '1001', reason_codes: ['low_gross_margin'] }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'sales_incentive_commission',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          period: '2026-04',
+          include_records: true,
+          include_excluded: true,
+          include_payment_status: true,
+          include_margin: true,
+          include_refunds: true,
+          compensation_rule_id: 'plan-1',
+          rep_ids: ['rep-1'],
+          crm_owner_ids: ['owner-1'],
+          customer_ids: ['customer-1'],
+          min_gross_margin_percent: 20,
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'sales_incentive_commission',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          period: '2026-04',
+          include_records: true,
+          include_excluded: true,
+          include_payment_status: true,
+          include_margin: true,
+          include_refunds: true,
+          compensation_rule_id: 'plan-1',
+          rep_ids: ['rep-1'],
+          crm_owner_ids: ['owner-1'],
+          customer_ids: ['customer-1'],
+          min_gross_margin_percent: 20,
+        },
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'sales_incentive_commission',
+      source_system: 'hubspot',
+      mode: 'read_only',
+      read_only: true,
+      compensation_rule_snapshot: {
+        id: 'plan-1',
+        rate_type: 'percentage',
+        rate_value: 10,
+      },
+      totals: {
+        total_reps: 2,
+        total_deals_read: 5,
+        total_included_deals: 3,
+        total_excluded_deals: 1,
+        total_flagged_deals: 1,
+        total_eligible_amount_by_currency: { USD: 3000 },
+        total_commission_by_currency: { USD: 300 },
+      },
+      summary_by_rep: [{ rep: { id: 'rep-1' }, included_deal_count: 2 }],
+      deal_results: [
+        {
+          crm_deal_id: '1001',
+          status: 'flagged',
+          reason_codes: ['low_gross_margin'],
+        },
+      ],
+      exclusions: [{ hubspot_deal_id: '1002', reason_codes: ['unpaid_invoice'] }],
+      exceptions: [{ hubspot_deal_id: '1001', reason_codes: ['low_gross_margin'] }],
     });
   });
 

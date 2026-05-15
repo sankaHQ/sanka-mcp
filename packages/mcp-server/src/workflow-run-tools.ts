@@ -38,7 +38,7 @@ const SOURCE_RECORD_SCHEMA = {
     url: {
       type: 'string',
       description:
-        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate and deal_to_invoice preview. Salesforce Opportunity URLs are accepted for quote_readiness preview. invoice_export uses Sanka invoice ids, record ids, filters, or workflow run ids instead of external URLs.',
+        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate and deal_to_invoice preview. HubSpot deals are searched/read directly for sales_incentive_commission. Salesforce Opportunity URLs are accepted for quote_readiness preview. invoice_export uses Sanka invoice ids, record ids, filters, or workflow run ids instead of external URLs.',
     },
   },
 };
@@ -51,9 +51,10 @@ const WORKFLOW_TYPE_SCHEMA = {
     'invoice_export',
     'quote_readiness',
     'revenue_control_summary',
+    'sales_incentive_commission',
   ],
   description:
-    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_invoice for invoice draft workflows from HubSpot deals, invoice_export for syncing selected Sanka invoice drafts to freee invoice drafts, quote_readiness for read-only Salesforce Opportunity quote readiness checks, and revenue_control_summary for read-only HubSpot/Sanka revenue-control buckets.',
+    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_invoice for invoice draft workflows from HubSpot deals, invoice_export for syncing selected Sanka invoice drafts to freee invoice drafts, quote_readiness for read-only Salesforce Opportunity quote readiness checks, revenue_control_summary for read-only HubSpot/Sanka revenue-control buckets, and sales_incentive_commission for draft/read-only commission reports by rep and deal.',
 };
 
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
@@ -103,7 +104,7 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For HubSpot deal_to_invoice, supports channel_id, search filters, close date filters, billing_status, fulfillment_status, and allow_multiple_invoices for previewing duplicate override behavior. For invoice_export to freee, provide an explicit sync_scope such as created_in_workflow_run, selected_invoice_ids, selected_record_ids, filtered_unsynced_invoices, or all_eligible_unsynced. For revenue_control_summary, pass date range, channel_id, owner/customer filters, include_records, include_freee_status/include_stripe_status, aging_as_of, and limit_per_bucket. Ambiguous freee sync requests return needs_confirmation and do not mutate.',
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, supports channel_id, search filters, close date filters, billing_status, fulfillment_status, and allow_multiple_invoices for previewing duplicate override behavior. For invoice_export to freee, provide an explicit sync_scope such as created_in_workflow_run, selected_invoice_ids, selected_record_ids, filtered_unsynced_invoices, or all_eligible_unsynced. For revenue_control_summary, pass date range, channel_id, owner/customer filters, include_records, include_freee_status/include_stripe_status, aging_as_of, and limit_per_bucket. For sales_incentive_commission, pass period or date range, channel_id, CRM owner/rep/customer filters, compensation_rule_id or plan_id, include_records/include_excluded, include_payment_status/include_margin/include_refunds, min_gross_margin_percent, and limits. Ambiguous freee sync requests return needs_confirmation and do not mutate.',
       properties: {
         channel_id: { type: 'string' },
         source_system: { type: 'string', enum: ['hubspot', 'sanka', 'salesforce'] },
@@ -174,14 +175,42 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
           type: 'array',
           items: { type: 'string' },
         },
+        period: {
+          type: 'string',
+          description:
+            'Commission/revenue period. For sales_incentive_commission use current_month, last_month, or YYYY-MM.',
+        },
+        crm_owner_id: { type: 'string' },
+        crm_owner_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        rep_id: { type: 'string' },
+        rep_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        team: { type: 'string' },
+        team_id: { type: 'string' },
+        team_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        compensation_rule_id: { type: 'string' },
+        plan_id: { type: 'string' },
         include_records: { type: 'boolean' },
+        include_excluded: { type: 'boolean' },
         include_links: { type: 'boolean' },
         include_freee_status: { type: 'boolean' },
         include_stripe_status: { type: 'boolean' },
         include_payment_status: { type: 'boolean' },
+        include_margin: { type: 'boolean' },
+        include_refunds: { type: 'boolean' },
         aging_as_of: { type: 'string' },
         limit_per_bucket: { type: 'integer', minimum: 1, maximum: 100 },
+        limit_per_rep: { type: 'integer', minimum: 1, maximum: 500 },
         hubspot_limit: { type: 'integer', minimum: 1, maximum: 100 },
+        min_gross_margin_percent: { type: 'number' },
         currency_handling: { type: 'string', enum: ['grouped_by_currency'] },
         allow_multiple_invoices: { type: 'boolean' },
         allow_resync: { type: 'boolean' },
@@ -390,7 +419,7 @@ export const previewWorkflowTool: McpTool = {
   metadata: {
     resource: 'workflow-runs',
     operation: 'read',
-    tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'invoices', 'salesforce'],
+    tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'invoices', 'salesforce', 'incentives'],
     httpMethod: 'post',
     httpPath: '/v1/public/workflow-runs/preview',
     operationId: 'public.workflowRuns.preview',
@@ -399,7 +428,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, customer resolution, line items, duplicate check, and approval state from a HubSpot deal. For invoice_export, previews syncing explicitly scoped Sanka invoice drafts to freee invoice drafts and returns needs_confirmation for ambiguous or broad sync requests without writing records. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, source links, and the generic Sanka platform-mapping reuse/create plan. For revenue_control_summary, summarizes read-only HubSpot closed-won revenue into won, quote_drafted, approval_pending, unbilled, invoiced, unpaid, and blocked buckets with totals and next actions. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_invoice, previews the Sanka invoice draft, customer resolution, line items, duplicate check, and approval state from a HubSpot deal. For invoice_export, previews syncing explicitly scoped Sanka invoice drafts to freee invoice drafts and returns needs_confirmation for ambiguous or broad sync requests without writing records. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, source links, and the generic Sanka platform-mapping reuse/create plan. For revenue_control_summary, summarizes read-only HubSpot closed-won revenue into won, quote_drafted, approval_pending, unbilled, invoiced, unpaid, and blocked buckets with totals and next actions. For sales_incentive_commission, calculates a draft/read-only commission report by rep and deal from HubSpot closed-won deals reconciled with Sanka invoices/orders, payment status, refunds/credits, margin, ownership splits, and Sanka incentive rules. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -455,7 +484,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a HubSpot deal with duplicate protection, customer resolution, and platform mapping. For invoice_export, syncs only explicitly scoped Sanka invoice drafts to freee invoice drafts after duplicate/idempotency checks; do not use it for an ambiguous sync-all request. Do not use start_workflow for quote_readiness or revenue_control_summary; both are read-only preview workflows.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_invoice, creates a Sanka invoice draft from a HubSpot deal with duplicate protection, customer resolution, and platform mapping. For invoice_export, syncs only explicitly scoped Sanka invoice drafts to freee invoice drafts after duplicate/idempotency checks; do not use it for an ambiguous sync-all request. Do not use start_workflow for quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only preview workflows.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
