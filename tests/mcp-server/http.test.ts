@@ -483,6 +483,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"delete_order"');
     expect(text).toContain('"name":"list_purchase_orders"');
     expect(text).toContain('"name":"get_purchase_order"');
+    expect(text).toContain('"name":"download_purchase_order_pdf"');
     expect(text).toContain('"name":"create_purchase_order"');
     expect(text).toContain('"name":"update_purchase_order"');
     expect(text).toContain('"name":"delete_purchase_order"');

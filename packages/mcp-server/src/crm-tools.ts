@@ -2743,6 +2743,30 @@ const PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA = {
   required: ['purchase_order_id'],
 };
 
+const PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description:
+        'Purchase order identifier. Accepts a UUID, numeric purchase order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['purchase_order_id'],
+};
+
 const PURCHASE_ORDER_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -3051,9 +3075,52 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
   properties: {
     content_disposition: { type: 'string' },
     mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64: { type: 'string' },
+    resource_uri: { type: 'string' },
   },
-  required: ['mime_type'],
+  required: ['mime_type', 'byte_length', 'content_base64'],
 };
+
+function parseContentDispositionFilename(contentDisposition: string | null): string | undefined {
+  if (!contentDisposition) {
+    return undefined;
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ''));
+    } catch (_error) {
+      return encodedMatch[1].trim().replace(/^"|"$/g, '');
+    }
+  }
+
+  const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const bareMatch = contentDisposition.match(/filename=([^;]+)/i);
+  return bareMatch?.[1]?.trim();
+}
+
+function buildBinaryDownloadStructuredContent(
+  response: Response,
+  binaryResult: ToolCallResult,
+): Record<string, unknown> {
+  const contentDisposition = response.headers.get('content-disposition');
+  return {
+    content_disposition: contentDisposition ?? undefined,
+    mime_type:
+      response.headers.get('content-type') ?? binaryResult._meta?.['mime_type'] ?? 'application/octet-stream',
+    filename: parseContentDispositionFilename(contentDisposition),
+    byte_length: binaryResult._meta?.['byte_length'],
+    content_base64: binaryResult._meta?.['content_base64'],
+    resource_uri: binaryResult._meta?.['resource_uri'],
+  };
+}
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -6783,7 +6850,7 @@ const buildOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) 
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(templateSelect ? { template_select: templateSelect } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -6873,6 +6940,22 @@ const buildPurchaseOrderRetrieveParams = (args: Record<string, unknown> | undefi
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPurchaseOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const purchaseOrderID = readString(args?.['purchase_order_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    purchaseOrderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -10527,10 +10610,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
 
     return {
       ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
@@ -10842,6 +10922,57 @@ export const crmGetPurchaseOrderTool: McpTool = {
         },
       ],
       structuredContent: purchaseOrder,
+    };
+  },
+};
+
+export const crmDownloadPurchaseOrderPDFTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'read',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}/pdf',
+    operationId: 'public.purchaseOrders.downloadPDF',
+  },
+  tool: {
+    name: 'download_purchase_order_pdf',
+    title: 'Download purchase order PDF',
+    description: 'Download a purchase order from Sanka as a PDF document.',
+    inputSchema: PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download purchase order PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download purchase order PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { purchaseOrderID, params } = buildPurchaseOrderDownloadPDFParams(args);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const response = await reqContext.client
+      .get(`/v1/public/purchase-orders/${encodeURIComponent(purchaseOrderID)}/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    const binaryResult = await asBinaryContentResult(response);
+
+    return {
+      ...binaryResult,
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
@@ -11474,10 +11605,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
 
     return {
       ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
@@ -12098,10 +12226,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
 
     return {
       ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
@@ -12323,10 +12448,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
 
     return {
       ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
@@ -12657,10 +12779,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
 
     return {
       ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
+      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
     };
   },
 };
