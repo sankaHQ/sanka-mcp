@@ -39,13 +39,20 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
-  it('keeps freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
+  it('keeps order handoff, freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
 
+    expect(workflowTypeSchema.enum).toContain('deal_to_order_handoff');
     expect(workflowTypeSchema.enum).toContain('invoice_export');
     expect(workflowTypeSchema.enum).toContain('revenue_control_summary');
     expect(workflowTypeSchema.enum).toContain('sales_incentive_commission');
+    expect(toolNames).not.toContain('create_order_from_hubspot_deal');
+    expect(toolNames).not.toContain('hubspot_deal_to_order');
+    expect(toolNames).not.toContain('create_hubspot_order_draft');
+    expect(toolNames).not.toContain('create_fulfillment_from_hubspot_deal');
+    expect(toolNames).not.toContain('check_hubspot_deal_inventory');
+    expect(toolNames).not.toContain('handoff_hubspot_deal_to_fulfillment');
     expect(toolNames).not.toContain('sync_sanka_invoice_to_freee');
     expect(toolNames).not.toContain('create_freee_invoice_draft');
     expect(toolNames).not.toContain('sync_hubspot_deals_to_freee');
@@ -271,6 +278,154 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       run_id: 'run-invoice-1',
       status: 'completed',
+    });
+  });
+
+  it('previews HubSpot deal order handoff through the generic workflow endpoint', async () => {
+    const previewOptions = (previewWorkflowTool.tool.inputSchema as any).properties.options.properties;
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'deal_to_order_handoff',
+        source_system: 'hubspot',
+        target_system: 'sanka',
+        mode: 'preview',
+        required_confirmation: true,
+        would_create_order: true,
+        would_create_handoff: true,
+        would_update_hubspot: true,
+        inventory_check_results: [{ status: 'available' }],
+        delivery_lead_time_results: [{ status: 'available', lead_time_days: 5 }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_order_handoff',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {
+          target_system: 'sanka',
+          include_inventory_check: true,
+          include_lead_time_check: true,
+          requested_delivery_date: '2026-06-01',
+          handoff_target: 'ops-team',
+        },
+      },
+    });
+
+    expect(previewWorkflowTool.tool.annotations?.readOnlyHint).toBe(true);
+    expect(previewOptions).toHaveProperty('include_inventory_check');
+    expect(previewOptions).toHaveProperty('include_lead_time_check');
+    expect(previewOptions).toHaveProperty('handoff_target');
+    expect(previewOptions).toHaveProperty('allow_duplicate_order');
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'deal_to_order_handoff',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {
+          target_system: 'sanka',
+          include_inventory_check: true,
+          include_lead_time_check: true,
+          requested_delivery_date: '2026-06-01',
+          handoff_target: 'ops-team',
+        },
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'deal_to_order_handoff',
+      source_system: 'hubspot',
+      target_system: 'sanka',
+      mode: 'preview',
+      required_confirmation: true,
+      would_create_order: true,
+      would_create_handoff: true,
+      would_update_hubspot: true,
+      inventory_check_results: [{ status: 'available' }],
+      delivery_lead_time_results: [{ status: 'available', lead_time_days: 5 }],
+    });
+  });
+
+  it('starts HubSpot deal order handoff with idempotency and explicit options', async () => {
+    const startOptions = (startWorkflowTool.tool.inputSchema as any).properties.options.properties;
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'order-handoff-run-1',
+        workflow_type: 'deal_to_order_handoff',
+        status: 'completed',
+        total_created_orders: 1,
+        total_created_handoffs: 1,
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_order_handoff',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          target_system: 'sanka',
+          channel_id: 'channel-1',
+          include_inventory_check: true,
+          include_lead_time_check: true,
+          include_hubspot_writeback: true,
+          handoff_target: 'ops-team',
+        },
+        idempotency_key: 'deal-to-order-handoff:46558049080',
+      },
+    });
+
+    expect(startWorkflowTool.tool.annotations?.readOnlyHint).toBe(false);
+    expect(startOptions).toHaveProperty('include_hubspot_writeback');
+    expect(startOptions).toHaveProperty('allow_duplicate_order');
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'deal_to_order_handoff',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          target_system: 'sanka',
+          channel_id: 'channel-1',
+          include_inventory_check: true,
+          include_lead_time_check: true,
+          include_hubspot_writeback: true,
+          handoff_target: 'ops-team',
+        },
+        idempotency_key: 'deal-to-order-handoff:46558049080',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'order-handoff-run-1',
+      workflow_type: 'deal_to_order_handoff',
+      status: 'completed',
+      total_created_orders: 1,
+      total_created_handoffs: 1,
     });
   });
 
