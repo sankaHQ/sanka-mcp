@@ -50,6 +50,8 @@ import {
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmDownloadEstimatePDFTool,
+  crmDownloadPurchaseOrderPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -2777,6 +2779,47 @@ describe('ChatGPT CRM tools', () => {
       updated_at: '2026-04-09T00:00:00Z',
     });
 
+    const pdfBytes = Buffer.from('%PDF-purchase-order');
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition':
+            'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
+        },
+      }),
+    );
+    const get = jest.fn().mockReturnValue({ asResponse });
+    const downloadResult = await crmDownloadPurchaseOrderPDFTool.handler({
+      reqContext: {
+        client: {
+          get,
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        purchase_order_id: 'purchase-order-1',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/purchase-orders/purchase-order-1/pdf', {
+      query: {
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+    expect(downloadResult.structuredContent).toEqual({
+      content_disposition:
+        'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
+      mime_type: 'application/pdf',
+      filename: 'purchase-order-901.pdf',
+      byte_length: pdfBytes.byteLength,
+      content_base64: pdfBytes.toString('base64'),
+      resource_uri: 'resource://tool-response',
+    });
+
     const createResult = await crmCreatePurchaseOrderTool.handler({
       reqContext,
       args: {
@@ -3152,6 +3195,62 @@ describe('ChatGPT CRM tools', () => {
       line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
+    });
+  });
+
+  it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
+    const pdfBytes = Buffer.from('%PDF-estimate');
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition':
+            'attachment; filename="estimate.pdf"; filename*=UTF-8\'\'%E8%A6%8B%E7%A9%8D%E6%9B%B8.pdf',
+        },
+      }),
+    );
+
+    const result = await crmDownloadEstimatePDFTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            estimates: { downloadPDF },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        estimate_id: 'estimate-1',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'estimate-1',
+      {
+        template_select: 'template-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      content_disposition:
+        'attachment; filename="estimate.pdf"; filename*=UTF-8\'\'%E8%A6%8B%E7%A9%8D%E6%9B%B8.pdf',
+      mime_type: 'application/pdf',
+      filename: '見積書.pdf',
+      byte_length: pdfBytes.byteLength,
+      content_base64: pdfBytes.toString('base64'),
+      resource_uri: 'resource://tool-response',
+    });
+    expect(result.content[0]).toEqual({
+      type: 'resource',
+      resource: {
+        uri: 'resource://tool-response',
+        mimeType: 'application/pdf',
+        blob: pdfBytes.toString('base64'),
+      },
     });
   });
 
