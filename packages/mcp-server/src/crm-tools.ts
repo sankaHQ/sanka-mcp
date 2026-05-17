@@ -42,7 +42,21 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". For object_type="custom_objects" with scope="sanka", set this to the Sanka custom object id, slug, or name.',
+      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". For object_type="custom_objects" with scope="sanka", prefer custom_object/custom_object_slug; this legacy field is also accepted.',
+  },
+  custom_object: {
+    type: 'string',
+    description:
+      'For object_type="custom_objects" with scope="sanka", the Sanka custom object slug/internal key or id. Prefer this over display name.',
+  },
+  custom_object_slug: {
+    type: 'string',
+    description:
+      'For object_type="custom_objects" with scope="sanka", the stable Sanka custom object slug/internal key.',
+  },
+  custom_object_id: {
+    type: 'string',
+    description: 'For object_type="custom_objects" with scope="sanka", the Sanka custom object UUID.',
   },
 };
 
@@ -188,7 +202,7 @@ const RECORD_QUERY_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and external_object_type to the custom object id, slug, or name.',
+        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
       enum: [
         'companies',
         'company',
@@ -297,7 +311,7 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Record object to aggregate. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and external_object_type to the custom object id, slug, or name.',
+        'Record object to aggregate. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
       enum: [
         'companies',
         'company',
@@ -390,6 +404,118 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
     source_of_truth: { type: 'string' },
   },
   required: ['object_type', 'metrics', 'groups', 'message'],
+};
+
+const CUSTOM_OBJECT_RECORD_DATA_SCHEMA = {
+  type: 'object' as const,
+  description:
+    'Custom object row fields. Keys may be field UUIDs, custom field names, internal_name values, or supported row fields such as owner and usage_status.',
+  additionalProperties: true,
+};
+
+const CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    custom_object: {
+      type: 'string',
+      description:
+        'Preferred custom object identifier: stable slug/internal key or UUID. Display name is accepted as a fallback.',
+    },
+    customObject: {
+      type: 'string',
+      description: 'Alias for custom_object.',
+    },
+    custom_object_slug: {
+      type: 'string',
+      description: 'Stable custom object slug/internal key, for example "activity".',
+    },
+    customObjectSlug: {
+      type: 'string',
+      description: 'Alias for custom_object_slug.',
+    },
+    custom_object_id: {
+      type: 'string',
+      description: 'Custom object UUID.',
+    },
+    customObjectId: {
+      type: 'string',
+      description: 'Alias for custom_object_id.',
+    },
+    external_object_type: {
+      type: 'string',
+      description: 'Legacy alias for custom_object. Prefer custom_object or custom_object_slug.',
+    },
+    externalObjectType: {
+      type: 'string',
+      description: 'Alias for external_object_type.',
+    },
+    data: CUSTOM_OBJECT_RECORD_DATA_SCHEMA,
+    associations: {
+      type: 'object',
+      description:
+        'Optional association targets keyed by association label id/name. Values are record references such as {id, object_type}.',
+      additionalProperties: true,
+    },
+    form_set_id: {
+      type: 'string',
+      description: 'Optional form/property set id to validate against.',
+    },
+    property_set_id: {
+      type: 'string',
+      description: 'Alias for form_set_id.',
+    },
+    view_id: {
+      type: 'string',
+      description: 'Optional view id for form resolution.',
+    },
+  },
+  required: [],
+};
+
+const CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    record_id: {
+      type: 'string',
+      description: 'Custom object row UUID to update.',
+    },
+    data: CUSTOM_OBJECT_RECORD_DATA_SCHEMA,
+    associations: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.associations,
+    form_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.form_set_id,
+    property_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.property_set_id,
+    view_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.view_id,
+  },
+  required: ['record_id'],
+};
+
+const CUSTOM_OBJECT_RECORD_ARCHIVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    record_id: {
+      type: 'string',
+      description: 'Custom object row UUID to archive.',
+    },
+  },
+  required: ['record_id'],
+};
+
+const CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        row_id: { type: 'integer' },
+        property_set_id: { type: 'string' },
+        status: { type: 'string' },
+      },
+      required: ['id'],
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['data', 'message'],
 };
 
 type OrderLineItem = {
@@ -2758,6 +2884,30 @@ const PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA = {
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['purchase_order_id'],
+};
+
+const PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description:
+        'Purchase order identifier. Accepts a UUID, numeric purchase order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
     },
     language: {
       type: 'string',
@@ -5850,12 +6000,24 @@ const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
   return filters;
 };
 
+const readCustomObjectIdentifier = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(
+    args?.['custom_object'] ??
+      args?.['customObject'] ??
+      args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object_id'] ??
+      args?.['customObjectId'] ??
+      args?.['external_object_type'] ??
+      args?.['externalObjectType'],
+  );
+
 const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
   const scope = readString(args?.['scope'] ?? args?.['source']);
   const provider = readString(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
-  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const externalObjectType = readCustomObjectIdentifier(args);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
     ...(scope ? { scope } : undefined),
@@ -5908,7 +6070,7 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   const scope = readString(args?.['scope'] ?? args?.['source']);
   const provider = readString(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
-  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const externalObjectType = readCustomObjectIdentifier(args);
   const filters = buildRecordFilters(args?.['filters']);
   const mode = readString(args?.['mode']);
   const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
@@ -5951,6 +6113,72 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
     body['scan_limit'] = Math.trunc(scanLimit);
   }
   return body;
+};
+
+const buildCustomObjectRecordMutationBody = (
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  const externalObjectType = readCustomObjectIdentifier(args);
+  const data = readRecord(args?.['data']);
+  const associations = readRecord(args?.['associations']);
+  const formSetID = readString(args?.['form_set_id'] ?? args?.['formSetId']);
+  const propertySetID = readString(args?.['property_set_id'] ?? args?.['propertySetId']);
+  const viewID = readString(args?.['view_id'] ?? args?.['viewId']);
+  const reservedKeys = new Set([
+    'custom_object',
+    'customObject',
+    'custom_object_slug',
+    'customObjectSlug',
+    'custom_object_id',
+    'customObjectId',
+    'external_object_type',
+    'externalObjectType',
+    'record_id',
+    'recordId',
+    'data',
+    'associations',
+    'form_set_id',
+    'formSetId',
+    'property_set_id',
+    'propertySetId',
+    'view_id',
+    'viewId',
+  ]);
+  const inlineData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args ?? {})) {
+    if (!reservedKeys.has(key)) {
+      inlineData[key] = value;
+    }
+  }
+  const mergedData = { ...inlineData, ...(data ?? {}) };
+
+  return {
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+    data: mergedData,
+    ...(associations ? { associations } : undefined),
+    ...(formSetID ? { form_set_id: formSetID } : undefined),
+    ...(propertySetID ? { property_set_id: propertySetID } : undefined),
+    ...(viewID ? { view_id: viewID } : undefined),
+  };
+};
+
+const buildCustomObjectRecordMutationResult = ({
+  toolName,
+  action,
+  payload,
+}: {
+  toolName: string;
+  action: string;
+  payload: Record<string, unknown>;
+}): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const recordID = readString(data['id']);
+  const message = `${toolName} ${action} custom object record${recordID ? ` ${recordID}` : ''}.`;
+
+  return {
+    content: [{ type: 'text', text: message }],
+    structuredContent: payload,
+  };
 };
 
 const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResult => {
@@ -6813,7 +7041,7 @@ const buildOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) 
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(templateSelect ? { template_select: templateSelect } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -6903,6 +7131,22 @@ const buildPurchaseOrderRetrieveParams = (args: Record<string, unknown> | undefi
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPurchaseOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const purchaseOrderID = readString(args?.['purchase_order_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    purchaseOrderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -8738,6 +8982,161 @@ export const crmAggregateRecordsTool: McpTool = {
     })) as Record<string, unknown>;
 
     return buildRecordAggregateResult(payload);
+  },
+};
+
+export const crmCreateCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records',
+    operationId: 'public.records.custom_objects.create',
+  },
+  tool: {
+    name: 'create_custom_object_record',
+    title: 'Create custom object record',
+    description:
+      'Create a Sanka custom object row. Set custom_object or custom_object_slug to the custom object slug/internal key or id. Use data keys as field names, internal_name values, or field UUIDs.',
+    inputSchema: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create custom object record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildCustomObjectRecordMutationBody(args);
+    if (!body['external_object_type']) {
+      return asErrorResult('`custom_object` or `custom_object_slug` is required.');
+    }
+
+    const payload = (await reqContext.client.post('/v1/public/records/custom-objects/records', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'create_custom_object_record',
+      action: 'created',
+      payload,
+    });
+  },
+};
+
+export const crmUpdateCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records/{record_id}',
+    operationId: 'public.records.custom_objects.update',
+  },
+  tool: {
+    name: 'update_custom_object_record',
+    title: 'Update custom object record',
+    description:
+      'Update a Sanka custom object row by row UUID. Use data keys as field names, internal_name values, or field UUIDs.',
+    inputSchema: CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update custom object record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    const body = buildCustomObjectRecordMutationBody(args);
+    delete body['external_object_type'];
+
+    const payload = (await reqContext.client.post(`/v1/public/records/custom-objects/records/${recordID}`, {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'update_custom_object_record',
+      action: 'updated',
+      payload,
+    });
+  },
+};
+
+export const crmArchiveCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records/{record_id}/archive',
+    operationId: 'public.records.custom_objects.archive',
+  },
+  tool: {
+    name: 'archive_custom_object_record',
+    title: 'Archive custom object record',
+    description:
+      'Archive a Sanka custom object row by row UUID. This is a soft archive, not a permanent delete.',
+    inputSchema: CUSTOM_OBJECT_RECORD_ARCHIVE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Archive custom object record',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Archive custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+
+    const payload = (await reqContext.client.post(
+      `/v1/public/records/custom-objects/records/${recordID}/archive`,
+      {
+        body: {},
+      },
+    )) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'archive_custom_object_record',
+      action: 'archived',
+      payload,
+    });
   },
 };
 
@@ -10865,6 +11264,52 @@ export const crmGetPurchaseOrderTool: McpTool = {
       ],
       structuredContent: purchaseOrder,
     };
+  },
+};
+
+export const crmDownloadPurchaseOrderPDFTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'read',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}/pdf',
+    operationId: 'public.purchaseOrders.downloadPDF',
+  },
+  tool: {
+    name: 'download_purchase_order_pdf',
+    title: 'Download purchase order PDF',
+    description: 'Download a purchase order from Sanka as a PDF document.',
+    inputSchema: PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download purchase order PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download purchase order PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { purchaseOrderID, params } = buildPurchaseOrderDownloadPDFParams(args);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const response = await reqContext.client
+      .get(`/v1/public/purchase-orders/${encodeURIComponent(purchaseOrderID)}/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    return asBinaryDownloadResult(response, 'purchase-order.pdf');
   },
 };
 

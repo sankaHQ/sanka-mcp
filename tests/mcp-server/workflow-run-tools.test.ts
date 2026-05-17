@@ -39,6 +39,19 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
+  it('keeps freee sync and revenue summaries inside generic workflow tools', () => {
+    const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
+    const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
+
+    expect(workflowTypeSchema.enum).toContain('invoice_export');
+    expect(workflowTypeSchema.enum).toContain('revenue_control_summary');
+    expect(toolNames).not.toContain('sync_sanka_invoice_to_freee');
+    expect(toolNames).not.toContain('create_freee_invoice_draft');
+    expect(toolNames).not.toContain('sync_hubspot_deals_to_freee');
+    expect(toolNames).not.toContain('summarize_hubspot_revenue_control');
+    expect(toolNames).not.toContain('get_hubspot_revenue_bucket');
+  });
+
   it('resolves records through the public workflow-runs endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: { candidates: [{ record_ref: { record_id: 'deal-1' } }] },
@@ -151,6 +164,321 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       source_status: 'external_only',
       financials: { total_amount: 610000, line_item_count: 3 },
+    });
+  });
+
+  it('previews deal_to_invoice workflows from HubSpot deal URLs', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        source_status: 'synced',
+        financials: { total_amount: 250000, line_item_count: 2 },
+        duplicate_check: {
+          existing_invoices: [],
+          would_create_invoice: true,
+        },
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {},
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      source_status: 'synced',
+      financials: { total_amount: 250000, line_item_count: 2 },
+      duplicate_check: {
+        existing_invoices: [],
+        would_create_invoice: true,
+      },
+    });
+  });
+
+  it('starts deal_to_invoice workflows with idempotency and explicit duplicate override', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'run-invoice-1',
+        status: 'completed',
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          channel_id: 'channel-1',
+          allow_multiple_invoices: true,
+        },
+        idempotency_key: 'deal-to-invoice:46558049080',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+          portal_id: '49714315',
+          channel_id: 'channel-1',
+        },
+        options: {
+          channel_id: 'channel-1',
+          allow_multiple_invoices: true,
+        },
+        idempotency_key: 'deal-to-invoice:46558049080',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'run-invoice-1',
+      status: 'completed',
+    });
+  });
+
+  it('previews freee invoice export workflows with explicit selected invoices', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'invoice_export',
+        target_system: 'freee',
+        mode: 'preview',
+        sync_scope: 'selected_invoice_ids',
+        needs_confirmation: false,
+        per_invoice_results: [{ sanka_invoice: { id: 'invoice-1' } }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+          freee_channel_id: 'freee-channel-1',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+          freee_channel_id: 'freee-channel-1',
+        },
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'invoice_export',
+      target_system: 'freee',
+      mode: 'preview',
+      sync_scope: 'selected_invoice_ids',
+      needs_confirmation: false,
+      per_invoice_results: [{ sanka_invoice: { id: 'invoice-1' } }],
+    });
+  });
+
+  it('starts freee invoice export workflows with workflow run scope and idempotency', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'freee-run-1',
+        workflow_type: 'invoice_export',
+        status: 'completed',
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'created_in_workflow_run',
+          workflow_run_id: 'hubspot-invoice-run-1',
+          freee_channel_id: 'freee-channel-1',
+        },
+        idempotency_key: 'invoice-export:hubspot-invoice-run-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'created_in_workflow_run',
+          workflow_run_id: 'hubspot-invoice-run-1',
+          freee_channel_id: 'freee-channel-1',
+        },
+        idempotency_key: 'invoice-export:hubspot-invoice-run-1',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'freee-run-1',
+      workflow_type: 'invoice_export',
+      status: 'completed',
+    });
+  });
+
+  it('previews HubSpot revenue control summaries through the generic workflow endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'revenue_control_summary',
+        source_system: 'hubspot',
+        mode: 'read_only',
+        read_only: true,
+        totals: {
+          total_closed_won_amount: { JPY: 18600000 },
+          record_count_by_bucket: {
+            won: 8,
+            unbilled: 3,
+            approval_pending: 1,
+            unpaid: 2,
+          },
+        },
+        buckets: {
+          won: [],
+          quote_drafted: [],
+          approval_pending: [],
+          unbilled: [],
+          invoiced: [],
+          unpaid: [],
+          blocked: [],
+        },
+        top_blockers: [{ blocker_type: 'approval_pending_too_long' }],
+        next_actions: [{ action: 'Review the pending approval request.' }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'revenue_control_summary',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          start_date: '2026-05-01',
+          end_date: '2026-05-31',
+          include_records: true,
+          include_freee_status: true,
+          aging_as_of: '2026-05-12',
+          limit_per_bucket: 10,
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'revenue_control_summary',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          channel_id: 'hubspot-channel-1',
+        },
+        options: {
+          start_date: '2026-05-01',
+          end_date: '2026-05-31',
+          include_records: true,
+          include_freee_status: true,
+          aging_as_of: '2026-05-12',
+          limit_per_bucket: 10,
+        },
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'revenue_control_summary',
+      source_system: 'hubspot',
+      mode: 'read_only',
+      read_only: true,
+      totals: {
+        total_closed_won_amount: { JPY: 18600000 },
+        record_count_by_bucket: {
+          won: 8,
+          unbilled: 3,
+          approval_pending: 1,
+          unpaid: 2,
+        },
+      },
+      buckets: {
+        won: [],
+        quote_drafted: [],
+        approval_pending: [],
+        unbilled: [],
+        invoiced: [],
+        unpaid: [],
+        blocked: [],
+      },
+      top_blockers: [{ blocker_type: 'approval_pending_too_long' }],
+      next_actions: [{ action: 'Review the pending approval request.' }],
     });
   });
 

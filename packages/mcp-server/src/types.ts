@@ -169,28 +169,41 @@ export async function asBinaryDownloadResult(
 export async function asBinaryContentResult(response: Response): Promise<ToolCallResult> {
   const blob = await response.blob();
   const mimeType = blob.type;
-  const data = Buffer.from(await blob.arrayBuffer()).toString('base64');
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  const data = buffer.toString('base64');
+  const binaryMeta = {
+    mime_type: mimeType,
+    byte_length: buffer.byteLength,
+    content_base64: data,
+  };
   if (mimeType.startsWith('image/')) {
     return {
       content: [{ type: 'image', mimeType, data }],
+      _meta: binaryMeta,
     };
   } else if (mimeType.startsWith('audio/')) {
     return {
       content: [{ type: 'audio', mimeType, data }],
+      _meta: binaryMeta,
     };
   } else {
+    const resourceUri = 'resource://tool-response';
     return {
       content: [
         {
           type: 'resource',
           resource: {
             // We must give a URI, even though this isn't actually an MCP resource.
-            uri: TOOL_RESPONSE_RESOURCE_URI,
+            uri: resourceUri,
             mimeType,
             blob: data,
           },
         },
       ],
+      _meta: {
+        ...binaryMeta,
+        resource_uri: resourceUri,
+      },
     };
   }
 }
