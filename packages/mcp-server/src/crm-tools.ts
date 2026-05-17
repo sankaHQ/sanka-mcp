@@ -8,7 +8,7 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
-import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
@@ -672,14 +672,14 @@ const CONTACT_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Plain-text company name associated with the contact.',
   },
-  email: {
-    type: 'string',
-    description: 'Contact email address.',
-  },
   custom_fields: {
     type: 'object',
     description:
       'Custom field values. For integration mutations these are forwarded as provider property names.',
+  },
+  email: {
+    type: 'string',
+    description: 'Contact email address.',
   },
   external_id: {
     type: 'string',
@@ -3227,50 +3227,13 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     mime_type: { type: 'string' },
     filename: { type: 'string' },
     byte_length: { type: 'number' },
-    content_base64: { type: 'string' },
-    resource_uri: { type: 'string' },
+    content_base64: {
+      type: 'string',
+      description: 'Base64-encoded file bytes. Decode this value to save the downloaded PDF locally.',
+    },
   },
-  required: ['mime_type', 'byte_length', 'content_base64'],
+  required: ['mime_type', 'filename', 'byte_length', 'content_base64'],
 };
-
-function parseContentDispositionFilename(contentDisposition: string | null): string | undefined {
-  if (!contentDisposition) {
-    return undefined;
-  }
-
-  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (encodedMatch?.[1]) {
-    try {
-      return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ''));
-    } catch (_error) {
-      return encodedMatch[1].trim().replace(/^"|"$/g, '');
-    }
-  }
-
-  const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
-  if (quotedMatch?.[1]) {
-    return quotedMatch[1];
-  }
-
-  const bareMatch = contentDisposition.match(/filename=([^;]+)/i);
-  return bareMatch?.[1]?.trim();
-}
-
-function buildBinaryDownloadStructuredContent(
-  response: Response,
-  binaryResult: ToolCallResult,
-): Record<string, unknown> {
-  const contentDisposition = response.headers.get('content-disposition');
-  return {
-    content_disposition: contentDisposition ?? undefined,
-    mime_type:
-      response.headers.get('content-type') ?? binaryResult._meta?.['mime_type'] ?? 'application/octet-stream',
-    filename: parseContentDispositionFilename(contentDisposition),
-    byte_length: binaryResult._meta?.['byte_length'],
-    content_base64: binaryResult._meta?.['content_base64'],
-    resource_uri: binaryResult._meta?.['resource_uri'],
-  };
-}
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -10989,12 +10952,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'order.pdf');
   },
 };
 
@@ -11351,12 +11309,7 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
         query: params,
       })
       .asResponse();
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'purchase-order.pdf');
   },
 };
 
@@ -11984,12 +11937,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'estimate.pdf');
   },
 };
 
@@ -12605,12 +12553,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'invoice.pdf');
   },
 };
 
@@ -12827,12 +12770,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'payment.pdf');
   },
 };
 
@@ -13158,12 +13096,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: buildBinaryDownloadStructuredContent(response, binaryResult),
-    };
+    return asBinaryDownloadResult(response, 'slip.pdf');
   },
 };
 

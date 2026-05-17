@@ -53,6 +53,7 @@ import {
   crmDeleteTaskTool,
   crmDeleteTicketTool,
   crmDownloadEstimatePDFTool,
+  crmDownloadInvoicePDFTool,
   crmDownloadPurchaseOrderPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
@@ -227,6 +228,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDownloadInvoicePDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListSubscriptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -3025,7 +3027,6 @@ describe('ChatGPT CRM tools', () => {
       filename: 'purchase-order-901.pdf',
       byte_length: pdfBytes.byteLength,
       content_base64: pdfBytes.toString('base64'),
-      resource_uri: 'resource://tool-response',
     });
 
     const createResult = await crmCreatePurchaseOrderTool.handler({
@@ -3450,7 +3451,6 @@ describe('ChatGPT CRM tools', () => {
       filename: '見積書.pdf',
       byte_length: pdfBytes.byteLength,
       content_base64: pdfBytes.toString('base64'),
-      resource_uri: 'resource://tool-response',
     });
     expect(result.content[0]).toEqual({
       type: 'resource',
@@ -3699,6 +3699,66 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+  });
+
+  it('downloads invoice PDFs with structured base64 content', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\ninvoice');
+    const contentDisposition = `attachment; filename="invoice-fallback.pdf"; filename*=UTF-8''invoice%205.pdf`;
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-disposition': contentDisposition,
+          'content-type': 'application/pdf',
+        },
+      }),
+    );
+
+    const result = await crmDownloadInvoicePDFTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            invoices: { downloadPDF },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+        template_select: 'modern',
+        language: 'ja',
+      },
+    });
+
+    const contentBase64 = pdfBytes.toString('base64');
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'invoice-1',
+      {
+        external_id: 'INV-1',
+        template_select: 'modern',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      content_disposition: contentDisposition,
+      mime_type: 'application/pdf',
+      filename: 'invoice 5.pdf',
+      byte_length: pdfBytes.length,
+      content_base64: contentBase64,
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'resource',
+        resource: {
+          uri: 'resource://tool-response',
+          mimeType: 'application/pdf',
+          blob: contentBase64,
+        },
+      },
+    ]);
+    expect(Buffer.from(result.structuredContent?.['content_base64'] as string, 'base64')).toEqual(pdfBytes);
   });
 
   it('creates an invoice', async () => {
