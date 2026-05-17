@@ -11,6 +11,7 @@ import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { codeTool } from './code-tool';
 import {
+  crmArchiveCustomObjectRecordTool,
   crmArchivePrivateMessageThreadTool,
   crmAggregateRecordsTool,
   crmApplyCompanyPriceTableItemsTool,
@@ -21,6 +22,7 @@ import {
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
+  crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
@@ -134,6 +136,7 @@ import {
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
   crmUpdateContactTool,
+  crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
   crmUpdateEstimateTool,
   crmUpdateExpenseTool,
@@ -498,6 +501,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmArchivePrivateMessageThreadTool,
     crmQueryRecordsTool,
     crmAggregateRecordsTool,
+    crmCreateCustomObjectRecordTool,
+    crmUpdateCustomObjectRecordTool,
+    crmArchiveCustomObjectRecordTool,
     crmListCompaniesTool,
     crmGetCompanyTool,
     crmCreateCompanyTool,

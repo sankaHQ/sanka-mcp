@@ -1,6 +1,7 @@
 import { File } from 'node:buffer';
 import {
   crmArchivePrivateMessageThreadTool,
+  crmArchiveCustomObjectRecordTool,
   crmApplyCompanyPriceTableItemsTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
@@ -12,6 +13,7 @@ import {
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
+  crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
@@ -120,6 +122,7 @@ import {
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
   crmUpdateContactTool,
+  crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
   crmUpdateDisbursementTool,
   crmUpdateEstimateTool,
@@ -171,6 +174,9 @@ describe('ChatGPT CRM tools', () => {
     expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmReplyPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmArchivePrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmArchiveCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -776,6 +782,208 @@ describe('ChatGPT CRM tools', () => {
     expect(result.content[0]).toEqual(
       expect.objectContaining({
         text: 'query_records found 1 duplicate candidate groups for companies.',
+      }),
+    );
+  });
+
+  it('passes Sanka custom object row arguments through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'custom_objects',
+      scope: 'sanka',
+      external_object_type: 'activity',
+      custom_object: { id: 'custom-object-1', name: 'Activity', slug: 'activity' },
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'custom_objects',
+        custom_object_slug: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'query_records returned 1 of 1 custom_objects records.',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        results: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
+      }),
+    );
+  });
+
+  it('passes Sanka custom object row arguments through aggregate_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'custom_objects',
+      scope: 'sanka',
+      external_object_type: 'activity',
+      custom_object: { id: 'custom-object-1', name: 'Activity', slug: 'activity' },
+      metrics: { count: 2 },
+      groups: [{ Status: 'Open', count: 2 }],
+      message: 'OK',
+    });
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'custom_objects',
+        custom_object: 'activity',
+        group_by: ['Status'],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+      body: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        metrics: ['count'],
+        group_by: ['Status'],
+        limit: 10,
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'aggregate_records count for custom_objects: 2',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        groups: [{ Status: 'Open', count: 2 }],
+      }),
+    );
+  });
+
+  it('passes create_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'active',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmCreateCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        custom_object_slug: 'activity',
+        Subject: 'Kickoff meeting',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records', {
+      body: {
+        external_object_type: 'activity',
+        data: { Subject: 'Kickoff meeting' },
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'create_custom_object_record created custom object record row-1.',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({ id: 'row-1', status: 'active' }),
+      }),
+    );
+  });
+
+  it('passes update_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'active',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmUpdateCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        record_id: 'row-1',
+        data: { subject: 'Customer kickoff updated' },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1', {
+      body: {
+        data: { subject: 'Customer kickoff updated' },
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'update_custom_object_record updated custom object record row-1.',
+      }),
+    );
+  });
+
+  it('passes archive_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'archived',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmArchiveCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        record_id: 'row-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1/archive', {
+      body: {},
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'archive_custom_object_record archived custom object record row-1.',
       }),
     );
   });
