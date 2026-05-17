@@ -8,7 +8,7 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
-import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
@@ -42,7 +42,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". For object_type="custom_objects" with scope="sanka", set this to the Sanka custom object id, slug, or name.',
   },
 };
 
@@ -187,13 +187,25 @@ const RECORD_QUERY_INPUT_SCHEMA = {
     ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to query. Currently supports companies, contacts, and deals.',
-      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
+      description:
+        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and external_object_type to the custom object id, slug, or name.',
+      enum: [
+        'companies',
+        'company',
+        'contacts',
+        'contact',
+        'deals',
+        'deal',
+        'opportunities',
+        'opportunity',
+        'custom_objects',
+        'custom_object',
+      ],
     },
     select: {
       type: 'array',
       description:
-        'Built-in fields to return. Keep this narrow so the MCP response stays small, for example ["id", "name", "address"].',
+        'Fields to return. Keep this narrow so the MCP response stays small, for example ["id", "name", "address"] or custom object fields such as ["row_id", "Subject", "fields"].',
       items: { type: 'string' },
     },
     filters: {
@@ -284,8 +296,20 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
     ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to aggregate. Currently supports companies, contacts, and deals.',
-      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
+      description:
+        'Record object to aggregate. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and external_object_type to the custom object id, slug, or name.',
+      enum: [
+        'companies',
+        'company',
+        'contacts',
+        'contact',
+        'deals',
+        'deal',
+        'opportunities',
+        'opportunity',
+        'custom_objects',
+        'custom_object',
+      ],
     },
     filters: {
       type: 'array',
@@ -522,14 +546,14 @@ const CONTACT_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Plain-text company name associated with the contact.',
   },
-  email: {
-    type: 'string',
-    description: 'Contact email address.',
-  },
   custom_fields: {
     type: 'object',
     description:
       'Custom field values. For integration mutations these are forwarded as provider property names.',
+  },
+  email: {
+    type: 'string',
+    description: 'Contact email address.',
   },
   external_id: {
     type: 'string',
@@ -3051,8 +3075,14 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
   properties: {
     content_disposition: { type: 'string' },
     mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64: {
+      type: 'string',
+      description: 'Base64-encoded file bytes. Decode this value to save the downloaded PDF locally.',
+    },
   },
-  required: ['mime_type'],
+  required: ['mime_type', 'filename', 'byte_length', 'content_base64'],
 };
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
@@ -10523,15 +10553,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asBinaryDownloadResult(response, 'order.pdf');
   },
 };
 
@@ -11470,15 +11492,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asBinaryDownloadResult(response, 'estimate.pdf');
   },
 };
 
@@ -12094,15 +12108,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asBinaryDownloadResult(response, 'invoice.pdf');
   },
 };
 
@@ -12319,15 +12325,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asBinaryDownloadResult(response, 'payment.pdf');
   },
 };
 
@@ -12653,15 +12651,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asBinaryDownloadResult(response, 'slip.pdf');
   },
 };
 

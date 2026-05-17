@@ -86,6 +86,86 @@ export function asTextContentResult(result: unknown): ToolCallResult {
   };
 }
 
+const TOOL_RESPONSE_RESOURCE_URI = 'resource://tool-response';
+
+const trimContentDispositionValue = (value: string): string => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const decodeContentDispositionFilename = (value: string): string => {
+  const unquoted = trimContentDispositionValue(value);
+  const rfc5987Match = /^([^']*)'[^']*'(.*)$/.exec(unquoted);
+  const encodedFilename = rfc5987Match?.[2] ?? unquoted;
+
+  try {
+    return decodeURIComponent(encodedFilename);
+  } catch {
+    return encodedFilename;
+  }
+};
+
+const readContentDispositionFilename = (contentDisposition: string | null): string | undefined => {
+  if (!contentDisposition) {
+    return undefined;
+  }
+
+  const filenameStarMatch = /(?:^|;)\s*filename\*\s*=\s*([^;]+)/i.exec(contentDisposition);
+  if (filenameStarMatch?.[1]) {
+    const decodedFilename = decodeContentDispositionFilename(filenameStarMatch[1]);
+    if (decodedFilename) {
+      return decodedFilename;
+    }
+  }
+
+  const filenameMatch = /(?:^|;)\s*filename\s*=\s*("[^"]*"|[^;]+)/i.exec(contentDisposition);
+  if (filenameMatch?.[1]) {
+    const filename = trimContentDispositionValue(filenameMatch[1]);
+    if (filename) {
+      return filename;
+    }
+  }
+
+  return undefined;
+};
+
+export async function asBinaryDownloadResult(
+  response: Response,
+  fallbackFilename = 'download',
+): Promise<ToolCallResult> {
+  const blob = await response.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  const mimeType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
+  const contentDisposition = response.headers.get('content-disposition');
+  const data = Buffer.from(arrayBuffer).toString('base64');
+
+  return {
+    content: [
+      {
+        type: 'resource',
+        resource: {
+          uri: TOOL_RESPONSE_RESOURCE_URI,
+          mimeType,
+          blob: data,
+        },
+      },
+    ],
+    structuredContent: {
+      ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
+      mime_type: mimeType,
+      filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
+      byte_length: arrayBuffer.byteLength,
+      content_base64: data,
+    },
+  };
+}
+
 export async function asBinaryContentResult(response: Response): Promise<ToolCallResult> {
   const blob = await response.blob();
   const mimeType = blob.type;
@@ -105,7 +185,7 @@ export async function asBinaryContentResult(response: Response): Promise<ToolCal
           type: 'resource',
           resource: {
             // We must give a URI, even though this isn't actually an MCP resource.
-            uri: 'resource://tool-response',
+            uri: TOOL_RESPONSE_RESOURCE_URI,
             mimeType,
             blob: data,
           },
