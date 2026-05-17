@@ -50,6 +50,7 @@ import {
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmDownloadInvoicePDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -219,6 +220,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDownloadInvoicePDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListSubscriptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -774,6 +776,57 @@ describe('ChatGPT CRM tools', () => {
     expect(result.content[0]).toEqual(
       expect.objectContaining({
         text: 'query_records found 1 duplicate candidate groups for companies.',
+      }),
+    );
+  });
+
+  it('passes Sanka custom object row arguments through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'custom_objects',
+      scope: 'sanka',
+      external_object_type: 'activity',
+      custom_object: { id: 'custom-object-1', name: 'Activity', slug: 'activity' },
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'query_records returned 1 of 1 custom_objects records.',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        results: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
       }),
     );
   });
@@ -3392,6 +3445,66 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+  });
+
+  it('downloads invoice PDFs with structured base64 content', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\ninvoice');
+    const contentDisposition = `attachment; filename="invoice-fallback.pdf"; filename*=UTF-8''invoice%205.pdf`;
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-disposition': contentDisposition,
+          'content-type': 'application/pdf',
+        },
+      }),
+    );
+
+    const result = await crmDownloadInvoicePDFTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            invoices: { downloadPDF },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+        template_select: 'modern',
+        language: 'ja',
+      },
+    });
+
+    const contentBase64 = pdfBytes.toString('base64');
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'invoice-1',
+      {
+        external_id: 'INV-1',
+        template_select: 'modern',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      content_disposition: contentDisposition,
+      mime_type: 'application/pdf',
+      filename: 'invoice 5.pdf',
+      byte_length: pdfBytes.length,
+      content_base64: contentBase64,
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'resource',
+        resource: {
+          uri: 'resource://tool-response',
+          mimeType: 'application/pdf',
+          blob: contentBase64,
+        },
+      },
+    ]);
+    expect(Buffer.from(result.structuredContent?.['content_base64'] as string, 'base64')).toEqual(pdfBytes);
   });
 
   it('creates an invoice', async () => {
