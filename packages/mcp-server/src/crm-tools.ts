@@ -1,6 +1,11 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import {
+  BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+  readBinaryDownloadChunk,
+  storeBinaryDownload,
+} from './binary-download-store';
+import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -8,7 +13,7 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
-import { asBinaryContentResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
@@ -42,7 +47,21 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies", Salesforce "Account", Salesforce "Contact", or Salesforce "Product2". For object_type="custom_objects" with scope="sanka", prefer custom_object/custom_object_slug; this legacy field is also accepted.',
+  },
+  custom_object: {
+    type: 'string',
+    description:
+      'For object_type="custom_objects" with scope="sanka", the Sanka custom object slug/internal key or id. Prefer this over display name.',
+  },
+  custom_object_slug: {
+    type: 'string',
+    description:
+      'For object_type="custom_objects" with scope="sanka", the stable Sanka custom object slug/internal key.',
+  },
+  custom_object_id: {
+    type: 'string',
+    description: 'For object_type="custom_objects" with scope="sanka", the Sanka custom object UUID.',
   },
 };
 
@@ -187,13 +206,25 @@ const RECORD_QUERY_INPUT_SCHEMA = {
     ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to query. Currently supports companies, contacts, and deals.',
-      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
+      description:
+        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
+      enum: [
+        'companies',
+        'company',
+        'contacts',
+        'contact',
+        'deals',
+        'deal',
+        'opportunities',
+        'opportunity',
+        'custom_objects',
+        'custom_object',
+      ],
     },
     select: {
       type: 'array',
       description:
-        'Built-in fields to return. Keep this narrow so the MCP response stays small, for example ["id", "name", "address"].',
+        'Fields to return. Keep this narrow so the MCP response stays small, for example ["id", "name", "address"] or custom object fields such as ["row_id", "Subject", "fields"].',
       items: { type: 'string' },
     },
     filters: {
@@ -284,8 +315,20 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
     ...INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES,
     object_type: {
       type: 'string',
-      description: 'Record object to aggregate. Currently supports companies, contacts, and deals.',
-      enum: ['companies', 'company', 'contacts', 'contact', 'deals', 'deal', 'opportunities', 'opportunity'],
+      description:
+        'Record object to aggregate. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
+      enum: [
+        'companies',
+        'company',
+        'contacts',
+        'contact',
+        'deals',
+        'deal',
+        'opportunities',
+        'opportunity',
+        'custom_objects',
+        'custom_object',
+      ],
     },
     filters: {
       type: 'array',
@@ -366,6 +409,118 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
     source_of_truth: { type: 'string' },
   },
   required: ['object_type', 'metrics', 'groups', 'message'],
+};
+
+const CUSTOM_OBJECT_RECORD_DATA_SCHEMA = {
+  type: 'object' as const,
+  description:
+    'Custom object row fields. Keys may be field UUIDs, custom field names, internal_name values, or supported row fields such as owner and usage_status.',
+  additionalProperties: true,
+};
+
+const CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    custom_object: {
+      type: 'string',
+      description:
+        'Preferred custom object identifier: stable slug/internal key or UUID. Display name is accepted as a fallback.',
+    },
+    customObject: {
+      type: 'string',
+      description: 'Alias for custom_object.',
+    },
+    custom_object_slug: {
+      type: 'string',
+      description: 'Stable custom object slug/internal key, for example "activity".',
+    },
+    customObjectSlug: {
+      type: 'string',
+      description: 'Alias for custom_object_slug.',
+    },
+    custom_object_id: {
+      type: 'string',
+      description: 'Custom object UUID.',
+    },
+    customObjectId: {
+      type: 'string',
+      description: 'Alias for custom_object_id.',
+    },
+    external_object_type: {
+      type: 'string',
+      description: 'Legacy alias for custom_object. Prefer custom_object or custom_object_slug.',
+    },
+    externalObjectType: {
+      type: 'string',
+      description: 'Alias for external_object_type.',
+    },
+    data: CUSTOM_OBJECT_RECORD_DATA_SCHEMA,
+    associations: {
+      type: 'object',
+      description:
+        'Optional association targets keyed by association label id/name. Values are record references such as {id, object_type}.',
+      additionalProperties: true,
+    },
+    form_set_id: {
+      type: 'string',
+      description: 'Optional form/property set id to validate against.',
+    },
+    property_set_id: {
+      type: 'string',
+      description: 'Alias for form_set_id.',
+    },
+    view_id: {
+      type: 'string',
+      description: 'Optional view id for form resolution.',
+    },
+  },
+  required: [],
+};
+
+const CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    record_id: {
+      type: 'string',
+      description: 'Custom object row UUID to update.',
+    },
+    data: CUSTOM_OBJECT_RECORD_DATA_SCHEMA,
+    associations: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.associations,
+    form_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.form_set_id,
+    property_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.property_set_id,
+    view_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.view_id,
+  },
+  required: ['record_id'],
+};
+
+const CUSTOM_OBJECT_RECORD_ARCHIVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    record_id: {
+      type: 'string',
+      description: 'Custom object row UUID to archive.',
+    },
+  },
+  required: ['record_id'],
+};
+
+const CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        row_id: { type: 'integer' },
+        property_set_id: { type: 'string' },
+        status: { type: 'string' },
+      },
+      required: ['id'],
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['data', 'message'],
 };
 
 type OrderLineItem = {
@@ -522,14 +677,14 @@ const CONTACT_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Plain-text company name associated with the contact.',
   },
-  email: {
-    type: 'string',
-    description: 'Contact email address.',
-  },
   custom_fields: {
     type: 'object',
     description:
       'Custom field values. For integration mutations these are forwarded as provider property names.',
+  },
+  email: {
+    type: 'string',
+    description: 'Contact email address.',
   },
   external_id: {
     type: 'string',
@@ -2743,6 +2898,30 @@ const PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA = {
   required: ['purchase_order_id'],
 };
 
+const PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    purchase_order_id: {
+      type: 'string',
+      description:
+        'Purchase order identifier. Accepts a UUID, numeric purchase order id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional template selector. Pass a template UUID or built-in template path.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['purchase_order_id'],
+};
+
 const PURCHASE_ORDER_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -3051,8 +3230,104 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
   properties: {
     content_disposition: { type: 'string' },
     mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64_available: {
+      type: 'boolean',
+      description:
+        'True when content_base64 is present in this tool result. False means the file must be read with read_binary_download_chunk.',
+    },
+    content_base64: {
+      type: 'string',
+      description:
+        'Base64-encoded file bytes for small downloads. Decode this value to save the downloaded PDF locally.',
+    },
+    content_base64_length: {
+      type: 'number',
+      description: 'Total length of the full base64 payload when the download is chunked.',
+    },
+    download_token: {
+      type: 'string',
+      description: 'Opaque token for read_binary_download_chunk when content_base64_available is false.',
+    },
+    chunk_size: {
+      type: 'number',
+      description: 'Recommended base64 character chunk size for read_binary_download_chunk.',
+    },
+    total_chunks: {
+      type: 'number',
+      description:
+        'Expected number of read_binary_download_chunk calls when using the recommended chunk_size.',
+    },
+    expires_at: {
+      type: 'string',
+      description: 'ISO timestamp when the chunk token expires.',
+    },
+    next_offset: {
+      type: 'number',
+      description: 'Initial base64 character offset to pass to read_binary_download_chunk.',
+    },
   },
-  required: ['mime_type'],
+  required: ['mime_type', 'filename', 'byte_length', 'content_base64_available'],
+};
+
+const BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    download_token: {
+      type: 'string',
+      description: 'Opaque token returned by a PDF download tool when content_base64_available is false.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for download_token.',
+    },
+    offset: {
+      type: 'number',
+      description:
+        'Base64 character offset to read from. Start at 0, then use next_offset from the previous chunk.',
+      minimum: 0,
+      default: 0,
+    },
+    chunk_size: {
+      type: 'number',
+      description:
+        'Optional base64 character chunk size. Defaults to the original chunk_size and is capped for MCP output reliability.',
+      minimum: 4,
+    },
+  },
+  required: ['download_token'],
+};
+
+const BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    content_disposition: { type: 'string' },
+    mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64: {
+      type: 'string',
+      description: 'Base64 chunk. Concatenate chunks in offset order, then decode the combined string.',
+    },
+    content_base64_offset: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    next_offset: { type: 'number' },
+    done: { type: 'boolean' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+  },
+  required: [
+    'mime_type',
+    'filename',
+    'byte_length',
+    'content_base64',
+    'content_base64_offset',
+    'content_base64_length',
+    'next_offset',
+    'done',
+    'chunk_size',
+  ],
 };
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
@@ -5405,6 +5680,86 @@ const readBoolean = (value: unknown): boolean | undefined => {
   return undefined;
 };
 
+const asStoredBinaryDownloadResult = (
+  reqContext: McpRequestContext,
+  response: Response,
+  fallbackFilename: string,
+): Promise<ToolCallResult> =>
+  asBinaryDownloadResult(response, fallbackFilename, {
+    inlineBase64Limit: BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+    sessionId: reqContext.mcpSessionId,
+    storeLargeDownload: storeBinaryDownload,
+  });
+
+export const crmReadBinaryDownloadChunkTool: McpTool = {
+  metadata: {
+    resource: 'downloads',
+    operation: 'read',
+    tags: ['crm', 'downloads'],
+  },
+  tool: {
+    name: 'read_binary_download_chunk',
+    title: 'Read binary download chunk',
+    description:
+      'Read one base64 chunk from a large PDF download returned by a Sanka PDF download tool. Concatenate chunks in offset order, then decode the combined base64 string.',
+    inputSchema: BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Read binary download chunk',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Read binary download chunk',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const downloadToken = readString(args?.['download_token']) ?? readString(args?.['token']);
+    if (!downloadToken) {
+      return asErrorResult('`download_token` is required.');
+    }
+
+    const chunk = readBinaryDownloadChunk({
+      downloadToken,
+      offset: readNumber(args?.['offset'], 0),
+      chunkSize: typeof args?.['chunk_size'] === 'number' ? args['chunk_size'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!chunk.ok) {
+      return asErrorResult(chunk.message);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Read ${chunk.contentBase64.length} base64 characters for ${chunk.filename} from offset ${chunk.contentBase64Offset}.`,
+        },
+      ],
+      structuredContent: {
+        ...(chunk.contentDisposition ? { content_disposition: chunk.contentDisposition } : undefined),
+        mime_type: chunk.mimeType,
+        filename: chunk.filename,
+        byte_length: chunk.byteLength,
+        content_base64: chunk.contentBase64,
+        content_base64_offset: chunk.contentBase64Offset,
+        content_base64_length: chunk.contentBase64Length,
+        next_offset: chunk.nextOffset,
+        done: chunk.done,
+        chunk_size: chunk.chunkSize,
+        expires_at: chunk.expiresAt,
+      },
+    };
+  },
+};
+
 const readRecord = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined;
@@ -5820,12 +6175,24 @@ const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
   return filters;
 };
 
+const readCustomObjectIdentifier = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(
+    args?.['custom_object'] ??
+      args?.['customObject'] ??
+      args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object_id'] ??
+      args?.['customObjectId'] ??
+      args?.['external_object_type'] ??
+      args?.['externalObjectType'],
+  );
+
 const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   const objectType = readString(args?.['object_type']);
   const scope = readString(args?.['scope'] ?? args?.['source']);
   const provider = readString(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
-  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const externalObjectType = readCustomObjectIdentifier(args);
   const body: Record<string, unknown> = {
     ...(objectType ? { object_type: objectType } : undefined),
     ...(scope ? { scope } : undefined),
@@ -5878,7 +6245,7 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   const scope = readString(args?.['scope'] ?? args?.['source']);
   const provider = readString(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
-  const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
+  const externalObjectType = readCustomObjectIdentifier(args);
   const filters = buildRecordFilters(args?.['filters']);
   const mode = readString(args?.['mode']);
   const matchFields = readStringArray(args?.['match_fields'] ?? args?.['matchFields']);
@@ -5921,6 +6288,72 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
     body['scan_limit'] = Math.trunc(scanLimit);
   }
   return body;
+};
+
+const buildCustomObjectRecordMutationBody = (
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  const externalObjectType = readCustomObjectIdentifier(args);
+  const data = readRecord(args?.['data']);
+  const associations = readRecord(args?.['associations']);
+  const formSetID = readString(args?.['form_set_id'] ?? args?.['formSetId']);
+  const propertySetID = readString(args?.['property_set_id'] ?? args?.['propertySetId']);
+  const viewID = readString(args?.['view_id'] ?? args?.['viewId']);
+  const reservedKeys = new Set([
+    'custom_object',
+    'customObject',
+    'custom_object_slug',
+    'customObjectSlug',
+    'custom_object_id',
+    'customObjectId',
+    'external_object_type',
+    'externalObjectType',
+    'record_id',
+    'recordId',
+    'data',
+    'associations',
+    'form_set_id',
+    'formSetId',
+    'property_set_id',
+    'propertySetId',
+    'view_id',
+    'viewId',
+  ]);
+  const inlineData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args ?? {})) {
+    if (!reservedKeys.has(key)) {
+      inlineData[key] = value;
+    }
+  }
+  const mergedData = { ...inlineData, ...(data ?? {}) };
+
+  return {
+    ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
+    data: mergedData,
+    ...(associations ? { associations } : undefined),
+    ...(formSetID ? { form_set_id: formSetID } : undefined),
+    ...(propertySetID ? { property_set_id: propertySetID } : undefined),
+    ...(viewID ? { view_id: viewID } : undefined),
+  };
+};
+
+const buildCustomObjectRecordMutationResult = ({
+  toolName,
+  action,
+  payload,
+}: {
+  toolName: string;
+  action: string;
+  payload: Record<string, unknown>;
+}): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const recordID = readString(data['id']);
+  const message = `${toolName} ${action} custom object record${recordID ? ` ${recordID}` : ''}.`;
+
+  return {
+    content: [{ type: 'text', text: message }],
+    structuredContent: payload,
+  };
 };
 
 const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResult => {
@@ -6783,7 +7216,7 @@ const buildOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) 
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(templateSelect ? { template_select: templateSelect } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -6873,6 +7306,22 @@ const buildPurchaseOrderRetrieveParams = (args: Record<string, unknown> | undefi
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPurchaseOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
+  const purchaseOrderID = readString(args?.['purchase_order_id']);
+  const externalID = readString(args?.['external_id']);
+  const templateSelect = readString(args?.['template_select']);
+  const language = readString(args?.['language']);
+
+  return {
+    purchaseOrderID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(templateSelect ? { template_select: templateSelect } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -8711,6 +9160,161 @@ export const crmAggregateRecordsTool: McpTool = {
   },
 };
 
+export const crmCreateCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records',
+    operationId: 'public.records.custom_objects.create',
+  },
+  tool: {
+    name: 'create_custom_object_record',
+    title: 'Create custom object record',
+    description:
+      'Create a Sanka custom object row. Set custom_object or custom_object_slug to the custom object slug/internal key or id. Use data keys as field names, internal_name values, or field UUIDs.',
+    inputSchema: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create custom object record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildCustomObjectRecordMutationBody(args);
+    if (!body['external_object_type']) {
+      return asErrorResult('`custom_object` or `custom_object_slug` is required.');
+    }
+
+    const payload = (await reqContext.client.post('/v1/public/records/custom-objects/records', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'create_custom_object_record',
+      action: 'created',
+      payload,
+    });
+  },
+};
+
+export const crmUpdateCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records/{record_id}',
+    operationId: 'public.records.custom_objects.update',
+  },
+  tool: {
+    name: 'update_custom_object_record',
+    title: 'Update custom object record',
+    description:
+      'Update a Sanka custom object row by row UUID. Use data keys as field names, internal_name values, or field UUIDs.',
+    inputSchema: CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update custom object record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    const body = buildCustomObjectRecordMutationBody(args);
+    delete body['external_object_type'];
+
+    const payload = (await reqContext.client.post(`/v1/public/records/custom-objects/records/${recordID}`, {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'update_custom_object_record',
+      action: 'updated',
+      payload,
+    });
+  },
+};
+
+export const crmArchiveCustomObjectRecordTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/records/custom-objects/records/{record_id}/archive',
+    operationId: 'public.records.custom_objects.archive',
+  },
+  tool: {
+    name: 'archive_custom_object_record',
+    title: 'Archive custom object record',
+    description:
+      'Archive a Sanka custom object row by row UUID. This is a soft archive, not a permanent delete.',
+    inputSchema: CUSTOM_OBJECT_RECORD_ARCHIVE_INPUT_SCHEMA,
+    outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Archive custom object record',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Archive custom object record',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+
+    const payload = (await reqContext.client.post(
+      `/v1/public/records/custom-objects/records/${recordID}/archive`,
+      {
+        body: {},
+      },
+    )) as Record<string, unknown>;
+
+    return buildCustomObjectRecordMutationResult({
+      toolName: 'archive_custom_object_record',
+      action: 'archived',
+      payload,
+    });
+  },
+};
+
 export const crmListCompaniesTool: McpTool = {
   metadata: {
     resource: 'companies',
@@ -10523,15 +11127,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asStoredBinaryDownloadResult(reqContext, response, 'order.pdf');
   },
 };
 
@@ -10843,6 +11439,52 @@ export const crmGetPurchaseOrderTool: McpTool = {
       ],
       structuredContent: purchaseOrder,
     };
+  },
+};
+
+export const crmDownloadPurchaseOrderPDFTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'read',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/purchase-orders/{purchase_order_id}/pdf',
+    operationId: 'public.purchaseOrders.downloadPDF',
+  },
+  tool: {
+    name: 'download_purchase_order_pdf',
+    title: 'Download purchase order PDF',
+    description: 'Download a purchase order from Sanka as a PDF document.',
+    inputSchema: PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download purchase order PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Download purchase order PDF',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { purchaseOrderID, params } = buildPurchaseOrderDownloadPDFParams(args);
+    if (!purchaseOrderID) {
+      return asErrorResult('`purchase_order_id` is required.');
+    }
+
+    const response = await reqContext.client
+      .get(`/v1/public/purchase-orders/${encodeURIComponent(purchaseOrderID)}/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    return asStoredBinaryDownloadResult(reqContext, response, 'purchase-order.pdf');
   },
 };
 
@@ -11470,15 +12112,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asStoredBinaryDownloadResult(reqContext, response, 'estimate.pdf');
   },
 };
 
@@ -12094,15 +12728,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asStoredBinaryDownloadResult(reqContext, response, 'invoice.pdf');
   },
 };
 
@@ -12319,15 +12945,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asStoredBinaryDownloadResult(reqContext, response, 'payment.pdf');
   },
 };
 
@@ -12653,15 +13271,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    const binaryResult = await asBinaryContentResult(response);
-
-    return {
-      ...binaryResult,
-      structuredContent: {
-        content_disposition: response.headers.get('content-disposition') ?? undefined,
-        mime_type: response.headers.get('content-type') ?? 'application/octet-stream',
-      },
-    };
+    return asStoredBinaryDownloadResult(reqContext, response, 'slip.pdf');
   },
 };
 

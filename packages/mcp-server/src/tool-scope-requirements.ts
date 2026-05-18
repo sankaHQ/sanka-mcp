@@ -14,6 +14,8 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'companies:write',
   'contacts:read',
   'contacts:write',
+  'custom_objects:read',
+  'custom_objects:write',
   'deals:create',
   'deals:read',
   'deals:write',

@@ -1,6 +1,7 @@
 import { File } from 'node:buffer';
 import {
   crmArchivePrivateMessageThreadTool,
+  crmArchiveCustomObjectRecordTool,
   crmApplyCompanyPriceTableItemsTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
@@ -12,6 +13,7 @@ import {
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
+  crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
@@ -50,6 +52,9 @@ import {
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmDownloadEstimatePDFTool,
+  crmDownloadInvoicePDFTool,
+  crmDownloadPurchaseOrderPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -108,6 +113,7 @@ import {
   crmMutateObjectSchemaTool,
   crmProspectCompaniesTool,
   crmQueryRecordsTool,
+  crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
@@ -118,6 +124,7 @@ import {
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
   crmUpdateContactTool,
+  crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
   crmUpdateDisbursementTool,
   crmUpdateEstimateTool,
@@ -138,6 +145,7 @@ import {
   crmUpdateTicketTool,
   crmUploadExpenseAttachmentTool,
 } from '../../packages/mcp-server/src/crm-tools';
+import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
 
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
@@ -158,17 +166,25 @@ const oauthContext = (overrides?: {
 });
 
 describe('ChatGPT CRM tools', () => {
+  beforeEach(() => {
+    resetBinaryDownloadStoreForTests();
+  });
+
   it('advertises auth schemes on CRM tools', () => {
     expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmCurrentWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListWorkspacesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSwitchWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmReadBinaryDownloadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmReplyPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmArchivePrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmArchiveCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateCompanyTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -219,6 +235,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDownloadInvoicePDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListSubscriptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -774,6 +791,208 @@ describe('ChatGPT CRM tools', () => {
     expect(result.content[0]).toEqual(
       expect.objectContaining({
         text: 'query_records found 1 duplicate candidate groups for companies.',
+      }),
+    );
+  });
+
+  it('passes Sanka custom object row arguments through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'custom_objects',
+      scope: 'sanka',
+      external_object_type: 'activity',
+      custom_object: { id: 'custom-object-1', name: 'Activity', slug: 'activity' },
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'custom_objects',
+        custom_object_slug: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        select: ['id', 'row_id', 'Subject', 'fields'],
+        filters: [{ field: 'Subject', operator: 'contains', value: 'Kickoff' }],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'query_records returned 1 of 1 custom_objects records.',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        results: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],
+      }),
+    );
+  });
+
+  it('passes Sanka custom object row arguments through aggregate_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'custom_objects',
+      scope: 'sanka',
+      external_object_type: 'activity',
+      custom_object: { id: 'custom-object-1', name: 'Activity', slug: 'activity' },
+      metrics: { count: 2 },
+      groups: [{ Status: 'Open', count: 2 }],
+      message: 'OK',
+    });
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'custom_objects',
+        custom_object: 'activity',
+        group_by: ['Status'],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+      body: {
+        object_type: 'custom_objects',
+        external_object_type: 'activity',
+        metrics: ['count'],
+        group_by: ['Status'],
+        limit: 10,
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'aggregate_records count for custom_objects: 2',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        groups: [{ Status: 'Open', count: 2 }],
+      }),
+    );
+  });
+
+  it('passes create_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'active',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmCreateCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        custom_object_slug: 'activity',
+        Subject: 'Kickoff meeting',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records', {
+      body: {
+        external_object_type: 'activity',
+        data: { Subject: 'Kickoff meeting' },
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'create_custom_object_record created custom object record row-1.',
+      }),
+    );
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({ id: 'row-1', status: 'active' }),
+      }),
+    );
+  });
+
+  it('passes update_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'active',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmUpdateCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        record_id: 'row-1',
+        data: { subject: 'Customer kickoff updated' },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1', {
+      body: {
+        data: { subject: 'Customer kickoff updated' },
+      },
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'update_custom_object_record updated custom object record row-1.',
+      }),
+    );
+  });
+
+  it('passes archive_custom_object_record arguments through public records API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        id: 'row-1',
+        row_id: 5,
+        status: 'archived',
+      },
+      message: 'OK',
+    });
+
+    const result = await crmArchiveCustomObjectRecordTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        record_id: 'row-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1/archive', {
+      body: {},
+    });
+    expect(result.content[0]).toEqual(
+      expect.objectContaining({
+        text: 'archive_custom_object_record archived custom object record row-1.',
       }),
     );
   });
@@ -2777,6 +2996,47 @@ describe('ChatGPT CRM tools', () => {
       updated_at: '2026-04-09T00:00:00Z',
     });
 
+    const pdfBytes = Buffer.from('%PDF-purchase-order');
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition':
+            'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
+        },
+      }),
+    );
+    const get = jest.fn().mockReturnValue({ asResponse });
+    const downloadResult = await crmDownloadPurchaseOrderPDFTool.handler({
+      reqContext: {
+        client: {
+          get,
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        purchase_order_id: 'purchase-order-1',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/purchase-orders/purchase-order-1/pdf', {
+      query: {
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+    expect(downloadResult.structuredContent).toEqual({
+      content_disposition:
+        'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
+      mime_type: 'application/pdf',
+      filename: 'purchase-order-901.pdf',
+      byte_length: pdfBytes.byteLength,
+      content_base64_available: true,
+      content_base64: pdfBytes.toString('base64'),
+    });
+
     const createResult = await crmCreatePurchaseOrderTool.handler({
       reqContext,
       args: {
@@ -3155,6 +3415,62 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
+    const pdfBytes = Buffer.from('%PDF-estimate');
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition':
+            'attachment; filename="estimate.pdf"; filename*=UTF-8\'\'%E8%A6%8B%E7%A9%8D%E6%9B%B8.pdf',
+        },
+      }),
+    );
+
+    const result = await crmDownloadEstimatePDFTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            estimates: { downloadPDF },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        estimate_id: 'estimate-1',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'estimate-1',
+      {
+        template_select: 'template-1',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      content_disposition:
+        'attachment; filename="estimate.pdf"; filename*=UTF-8\'\'%E8%A6%8B%E7%A9%8D%E6%9B%B8.pdf',
+      mime_type: 'application/pdf',
+      filename: '見積書.pdf',
+      byte_length: pdfBytes.byteLength,
+      content_base64_available: true,
+      content_base64: pdfBytes.toString('base64'),
+    });
+    expect(result.content[0]).toEqual({
+      type: 'resource',
+      resource: {
+        uri: 'resource://tool-response',
+        mimeType: 'application/pdf',
+        blob: pdfBytes.toString('base64'),
+      },
+    });
+  });
+
   it('creates an estimate', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,
@@ -3392,6 +3708,135 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+  });
+
+  it('downloads invoice PDFs with structured base64 content', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\ninvoice');
+    const contentDisposition = `attachment; filename="invoice-fallback.pdf"; filename*=UTF-8''invoice%205.pdf`;
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-disposition': contentDisposition,
+          'content-type': 'application/pdf',
+        },
+      }),
+    );
+
+    const result = await crmDownloadInvoicePDFTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            invoices: { downloadPDF },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+        template_select: 'modern',
+        language: 'ja',
+      },
+    });
+
+    const contentBase64 = pdfBytes.toString('base64');
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'invoice-1',
+      {
+        external_id: 'INV-1',
+        template_select: 'modern',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      content_disposition: contentDisposition,
+      mime_type: 'application/pdf',
+      filename: 'invoice 5.pdf',
+      byte_length: pdfBytes.length,
+      content_base64_available: true,
+      content_base64: contentBase64,
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'resource',
+        resource: {
+          uri: 'resource://tool-response',
+          mimeType: 'application/pdf',
+          blob: contentBase64,
+        },
+      },
+    ]);
+    expect(Buffer.from(result.structuredContent?.['content_base64'] as string, 'base64')).toEqual(pdfBytes);
+  });
+
+  it('keeps large invoice PDF downloads below Codex output truncation limits and serves chunks', async () => {
+    const pdfBytes = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(104732 - 9, 65)]);
+    const contentBase64 = pdfBytes.toString('base64');
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-disposition': 'attachment; filename="invoice-7.pdf"',
+          'content-type': 'application/pdf',
+        },
+      }),
+    );
+    const reqContext = {
+      client: {
+        public: {
+          invoices: { downloadPDF },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+      mcpSessionId: 'session-large-pdf',
+    };
+
+    const result = await crmDownloadInvoicePDFTool.handler({
+      reqContext,
+      args: {
+        invoice_id: 'invoice-7',
+        language: 'ja',
+      },
+    });
+
+    const structured = result.structuredContent as Record<string, unknown>;
+    expect(structured).toMatchObject({
+      mime_type: 'application/pdf',
+      filename: 'invoice-7.pdf',
+      byte_length: pdfBytes.length,
+      content_base64_available: false,
+      content_base64_length: contentBase64.length,
+      chunk_size: 24000,
+      total_chunks: Math.ceil(contentBase64.length / 24000),
+      next_offset: 0,
+    });
+    expect(structured).not.toHaveProperty('content_base64');
+    expect(typeof structured['download_token']).toBe('string');
+    expect(JSON.stringify(structured).length).toBeLessThan(48000);
+
+    const downloadToken = structured['download_token'] as string;
+    let offset = structured['next_offset'] as number;
+    let stitchedBase64 = '';
+    let done = false;
+
+    for (let i = 0; i < 20 && !done; i += 1) {
+      const chunkResult = await crmReadBinaryDownloadChunkTool.handler({
+        reqContext,
+        args: { download_token: downloadToken, offset },
+      });
+      const chunk = chunkResult.structuredContent as Record<string, unknown>;
+      expect(JSON.stringify(chunk).length).toBeLessThan(48000);
+      expect(chunk['content_base64_offset']).toBe(offset);
+      stitchedBase64 += chunk['content_base64'] as string;
+      offset = chunk['next_offset'] as number;
+      done = chunk['done'] as boolean;
+    }
+
+    expect(done).toBe(true);
+    expect(stitchedBase64).toBe(contentBase64);
+    expect(Buffer.from(stitchedBase64, 'base64')).toEqual(pdfBytes);
   });
 
   it('creates an invoice', async () => {
