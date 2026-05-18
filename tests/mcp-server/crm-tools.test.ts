@@ -2746,6 +2746,12 @@ describe('ChatGPT CRM tools', () => {
       permission: undefined,
       results: [{ id: 'order-1', order_id: 501 }],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 8 orders. Examples: Order No. 501.',
+      },
+    ]);
   });
 
   it('gets one order when authentication is present', async () => {
@@ -2786,6 +2792,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-09T09:00:00Z',
       updated_at: '2026-04-09T10:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded order successfully: Order No. 501.',
+      },
+    ]);
   });
 
   it('creates an order', async () => {
@@ -3416,6 +3428,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded estimate successfully: Estimate No. 1.',
+      },
+    ]);
   });
 
   it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
@@ -3634,6 +3652,12 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', total_price: 200 },
       ],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 3 invoices. Examples: Invoice No. 1, Invoice No. 2.',
+      },
+    ]);
   });
 
   it('lists overdue invoices with a local result limit', async () => {
@@ -3675,6 +3699,12 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', outstanding_balance: 80, days_overdue: 3 },
       ],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 3 overdue invoices. Examples: Invoice No. 1, Invoice No. 2.',
+      },
+    ]);
   });
 
   it('gets one invoice when authentication is present', async () => {
@@ -3714,6 +3744,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded invoice successfully: Invoice No. 1.',
+      },
+    ]);
   });
 
   it('downloads invoice PDFs with structured base64 content', async () => {
@@ -4099,6 +4135,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded payment successfully: Payment No. 301.',
+      },
+    ]);
   });
 
   it('creates a payment', async () => {
