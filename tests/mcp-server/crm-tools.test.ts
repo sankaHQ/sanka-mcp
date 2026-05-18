@@ -3033,6 +3033,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'purchase-order-901.pdf',
       byte_length: pdfBytes.byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
@@ -3458,6 +3461,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: '見積書.pdf',
       byte_length: pdfBytes.byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
@@ -3755,6 +3761,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice 5.pdf',
       byte_length: pdfBytes.length,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: contentBase64,
     });
@@ -3806,14 +3815,28 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice-7.pdf',
       byte_length: pdfBytes.length,
+      completion_status: 'requires_chunks',
+      download_complete: false,
+      file_assembly_required: true,
       content_base64_available: false,
       content_base64_length: contentBase64.length,
+      required_next_tool: 'read_binary_download_chunk',
       chunk_size: 24000,
       total_chunks: Math.ceil(contentBase64.length / 24000),
       next_offset: 0,
     });
+    expect(typeof structured['next_action']).toBe('string');
+    expect(structured['next_action']).toContain('attach or save');
     expect(structured).not.toHaveProperty('content_base64');
     expect(typeof structured['download_token']).toBe('string');
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('PDF file is not attached yet'),
+    });
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('before telling the user the download is complete'),
+    });
     expect(JSON.stringify(structured).length).toBeLessThan(48000);
 
     const downloadToken = structured['download_token'] as string;
@@ -3829,9 +3852,18 @@ describe('ChatGPT CRM tools', () => {
       const chunk = chunkResult.structuredContent as Record<string, unknown>;
       expect(JSON.stringify(chunk).length).toBeLessThan(48000);
       expect(chunk['content_base64_offset']).toBe(offset);
+      expect(chunk['file_assembly_required']).toBe(true);
+      expect(typeof chunk['next_action']).toBe('string');
       stitchedBase64 += chunk['content_base64'] as string;
       offset = chunk['next_offset'] as number;
       done = chunk['done'] as boolean;
+      expect(chunk['completion_status']).toBe(done ? 'chunks_read' : 'requires_next_chunk');
+      if (done) {
+        expect(chunk).not.toHaveProperty('required_next_tool');
+        expect(chunk['next_action']).toContain('attach or save');
+      } else {
+        expect(chunk['required_next_tool']).toBe('read_binary_download_chunk');
+      }
     }
 
     expect(done).toBe(true);
