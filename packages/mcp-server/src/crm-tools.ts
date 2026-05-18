@@ -13,6 +13,7 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
+import { buildSafeRecordLabel } from './record-labels';
 import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -6078,6 +6079,11 @@ const buildListSummary = ({
   const preview = rows
     .slice(0, 3)
     .map((row) => {
+      const safeRecordLabel = buildSafeRecordLabel({ entity: label, payload: row });
+      if (safeRecordLabel) {
+        return safeRecordLabel;
+      }
+
       for (const key of previewKeys) {
         const value = row[key];
         if (typeof value === 'string' && value.trim().length > 0) {
@@ -8592,6 +8598,11 @@ const buildEntityDetailSummary = ({
   payload: Record<string, unknown>;
   previewKeys: string[];
 }): string => {
+  const safeRecordLabel = buildSafeRecordLabel({ entity, payload });
+  if (safeRecordLabel) {
+    return `Loaded ${entity} successfully: ${safeRecordLabel}.`;
+  }
+
   for (const key of previewKeys) {
     const stringValue = readString(payload[key]);
     if (stringValue) {

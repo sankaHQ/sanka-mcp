@@ -372,6 +372,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_invoices');
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
+    expect(instructions).toContain('Do not render Sanka record numbers as Markdown issue references');
+    expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
     expect(instructions).toContain('delete_invoice');
