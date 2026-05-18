@@ -15,6 +15,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('search_docs');
     expect(toolNames).toContain('connect_sanka');
     expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('read_binary_download_chunk');
     expect(toolNames).toContain('list_private_messages');
     expect(toolNames).toContain('sync_private_messages');
     expect(toolNames).toContain('get_private_message_thread');
@@ -359,6 +360,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
+    expect(instructions).toContain('read_binary_download_chunk');
     expect(instructions).toContain('create_purchase_order');
     expect(instructions).toContain('update_purchase_order');
     expect(instructions).toContain('delete_purchase_order');
@@ -508,6 +510,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
+    expect(instructions).toContain('read_binary_download_chunk');
     expect(instructions).toContain('create_purchase_order');
     expect(instructions).toContain('update_purchase_order');
     expect(instructions).toContain('delete_purchase_order');

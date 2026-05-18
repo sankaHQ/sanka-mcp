@@ -1,6 +1,11 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import {
+  BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+  readBinaryDownloadChunk,
+  storeBinaryDownload,
+} from './binary-download-store';
+import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -3227,12 +3232,102 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     mime_type: { type: 'string' },
     filename: { type: 'string' },
     byte_length: { type: 'number' },
+    content_base64_available: {
+      type: 'boolean',
+      description:
+        'True when content_base64 is present in this tool result. False means the file must be read with read_binary_download_chunk.',
+    },
     content_base64: {
       type: 'string',
-      description: 'Base64-encoded file bytes. Decode this value to save the downloaded PDF locally.',
+      description:
+        'Base64-encoded file bytes for small downloads. Decode this value to save the downloaded PDF locally.',
+    },
+    content_base64_length: {
+      type: 'number',
+      description: 'Total length of the full base64 payload when the download is chunked.',
+    },
+    download_token: {
+      type: 'string',
+      description: 'Opaque token for read_binary_download_chunk when content_base64_available is false.',
+    },
+    chunk_size: {
+      type: 'number',
+      description: 'Recommended base64 character chunk size for read_binary_download_chunk.',
+    },
+    total_chunks: {
+      type: 'number',
+      description:
+        'Expected number of read_binary_download_chunk calls when using the recommended chunk_size.',
+    },
+    expires_at: {
+      type: 'string',
+      description: 'ISO timestamp when the chunk token expires.',
+    },
+    next_offset: {
+      type: 'number',
+      description: 'Initial base64 character offset to pass to read_binary_download_chunk.',
     },
   },
-  required: ['mime_type', 'filename', 'byte_length', 'content_base64'],
+  required: ['mime_type', 'filename', 'byte_length', 'content_base64_available'],
+};
+
+const BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    download_token: {
+      type: 'string',
+      description: 'Opaque token returned by a PDF download tool when content_base64_available is false.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for download_token.',
+    },
+    offset: {
+      type: 'number',
+      description:
+        'Base64 character offset to read from. Start at 0, then use next_offset from the previous chunk.',
+      minimum: 0,
+      default: 0,
+    },
+    chunk_size: {
+      type: 'number',
+      description:
+        'Optional base64 character chunk size. Defaults to the original chunk_size and is capped for MCP output reliability.',
+      minimum: 4,
+    },
+  },
+  required: ['download_token'],
+};
+
+const BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    content_disposition: { type: 'string' },
+    mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64: {
+      type: 'string',
+      description: 'Base64 chunk. Concatenate chunks in offset order, then decode the combined string.',
+    },
+    content_base64_offset: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    next_offset: { type: 'number' },
+    done: { type: 'boolean' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+  },
+  required: [
+    'mime_type',
+    'filename',
+    'byte_length',
+    'content_base64',
+    'content_base64_offset',
+    'content_base64_length',
+    'next_offset',
+    'done',
+    'chunk_size',
+  ],
 };
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
@@ -5583,6 +5678,86 @@ const readBoolean = (value: unknown): boolean | undefined => {
     return value;
   }
   return undefined;
+};
+
+const asStoredBinaryDownloadResult = (
+  reqContext: McpRequestContext,
+  response: Response,
+  fallbackFilename: string,
+): Promise<ToolCallResult> =>
+  asBinaryDownloadResult(response, fallbackFilename, {
+    inlineBase64Limit: BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+    sessionId: reqContext.mcpSessionId,
+    storeLargeDownload: storeBinaryDownload,
+  });
+
+export const crmReadBinaryDownloadChunkTool: McpTool = {
+  metadata: {
+    resource: 'downloads',
+    operation: 'read',
+    tags: ['crm', 'downloads'],
+  },
+  tool: {
+    name: 'read_binary_download_chunk',
+    title: 'Read binary download chunk',
+    description:
+      'Read one base64 chunk from a large PDF download returned by a Sanka PDF download tool. Concatenate chunks in offset order, then decode the combined base64 string.',
+    inputSchema: BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Read binary download chunk',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Read binary download chunk',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const downloadToken = readString(args?.['download_token']) ?? readString(args?.['token']);
+    if (!downloadToken) {
+      return asErrorResult('`download_token` is required.');
+    }
+
+    const chunk = readBinaryDownloadChunk({
+      downloadToken,
+      offset: readNumber(args?.['offset'], 0),
+      chunkSize: typeof args?.['chunk_size'] === 'number' ? args['chunk_size'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!chunk.ok) {
+      return asErrorResult(chunk.message);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Read ${chunk.contentBase64.length} base64 characters for ${chunk.filename} from offset ${chunk.contentBase64Offset}.`,
+        },
+      ],
+      structuredContent: {
+        ...(chunk.contentDisposition ? { content_disposition: chunk.contentDisposition } : undefined),
+        mime_type: chunk.mimeType,
+        filename: chunk.filename,
+        byte_length: chunk.byteLength,
+        content_base64: chunk.contentBase64,
+        content_base64_offset: chunk.contentBase64Offset,
+        content_base64_length: chunk.contentBase64Length,
+        next_offset: chunk.nextOffset,
+        done: chunk.done,
+        chunk_size: chunk.chunkSize,
+        expires_at: chunk.expiresAt,
+      },
+    };
+  },
 };
 
 const readRecord = (value: unknown): Record<string, unknown> | undefined => {
@@ -10952,7 +11127,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    return asBinaryDownloadResult(response, 'order.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'order.pdf');
   },
 };
 
@@ -11309,7 +11484,7 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
         query: params,
       })
       .asResponse();
-    return asBinaryDownloadResult(response, 'purchase-order.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'purchase-order.pdf');
   },
 };
 
@@ -11937,7 +12112,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    return asBinaryDownloadResult(response, 'estimate.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'estimate.pdf');
   },
 };
 
@@ -12553,7 +12728,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    return asBinaryDownloadResult(response, 'invoice.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'invoice.pdf');
   },
 };
 
@@ -12770,7 +12945,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    return asBinaryDownloadResult(response, 'payment.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'payment.pdf');
   },
 };
 
@@ -13096,7 +13271,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    return asBinaryDownloadResult(response, 'slip.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'slip.pdf');
   },
 };
 

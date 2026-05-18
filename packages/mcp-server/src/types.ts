@@ -88,6 +88,21 @@ export function asTextContentResult(result: unknown): ToolCallResult {
 
 const TOOL_RESPONSE_RESOURCE_URI = 'resource://tool-response';
 
+export type StoreBinaryDownload = (input: {
+  contentBase64: string;
+  contentDisposition?: string | undefined;
+  filename: string;
+  mimeType: string;
+  byteLength: number;
+  sessionId?: string | undefined;
+}) => {
+  downloadToken: string;
+  chunkSize: number;
+  totalChunks: number;
+  expiresAt: string;
+  contentBase64Length: number;
+};
+
 const trimContentDispositionValue = (value: string): string => {
   const trimmed = value.trim();
   if (
@@ -138,12 +153,52 @@ const readContentDispositionFilename = (contentDisposition: string | null): stri
 export async function asBinaryDownloadResult(
   response: Response,
   fallbackFilename = 'download',
+  options?: {
+    inlineBase64Limit?: number | undefined;
+    sessionId?: string | undefined;
+    storeLargeDownload?: StoreBinaryDownload | undefined;
+  },
 ): Promise<ToolCallResult> {
   const blob = await response.blob();
   const arrayBuffer = await blob.arrayBuffer();
   const mimeType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
   const contentDisposition = response.headers.get('content-disposition');
+  const filename = readContentDispositionFilename(contentDisposition) ?? fallbackFilename;
+  const byteLength = arrayBuffer.byteLength;
   const data = Buffer.from(arrayBuffer).toString('base64');
+  const inlineBase64Limit = options?.inlineBase64Limit;
+
+  if (options?.storeLargeDownload && inlineBase64Limit !== undefined && data.length > inlineBase64Limit) {
+    const stored = options.storeLargeDownload({
+      contentBase64: data,
+      contentDisposition: contentDisposition ?? undefined,
+      filename,
+      mimeType,
+      byteLength,
+      sessionId: options.sessionId,
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Downloaded ${filename} (${byteLength} bytes). The base64 payload is too large for a single MCP result; call read_binary_download_chunk with download_token ${stored.downloadToken} from offset 0 and concatenate chunks before decoding.`,
+        },
+      ],
+      structuredContent: {
+        ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
+        mime_type: mimeType,
+        filename,
+        byte_length: byteLength,
+        content_base64_available: false,
+        content_base64_length: stored.contentBase64Length,
+        download_token: stored.downloadToken,
+        chunk_size: stored.chunkSize,
+        total_chunks: stored.totalChunks,
+        expires_at: stored.expiresAt,
+        next_offset: 0,
+      },
+    };
+  }
 
   return {
     content: [
@@ -159,8 +214,9 @@ export async function asBinaryDownloadResult(
     structuredContent: {
       ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
       mime_type: mimeType,
-      filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
-      byte_length: arrayBuffer.byteLength,
+      filename,
+      byte_length: byteLength,
+      content_base64_available: true,
       content_base64: data,
     },
   };
