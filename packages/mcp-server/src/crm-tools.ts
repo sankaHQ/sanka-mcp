@@ -3232,6 +3232,21 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     mime_type: { type: 'string' },
     filename: { type: 'string' },
     byte_length: { type: 'number' },
+    completion_status: {
+      type: 'string',
+      description:
+        'inline_content when the PDF bytes are present now, or requires_chunks when read_binary_download_chunk must be called before reporting completion.',
+    },
+    download_complete: {
+      type: 'boolean',
+      description:
+        'True only when this result contains final file bytes. False means the download must not be reported as complete yet.',
+    },
+    file_assembly_required: {
+      type: 'boolean',
+      description:
+        'True when the client must assemble chunks into the final PDF before attaching or saving it.',
+    },
     content_base64_available: {
       type: 'boolean',
       description:
@@ -3250,6 +3265,10 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
       type: 'string',
       description: 'Opaque token for read_binary_download_chunk when content_base64_available is false.',
     },
+    required_next_tool: {
+      type: 'string',
+      description: 'The MCP tool that must be called next before reporting the PDF download as complete.',
+    },
     chunk_size: {
       type: 'number',
       description: 'Recommended base64 character chunk size for read_binary_download_chunk.',
@@ -3267,8 +3286,21 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
       type: 'number',
       description: 'Initial base64 character offset to pass to read_binary_download_chunk.',
     },
+    next_action: {
+      type: 'string',
+      description:
+        'Human-readable completion step. Follow it before telling the user the PDF was downloaded.',
+    },
   },
-  required: ['mime_type', 'filename', 'byte_length', 'content_base64_available'],
+  required: [
+    'mime_type',
+    'filename',
+    'byte_length',
+    'completion_status',
+    'download_complete',
+    'file_assembly_required',
+    'content_base64_available',
+  ],
 };
 
 const BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA = {
@@ -3316,6 +3348,26 @@ const BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA = {
     done: { type: 'boolean' },
     chunk_size: { type: 'number' },
     expires_at: { type: 'string' },
+    completion_status: {
+      type: 'string',
+      description:
+        'requires_next_chunk until more chunks remain, or chunks_read when this is the final chunk.',
+    },
+    file_assembly_required: {
+      type: 'boolean',
+      description:
+        'Always true for chunk reads. Concatenate all chunks in offset order and decode before reporting completion.',
+    },
+    required_next_tool: {
+      type: 'string',
+      description:
+        'The MCP tool to call again when done is false. Omitted once the final chunk has been read.',
+    },
+    next_action: {
+      type: 'string',
+      description:
+        'Human-readable completion step. Follow it before telling the user the PDF was downloaded.',
+    },
   },
   required: [
     'mime_type',
@@ -3327,6 +3379,9 @@ const BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA = {
     'next_offset',
     'done',
     'chunk_size',
+    'completion_status',
+    'file_assembly_required',
+    'next_action',
   ],
 };
 
@@ -5755,6 +5810,13 @@ export const crmReadBinaryDownloadChunkTool: McpTool = {
         done: chunk.done,
         chunk_size: chunk.chunkSize,
         expires_at: chunk.expiresAt,
+        completion_status: chunk.done ? 'chunks_read' : 'requires_next_chunk',
+        file_assembly_required: true,
+        ...(chunk.done ? undefined : { required_next_tool: 'read_binary_download_chunk' }),
+        next_action:
+          chunk.done ?
+            'Concatenate all content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF before reporting completion.'
+          : 'Call read_binary_download_chunk again with next_offset, then concatenate chunks in offset order and decode the final PDF before reporting completion.',
       },
     };
   },

@@ -181,7 +181,7 @@ export async function asBinaryDownloadResult(
       content: [
         {
           type: 'text',
-          text: `Downloaded ${filename} (${byteLength} bytes). The base64 payload is too large for a single MCP result; call read_binary_download_chunk with download_token ${stored.downloadToken} from offset 0 and concatenate chunks before decoding.`,
+          text: `Prepared ${filename} (${byteLength} bytes), but the PDF file is not attached yet. The base64 payload is too large for a single MCP result; call read_binary_download_chunk with download_token ${stored.downloadToken} from offset 0 until done=true, concatenate chunks before decoding, then attach or save the decoded PDF before telling the user the download is complete.`,
         },
       ],
       structuredContent: {
@@ -189,13 +189,19 @@ export async function asBinaryDownloadResult(
         mime_type: mimeType,
         filename,
         byte_length: byteLength,
+        completion_status: 'requires_chunks',
+        download_complete: false,
+        file_assembly_required: true,
         content_base64_available: false,
         content_base64_length: stored.contentBase64Length,
         download_token: stored.downloadToken,
+        required_next_tool: 'read_binary_download_chunk',
         chunk_size: stored.chunkSize,
         total_chunks: stored.totalChunks,
         expires_at: stored.expiresAt,
         next_offset: 0,
+        next_action:
+          'Call read_binary_download_chunk from next_offset until done=true, concatenate content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF before reporting completion.',
       },
     };
   }
@@ -216,6 +222,9 @@ export async function asBinaryDownloadResult(
       mime_type: mimeType,
       filename,
       byte_length: byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: data,
     },
