@@ -265,7 +265,7 @@ const START_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For HubSpot deal_to_invoice, pass channel_id when needed and set allow_multiple_invoices only when the user explicitly asks to create another invoice for the same deal. For HubSpot deal_to_order_handoff, start only after preview or explicit user confirmation; pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, include_hubspot_writeback, and allow_duplicate_order only when the user explicitly approved another order. For invoice_export to freee, start only after explicit scope/confirmation; pass sync_scope, invoice_ids or workflow_run_id, freee_channel_id, idempotency_key, and confirm_all only when the user explicitly approved all eligible unsynced invoices. Do not start revenue_control_summary; it is read-only and must use preview_workflow.',
+        'Optional workflow-specific controls. For HubSpot deal_to_invoice, pass channel_id when needed and set allow_multiple_invoices only when the user explicitly asks to create another invoice for the same deal. For HubSpot deal_to_order_handoff, start only after preview or explicit user confirmation; pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, include_hubspot_writeback, and allow_duplicate_order only when the user explicitly approved another order. For invoice_export to freee, start only after explicit scope/confirmation; pass sync_scope, invoice_ids or workflow_run_id, freee_channel_id, idempotency_key, and confirm_all only when the user explicitly approved all eligible unsynced invoices. Do not start quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only and must use preview_workflow.',
       properties: {
         channel_id: { type: 'string' },
         target_system: { type: 'string', enum: ['freee', 'sanka'] },
@@ -482,12 +482,22 @@ export const previewWorkflowTool: McpTool = {
       return asErrorResult('`source_record` is required.');
     }
     if (isSalesforceQuoteReadinessPreview(workflowType)) {
+      const options = readObject(args?.['options']) ?? {};
+      const body: Record<string, unknown> = {
+        source_record: sourceRecord,
+      };
+      const channelId = readString(options['channel_id']);
+      const language = readString(options['language']);
+      if (channelId) {
+        body['channel_id'] = channelId;
+      }
+      if (language) {
+        body['language'] = language;
+      }
       return postWorkflowRunEndpoint({
         reqContext,
-        path: '/v1/public/salesforce/cpq/preview',
-        body: {
-          source_record: sourceRecord,
-        },
+        path: '/v1/public/cpq/quote-readiness/salesforce/preview',
+        body,
         summary: 'Previewed Salesforce quote readiness',
       });
     }

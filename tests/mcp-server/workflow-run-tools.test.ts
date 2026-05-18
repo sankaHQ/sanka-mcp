@@ -759,7 +759,7 @@ describe('workflow run MCP tools', () => {
     });
   });
 
-  it('previews Salesforce quote_readiness through the Salesforce API preview endpoint', async () => {
+  it('previews Salesforce quote_readiness through the business-first CPQ route', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
         workflow_type: 'quote_readiness',
@@ -810,7 +810,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/cpq/quote-readiness/salesforce/preview', {
       body: {
         source_record: {
           source_system: 'salesforce',
@@ -852,7 +852,7 @@ describe('workflow run MCP tools', () => {
     });
   });
 
-  it('previews quote_readiness Sanka deal references through the Salesforce API preview endpoint', async () => {
+  it('previews quote_readiness Sanka deal references through the business-first CPQ route', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
         workflow_type: 'quote_readiness',
@@ -877,7 +877,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/salesforce/cpq/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/cpq/quote-readiness/salesforce/preview', {
       body: {
         source_record: {
           source_system: 'sanka',
