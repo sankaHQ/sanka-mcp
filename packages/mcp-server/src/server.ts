@@ -286,6 +286,7 @@ export async function initMcpServer(params: {
   mcpClientInfo?: { name: string; version: string } | undefined;
   toolProfile?: ToolProfile | undefined;
   auth?: McpRequestContext['auth'];
+  downloadBaseUrl?: string | undefined;
 }) {
   const server = params.server instanceof McpServer ? params.server.server : params.server;
 
@@ -358,6 +359,7 @@ export async function initMcpServer(params: {
       mcpClientInfo: params.mcpClientInfo,
       toolProfile,
       auth: params.auth,
+      downloadBaseUrl: params.downloadBaseUrl,
     };
     const startedAt = Date.now();
 

@@ -3235,7 +3235,7 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     completion_status: {
       type: 'string',
       description:
-        'inline_content when the PDF bytes are present now, or requires_chunks when read_binary_download_chunk must be called before reporting completion.',
+        'inline_content when the PDF bytes are present now, download_url_ready when download_url must be fetched, or requires_chunks when read_binary_download_chunk must be called before reporting completion.',
     },
     download_complete: {
       type: 'boolean',
@@ -3250,7 +3250,7 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     content_base64_available: {
       type: 'boolean',
       description:
-        'True when content_base64 is present in this tool result. False means the file must be read with read_binary_download_chunk.',
+        'True when content_base64 is present in this tool result. False means the file must be fetched from download_url or read with read_binary_download_chunk.',
     },
     content_base64: {
       type: 'string',
@@ -3263,11 +3263,29 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     },
     download_token: {
       type: 'string',
-      description: 'Opaque token for read_binary_download_chunk when content_base64_available is false.',
+      description:
+        'Opaque token for download_url and read_binary_download_chunk when content_base64_available is false.',
+    },
+    download_url: {
+      type: 'string',
+      description:
+        'Short-lived URL for downloading the prepared PDF directly without base64 chunks. Fetch this before using read_binary_download_chunk.',
+    },
+    download_url_expires_at: {
+      type: 'string',
+      description: 'ISO timestamp when the direct download URL expires.',
+    },
+    download_transfer_mode: {
+      type: 'string',
+      description: 'Preferred transfer mode for the prepared PDF, usually url for large files.',
     },
     required_next_tool: {
       type: 'string',
       description: 'The MCP tool that must be called next before reporting the PDF download as complete.',
+    },
+    fallback_next_tool: {
+      type: 'string',
+      description: 'Fallback MCP tool to call if the preferred transfer mode is unavailable.',
     },
     chunk_size: {
       type: 'number',
@@ -5739,12 +5757,20 @@ const asStoredBinaryDownloadResult = (
   reqContext: McpRequestContext,
   response: Response,
   fallbackFilename: string,
-): Promise<ToolCallResult> =>
-  asBinaryDownloadResult(response, fallbackFilename, {
+): Promise<ToolCallResult> => {
+  const createDownloadUrl =
+    reqContext.downloadBaseUrl ?
+      (downloadToken: string): string =>
+        new URL(`/downloads/${encodeURIComponent(downloadToken)}`, reqContext.downloadBaseUrl).toString()
+    : undefined;
+
+  return asBinaryDownloadResult(response, fallbackFilename, {
     inlineBase64Limit: BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
     sessionId: reqContext.mcpSessionId,
     storeLargeDownload: storeBinaryDownload,
+    createDownloadUrl,
   });
+};
 
 export const crmReadBinaryDownloadChunkTool: McpTool = {
   metadata: {
