@@ -55,6 +55,22 @@ export type ReadBinaryDownloadChunkResult =
       message: string;
     };
 
+export type ReadBinaryDownloadFileResult =
+  | {
+      ok: true;
+      contentBase64: string;
+      filename: string;
+      mimeType: string;
+      byteLength: number;
+      contentDisposition?: string | undefined;
+      expiresAt: string;
+    }
+  | {
+      ok: false;
+      reason: 'not_found';
+      message: string;
+    };
+
 const downloads = new Map<string, BinaryDownloadEntry>();
 
 const nowMs = (): number => Date.now();
@@ -162,6 +178,34 @@ export const readBinaryDownloadChunk = ({
     nextOffset,
     done: nextOffset >= entry.contentBase64.length,
     chunkSize: normalizedChunkSize,
+    filename: entry.filename,
+    mimeType: entry.mimeType,
+    byteLength: entry.byteLength,
+    contentDisposition: entry.contentDisposition,
+    expiresAt: new Date(entry.expiresAt).toISOString(),
+  };
+};
+
+export const readBinaryDownloadFile = ({
+  downloadToken,
+}: {
+  downloadToken: string;
+}): ReadBinaryDownloadFileResult => {
+  const now = nowMs();
+  cleanupDownloads(now);
+
+  const entry = downloads.get(downloadToken);
+  if (!entry) {
+    return {
+      ok: false,
+      reason: 'not_found',
+      message: 'Download token was not found or has expired. Re-run the original PDF download tool.',
+    };
+  }
+
+  return {
+    ok: true,
+    contentBase64: entry.contentBase64,
     filename: entry.filename,
     mimeType: entry.mimeType,
     byteLength: entry.byteLength,

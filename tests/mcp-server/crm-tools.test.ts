@@ -3800,6 +3800,7 @@ describe('ChatGPT CRM tools', () => {
       auth: oauthContext(),
       toolProfile: 'full' as const,
       mcpSessionId: 'session-large-pdf',
+      downloadBaseUrl: 'https://mcp.example.test',
     };
 
     const result = await crmDownloadInvoicePDFTool.handler({
@@ -3815,12 +3816,13 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice-7.pdf',
       byte_length: pdfBytes.length,
-      completion_status: 'requires_chunks',
+      completion_status: 'download_url_ready',
       download_complete: false,
-      file_assembly_required: true,
+      file_assembly_required: false,
       content_base64_available: false,
       content_base64_length: contentBase64.length,
-      required_next_tool: 'read_binary_download_chunk',
+      download_transfer_mode: 'url',
+      fallback_next_tool: 'read_binary_download_chunk',
       chunk_size: 24000,
       total_chunks: Math.ceil(contentBase64.length / 24000),
       next_offset: 0,
@@ -3829,13 +3831,18 @@ describe('ChatGPT CRM tools', () => {
     expect(structured['next_action']).toContain('attach or save');
     expect(structured).not.toHaveProperty('content_base64');
     expect(typeof structured['download_token']).toBe('string');
+    expect(structured['download_url']).toBe(
+      `https://mcp.example.test/downloads/${structured['download_token']}`,
+    );
+    expect(structured['download_url_expires_at']).toBe(structured['expires_at']);
+    expect(structured).not.toHaveProperty('required_next_tool');
     expect(result.content[0]).toMatchObject({
       type: 'text',
-      text: expect.stringContaining('PDF file is not attached yet'),
+      text: expect.stringContaining('Download it directly from download_url'),
     });
     expect(result.content[0]).toMatchObject({
       type: 'text',
-      text: expect.stringContaining('before telling the user the download is complete'),
+      text: expect.stringContaining('before telling the user the PDF download is complete'),
     });
     expect(JSON.stringify(structured).length).toBeLessThan(48000);
 
