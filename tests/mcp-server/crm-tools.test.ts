@@ -113,6 +113,7 @@ import {
   crmMutateObjectSchemaTool,
   crmProspectCompaniesTool,
   crmQueryRecordsTool,
+  crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
@@ -144,6 +145,7 @@ import {
   crmUpdateTicketTool,
   crmUploadExpenseAttachmentTool,
 } from '../../packages/mcp-server/src/crm-tools';
+import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
 
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
@@ -164,12 +166,17 @@ const oauthContext = (overrides?: {
 });
 
 describe('ChatGPT CRM tools', () => {
+  beforeEach(() => {
+    resetBinaryDownloadStoreForTests();
+  });
+
   it('advertises auth schemes on CRM tools', () => {
     expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmCurrentWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListWorkspacesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSwitchWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmReadBinaryDownloadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -3026,6 +3033,7 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'purchase-order-901.pdf',
       byte_length: pdfBytes.byteLength,
+      content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
 
@@ -3450,6 +3458,7 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: '見積書.pdf',
       byte_length: pdfBytes.byteLength,
+      content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
     expect(result.content[0]).toEqual({
@@ -3746,6 +3755,7 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice 5.pdf',
       byte_length: pdfBytes.length,
+      content_base64_available: true,
       content_base64: contentBase64,
     });
     expect(result.content).toEqual([
@@ -3759,6 +3769,74 @@ describe('ChatGPT CRM tools', () => {
       },
     ]);
     expect(Buffer.from(result.structuredContent?.['content_base64'] as string, 'base64')).toEqual(pdfBytes);
+  });
+
+  it('keeps large invoice PDF downloads below Codex output truncation limits and serves chunks', async () => {
+    const pdfBytes = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(104732 - 9, 65)]);
+    const contentBase64 = pdfBytes.toString('base64');
+    const downloadPDF = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-disposition': 'attachment; filename="invoice-7.pdf"',
+          'content-type': 'application/pdf',
+        },
+      }),
+    );
+    const reqContext = {
+      client: {
+        public: {
+          invoices: { downloadPDF },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+      mcpSessionId: 'session-large-pdf',
+    };
+
+    const result = await crmDownloadInvoicePDFTool.handler({
+      reqContext,
+      args: {
+        invoice_id: 'invoice-7',
+        language: 'ja',
+      },
+    });
+
+    const structured = result.structuredContent as Record<string, unknown>;
+    expect(structured).toMatchObject({
+      mime_type: 'application/pdf',
+      filename: 'invoice-7.pdf',
+      byte_length: pdfBytes.length,
+      content_base64_available: false,
+      content_base64_length: contentBase64.length,
+      chunk_size: 24000,
+      total_chunks: Math.ceil(contentBase64.length / 24000),
+      next_offset: 0,
+    });
+    expect(structured).not.toHaveProperty('content_base64');
+    expect(typeof structured['download_token']).toBe('string');
+    expect(JSON.stringify(structured).length).toBeLessThan(48000);
+
+    const downloadToken = structured['download_token'] as string;
+    let offset = structured['next_offset'] as number;
+    let stitchedBase64 = '';
+    let done = false;
+
+    for (let i = 0; i < 20 && !done; i += 1) {
+      const chunkResult = await crmReadBinaryDownloadChunkTool.handler({
+        reqContext,
+        args: { download_token: downloadToken, offset },
+      });
+      const chunk = chunkResult.structuredContent as Record<string, unknown>;
+      expect(JSON.stringify(chunk).length).toBeLessThan(48000);
+      expect(chunk['content_base64_offset']).toBe(offset);
+      stitchedBase64 += chunk['content_base64'] as string;
+      offset = chunk['next_offset'] as number;
+      done = chunk['done'] as boolean;
+    }
+
+    expect(done).toBe(true);
+    expect(stitchedBase64).toBe(contentBase64);
+    expect(Buffer.from(stitchedBase64, 'base64')).toEqual(pdfBytes);
   });
 
   it('creates an invoice', async () => {
