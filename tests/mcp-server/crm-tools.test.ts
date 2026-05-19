@@ -3957,6 +3957,60 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('blocks direct CRM-sourced invoice subscription and procurement creation', async () => {
+    const createInvoice = jest.fn();
+    const createSubscription = jest.fn();
+    const createPurchaseOrder = jest.fn();
+    const reqContext = {
+      client: {
+        public: {
+          invoices: { create: createInvoice },
+          subscriptions: { create: createSubscription },
+          purchaseOrders: { create: createPurchaseOrder },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const invoiceResult = await crmCreateInvoiceTool.handler({
+      reqContext,
+      args: {
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+        },
+        company_id: 'company-1',
+        total_price: 120,
+      },
+    });
+    const subscriptionResult = await crmCreateSubscriptionTool.handler({
+      reqContext,
+      args: {
+        source_system: 'salesforce',
+        object_type: 'opportunity',
+        salesforce_opportunity_id: '0065g00000Opportunity',
+      },
+    });
+    const purchaseOrderResult = await crmCreatePurchaseOrderTool.handler({
+      reqContext,
+      args: {
+        hubspot_deal_url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        company_id: 'supplier-1',
+      },
+    });
+
+    expect(createInvoice).not.toHaveBeenCalled();
+    expect(createSubscription).not.toHaveBeenCalled();
+    expect(createPurchaseOrder).not.toHaveBeenCalled();
+    for (const result of [invoiceResult, subscriptionResult, purchaseOrderResult]) {
+      expect(result.isError).toBe(true);
+      expect((result.content[0] as any).text).toContain('deal_to_order');
+      expect((result.content[0] as any).text).toContain('Sanka Order');
+    }
+  });
+
   it('updates an invoice', async () => {
     const update = jest.fn().mockResolvedValue({
       ok: true,
