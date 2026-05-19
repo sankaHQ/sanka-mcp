@@ -1,6 +1,11 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
 import {
+  BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+  readBinaryDownloadChunk,
+  storeBinaryDownload,
+} from './binary-download-store';
+import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -8,6 +13,7 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
+import { buildSafeRecordLabel } from './record-labels';
 import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -1527,6 +1533,14 @@ const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional Sanka item UUID or item identifier to link this row to an item.',
     },
+    item: {
+      type: 'string',
+      description: 'Optional item identifier alias.',
+    },
+    id: {
+      type: 'string',
+      description: 'Optional item identifier alias used by some record detail outputs.',
+    },
     item_external_id: {
       type: 'string',
       description: 'Optional external item reference when the target object supports item external ids.',
@@ -1535,13 +1549,41 @@ const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
       type: 'string',
       description: 'Line item label when no item id is available, or an override for the linked item name.',
     },
+    itemName: {
+      type: 'string',
+      description: 'Line item label alias.',
+    },
+    name: {
+      type: 'string',
+      description: 'Line item label alias.',
+    },
     quantity: {
       type: 'number',
       description: 'Quantity for this line item.',
     },
+    amount: {
+      type: 'number',
+      description: 'Quantity alias used by subscription items.',
+    },
+    amount_item: {
+      type: 'number',
+      description: 'Quantity alias used by Sanka public APIs.',
+    },
     unit_price: {
       type: 'number',
       description: 'Unit price for this line item.',
+    },
+    unitPrice: {
+      type: 'number',
+      description: 'Unit price alias.',
+    },
+    price: {
+      type: 'number',
+      description: 'Unit price alias.',
+    },
+    amount_price: {
+      type: 'number',
+      description: 'Unit price alias used by Sanka public APIs.',
     },
     tax_rate: {
       type: 'number',
@@ -3227,12 +3269,175 @@ const BINARY_DOWNLOAD_OUTPUT_SCHEMA = {
     mime_type: { type: 'string' },
     filename: { type: 'string' },
     byte_length: { type: 'number' },
+    completion_status: {
+      type: 'string',
+      description:
+        'inline_content when the PDF bytes are present now, download_url_ready when download_url must be fetched, or requires_chunks when read_binary_download_chunk must be called before reporting completion.',
+    },
+    download_complete: {
+      type: 'boolean',
+      description:
+        'True only when this result contains final file bytes. False means the download must not be reported as complete yet.',
+    },
+    file_assembly_required: {
+      type: 'boolean',
+      description:
+        'True when the client must assemble chunks into the final PDF before attaching or saving it.',
+    },
+    content_base64_available: {
+      type: 'boolean',
+      description:
+        'True when content_base64 is present in this tool result. False means the file must be fetched from download_url or read with read_binary_download_chunk.',
+    },
     content_base64: {
       type: 'string',
-      description: 'Base64-encoded file bytes. Decode this value to save the downloaded PDF locally.',
+      description:
+        'Base64-encoded file bytes for small downloads. Decode this value to save the downloaded PDF locally.',
+    },
+    content_base64_length: {
+      type: 'number',
+      description: 'Total length of the full base64 payload when the download is chunked.',
+    },
+    download_token: {
+      type: 'string',
+      description:
+        'Opaque token for download_url and read_binary_download_chunk when content_base64_available is false.',
+    },
+    download_url: {
+      type: 'string',
+      description:
+        'Short-lived URL for downloading the prepared PDF directly without base64 chunks. Fetch this before using read_binary_download_chunk.',
+    },
+    download_url_expires_at: {
+      type: 'string',
+      description: 'ISO timestamp when the direct download URL expires.',
+    },
+    download_transfer_mode: {
+      type: 'string',
+      description: 'Preferred transfer mode for the prepared PDF, usually url for large files.',
+    },
+    required_next_tool: {
+      type: 'string',
+      description: 'The MCP tool that must be called next before reporting the PDF download as complete.',
+    },
+    fallback_next_tool: {
+      type: 'string',
+      description: 'Fallback MCP tool to call if the preferred transfer mode is unavailable.',
+    },
+    chunk_size: {
+      type: 'number',
+      description: 'Recommended base64 character chunk size for read_binary_download_chunk.',
+    },
+    total_chunks: {
+      type: 'number',
+      description:
+        'Expected number of read_binary_download_chunk calls when using the recommended chunk_size.',
+    },
+    expires_at: {
+      type: 'string',
+      description: 'ISO timestamp when the chunk token expires.',
+    },
+    next_offset: {
+      type: 'number',
+      description: 'Initial base64 character offset to pass to read_binary_download_chunk.',
+    },
+    next_action: {
+      type: 'string',
+      description:
+        'Human-readable completion step. Follow it before telling the user the PDF was downloaded.',
     },
   },
-  required: ['mime_type', 'filename', 'byte_length', 'content_base64'],
+  required: [
+    'mime_type',
+    'filename',
+    'byte_length',
+    'completion_status',
+    'download_complete',
+    'file_assembly_required',
+    'content_base64_available',
+  ],
+};
+
+const BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    download_token: {
+      type: 'string',
+      description: 'Opaque token returned by a PDF download tool when content_base64_available is false.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for download_token.',
+    },
+    offset: {
+      type: 'number',
+      description:
+        'Base64 character offset to read from. Start at 0, then use next_offset from the previous chunk.',
+      minimum: 0,
+      default: 0,
+    },
+    chunk_size: {
+      type: 'number',
+      description:
+        'Optional base64 character chunk size. Defaults to the original chunk_size and is capped for MCP output reliability.',
+      minimum: 4,
+    },
+  },
+  required: ['download_token'],
+};
+
+const BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    content_disposition: { type: 'string' },
+    mime_type: { type: 'string' },
+    filename: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64: {
+      type: 'string',
+      description: 'Base64 chunk. Concatenate chunks in offset order, then decode the combined string.',
+    },
+    content_base64_offset: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    next_offset: { type: 'number' },
+    done: { type: 'boolean' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+    completion_status: {
+      type: 'string',
+      description:
+        'requires_next_chunk until more chunks remain, or chunks_read when this is the final chunk.',
+    },
+    file_assembly_required: {
+      type: 'boolean',
+      description:
+        'Always true for chunk reads. Concatenate all chunks in offset order and decode before reporting completion.',
+    },
+    required_next_tool: {
+      type: 'string',
+      description:
+        'The MCP tool to call again when done is false. Omitted once the final chunk has been read.',
+    },
+    next_action: {
+      type: 'string',
+      description:
+        'Human-readable completion step. Follow it before telling the user the PDF was downloaded.',
+    },
+  },
+  required: [
+    'mime_type',
+    'filename',
+    'byte_length',
+    'content_base64',
+    'content_base64_offset',
+    'content_base64_length',
+    'next_offset',
+    'done',
+    'chunk_size',
+    'completion_status',
+    'file_assembly_required',
+    'next_action',
+  ],
 };
 
 const INVOICE_CREATE_INPUT_SCHEMA = {
@@ -4555,40 +4760,32 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status', 'external_id'],
 };
 
-const SUBSCRIPTION_ITEM_INPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id: {
-      type: 'string',
-      description: 'Item identifier to attach to the subscription.',
-    },
-    amount: {
-      type: 'integer',
-      description: 'Quantity for this subscription item.',
-      minimum: 1,
-    },
-    price: {
-      type: 'number',
-      description: 'Optional overridden item price.',
-    },
-    name: {
-      type: 'string',
-      description: 'Optional item name override.',
-    },
-  },
-  required: ['id', 'amount'],
-};
+const SUBSCRIPTION_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
 
 const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     contact_id: {
       type: 'string',
-      description: 'Contact identifier used as the `cid` field in the public API.',
+      description:
+        'Contact identifier for the subscription customer. Use either contact_id, company_id, or customer_id.',
+    },
+    company_id: {
+      type: 'string',
+      description: 'Company identifier for the subscription customer. Use this for company-only customers.',
+    },
+    customer_id: {
+      type: 'string',
+      description: 'Generic customer identifier. May point to either a Sanka contact or company.',
     },
     items: {
       type: 'array',
       description: 'Subscription line items.',
+      items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
+    },
+    line_items: {
+      type: 'array',
+      description: 'Alias for items, useful when copying line_items returned by get_invoice or get_order.',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
     },
     subscription_status: {
@@ -4606,6 +4803,10 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
     total_price: {
       type: 'number',
       description: 'Total subscription price.',
+    },
+    total_price_without_tax: {
+      type: 'number',
+      description: 'Total subscription price before tax.',
     },
     frequency: {
       type: 'integer',
@@ -4625,7 +4826,7 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       description: 'Shipping cost tax status.',
     },
   },
-  required: ['contact_id', 'items', 'subscription_status'],
+  required: ['subscription_status'],
 };
 
 const SUBSCRIPTION_RETRIEVE_INPUT_SCHEMA = {
@@ -4698,6 +4899,10 @@ const SUBSCRIPTION_OUTPUT_SCHEMA = {
     items: {
       type: 'array',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
+    },
+    line_items: {
+      type: 'array',
+      items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
     },
   },
   required: ['id', 'created_at'],
@@ -5585,6 +5790,101 @@ const readBoolean = (value: unknown): boolean | undefined => {
   return undefined;
 };
 
+const asStoredBinaryDownloadResult = (
+  reqContext: McpRequestContext,
+  response: Response,
+  fallbackFilename: string,
+): Promise<ToolCallResult> => {
+  const createDownloadUrl =
+    reqContext.downloadBaseUrl ?
+      (downloadToken: string): string =>
+        new URL(`/downloads/${encodeURIComponent(downloadToken)}`, reqContext.downloadBaseUrl).toString()
+    : undefined;
+
+  return asBinaryDownloadResult(response, fallbackFilename, {
+    inlineBase64Limit: BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+    sessionId: reqContext.mcpSessionId,
+    storeLargeDownload: storeBinaryDownload,
+    createDownloadUrl,
+  });
+};
+
+export const crmReadBinaryDownloadChunkTool: McpTool = {
+  metadata: {
+    resource: 'downloads',
+    operation: 'read',
+    tags: ['crm', 'downloads'],
+  },
+  tool: {
+    name: 'read_binary_download_chunk',
+    title: 'Read binary download chunk',
+    description:
+      'Read one base64 chunk from a large PDF download returned by a Sanka PDF download tool. Concatenate chunks in offset order, then decode the combined base64 string.',
+    inputSchema: BINARY_DOWNLOAD_CHUNK_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_CHUNK_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Read binary download chunk',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Read binary download chunk',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const downloadToken = readString(args?.['download_token']) ?? readString(args?.['token']);
+    if (!downloadToken) {
+      return asErrorResult('`download_token` is required.');
+    }
+
+    const chunk = readBinaryDownloadChunk({
+      downloadToken,
+      offset: readNumber(args?.['offset'], 0),
+      chunkSize: typeof args?.['chunk_size'] === 'number' ? args['chunk_size'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!chunk.ok) {
+      return asErrorResult(chunk.message);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Read ${chunk.contentBase64.length} base64 characters for ${chunk.filename} from offset ${chunk.contentBase64Offset}.`,
+        },
+      ],
+      structuredContent: {
+        ...(chunk.contentDisposition ? { content_disposition: chunk.contentDisposition } : undefined),
+        mime_type: chunk.mimeType,
+        filename: chunk.filename,
+        byte_length: chunk.byteLength,
+        content_base64: chunk.contentBase64,
+        content_base64_offset: chunk.contentBase64Offset,
+        content_base64_length: chunk.contentBase64Length,
+        next_offset: chunk.nextOffset,
+        done: chunk.done,
+        chunk_size: chunk.chunkSize,
+        expires_at: chunk.expiresAt,
+        completion_status: chunk.done ? 'chunks_read' : 'requires_next_chunk',
+        file_assembly_required: true,
+        ...(chunk.done ? undefined : { required_next_tool: 'read_binary_download_chunk' }),
+        next_action:
+          chunk.done ?
+            'Concatenate all content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF before reporting completion.'
+          : 'Call read_binary_download_chunk again with next_offset, then concatenate chunks in offset order and decode the final PDF before reporting completion.',
+      },
+    };
+  },
+};
+
 const readRecord = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined;
@@ -5815,6 +6115,11 @@ const buildListSummary = ({
   const preview = rows
     .slice(0, 3)
     .map((row) => {
+      const safeRecordLabel = buildSafeRecordLabel({ entity: label, payload: row });
+      if (safeRecordLabel) {
+        return safeRecordLabel;
+      }
+
       for (const key of previewKeys) {
         const value = row[key];
         if (typeof value === 'string' && value.trim().length > 0) {
@@ -6827,6 +7132,110 @@ const buildDealRetrieveParams = (args: Record<string, unknown> | undefined) => {
   };
 };
 
+const readOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const buildPublicLineItems = (value: unknown): PublicLineItem[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const items = value
+    .map((entry) => {
+      const record = readRecord(entry);
+      if (!record) {
+        return null;
+      }
+
+      const item: PublicLineItem = {};
+      const itemID = readString(record['item_id'] ?? record['itemId'] ?? record['item'] ?? record['id']);
+      const itemExternalID = readString(record['item_external_id'] ?? record['itemExternalId']);
+      const itemName = readString(
+        record['item_name'] ??
+          record['itemName'] ??
+          record['name'] ??
+          record['custom_item_name'] ??
+          record['customItemName'],
+      );
+      const quantity = readOptionalNumber(
+        record['quantity'] ??
+          record['qty'] ??
+          record['amount_item'] ??
+          record['amountItem'] ??
+          record['amount'],
+      );
+      const unitPrice = readOptionalNumber(
+        record['unit_price'] ??
+          record['unitPrice'] ??
+          record['amount_price'] ??
+          record['amountPrice'] ??
+          record['price'],
+      );
+      const taxRate = readOptionalNumber(record['tax_rate'] ?? record['taxRate']);
+      const section = readString(record['section']);
+      const sectionType = readString(record['section_type'] ?? record['sectionType']);
+      const sectionPosition = readOptionalNumber(record['section_position'] ?? record['sectionPosition']);
+      const lineItemProperties = readRecord(
+        record['line_item_properties'] ??
+          record['lineItemProperties'] ??
+          record['custom_fields'] ??
+          record['customFields'],
+      );
+
+      if (itemID) {
+        item['item_id'] = itemID;
+      }
+      if (itemExternalID) {
+        item['item_external_id'] = itemExternalID;
+      }
+      if (itemName) {
+        item['item_name'] = itemName;
+      }
+      if (quantity !== undefined) {
+        item['quantity'] = quantity;
+      }
+      if (unitPrice !== undefined) {
+        item['unit_price'] = unitPrice;
+      }
+      if (taxRate !== undefined) {
+        item['tax_rate'] = taxRate;
+      }
+      if (section) {
+        item['section'] = section;
+      }
+      if (sectionType) {
+        item['section_type'] = sectionType;
+      }
+      if (sectionPosition !== undefined) {
+        item['section_position'] = sectionPosition;
+      }
+      if (lineItemProperties) {
+        item['line_item_properties'] = lineItemProperties;
+      }
+
+      return Object.keys(item).length > 0 ? item : null;
+    })
+    .filter((entry): entry is PublicLineItem => Boolean(entry));
+
+  return items.length > 0 ? items : undefined;
+};
+
+const assignPublicLineItems = (
+  body: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
+  {
+    targetKey = 'line_items',
+    sourceKeys = ['line_items', 'lineItems'],
+  }: { targetKey?: string; sourceKeys?: string[] } = {},
+) => {
+  const source = sourceKeys.map((key) => args?.[key]).find((candidate) => Array.isArray(candidate));
+  const lineItems = buildPublicLineItems(source);
+  if (lineItems) {
+    body[targetKey] = lineItems;
+  }
+  return lineItems;
+};
+
 const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -6866,10 +7275,7 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   if (externalID) {
     body['externalId'] = externalID;
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
   const customFields = readRecord(args?.['custom_fields']);
   if (customFields) {
     body['custom_fields'] = customFields;
@@ -6990,9 +7396,9 @@ const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
     order.items = items;
   }
 
-  const lineItems = record['line_items'] ?? record['lineItems'];
-  if (Array.isArray(lineItems)) {
-    order.line_items = lineItems.filter((item): item is PublicLineItem => Boolean(readRecord(item)));
+  const lineItems = buildPublicLineItems(record['line_items'] ?? record['lineItems']);
+  if (lineItems) {
+    order.line_items = lineItems;
   }
 
   return Object.keys(order).length > 0 ? order : undefined;
@@ -7081,10 +7487,7 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7110,10 +7513,7 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7174,10 +7574,7 @@ const buildSlipMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7224,10 +7621,7 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7271,10 +7665,7 @@ const buildDisbursementMutationBody = (args: Record<string, unknown> | undefined
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7891,66 +8282,38 @@ const buildItemMutationBody = (args: Record<string, unknown> | undefined) => {
   return body;
 };
 
-const buildSubscriptionItems = (value: unknown) => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const items = value
-    .map((entry) => {
-      const record = readRecord(entry);
-      if (!record) {
-        return null;
-      }
-
-      const id = readString(record['id']);
-      const amount = record['amount'];
-      if (!id || typeof amount !== 'number' || !Number.isFinite(amount)) {
-        return null;
-      }
-
-      const item: Record<string, unknown> = {
-        id,
-        amount,
-      };
-
-      const name = readString(record['name']);
-      const price = record['price'];
-      if (name) {
-        item['name'] = name;
-      }
-      if (typeof price === 'number' && Number.isFinite(price)) {
-        item['price'] = price;
-      }
-
-      return item;
-    })
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
-
-  return items.length > 0 ? items : undefined;
-};
-
 const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
 
   assignMappedStringFields(body, args, [
-    ['contact_id', 'cid'],
+    ['customer_id', 'cid'],
     ['subscription_status', 'subscription_status'],
     ['currency', 'currency'],
     ['frequency_time', 'frequency_time'],
     ['shipping_cost_tax_status', 'shipping_cost_tax_status'],
     ['start_date', 'start_date'],
   ]);
+  const contactID = readString(args?.['contact_id']);
+  const companyID = readString(args?.['company_id']);
+  if (contactID) {
+    body['contact_id'] = contactID;
+    body['cid'] = contactID;
+  }
+  if (companyID) {
+    body['company_id'] = companyID;
+    body['cid'] = companyID;
+  }
   assignMappedIntegerFields(body, args, [['frequency', 'frequency']]);
   assignMappedNumberFields(body, args, [
     ['tax', 'tax'],
     ['total_price', 'total_price'],
+    ['total_price_without_tax', 'total_price_without_tax'],
   ]);
 
-  const items = buildSubscriptionItems(args?.['items']);
-  if (items) {
-    body['items'] = items;
-  }
+  assignPublicLineItems(body, args, {
+    targetKey: 'items',
+    sourceKeys: ['items', 'line_items', 'lineItems'],
+  });
 
   return body;
 };
@@ -7974,10 +8337,10 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
 
   assignStringFields(body, args, ['contact', 'status']);
 
-  const items = buildSubscriptionItems(args?.['items']);
-  if (items) {
-    body['items'] = items;
-  }
+  assignPublicLineItems(body, args, {
+    targetKey: 'items',
+    sourceKeys: ['items', 'line_items', 'lineItems'],
+  });
 
   return {
     subscriptionID,
@@ -8024,10 +8387,7 @@ const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => 
     ['total_price', 'totalPrice'],
     ['total_price_without_tax', 'totalPriceWithoutTax'],
   ]);
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -8329,6 +8689,11 @@ const buildEntityDetailSummary = ({
   payload: Record<string, unknown>;
   previewKeys: string[];
 }): string => {
+  const safeRecordLabel = buildSafeRecordLabel({ entity, payload });
+  if (safeRecordLabel) {
+    return `Loaded ${entity} successfully: ${safeRecordLabel}.`;
+  }
+
   for (const key of previewKeys) {
     const stringValue = readString(payload[key]);
     if (stringValue) {
@@ -10952,7 +11317,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    return asBinaryDownloadResult(response, 'order.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'order.pdf');
   },
 };
 
@@ -11309,7 +11674,7 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
         query: params,
       })
       .asResponse();
-    return asBinaryDownloadResult(response, 'purchase-order.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'purchase-order.pdf');
   },
 };
 
@@ -11937,7 +12302,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    return asBinaryDownloadResult(response, 'estimate.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'estimate.pdf');
   },
 };
 
@@ -12553,7 +12918,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    return asBinaryDownloadResult(response, 'invoice.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'invoice.pdf');
   },
 };
 
@@ -12770,7 +13135,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    return asBinaryDownloadResult(response, 'payment.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'payment.pdf');
   },
 };
 
@@ -13096,7 +13461,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     }
 
     const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    return asBinaryDownloadResult(response, 'slip.pdf');
+    return asStoredBinaryDownloadResult(reqContext, response, 'slip.pdf');
   },
 };
 
@@ -15192,7 +15557,13 @@ export const crmCreateSubscriptionTool: McpTool = {
 
     const body = buildSubscriptionCreateBody(args);
     if (!readString(body['cid'])) {
-      return asErrorResult('`contact_id` is required.');
+      return asErrorResult('`contact_id`, `company_id`, or `customer_id` is required.');
+    }
+    const providedCustomerIDs = ['contact_id', 'company_id', 'customer_id']
+      .map((key) => readString(args?.[key]))
+      .filter(Boolean);
+    if (providedCustomerIDs.length > 1) {
+      return asErrorResult('Provide only one of `contact_id`, `company_id`, or `customer_id`.');
     }
     if (!Array.isArray(body['items']) || body['items'].length === 0) {
       return asErrorResult('`items` must contain at least one subscription item.');
@@ -15204,7 +15575,9 @@ export const crmCreateSubscriptionTool: McpTool = {
     const response = (await reqContext.client.public.subscriptions.create(
       body as {
         cid: string;
-        items: Array<{ id: string; amount: number; name?: string; price?: number }>;
+        contact_id?: string;
+        company_id?: string;
+        items: PublicLineItem[];
         subscription_status: string;
         currency?: string;
         frequency?: number;
@@ -15213,6 +15586,7 @@ export const crmCreateSubscriptionTool: McpTool = {
         start_date?: string;
         tax?: number;
         total_price?: number;
+        total_price_without_tax?: number;
       },
       undefined,
     )) as unknown as Record<string, unknown>;

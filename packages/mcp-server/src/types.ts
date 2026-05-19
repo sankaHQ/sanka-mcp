@@ -65,6 +65,7 @@ export type McpRequestContext = {
   mcpClientInfo?: { name: string; version: string } | undefined;
   toolProfile?: ToolProfile | undefined;
   auth?: ResolvedClientAuth | undefined;
+  downloadBaseUrl?: string | undefined;
 };
 
 export type HandlerFunction = ({
@@ -87,6 +88,23 @@ export function asTextContentResult(result: unknown): ToolCallResult {
 }
 
 const TOOL_RESPONSE_RESOURCE_URI = 'resource://tool-response';
+
+export type StoreBinaryDownload = (input: {
+  contentBase64: string;
+  contentDisposition?: string | undefined;
+  filename: string;
+  mimeType: string;
+  byteLength: number;
+  sessionId?: string | undefined;
+}) => {
+  downloadToken: string;
+  chunkSize: number;
+  totalChunks: number;
+  expiresAt: string;
+  contentBase64Length: number;
+};
+
+export type CreateBinaryDownloadUrl = (downloadToken: string) => string | undefined;
 
 const trimContentDispositionValue = (value: string): string => {
   const trimmed = value.trim();
@@ -138,12 +156,92 @@ const readContentDispositionFilename = (contentDisposition: string | null): stri
 export async function asBinaryDownloadResult(
   response: Response,
   fallbackFilename = 'download',
+  options?: {
+    inlineBase64Limit?: number | undefined;
+    sessionId?: string | undefined;
+    storeLargeDownload?: StoreBinaryDownload | undefined;
+    createDownloadUrl?: CreateBinaryDownloadUrl | undefined;
+  },
 ): Promise<ToolCallResult> {
   const blob = await response.blob();
   const arrayBuffer = await blob.arrayBuffer();
   const mimeType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
   const contentDisposition = response.headers.get('content-disposition');
+  const filename = readContentDispositionFilename(contentDisposition) ?? fallbackFilename;
+  const byteLength = arrayBuffer.byteLength;
   const data = Buffer.from(arrayBuffer).toString('base64');
+  const inlineBase64Limit = options?.inlineBase64Limit;
+
+  if (options?.storeLargeDownload && inlineBase64Limit !== undefined && data.length > inlineBase64Limit) {
+    const stored = options.storeLargeDownload({
+      contentBase64: data,
+      contentDisposition: contentDisposition ?? undefined,
+      filename,
+      mimeType,
+      byteLength,
+      sessionId: options.sessionId,
+    });
+    const downloadUrl = options.createDownloadUrl?.(stored.downloadToken);
+    if (downloadUrl) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Prepared ${filename} (${byteLength} bytes). Download it directly from download_url before telling the user the PDF download is complete. If the URL is unavailable, fall back to read_binary_download_chunk with download_token ${stored.downloadToken}.`,
+          },
+        ],
+        structuredContent: {
+          ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
+          mime_type: mimeType,
+          filename,
+          byte_length: byteLength,
+          completion_status: 'download_url_ready',
+          download_complete: false,
+          file_assembly_required: false,
+          content_base64_available: false,
+          content_base64_length: stored.contentBase64Length,
+          download_token: stored.downloadToken,
+          download_url: downloadUrl,
+          download_url_expires_at: stored.expiresAt,
+          download_transfer_mode: 'url',
+          fallback_next_tool: 'read_binary_download_chunk',
+          chunk_size: stored.chunkSize,
+          total_chunks: stored.totalChunks,
+          expires_at: stored.expiresAt,
+          next_offset: 0,
+          next_action:
+            'Download the file from download_url and attach or save it before reporting completion. If the URL fails, call read_binary_download_chunk from next_offset until done=true, concatenate content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF.',
+        },
+      };
+    }
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Prepared ${filename} (${byteLength} bytes), but the PDF file is not attached yet. The base64 payload is too large for a single MCP result; call read_binary_download_chunk with download_token ${stored.downloadToken} from offset 0 until done=true, concatenate chunks before decoding, then attach or save the decoded PDF before telling the user the download is complete.`,
+        },
+      ],
+      structuredContent: {
+        ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
+        mime_type: mimeType,
+        filename,
+        byte_length: byteLength,
+        completion_status: 'requires_chunks',
+        download_complete: false,
+        file_assembly_required: true,
+        content_base64_available: false,
+        content_base64_length: stored.contentBase64Length,
+        download_token: stored.downloadToken,
+        required_next_tool: 'read_binary_download_chunk',
+        chunk_size: stored.chunkSize,
+        total_chunks: stored.totalChunks,
+        expires_at: stored.expiresAt,
+        next_offset: 0,
+        next_action:
+          'Call read_binary_download_chunk from next_offset until done=true, concatenate content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF before reporting completion.',
+      },
+    };
+  }
 
   return {
     content: [
@@ -159,8 +257,12 @@ export async function asBinaryDownloadResult(
     structuredContent: {
       ...(contentDisposition ? { content_disposition: contentDisposition } : undefined),
       mime_type: mimeType,
-      filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
-      byte_length: arrayBuffer.byteLength,
+      filename,
+      byte_length: byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
+      content_base64_available: true,
       content_base64: data,
     },
   };

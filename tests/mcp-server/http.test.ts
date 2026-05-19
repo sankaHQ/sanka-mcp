@@ -1,5 +1,9 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import {
+  storeBinaryDownload,
+  resetBinaryDownloadStoreForTests,
+} from '../../packages/mcp-server/src/binary-download-store';
 import { streamableHTTPApp } from '../../packages/mcp-server/src/http';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
@@ -73,6 +77,10 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  afterEach(() => {
+    resetBinaryDownloadStoreForTests();
+  });
+
   it('serves metadata using the request origin when resourceUrl is unset', async () => {
     const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`);
     const body = await response.json();
@@ -84,6 +92,57 @@ describe('protected resource metadata route', () => {
       bearer_methods_supported: ['header'],
       resource_name: 'Sanka MCP Server',
       scopes_supported: [TEST_ADVERTISED_SCOPE],
+    });
+  });
+
+  it('serves prepared binary downloads without base64 chunk transport', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\n% fast download\n%%EOF\n');
+    const stored = storeBinaryDownload({
+      contentBase64: pdfBytes.toString('base64'),
+      contentDisposition: 'attachment; filename="invoice-7.pdf"',
+      filename: 'invoice-7.pdf',
+      mimeType: 'application/pdf',
+      byteLength: pdfBytes.length,
+      sessionId: 'session-1',
+    });
+
+    const response = await fetch(`${baseUrl}/downloads/${stored.downloadToken}`);
+    const body = Buffer.from(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+    expect(response.headers.get('content-disposition')).toBe('attachment; filename="invoice-7.pdf"');
+    expect(response.headers.get('content-length')).toBe(String(pdfBytes.length));
+    expect(response.headers.get('content-type')).toContain('application/pdf');
+    expect(response.headers.get('x-sanka-download-expires-at')).toBe(stored.expiresAt);
+    expect(body).toEqual(pdfBytes);
+  });
+
+  it('serves prepared binary downloads from the /mcp alias path', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\n% alias download\n%%EOF\n');
+    const stored = storeBinaryDownload({
+      contentBase64: pdfBytes.toString('base64'),
+      filename: 'estimate-1.pdf',
+      mimeType: 'application/pdf',
+      byteLength: pdfBytes.length,
+    });
+
+    const response = await fetch(`${baseUrl}/mcp/downloads/${stored.downloadToken}`);
+    const body = Buffer.from(await response.arrayBuffer());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-disposition')).toContain('filename="estimate-1.pdf"');
+    expect(body).toEqual(pdfBytes);
+  });
+
+  it('returns 404 for unknown prepared download tokens', async () => {
+    const response = await fetch(`${baseUrl}/downloads/missing-token`);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toMatchObject({
+      error: 'not_found',
+      error_description: expect.stringContaining('Download token was not found'),
     });
   });
 
