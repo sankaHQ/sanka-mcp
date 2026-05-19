@@ -84,6 +84,8 @@ export interface SubscriptionDetail {
 
   items: Array<SubscriptionDetail.Item>;
 
+  line_items?: Array<SubscriptionDetail.LineItem> | null;
+
   number_item: number;
 
   currency?: string | null;
@@ -119,7 +121,11 @@ export namespace SubscriptionDetail {
   }
 
   export interface Item {
-    id: string;
+    id?: string | null;
+
+    item_id?: string | null;
+
+    line_item_id?: string | null;
 
     amount: number;
 
@@ -129,16 +135,70 @@ export namespace SubscriptionDetail {
 
     status?: string | null;
   }
+
+  export interface LineItem {
+    id?: string | null;
+
+    item_id?: string | null;
+
+    item_name?: string | null;
+
+    name?: string | null;
+
+    quantity?: number | null;
+
+    unit_price?: number | null;
+
+    price?: number | null;
+
+    amount_item?: number | null;
+
+    amount_price?: number | null;
+
+    total_price?: number | null;
+
+    total_price_without_tax?: number | null;
+
+    currency?: string | null;
+
+    status?: string | null;
+  }
 }
 
 export interface SubscriptionItemInput {
-  id: string;
+  id?: string | null;
 
-  amount: number;
+  item?: string | null;
+
+  item_id?: string | null;
+
+  item_external_id?: string | null;
+
+  amount?: number | null;
+
+  amount_item?: number | null;
+
+  quantity?: number | null;
+
+  qty?: number | null;
 
   name?: string | null;
 
+  item_name?: string | null;
+
+  itemName?: string | null;
+
+  amount_price?: number | null;
+
   price?: number | null;
+
+  unit_price?: number | null;
+
+  unitPrice?: number | null;
+
+  tax_rate?: number | null;
+
+  line_item_properties?: Record<string, unknown> | null;
 }
 
 export type SubscriptionListResponse = Array<SubscriptionDetail>;
@@ -156,9 +216,17 @@ export interface SubscriptionDeleteResponse {
 }
 
 export interface SubscriptionCreateParams {
-  cid: string;
+  cid?: string | null;
+
+  contact_id?: string | null;
+
+  company_id?: string | null;
+
+  customer_id?: string | null;
 
   items: Array<SubscriptionItemInput>;
+
+  line_items?: Array<SubscriptionItemInput> | null;
 
   subscription_status: string;
 
@@ -175,6 +243,8 @@ export interface SubscriptionCreateParams {
   tax?: number | null;
 
   total_price?: number | null;
+
+  total_price_without_tax?: number | null;
 }
 
 export interface SubscriptionRetrieveParams {
@@ -196,6 +266,11 @@ export interface SubscriptionUpdateParams {
    * Body param
    */
   items?: Array<SubscriptionItemInput> | null;
+
+  /**
+   * Body param
+   */
+  line_items?: Array<SubscriptionItemInput> | null;
 
   /**
    * Body param

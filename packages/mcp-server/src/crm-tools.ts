@@ -1533,6 +1533,14 @@ const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional Sanka item UUID or item identifier to link this row to an item.',
     },
+    item: {
+      type: 'string',
+      description: 'Optional item identifier alias.',
+    },
+    id: {
+      type: 'string',
+      description: 'Optional item identifier alias used by some record detail outputs.',
+    },
     item_external_id: {
       type: 'string',
       description: 'Optional external item reference when the target object supports item external ids.',
@@ -1541,13 +1549,41 @@ const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
       type: 'string',
       description: 'Line item label when no item id is available, or an override for the linked item name.',
     },
+    itemName: {
+      type: 'string',
+      description: 'Line item label alias.',
+    },
+    name: {
+      type: 'string',
+      description: 'Line item label alias.',
+    },
     quantity: {
       type: 'number',
       description: 'Quantity for this line item.',
     },
+    amount: {
+      type: 'number',
+      description: 'Quantity alias used by subscription items.',
+    },
+    amount_item: {
+      type: 'number',
+      description: 'Quantity alias used by Sanka public APIs.',
+    },
     unit_price: {
       type: 'number',
       description: 'Unit price for this line item.',
+    },
+    unitPrice: {
+      type: 'number',
+      description: 'Unit price alias.',
+    },
+    price: {
+      type: 'number',
+      description: 'Unit price alias.',
+    },
+    amount_price: {
+      type: 'number',
+      description: 'Unit price alias used by Sanka public APIs.',
     },
     tax_rate: {
       type: 'number',
@@ -4724,40 +4760,32 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status', 'external_id'],
 };
 
-const SUBSCRIPTION_ITEM_INPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id: {
-      type: 'string',
-      description: 'Item identifier to attach to the subscription.',
-    },
-    amount: {
-      type: 'integer',
-      description: 'Quantity for this subscription item.',
-      minimum: 1,
-    },
-    price: {
-      type: 'number',
-      description: 'Optional overridden item price.',
-    },
-    name: {
-      type: 'string',
-      description: 'Optional item name override.',
-    },
-  },
-  required: ['id', 'amount'],
-};
+const SUBSCRIPTION_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
 
 const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     contact_id: {
       type: 'string',
-      description: 'Contact identifier used as the `cid` field in the public API.',
+      description:
+        'Contact identifier for the subscription customer. Use either contact_id, company_id, or customer_id.',
+    },
+    company_id: {
+      type: 'string',
+      description: 'Company identifier for the subscription customer. Use this for company-only customers.',
+    },
+    customer_id: {
+      type: 'string',
+      description: 'Generic customer identifier. May point to either a Sanka contact or company.',
     },
     items: {
       type: 'array',
       description: 'Subscription line items.',
+      items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
+    },
+    line_items: {
+      type: 'array',
+      description: 'Alias for items, useful when copying line_items returned by get_invoice or get_order.',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
     },
     subscription_status: {
@@ -4775,6 +4803,10 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
     total_price: {
       type: 'number',
       description: 'Total subscription price.',
+    },
+    total_price_without_tax: {
+      type: 'number',
+      description: 'Total subscription price before tax.',
     },
     frequency: {
       type: 'integer',
@@ -4794,7 +4826,7 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       description: 'Shipping cost tax status.',
     },
   },
-  required: ['contact_id', 'items', 'subscription_status'],
+  required: ['subscription_status'],
 };
 
 const SUBSCRIPTION_RETRIEVE_INPUT_SCHEMA = {
@@ -4867,6 +4899,10 @@ const SUBSCRIPTION_OUTPUT_SCHEMA = {
     items: {
       type: 'array',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
+    },
+    line_items: {
+      type: 'array',
+      items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
     },
   },
   required: ['id', 'created_at'],
@@ -7096,6 +7132,110 @@ const buildDealRetrieveParams = (args: Record<string, unknown> | undefined) => {
   };
 };
 
+const readOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const buildPublicLineItems = (value: unknown): PublicLineItem[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const items = value
+    .map((entry) => {
+      const record = readRecord(entry);
+      if (!record) {
+        return null;
+      }
+
+      const item: PublicLineItem = {};
+      const itemID = readString(record['item_id'] ?? record['itemId'] ?? record['item'] ?? record['id']);
+      const itemExternalID = readString(record['item_external_id'] ?? record['itemExternalId']);
+      const itemName = readString(
+        record['item_name'] ??
+          record['itemName'] ??
+          record['name'] ??
+          record['custom_item_name'] ??
+          record['customItemName'],
+      );
+      const quantity = readOptionalNumber(
+        record['quantity'] ??
+          record['qty'] ??
+          record['amount_item'] ??
+          record['amountItem'] ??
+          record['amount'],
+      );
+      const unitPrice = readOptionalNumber(
+        record['unit_price'] ??
+          record['unitPrice'] ??
+          record['amount_price'] ??
+          record['amountPrice'] ??
+          record['price'],
+      );
+      const taxRate = readOptionalNumber(record['tax_rate'] ?? record['taxRate']);
+      const section = readString(record['section']);
+      const sectionType = readString(record['section_type'] ?? record['sectionType']);
+      const sectionPosition = readOptionalNumber(record['section_position'] ?? record['sectionPosition']);
+      const lineItemProperties = readRecord(
+        record['line_item_properties'] ??
+          record['lineItemProperties'] ??
+          record['custom_fields'] ??
+          record['customFields'],
+      );
+
+      if (itemID) {
+        item['item_id'] = itemID;
+      }
+      if (itemExternalID) {
+        item['item_external_id'] = itemExternalID;
+      }
+      if (itemName) {
+        item['item_name'] = itemName;
+      }
+      if (quantity !== undefined) {
+        item['quantity'] = quantity;
+      }
+      if (unitPrice !== undefined) {
+        item['unit_price'] = unitPrice;
+      }
+      if (taxRate !== undefined) {
+        item['tax_rate'] = taxRate;
+      }
+      if (section) {
+        item['section'] = section;
+      }
+      if (sectionType) {
+        item['section_type'] = sectionType;
+      }
+      if (sectionPosition !== undefined) {
+        item['section_position'] = sectionPosition;
+      }
+      if (lineItemProperties) {
+        item['line_item_properties'] = lineItemProperties;
+      }
+
+      return Object.keys(item).length > 0 ? item : null;
+    })
+    .filter((entry): entry is PublicLineItem => Boolean(entry));
+
+  return items.length > 0 ? items : undefined;
+};
+
+const assignPublicLineItems = (
+  body: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
+  {
+    targetKey = 'line_items',
+    sourceKeys = ['line_items', 'lineItems'],
+  }: { targetKey?: string; sourceKeys?: string[] } = {},
+) => {
+  const source = sourceKeys.map((key) => args?.[key]).find((candidate) => Array.isArray(candidate));
+  const lineItems = buildPublicLineItems(source);
+  if (lineItems) {
+    body[targetKey] = lineItems;
+  }
+  return lineItems;
+};
+
 const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -7135,10 +7275,7 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   if (externalID) {
     body['externalId'] = externalID;
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
   const customFields = readRecord(args?.['custom_fields']);
   if (customFields) {
     body['custom_fields'] = customFields;
@@ -7259,9 +7396,9 @@ const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
     order.items = items;
   }
 
-  const lineItems = record['line_items'] ?? record['lineItems'];
-  if (Array.isArray(lineItems)) {
-    order.line_items = lineItems.filter((item): item is PublicLineItem => Boolean(readRecord(item)));
+  const lineItems = buildPublicLineItems(record['line_items'] ?? record['lineItems']);
+  if (lineItems) {
+    order.line_items = lineItems;
   }
 
   return Object.keys(order).length > 0 ? order : undefined;
@@ -7350,10 +7487,7 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7379,10 +7513,7 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7443,10 +7574,7 @@ const buildSlipMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7493,10 +7621,7 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -7540,10 +7665,7 @@ const buildDisbursementMutationBody = (args: Record<string, unknown> | undefined
       body[key] = numericValue;
     }
   }
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -8160,66 +8282,38 @@ const buildItemMutationBody = (args: Record<string, unknown> | undefined) => {
   return body;
 };
 
-const buildSubscriptionItems = (value: unknown) => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const items = value
-    .map((entry) => {
-      const record = readRecord(entry);
-      if (!record) {
-        return null;
-      }
-
-      const id = readString(record['id']);
-      const amount = record['amount'];
-      if (!id || typeof amount !== 'number' || !Number.isFinite(amount)) {
-        return null;
-      }
-
-      const item: Record<string, unknown> = {
-        id,
-        amount,
-      };
-
-      const name = readString(record['name']);
-      const price = record['price'];
-      if (name) {
-        item['name'] = name;
-      }
-      if (typeof price === 'number' && Number.isFinite(price)) {
-        item['price'] = price;
-      }
-
-      return item;
-    })
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
-
-  return items.length > 0 ? items : undefined;
-};
-
 const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
 
   assignMappedStringFields(body, args, [
-    ['contact_id', 'cid'],
+    ['customer_id', 'cid'],
     ['subscription_status', 'subscription_status'],
     ['currency', 'currency'],
     ['frequency_time', 'frequency_time'],
     ['shipping_cost_tax_status', 'shipping_cost_tax_status'],
     ['start_date', 'start_date'],
   ]);
+  const contactID = readString(args?.['contact_id']);
+  const companyID = readString(args?.['company_id']);
+  if (contactID) {
+    body['contact_id'] = contactID;
+    body['cid'] = contactID;
+  }
+  if (companyID) {
+    body['company_id'] = companyID;
+    body['cid'] = companyID;
+  }
   assignMappedIntegerFields(body, args, [['frequency', 'frequency']]);
   assignMappedNumberFields(body, args, [
     ['tax', 'tax'],
     ['total_price', 'total_price'],
+    ['total_price_without_tax', 'total_price_without_tax'],
   ]);
 
-  const items = buildSubscriptionItems(args?.['items']);
-  if (items) {
-    body['items'] = items;
-  }
+  assignPublicLineItems(body, args, {
+    targetKey: 'items',
+    sourceKeys: ['items', 'line_items', 'lineItems'],
+  });
 
   return body;
 };
@@ -8243,10 +8337,10 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
 
   assignStringFields(body, args, ['contact', 'status']);
 
-  const items = buildSubscriptionItems(args?.['items']);
-  if (items) {
-    body['items'] = items;
-  }
+  assignPublicLineItems(body, args, {
+    targetKey: 'items',
+    sourceKeys: ['items', 'line_items', 'lineItems'],
+  });
 
   return {
     subscriptionID,
@@ -8293,10 +8387,7 @@ const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => 
     ['total_price', 'totalPrice'],
     ['total_price_without_tax', 'totalPriceWithoutTax'],
   ]);
-  const lineItems = args?.['line_items'] ?? args?.['lineItems'];
-  if (Array.isArray(lineItems)) {
-    body['line_items'] = lineItems;
-  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -15466,7 +15557,13 @@ export const crmCreateSubscriptionTool: McpTool = {
 
     const body = buildSubscriptionCreateBody(args);
     if (!readString(body['cid'])) {
-      return asErrorResult('`contact_id` is required.');
+      return asErrorResult('`contact_id`, `company_id`, or `customer_id` is required.');
+    }
+    const providedCustomerIDs = ['contact_id', 'company_id', 'customer_id']
+      .map((key) => readString(args?.[key]))
+      .filter(Boolean);
+    if (providedCustomerIDs.length > 1) {
+      return asErrorResult('Provide only one of `contact_id`, `company_id`, or `customer_id`.');
     }
     if (!Array.isArray(body['items']) || body['items'].length === 0) {
       return asErrorResult('`items` must contain at least one subscription item.');
@@ -15478,7 +15575,9 @@ export const crmCreateSubscriptionTool: McpTool = {
     const response = (await reqContext.client.public.subscriptions.create(
       body as {
         cid: string;
-        items: Array<{ id: string; amount: number; name?: string; price?: number }>;
+        contact_id?: string;
+        company_id?: string;
+        items: PublicLineItem[];
         subscription_status: string;
         currency?: string;
         frequency?: number;
@@ -15487,6 +15586,7 @@ export const crmCreateSubscriptionTool: McpTool = {
         start_date?: string;
         tax?: number;
         total_price?: number;
+        total_price_without_tax?: number;
       },
       undefined,
     )) as unknown as Record<string, unknown>;
