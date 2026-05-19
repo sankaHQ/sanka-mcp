@@ -39,14 +39,21 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
-  it('keeps order handoff, freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
+  it('keeps order-first, handoff, freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
+    const workflowTypes = workflowTypeSchema.enum as string[];
 
-    expect(workflowTypeSchema.enum).toContain('deal_to_order_handoff');
-    expect(workflowTypeSchema.enum).toContain('invoice_export');
-    expect(workflowTypeSchema.enum).toContain('revenue_control_summary');
-    expect(workflowTypeSchema.enum).toContain('sales_incentive_commission');
+    expect(workflowTypes).toContain('deal_to_order');
+    expect(workflowTypes).toContain('deal_to_subscription');
+    expect(workflowTypes).toContain('order_to_invoice');
+    expect(workflowTypes).toContain('order_to_subscription');
+    expect(workflowTypes).toContain('order_to_purchase_order');
+    expect(workflowTypes).toContain('deal_to_order_handoff');
+    expect(workflowTypes).toContain('invoice_export');
+    expect(workflowTypes).toContain('revenue_control_summary');
+    expect(workflowTypes).toContain('sales_incentive_commission');
+    expect(workflowTypes).not.toContain('deal_to_invoice');
     expect(toolNames).not.toContain('create_order_from_hubspot_deal');
     expect(toolNames).not.toContain('hubspot_deal_to_order');
     expect(toolNames).not.toContain('create_hubspot_order_draft');
@@ -137,6 +144,264 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('starts deal_to_order workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'run-order-1',
+        status: 'completed',
+        result: { order: { id: 'order-1' } },
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_order',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        idempotency_key: 'order-key-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'deal_to_order',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
+        },
+        options: {},
+        idempotency_key: 'order-key-1',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'run-order-1',
+      status: 'completed',
+      result: { order: { id: 'order-1' } },
+    });
+  });
+
+  it('starts deal_to_subscription batch workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'deal_to_subscription',
+        mode: 'execute',
+        total_created: 2,
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_subscription',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          portal_id: '49714315',
+        },
+        options: {
+          subscription_flag_property: 'sanka_subscription',
+          subscription_flag_value: 'true',
+        },
+        idempotency_key: 'subscription-batch-key-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'deal_to_subscription',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          portal_id: '49714315',
+        },
+        options: {
+          subscription_flag_property: 'sanka_subscription',
+          subscription_flag_value: 'true',
+        },
+        idempotency_key: 'subscription-batch-key-1',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'deal_to_subscription',
+      mode: 'execute',
+      total_created: 2,
+    });
+  });
+
+  it('starts order_to_invoice workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'invoice-run-1',
+        status: 'completed',
+        result: { invoice: { id: 'invoice-1' } },
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'order_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: { status: 'draft' },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'order_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: { status: 'draft' },
+        idempotency_key: undefined,
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'invoice-run-1',
+      status: 'completed',
+      result: { invoice: { id: 'invoice-1' } },
+    });
+  });
+
+  it('previews order_to_subscription workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'order_to_subscription',
+        can_start: true,
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'order_to_subscription',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'order_to_subscription',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: {},
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'order_to_subscription',
+      can_start: true,
+    });
+  });
+
+  it('starts order_to_purchase_order workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'po-run-1',
+        status: 'completed',
+        result: { purchase_order: { id: 'purchase-order-1' } },
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'order_to_purchase_order',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: {
+          use_existing_inventory: true,
+          make_association: true,
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'order_to_purchase_order',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: {
+          use_existing_inventory: true,
+          make_association: true,
+        },
+        idempotency_key: undefined,
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'po-run-1',
+      status: 'completed',
+      result: { purchase_order: { id: 'purchase-order-1' } },
+    });
+  });
+
+  it('blocks direct deal_to_invoice workflow routing before calling the API', async () => {
+    const post = jest.fn();
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+        },
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.type).toBe('text');
+    expect((result.content[0] as any).text).toContain('deal_to_order');
+  });
+
   it('previews deal_to_estimate workflows from HubSpot deal URLs', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
@@ -178,18 +443,8 @@ describe('workflow run MCP tools', () => {
     });
   });
 
-  it('previews deal_to_invoice workflows from HubSpot deal URLs', async () => {
-    const post = jest.fn().mockResolvedValue({
-      data: {
-        source_status: 'synced',
-        financials: { total_amount: 250000, line_item_count: 2 },
-        duplicate_check: {
-          existing_invoices: [],
-          would_create_invoice: true,
-        },
-      },
-      message: 'ok',
-    });
+  it('blocks direct deal_to_invoice preview routing before calling the API', async () => {
+    const post = jest.fn();
 
     const result = await previewWorkflowTool.handler({
       reqContext: {
@@ -206,120 +461,10 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
-      body: {
-        workflow_type: 'deal_to_invoice',
-        source_record: {
-          source_system: 'hubspot',
-          object_type: 'deal',
-          url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
-        },
-        options: {},
-      },
-    });
-    expect(result.structuredContent?.['data']).toEqual({
-      source_status: 'synced',
-      financials: { total_amount: 250000, line_item_count: 2 },
-      duplicate_check: {
-        existing_invoices: [],
-        would_create_invoice: true,
-      },
-    });
-  });
-
-  it('summarizes deal_to_invoice duplicate invoices with Markdown-safe labels', async () => {
-    const post = jest.fn().mockResolvedValue({
-      data: {
-        workflow_type: 'deal_to_invoice',
-        source_status: 'synced',
-        duplicate_check: {
-          existing_invoices: [
-            {
-              invoice_id: '3802fa87-d729-4eb2-9cf8-be13e040b965',
-              invoice_number: '7',
-              status: 'draft',
-            },
-          ],
-          would_create_invoice: false,
-        },
-      },
-      message: 'ok',
-    });
-
-    const result = await previewWorkflowTool.handler({
-      reqContext: {
-        client: { post } as any,
-        auth: oauthContext(),
-      },
-      args: {
-        workflow_type: 'deal_to_invoice',
-        source_record: {
-          source_system: 'hubspot',
-          object_type: 'deal',
-          external_id: '46558049080',
-        },
-      },
-    });
-
-    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('Invoice No. 7');
-    expect(text).toContain('invoice_id=3802fa87-d729-4eb2-9cf8-be13e040b965');
-    expect(text).not.toContain('#7');
-    expect(text).not.toMatch(/failed|500/i);
-  });
-
-  it('starts deal_to_invoice workflows with idempotency and explicit duplicate override', async () => {
-    const post = jest.fn().mockResolvedValue({
-      data: {
-        run_id: 'run-invoice-1',
-        status: 'completed',
-      },
-      message: 'started',
-    });
-
-    const result = await startWorkflowTool.handler({
-      reqContext: {
-        client: { post } as any,
-        auth: oauthContext(),
-      },
-      args: {
-        workflow_type: 'deal_to_invoice',
-        source_record: {
-          source_system: 'hubspot',
-          object_type: 'deal',
-          external_id: '46558049080',
-          portal_id: '49714315',
-          channel_id: 'channel-1',
-        },
-        options: {
-          channel_id: 'channel-1',
-          allow_multiple_invoices: true,
-        },
-        idempotency_key: 'deal-to-invoice:46558049080',
-      },
-    });
-
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
-      body: {
-        workflow_type: 'deal_to_invoice',
-        source_record: {
-          source_system: 'hubspot',
-          object_type: 'deal',
-          external_id: '46558049080',
-          portal_id: '49714315',
-          channel_id: 'channel-1',
-        },
-        options: {
-          channel_id: 'channel-1',
-          allow_multiple_invoices: true,
-        },
-        idempotency_key: 'deal-to-invoice:46558049080',
-      },
-    });
-    expect(result.structuredContent?.['data']).toEqual({
-      run_id: 'run-invoice-1',
-      status: 'completed',
-    });
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.type).toBe('text');
+    expect((result.content[0] as any).text).toContain('deal_to_order');
   });
 
   it('previews HubSpot deal order handoff through the generic workflow endpoint', async () => {

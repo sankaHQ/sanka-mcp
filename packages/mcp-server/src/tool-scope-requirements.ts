@@ -35,6 +35,8 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'invoices:write',
   'items:read',
   'items:write',
+  'journals:read',
+  'journals:write',
   'locations:read',
   'locations:write',
   'logs:read',
@@ -60,6 +62,8 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'tickets:write',
   'transfers:read',
   'transfers:write',
+  'views:read',
+  'views:write',
   'workflows:read',
   'workflows:write',
 ]);

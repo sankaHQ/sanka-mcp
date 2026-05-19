@@ -3560,6 +3560,401 @@ const INVOICE_OVERDUE_LIST_INPUT_SCHEMA = {
   },
 };
 
+const JOURNAL_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    view_id: {
+      type: 'string',
+      description:
+        'Optional saved journal view id. Pass a profit_and_loss, balance_sheet, or cash_flow view id to return statement rows.',
+    },
+    view: {
+      type: 'string',
+      description: 'Alias for view_id.',
+    },
+    search: {
+      type: 'string',
+      description: 'Optional free-text search for normal journal table views.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional journal usage/status filter.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of journal rows or statement rows to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number for normal journal table views.',
+      minimum: 1,
+      default: 1,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const JOURNAL_STATEMENT_VIEW_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: {
+      type: 'string',
+      description: 'Name of the saved Sanka journal view to create.',
+    },
+    view_type: {
+      type: 'string',
+      description: 'Statement view type to create.',
+      enum: ['profit_and_loss', 'balance_sheet', 'cash_flow'],
+      default: 'profit_and_loss',
+    },
+    is_private: {
+      type: 'boolean',
+      description: 'Create a private view visible only to the authenticated user.',
+      default: false,
+    },
+    balance_sheet_display: {
+      type: 'string',
+      description: 'Balance-sheet display mode. Applies only to view_type="balance_sheet".',
+      enum: ['vertical', 'two_column'],
+      default: 'vertical',
+    },
+    balance_sheet_type: {
+      type: 'string',
+      description:
+        'Balance-sheet period preset. Applies only to view_type="balance_sheet". Use bs_snapshot, bs_this_year, bs_last_year, or bs_custom_date.',
+    },
+    date_range: {
+      type: 'string',
+      description:
+        'Custom balance-sheet date range in YYYY-MM-DD - YYYY-MM-DD format. Applies only to view_type="balance_sheet".',
+    },
+    include_preview: {
+      type: 'boolean',
+      description: 'Return the generated statement rows after creating the view.',
+      default: true,
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of preview rows to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const JOURNAL_STATEMENT_VIEW_CREATE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: { type: 'object' },
+    statement: { type: ['object', 'null'] as any },
+    message: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+  },
+};
+
+const VIEW_FILTER_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    field: {
+      type: 'string',
+      description: 'Field key to filter on.',
+    },
+    operator: {
+      type: 'string',
+      description: 'Filter operator such as equals, contains, between, is_empty, or is_not_empty.',
+      default: 'equals',
+    },
+    value: {
+      description: 'Filter value. Omit for empty/not-empty operators.',
+    },
+    value2: {
+      description: 'Second filter value for between filters.',
+    },
+  },
+  required: ['field'],
+};
+
+const VIEW_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object: {
+      type: 'string',
+      description:
+        'Sanka object name or type, for example orders, invoices, companies, contacts, deals, tickets, tasks, custom_object, dashboards, or panels.',
+    },
+    custom_object_id: {
+      type: 'string',
+      description: 'Sanka custom object id when object is custom_object/custom_objects.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['object'],
+};
+
+const VIEW_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    view_id: {
+      type: 'string',
+      description: 'Saved view UUID.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['view_id'],
+};
+
+const VIEW_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object: {
+      type: 'string',
+      description:
+        'Sanka object name or type, for example orders, invoices, companies, contacts, deals, tickets, tasks, custom_object, dashboards, or panels.',
+    },
+    custom_object_id: {
+      type: 'string',
+      description: 'Sanka custom object id when object is custom_object/custom_objects.',
+    },
+    name: {
+      type: 'string',
+      description: 'Saved view name.',
+    },
+    view_type: {
+      type: 'string',
+      description:
+        'View type, for example list, table, kanban, profit_and_loss, balance_sheet, or cash_flow.',
+      default: 'list',
+    },
+    columns: {
+      type: 'array',
+      description: 'Column keys to show in the saved view.',
+      items: { type: 'string' },
+    },
+    pagination: {
+      type: 'integer',
+      description: 'Rows per page for list/table views.',
+      minimum: 1,
+      maximum: 200,
+    },
+    is_private: {
+      type: 'boolean',
+      description: 'Create or keep the view private to the authenticated user.',
+      default: false,
+    },
+    sort_order_by: {
+      type: 'string',
+      description: 'Optional sort field key.',
+    },
+    sort_order_method: {
+      type: 'string',
+      description: 'Optional sort direction.',
+      enum: ['asc', 'desc'],
+    },
+    filters: {
+      type: 'array',
+      description: 'Optional saved view filters.',
+      items: VIEW_FILTER_INPUT_SCHEMA,
+    },
+    form_data: {
+      type: 'object',
+      description:
+        'Advanced escape hatch for existing view-settings form fields. Prefer the structured fields above.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['object'],
+};
+
+const VIEW_UPDATE_INPUT_SCHEMA = {
+  ...VIEW_MUTATION_INPUT_SCHEMA,
+  properties: {
+    ...VIEW_MUTATION_INPUT_SCHEMA.properties,
+    view_id: {
+      type: 'string',
+      description: 'Saved view UUID to update.',
+    },
+  },
+  required: ['view_id', 'object'],
+};
+
+const VIEW_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    view_id: {
+      type: 'string',
+      description: 'Saved view UUID to delete.',
+    },
+    object: VIEW_MUTATION_INPUT_SCHEMA.properties.object,
+    custom_object_id: VIEW_MUTATION_INPUT_SCHEMA.properties.custom_object_id,
+    workspace_id: VIEW_MUTATION_INPUT_SCHEMA.properties.workspace_id,
+    language: VIEW_MUTATION_INPUT_SCHEMA.properties.language,
+  },
+  required: ['view_id', 'object'],
+};
+
+const REPORT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    page: {
+      type: 'integer',
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const REPORT_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    report_id: {
+      type: 'string',
+      description: 'Report UUID.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['report_id'],
+};
+
+const REPORT_PANEL_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    panel_type: {
+      type: 'string',
+      description: 'Panel type, for example chart, table, summary_card, pivot_table, or number.',
+    },
+    data_source: { type: 'string' },
+    data_sources: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    data_source_type: { type: 'string', default: 'app' },
+    width_units: { type: 'integer' },
+    height_px: { type: 'integer' },
+    ratio: { type: 'integer' },
+    breakdown: { type: 'string' },
+    filter: { type: 'object' },
+    meta_data: { type: 'object' },
+    type_objects: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    metrics: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+    order: { type: 'integer' },
+  },
+};
+
+const REPORT_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: {
+      type: 'string',
+      description: 'Report name.',
+    },
+    description: {
+      type: 'string',
+      description: 'Report description.',
+    },
+    report_type: {
+      type: 'string',
+      description:
+        'Source object for the report. Supported examples include orders, invoices, payments, bills, expenses, deals, companies, contacts, items, subscriptions, purchase_orders, and slips.',
+    },
+    report_format: {
+      type: 'string',
+      description:
+        'Optional report format or default panel type, for example chart, table, summary_card, or pivot_table.',
+    },
+    report_filters: {
+      type: 'object',
+      description: 'Optional reportFilters payload accepted by the Sanka public report API.',
+    },
+    report_metadata: {
+      type: 'object',
+      description:
+        'Advanced reportMetadata payload. Prefer name/report_type/report_format for simple reports.',
+    },
+    create_default_panel: {
+      type: 'boolean',
+      description: 'Create a default panel when panels are omitted.',
+      default: true,
+    },
+    panels: {
+      type: 'array',
+      description: 'Optional report panel definitions.',
+      items: REPORT_PANEL_INPUT_SCHEMA,
+    },
+  },
+  required: ['name', 'report_type'],
+};
+
+const REPORT_UPDATE_INPUT_SCHEMA = {
+  ...REPORT_MUTATION_INPUT_SCHEMA,
+  properties: {
+    ...REPORT_MUTATION_INPUT_SCHEMA.properties,
+    report_id: REPORT_RETRIEVE_INPUT_SCHEMA.properties.report_id,
+    workspace_id: REPORT_RETRIEVE_INPUT_SCHEMA.properties.workspace_id,
+  },
+  required: ['report_id'],
+};
+
 const PAYMENT_DOWNLOAD_PDF_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -5893,6 +6288,49 @@ const readRecord = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>;
 };
 
+const DIRECT_CRM_SOURCE_LOCK_MESSAGE =
+  'CRM deal/opportunity-sourced billing or procurement requests must go through workflow_type=deal_to_order first. Ask the user to confirm creating or reusing a Sanka Order, then use order_to_invoice, order_to_subscription, or order_to_purchase_order from that Order.';
+
+const isDirectCrmSourceContext = (args: Record<string, unknown> | undefined): boolean => {
+  const sourceRecord = readRecord(args?.['source_record']);
+  const sourceSystem = (
+    readString(sourceRecord?.['source_system']) ?? readString(args?.['source_system'])
+  )?.toLowerCase();
+  if (sourceSystem === 'hubspot' || sourceSystem === 'salesforce') {
+    return true;
+  }
+
+  const objectType = (
+    readString(sourceRecord?.['object_type']) ?? readString(args?.['object_type'])
+  )?.toLowerCase();
+  if (objectType === 'opportunity') {
+    return true;
+  }
+
+  const crmIDKeys = [
+    'crm_deal_id',
+    'crm_opportunity_id',
+    'deal_external_id',
+    'hubspot_deal_id',
+    'salesforce_opportunity_id',
+  ];
+  if (crmIDKeys.some((key) => Boolean(readString(args?.[key])))) {
+    return true;
+  }
+
+  const url =
+    readString(sourceRecord?.['url']) ??
+    readString(args?.['url']) ??
+    readString(args?.['hubspot_deal_url']) ??
+    readString(args?.['salesforce_opportunity_url']);
+  if (!url) {
+    return false;
+  }
+
+  const normalizedURL = url.toLowerCase();
+  return normalizedURL.includes('hubspot.com') || normalizedURL.includes('salesforce.com');
+};
+
 const readStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -7717,6 +8155,199 @@ const buildOverdueInvoiceListParams = (args: Record<string, unknown> | undefined
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+const buildJournalListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const viewID = readString(args?.['view_id']) ?? readString(args?.['view']);
+  const search = readString(args?.['search']);
+  const status = readString(args?.['status']);
+  const rawLimit = readNumber(args?.['limit'], 25);
+  const rawPage = readNumber(args?.['page'], 1);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+  const page = Math.max(1, rawPage);
+
+  return {
+    limit,
+    params: {
+      ...(viewID ? { view: viewID } : undefined),
+      ...(search ? { search } : undefined),
+      ...(status ? { status } : undefined),
+      page,
+      limit,
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildJournalStatementViewCreateBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const name = readString(args?.['name']) ?? readString(args?.['title']);
+  const viewType = readString(args?.['view_type'] ?? args?.['viewType'] ?? args?.['statement_type']);
+  const balanceSheetDisplay = readString(args?.['balance_sheet_display'] ?? args?.['balanceSheetDisplay']);
+  const balanceSheetType = readString(args?.['balance_sheet_type'] ?? args?.['balanceSheetType']);
+  const dateRange = readString(args?.['date_range'] ?? args?.['dateRange']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const isPrivate = readBoolean(args?.['is_private'] ?? args?.['isPrivate'] ?? args?.['private']);
+  const includePreview = readBoolean(args?.['include_preview'] ?? args?.['includePreview']);
+  const rawLimit = readNumber(args?.['limit'], 25);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+
+  if (name) body['name'] = name;
+  if (viewType) body['view_type'] = viewType;
+  if (isPrivate !== undefined) body['is_private'] = isPrivate;
+  if (balanceSheetDisplay) body['balance_sheet_display'] = balanceSheetDisplay;
+  if (balanceSheetType) body['balance_sheet_type'] = balanceSheetType;
+  if (dateRange) body['date_range'] = dateRange;
+  if (includePreview !== undefined) body['include_preview'] = includePreview;
+  body['limit'] = limit;
+
+  return {
+    body,
+    query: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildViewListParams = (args: Record<string, unknown> | undefined) => {
+  const object = readString(args?.['object'] ?? args?.['object_type'] ?? args?.['target']);
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    object,
+    params: {
+      ...(object ? { object } : undefined),
+      ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildViewRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const viewID = readString(args?.['view_id']);
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  return {
+    viewID,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const object = readString(args?.['object'] ?? args?.['object_type'] ?? args?.['target']);
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const name = readString(args?.['name'] ?? args?.['title']);
+  const viewType = readString(args?.['view_type'] ?? args?.['viewType'] ?? args?.['view']);
+  const sortOrderBy = readString(args?.['sort_order_by'] ?? args?.['sortOrderBy'] ?? args?.['order_by']);
+  const sortOrderMethod = readString(
+    args?.['sort_order_method'] ?? args?.['sortOrderMethod'] ?? args?.['sort_method'],
+  );
+  const workspaceID = readString(args?.['workspace_id']);
+  const language = readString(args?.['language']);
+  const isPrivate = readBoolean(args?.['is_private'] ?? args?.['isPrivate'] ?? args?.['private']);
+  const columns = readStringArray(args?.['columns']);
+  const filters =
+    Array.isArray(args?.['filters']) ?
+      (args?.['filters'] as unknown[])
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : [];
+  const formData = readRecord(args?.['form_data'] ?? args?.['formData']);
+  const pagination = args?.['pagination'];
+
+  if (object) body['object'] = object;
+  if (customObjectID) body['custom_object_id'] = customObjectID;
+  if (name) body['name'] = name;
+  if (viewType) body['view_type'] = viewType;
+  if (columns.length > 0) body['columns'] = columns;
+  if (typeof pagination === 'number' && Number.isInteger(pagination)) body['pagination'] = pagination;
+  if (isPrivate !== undefined) body['is_private'] = isPrivate;
+  if (sortOrderBy) body['sort_order_by'] = sortOrderBy;
+  if (sortOrderMethod) body['sort_order_method'] = sortOrderMethod;
+  if (filters.length > 0) body['filters'] = filters;
+  if (formData) body['form_data'] = formData;
+
+  return {
+    body,
+    query: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildReportListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const rawPage = readNumber(args?.['page'], 1);
+  return {
+    limit: Math.max(1, Math.min(100, rawLimit)),
+    params: {
+      page: Math.max(1, rawPage),
+      limit: Math.max(1, Math.min(100, rawLimit)),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    },
+  };
+};
+
+const buildReportRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const reportID = readString(args?.['report_id']);
+  const workspaceID = readString(args?.['workspace_id']);
+  return {
+    reportID,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    },
+  };
+};
+
+const buildReportMutationBody = (
+  args: Record<string, unknown> | undefined,
+  options: { defaultCreateDefaultPanel?: boolean } = {},
+) => {
+  const explicitMetadata = readRecord(args?.['report_metadata'] ?? args?.['reportMetadata']);
+  const name = readString(args?.['name']);
+  const description = readString(args?.['description']);
+  const reportType = readString(args?.['report_type'] ?? args?.['reportType']);
+  const reportFormat = readString(args?.['report_format'] ?? args?.['reportFormat']);
+  const reportFilters = readRecord(args?.['report_filters'] ?? args?.['reportFilters']);
+  const createDefaultPanel = readBoolean(args?.['create_default_panel'] ?? args?.['createDefaultPanel']);
+  const panels =
+    Array.isArray(args?.['panels']) ?
+      (args?.['panels'] as unknown[])
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : undefined;
+
+  const reportMetadata: Record<string, unknown> = explicitMetadata ? { ...explicitMetadata } : {};
+  if (name) reportMetadata['name'] = name;
+  if (description) reportMetadata['description'] = description;
+  if (reportType) reportMetadata['reportType'] = { type: reportType };
+  if (reportFormat) reportMetadata['reportFormat'] = reportFormat;
+  if (reportFilters) reportMetadata['reportFilters'] = reportFilters;
+
+  const body: Record<string, unknown> = {};
+  if (Object.keys(reportMetadata).length > 0) body['reportMetadata'] = reportMetadata;
+  if (panels) body['panels'] = panels;
+  if (createDefaultPanel !== undefined) {
+    body['createDefaultPanel'] = createDefaultPanel;
+  } else if (options.defaultCreateDefaultPanel !== undefined) {
+    body['createDefaultPanel'] = options.defaultCreateDefaultPanel;
+  }
+
+  return body;
 };
 
 const buildEstimateRetrieveParams = (args: Record<string, unknown> | undefined) => {
@@ -11690,7 +12321,8 @@ export const crmCreatePurchaseOrderTool: McpTool = {
   tool: {
     name: 'create_purchase_order',
     title: 'Create purchase order',
-    description: 'Create a purchase order in Sanka.',
+    description:
+      'Create a purchase order in Sanka from explicit supplier and line item data. For CRM deal/opportunity-sourced procurement, use deal_to_order first and create purchase orders from the Sanka Order context.',
     inputSchema: PURCHASE_ORDER_CREATE_INPUT_SCHEMA,
     outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -11708,6 +12340,9 @@ export const crmCreatePurchaseOrderTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+    if (isDirectCrmSourceContext(args)) {
+      return asErrorResult(DIRECT_CRM_SOURCE_LOCK_MESSAGE);
     }
 
     const response = (await reqContext.client.public.purchaseOrders.create(
@@ -12821,6 +13456,656 @@ export const crmListOverdueInvoicesTool: McpTool = {
   },
 };
 
+export const crmListJournalEntriesTool: McpTool = {
+  metadata: {
+    resource: 'journals',
+    operation: 'read',
+    tags: ['finance', 'journals'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/journals',
+    operationId: 'public.journals.list',
+  },
+  tool: {
+    name: 'list_journal_entries',
+    title: 'List journal entries',
+    description:
+      'Review Sanka journal entries. Pass a profit_and_loss, balance_sheet, or cash_flow view_id to return statement rows for that saved journal view.',
+    inputSchema: JOURNAL_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List journal entries',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List journal entries',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildJournalListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/journals', {
+      query: params,
+    })) as Record<string, unknown>;
+    const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+    const results = rows.slice(0, limit).map((row) => row as Record<string, unknown>);
+    const count = readNumber(payload['count'], results.length);
+    const total = readNumber(payload['total'], count);
+    const page = readNumber(payload['page'], 1);
+    const listResult = buildListResult({
+      label: readString(payload['view_type']) ?? 'journal entries',
+      payload: {
+        count: results.length,
+        data: results,
+        message: readString(payload['message']) ?? `Returned ${results.length} journal rows.`,
+        page,
+        total,
+        permission: readString(payload['permission']) ?? null,
+      },
+      previewKeys:
+        readString(payload['view_type']) ? ['account', 'amount', 'balance', 'section'] : ['id_journal'],
+    });
+
+    return {
+      ...listResult,
+      structuredContent: {
+        ...(listResult.structuredContent as Record<string, unknown>),
+        view_type: payload['view_type'],
+        balance_sheet_display: payload['balance_sheet_display'],
+        columns: payload['columns'],
+        column_labels: payload['column_labels'],
+      },
+    };
+  },
+};
+
+export const crmCreateJournalStatementViewTool: McpTool = {
+  metadata: {
+    resource: 'journals',
+    operation: 'write',
+    tags: ['finance', 'journals', 'views'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/journals/views',
+    operationId: 'public.journals.views.create',
+  },
+  tool: {
+    name: 'create_journal_statement_view',
+    title: 'Create journal statement view',
+    description:
+      'Create a Sanka journal view for Profit and Loss, Balance Sheet, or Cash Flow from existing journal entries. Use this when the user asks to create a PL/BS/CF view from Sanka journal data.',
+    inputSchema: JOURNAL_STATEMENT_VIEW_CREATE_INPUT_SCHEMA,
+    outputSchema: JOURNAL_STATEMENT_VIEW_CREATE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create journal statement view',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create journal statement view',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { body, query } = buildJournalStatementViewCreateBody(args);
+    const payload = (await reqContext.client.post('/v1/public/journals/views', {
+      body,
+      query,
+    })) as Record<string, unknown>;
+    const data = readRecord(payload['data']) ?? {};
+    const statement = readRecord(payload['statement']);
+    const viewID = readString(data['view_id']);
+    const viewType = readString(data['view_type']) ?? readString(statement?.['view_type']);
+    const rowCount =
+      statement ? readNumber(statement['total'], readNumber(statement['count'], 0)) : undefined;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Created ${viewType ?? 'journal statement'} view${viewID ? ` ${viewID}` : ''}${
+            rowCount !== undefined ? ` with ${rowCount} preview rows` : ''
+          }.`,
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmListViewsTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'read',
+    tags: ['views'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/views',
+    operationId: 'public.views.list',
+  },
+  tool: {
+    name: 'list_views',
+    title: 'List saved views',
+    description: 'List saved Sanka views for any supported object.',
+    inputSchema: VIEW_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List saved views',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List saved views',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { object, params } = buildViewListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/views', {
+      query: params,
+    })) as Record<string, unknown>;
+    const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+    const results = rows.map((row) => row as Record<string, unknown>);
+    return buildListResult({
+      label: `${object ?? 'object'} views`,
+      payload: {
+        count: results.length,
+        data: results,
+        message: readString(payload['message']) ?? `Returned ${results.length} saved views.`,
+        page: 1,
+        total: results.length,
+      },
+      previewKeys: ['label', 'title', 'id'],
+    });
+  },
+};
+
+export const crmGetViewTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'read',
+    tags: ['views'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/views/{view_id}',
+    operationId: 'public.views.retrieve',
+  },
+  tool: {
+    name: 'get_view',
+    title: 'Get saved view',
+    description: 'Load one saved Sanka view by id.',
+    inputSchema: VIEW_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get saved view',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get saved view',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { viewID, params } = buildViewRetrieveParams(args);
+    if (!viewID) {
+      return asErrorResult('`view_id` is required.');
+    }
+    const payload = (await reqContext.client.get(`/v1/public/views/${encodeURIComponent(viewID)}`, {
+      query: params,
+    })) as Record<string, unknown>;
+    const view = readRecord(payload['view']);
+    const title = readString(view?.['label']) ?? readString(view?.['title']) ?? viewID;
+    return {
+      content: [{ type: 'text', text: `Loaded saved view ${title}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmGetViewColumnsTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'read',
+    tags: ['views'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/views/{view_id}/columns',
+    operationId: 'public.views.columns',
+  },
+  tool: {
+    name: 'get_view_columns',
+    title: 'Get saved view columns',
+    description: 'Load resolved display columns for one saved Sanka view.',
+    inputSchema: VIEW_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get saved view columns',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get saved view columns',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { viewID, params } = buildViewRetrieveParams(args);
+    if (!viewID) {
+      return asErrorResult('`view_id` is required.');
+    }
+    const payload = (await reqContext.client.get(`/v1/public/views/${encodeURIComponent(viewID)}/columns`, {
+      query: params,
+    })) as Record<string, unknown>;
+    const columns = Array.isArray(payload['columns']) ? payload['columns'] : [];
+    return {
+      content: [{ type: 'text', text: `Loaded ${columns.length} columns for saved view ${viewID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCreateViewTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'write',
+    tags: ['views'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/views',
+    operationId: 'public.views.create',
+  },
+  tool: {
+    name: 'create_view',
+    title: 'Create saved view',
+    description: 'Create a saved Sanka view for any supported object.',
+    inputSchema: VIEW_MUTATION_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create saved view',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create saved view',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { body, query } = buildViewMutationBody(args);
+    const payload = (await reqContext.client.post('/v1/public/views', {
+      body,
+      query,
+    })) as Record<string, unknown>;
+    const data = readRecord(payload['data']) ?? {};
+    const viewID = readString(data['view_id']);
+    return {
+      content: [{ type: 'text', text: `Created saved view${viewID ? ` ${viewID}` : ''}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmUpdateViewTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'write',
+    tags: ['views'],
+    httpMethod: 'patch',
+    httpPath: '/v1/public/views/{view_id}',
+    operationId: 'public.views.update',
+  },
+  tool: {
+    name: 'update_view',
+    title: 'Update saved view',
+    description: 'Update a saved Sanka view for any supported object.',
+    inputSchema: VIEW_UPDATE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update saved view',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update saved view',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const viewID = readString(args?.['view_id']);
+    if (!viewID) {
+      return asErrorResult('`view_id` is required.');
+    }
+    const { body, query } = buildViewMutationBody(args);
+    const payload = (await reqContext.client.patch(`/v1/public/views/${encodeURIComponent(viewID)}`, {
+      body,
+      query,
+    })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Updated saved view ${viewID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmDeleteViewTool: McpTool = {
+  metadata: {
+    resource: 'views',
+    operation: 'write',
+    tags: ['views'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/views/{view_id}',
+    operationId: 'public.views.delete',
+  },
+  tool: {
+    name: 'delete_view',
+    title: 'Delete saved view',
+    description: 'Delete a saved Sanka view for any supported object.',
+    inputSchema: VIEW_DELETE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete saved view',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete saved view',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const viewID = readString(args?.['view_id']);
+    if (!viewID) {
+      return asErrorResult('`view_id` is required.');
+    }
+    const { body, query } = buildViewMutationBody(args);
+    const payload = (await reqContext.client.delete(`/v1/public/views/${encodeURIComponent(viewID)}`, {
+      body,
+      query,
+    })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Deleted saved view ${viewID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmListReportsTool: McpTool = {
+  metadata: {
+    resource: 'reports',
+    operation: 'read',
+    tags: ['reports'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/reports',
+    operationId: 'public.reports.list',
+  },
+  tool: {
+    name: 'list_reports',
+    title: 'List reports',
+    description: 'List Sanka reports and dashboards.',
+    inputSchema: REPORT_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List reports',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List reports',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildReportListParams(args);
+    const rows = (await reqContext.client.get('/v1/public/reports', {
+      query: params,
+    })) as unknown[];
+    const results =
+      Array.isArray(rows) ? rows.slice(0, limit).map((row) => row as Record<string, unknown>) : [];
+    return buildListResult({
+      label: 'reports',
+      payload: {
+        count: results.length,
+        data: results,
+        message: `Returned ${results.length} reports.`,
+        page: readNumber(params['page'], 1),
+        total: results.length,
+      },
+      previewKeys: ['name', 'report_type', 'id'],
+    });
+  },
+};
+
+export const crmGetReportTool: McpTool = {
+  metadata: {
+    resource: 'reports',
+    operation: 'read',
+    tags: ['reports'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/reports/{report_id}',
+    operationId: 'public.reports.retrieve',
+  },
+  tool: {
+    name: 'get_report',
+    title: 'Get report',
+    description: 'Load one Sanka report by id.',
+    inputSchema: REPORT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get report',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get report',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { reportID, params } = buildReportRetrieveParams(args);
+    if (!reportID) {
+      return asErrorResult('`report_id` is required.');
+    }
+    const payload = (await reqContext.client.get(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
+      query: params,
+    })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Loaded report ${readString(payload['name']) ?? reportID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCreateReportTool: McpTool = {
+  metadata: {
+    resource: 'reports',
+    operation: 'write',
+    tags: ['reports'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/reports',
+    operationId: 'public.reports.create',
+  },
+  tool: {
+    name: 'create_report',
+    title: 'Create report',
+    description: 'Create a Sanka report/dashboard with optional panels.',
+    inputSchema: REPORT_MUTATION_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create report',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create report',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildReportMutationBody(args, { defaultCreateDefaultPanel: true });
+    const payload = (await reqContext.client.post('/v1/public/reports', { body })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Created report ${readString(payload['report_id']) ?? ''}.`.trim() }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmUpdateReportTool: McpTool = {
+  metadata: {
+    resource: 'reports',
+    operation: 'write',
+    tags: ['reports'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/reports/{report_id}',
+    operationId: 'public.reports.update',
+  },
+  tool: {
+    name: 'update_report',
+    title: 'Update report',
+    description: 'Update a Sanka report/dashboard and optionally replace panels.',
+    inputSchema: REPORT_UPDATE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update report',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update report',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { reportID, params } = buildReportRetrieveParams(args);
+    if (!reportID) {
+      return asErrorResult('`report_id` is required.');
+    }
+    const body = buildReportMutationBody(args);
+    const payload = (await reqContext.client.put(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
+      body,
+      query: params,
+    })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Updated report ${reportID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmDeleteReportTool: McpTool = {
+  metadata: {
+    resource: 'reports',
+    operation: 'write',
+    tags: ['reports'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/reports/{report_id}',
+    operationId: 'public.reports.delete',
+  },
+  tool: {
+    name: 'delete_report',
+    title: 'Delete report',
+    description: 'Delete one Sanka report/dashboard.',
+    inputSchema: REPORT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: { type: 'object' as const },
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete report',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete report',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { reportID, params } = buildReportRetrieveParams(args);
+    if (!reportID) {
+      return asErrorResult('`report_id` is required.');
+    }
+    const payload = (await reqContext.client.delete(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
+      query: params,
+    })) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Deleted report ${reportID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmGetInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -12934,7 +14219,8 @@ export const crmCreateInvoiceTool: McpTool = {
   tool: {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create an invoice in Sanka.',
+    description:
+      'Create an invoice in Sanka from explicit customer and line item data. For CRM deal/opportunity-sourced billing, use deal_to_order first and create invoices from the Sanka Order context.',
     inputSchema: INVOICE_CREATE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -12952,6 +14238,9 @@ export const crmCreateInvoiceTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+    if (isDirectCrmSourceContext(args)) {
+      return asErrorResult(DIRECT_CRM_SOURCE_LOCK_MESSAGE);
     }
 
     const response = (await reqContext.client.public.invoices.create(
@@ -15535,7 +16824,8 @@ export const crmCreateSubscriptionTool: McpTool = {
   tool: {
     name: 'create_subscription',
     title: 'Create subscription',
-    description: 'Create a subscription in Sanka.',
+    description:
+      'Create a subscription in Sanka from explicit customer and subscription item data. For CRM deal/opportunity-sourced subscriptions, use deal_to_order first and create subscriptions from the Sanka Order context.',
     inputSchema: SUBSCRIPTION_CREATE_INPUT_SCHEMA,
     outputSchema: SUBSCRIPTION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15553,6 +16843,9 @@ export const crmCreateSubscriptionTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+    if (isDirectCrmSourceContext(args)) {
+      return asErrorResult(DIRECT_CRM_SOURCE_LOCK_MESSAGE);
     }
 
     const body = buildSubscriptionCreateBody(args);
