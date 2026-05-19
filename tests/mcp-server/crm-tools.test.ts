@@ -6343,6 +6343,140 @@ describe('ChatGPT CRM tools', () => {
     ]);
   });
 
+  it('creates a subscription for a company customer with copied invoice line items', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      items: [
+        {
+          id: null,
+          item_id: null,
+          line_item_id: 'line-1',
+          name: 'Launch support package',
+          amount: 1,
+          price: 155000,
+        },
+      ],
+      line_items: [
+        {
+          id: 'line-1',
+          item_id: null,
+          item_name: 'Launch support package',
+          quantity: 1,
+          unit_price: 155000,
+        },
+      ],
+      contact_info: [{ id: 'company-1', name: 'Demo Company' }],
+      created_at: '2026-06-01T00:00:00Z',
+      number_item: 1,
+    });
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-1',
+        subscription_status: 'active',
+        start_date: '2026-06-01',
+        frequency: 1,
+        frequency_time: 'months',
+        currency: 'JPY',
+        line_items: [
+          {
+            item_id: null,
+            item_name: 'Launch support package',
+            quantity: 1,
+            unit_price: 155000,
+          },
+        ],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        cid: 'company-1',
+        company_id: 'company-1',
+        subscription_status: 'active',
+        currency: 'JPY',
+        frequency_time: 'months',
+        start_date: '2026-06-01',
+        frequency: 1,
+        items: [
+          {
+            item_name: 'Launch support package',
+            quantity: 1,
+            unit_price: 155000,
+          },
+        ],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      items: [
+        {
+          id: null,
+          item_id: null,
+          line_item_id: 'line-1',
+          name: 'Launch support package',
+          amount: 1,
+          price: 155000,
+        },
+      ],
+      line_items: [
+        {
+          id: 'line-1',
+          item_id: null,
+          item_name: 'Launch support package',
+          quantity: 1,
+          unit_price: 155000,
+        },
+      ],
+      contact_info: [{ id: 'company-1', name: 'Demo Company' }],
+      created_at: '2026-06-01T00:00:00Z',
+      number_item: 1,
+    });
+  });
+
+  it('rejects create_subscription without any customer identifier', async () => {
+    const create = jest.fn();
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_status: 'active',
+        items: [{ name: 'Plan', amount: 1, price: 100 }],
+      },
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: '`contact_id`, `company_id`, or `customer_id` is required.',
+      },
+    ]);
+  });
+
   it('updates a subscription with lookup_external_id', async () => {
     const update = jest.fn().mockResolvedValue({
       id: 'sub-1',
