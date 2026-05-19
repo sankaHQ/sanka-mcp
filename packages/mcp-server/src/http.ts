@@ -35,6 +35,7 @@ import { executeHandler, initMcpServer, newMcpServer, selectTools } from './serv
 import { resolveMissingScopes } from './tool-auth';
 import { buildToolAccessRequirements } from './tool-scope-requirements';
 import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
+import { readBinaryDownloadFile } from './binary-download-store';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
 const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
@@ -48,6 +49,10 @@ const OAUTH_REVOKE_PATH = '/api/v1/oauth/revoke';
 const OAUTH_REGISTER_PATH = '/api/v1/oauth/register';
 const DEFAULT_SCOPES_SUPPORTED = ['mcp:access'];
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
+const BINARY_DOWNLOAD_PATHS = [
+  '/downloads/:downloadToken',
+  `${DEFAULT_STREAMABLE_PATH}/downloads/:downloadToken`,
+];
 const AUTHORIZATION_METADATA_PATHS = [
   DEFAULT_AUTHORIZATION_METADATA_PATH,
   `${DEFAULT_AUTHORIZATION_METADATA_PATH}${DEFAULT_STREAMABLE_PATH}`,
@@ -224,6 +229,7 @@ const createRequestTransport = async ({
     mcpClientInfo,
     toolProfile,
     auth: resolvedAuth,
+    downloadBaseUrl: downloadBaseUrlFromResourceUrl(resourceUrl),
   });
   await server.connect(transport as any);
 
@@ -480,6 +486,20 @@ const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
     resourceUrl: mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString(),
     resourceMetadataUrl: new URL(DEFAULT_METADATA_PATH, requestOrigin(req)).toString(),
   };
+};
+
+const downloadBaseUrlFromResourceUrl = (resourceUrl: string): string => new URL('/', resourceUrl).origin;
+
+const safeHeaderValue = (value: string | undefined): string | undefined => {
+  if (!value || /[\r\n]/.test(value)) {
+    return undefined;
+  }
+  return value;
+};
+
+const attachmentDispositionForFilename = (filename: string): string => {
+  const asciiFilename = filename.replace(/[\r\n"]/g, '_') || 'download';
+  return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 };
 
 const upstreamAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
@@ -765,6 +785,29 @@ export const streamableHTTPApp = ({
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
   });
+  const sendBinaryDownload = async (req: express.Request, res: express.Response) => {
+    const downloadToken = req.params['downloadToken'];
+    if (!downloadToken) {
+      res.status(400).json({ error: 'missing_download_token' });
+      return;
+    }
+
+    const file = readBinaryDownloadFile({ downloadToken });
+    if (!file.ok) {
+      res.status(404).json({ error: file.reason, error_description: file.message });
+      return;
+    }
+
+    const contentDisposition =
+      safeHeaderValue(file.contentDisposition) ?? attachmentDispositionForFilename(file.filename);
+    const data = Buffer.from(file.contentBase64, 'base64');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Content-Disposition', contentDisposition);
+    res.setHeader('Content-Length', String(file.byteLength));
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('X-Sanka-Download-Expires-At', file.expiresAt);
+    res.status(200).send(data);
+  };
   const sendAuthorizationServerMetadata = async (_req: express.Request, res: express.Response) => {
     const authorizationServerUrl = upstreamAuthorizationServerUrl(mcpOptions);
     res.status(200).json(
@@ -795,6 +838,9 @@ export const streamableHTTPApp = ({
   }
   for (const routePath of PROTECTED_RESOURCE_METADATA_PATHS) {
     app.get(routePath, sendProtectedResourceMetadata);
+  }
+  for (const routePath of BINARY_DOWNLOAD_PATHS) {
+    app.get(routePath, sendBinaryDownload);
   }
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {

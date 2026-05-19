@@ -2746,6 +2746,12 @@ describe('ChatGPT CRM tools', () => {
       permission: undefined,
       results: [{ id: 'order-1', order_id: 501 }],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 8 orders. Examples: Order No. 501.',
+      },
+    ]);
   });
 
   it('gets one order when authentication is present', async () => {
@@ -2786,6 +2792,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-09T09:00:00Z',
       updated_at: '2026-04-09T10:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded order successfully: Order No. 501.',
+      },
+    ]);
   });
 
   it('creates an order', async () => {
@@ -3033,6 +3045,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'purchase-order-901.pdf',
       byte_length: pdfBytes.byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
@@ -3413,6 +3428,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded estimate successfully: Estimate No. 1.',
+      },
+    ]);
   });
 
   it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
@@ -3458,6 +3479,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: '見積書.pdf',
       byte_length: pdfBytes.byteLength,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
     });
@@ -3628,6 +3652,12 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', total_price: 200 },
       ],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 3 invoices. Examples: Invoice No. 1, Invoice No. 2.',
+      },
+    ]);
   });
 
   it('lists overdue invoices with a local result limit', async () => {
@@ -3669,6 +3699,12 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', outstanding_balance: 80, days_overdue: 3 },
       ],
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Found 3 overdue invoices. Examples: Invoice No. 1, Invoice No. 2.',
+      },
+    ]);
   });
 
   it('gets one invoice when authentication is present', async () => {
@@ -3708,6 +3744,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded invoice successfully: Invoice No. 1.',
+      },
+    ]);
   });
 
   it('downloads invoice PDFs with structured base64 content', async () => {
@@ -3755,6 +3797,9 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice 5.pdf',
       byte_length: pdfBytes.length,
+      completion_status: 'inline_content',
+      download_complete: true,
+      file_assembly_required: false,
       content_base64_available: true,
       content_base64: contentBase64,
     });
@@ -3791,6 +3836,7 @@ describe('ChatGPT CRM tools', () => {
       auth: oauthContext(),
       toolProfile: 'full' as const,
       mcpSessionId: 'session-large-pdf',
+      downloadBaseUrl: 'https://mcp.example.test',
     };
 
     const result = await crmDownloadInvoicePDFTool.handler({
@@ -3806,14 +3852,34 @@ describe('ChatGPT CRM tools', () => {
       mime_type: 'application/pdf',
       filename: 'invoice-7.pdf',
       byte_length: pdfBytes.length,
+      completion_status: 'download_url_ready',
+      download_complete: false,
+      file_assembly_required: false,
       content_base64_available: false,
       content_base64_length: contentBase64.length,
+      download_transfer_mode: 'url',
+      fallback_next_tool: 'read_binary_download_chunk',
       chunk_size: 24000,
       total_chunks: Math.ceil(contentBase64.length / 24000),
       next_offset: 0,
     });
+    expect(typeof structured['next_action']).toBe('string');
+    expect(structured['next_action']).toContain('attach or save');
     expect(structured).not.toHaveProperty('content_base64');
     expect(typeof structured['download_token']).toBe('string');
+    expect(structured['download_url']).toBe(
+      `https://mcp.example.test/downloads/${structured['download_token']}`,
+    );
+    expect(structured['download_url_expires_at']).toBe(structured['expires_at']);
+    expect(structured).not.toHaveProperty('required_next_tool');
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('Download it directly from download_url'),
+    });
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('before telling the user the PDF download is complete'),
+    });
     expect(JSON.stringify(structured).length).toBeLessThan(48000);
 
     const downloadToken = structured['download_token'] as string;
@@ -3829,9 +3895,18 @@ describe('ChatGPT CRM tools', () => {
       const chunk = chunkResult.structuredContent as Record<string, unknown>;
       expect(JSON.stringify(chunk).length).toBeLessThan(48000);
       expect(chunk['content_base64_offset']).toBe(offset);
+      expect(chunk['file_assembly_required']).toBe(true);
+      expect(typeof chunk['next_action']).toBe('string');
       stitchedBase64 += chunk['content_base64'] as string;
       offset = chunk['next_offset'] as number;
       done = chunk['done'] as boolean;
+      expect(chunk['completion_status']).toBe(done ? 'chunks_read' : 'requires_next_chunk');
+      if (done) {
+        expect(chunk).not.toHaveProperty('required_next_tool');
+        expect(chunk['next_action']).toContain('attach or save');
+      } else {
+        expect(chunk['required_next_tool']).toBe('read_binary_download_chunk');
+      }
     }
 
     expect(done).toBe(true);
@@ -4060,6 +4135,12 @@ describe('ChatGPT CRM tools', () => {
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded payment successfully: Payment No. 301.',
+      },
+    ]);
   });
 
   it('creates a payment', async () => {
@@ -6258,6 +6339,140 @@ describe('ChatGPT CRM tools', () => {
       {
         type: 'text',
         text: 'Deleted company price-table override for item item-1.',
+      },
+    ]);
+  });
+
+  it('creates a subscription for a company customer with copied invoice line items', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      items: [
+        {
+          id: null,
+          item_id: null,
+          line_item_id: 'line-1',
+          name: 'Launch support package',
+          amount: 1,
+          price: 155000,
+        },
+      ],
+      line_items: [
+        {
+          id: 'line-1',
+          item_id: null,
+          item_name: 'Launch support package',
+          quantity: 1,
+          unit_price: 155000,
+        },
+      ],
+      contact_info: [{ id: 'company-1', name: 'Demo Company' }],
+      created_at: '2026-06-01T00:00:00Z',
+      number_item: 1,
+    });
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-1',
+        subscription_status: 'active',
+        start_date: '2026-06-01',
+        frequency: 1,
+        frequency_time: 'months',
+        currency: 'JPY',
+        line_items: [
+          {
+            item_id: null,
+            item_name: 'Launch support package',
+            quantity: 1,
+            unit_price: 155000,
+          },
+        ],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        cid: 'company-1',
+        company_id: 'company-1',
+        subscription_status: 'active',
+        currency: 'JPY',
+        frequency_time: 'months',
+        start_date: '2026-06-01',
+        frequency: 1,
+        items: [
+          {
+            item_name: 'Launch support package',
+            quantity: 1,
+            unit_price: 155000,
+          },
+        ],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'sub-1',
+      status: 'active',
+      subscription_status: 'active',
+      items: [
+        {
+          id: null,
+          item_id: null,
+          line_item_id: 'line-1',
+          name: 'Launch support package',
+          amount: 1,
+          price: 155000,
+        },
+      ],
+      line_items: [
+        {
+          id: 'line-1',
+          item_id: null,
+          item_name: 'Launch support package',
+          quantity: 1,
+          unit_price: 155000,
+        },
+      ],
+      contact_info: [{ id: 'company-1', name: 'Demo Company' }],
+      created_at: '2026-06-01T00:00:00Z',
+      number_item: 1,
+    });
+  });
+
+  it('rejects create_subscription without any customer identifier', async () => {
+    const create = jest.fn();
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_status: 'active',
+        items: [{ name: 'Plan', amount: 1, price: 100 }],
+      },
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: '`contact_id`, `company_id`, or `customer_id` is required.',
       },
     ]);
   });

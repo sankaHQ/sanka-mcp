@@ -1,5 +1,6 @@
 import { asErrorResult, McpTool, ToolCallResult } from './types';
 import { requireAuthentication } from './tool-auth';
+import { buildSafeRecordLabel } from './record-labels';
 
 const SOURCE_RECORD_SCHEMA = {
   type: 'object' as const,
@@ -366,13 +367,71 @@ const readObject = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>;
 };
 
+const readObjectArray = (value: unknown): Array<Record<string, unknown>> => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => readObject(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+};
+
+const invoiceDisplayLabel = (invoice: Record<string, unknown>): string => {
+  return buildSafeRecordLabel({ entity: 'invoice', payload: invoice }) ?? 'invoice';
+};
+
+const invoiceReferenceDetails = (invoice: Record<string, unknown>): string => {
+  const details = [
+    readString(invoice['invoice_id']) ? `invoice_id=${readString(invoice['invoice_id'])}` : undefined,
+    readString(invoice['status']) ? `status=${readString(invoice['status'])}` : undefined,
+  ].filter((entry): entry is string => Boolean(entry));
+
+  return details.length > 0 ? ` (${details.join(', ')})` : '';
+};
+
+const buildDealToInvoiceDuplicateSummary = (
+  data: Record<string, unknown> | undefined,
+): string | undefined => {
+  if (!data || readString(data['workflow_type']) !== 'deal_to_invoice') {
+    return undefined;
+  }
+
+  const duplicateCheck = readObject(data['duplicate_check']);
+  const existingInvoices = readObjectArray(duplicateCheck?.['existing_invoices']);
+  if (existingInvoices.length === 0) {
+    return undefined;
+  }
+
+  const wouldCreateInvoice = duplicateCheck?.['would_create_invoice'] === true;
+  const invoiceNoun = existingInvoices.length === 1 ? 'invoice' : 'invoices';
+  const header =
+    wouldCreateInvoice ?
+      `Previewed deal_to_invoice workflow. Existing Sanka ${invoiceNoun} found; this preview still allows creating another invoice because an explicit duplicate override is enabled.`
+    : `Previewed deal_to_invoice workflow. Existing Sanka ${invoiceNoun} found; no new invoice will be created unless the user explicitly requests another invoice.`;
+  const invoiceLines = existingInvoices
+    .slice(0, 3)
+    .map(
+      (invoice) => `Existing invoice: ${invoiceDisplayLabel(invoice)}${invoiceReferenceDetails(invoice)}.`,
+    );
+  const remainingCount = existingInvoices.length - invoiceLines.length;
+
+  return [
+    header,
+    ...invoiceLines,
+    ...(remainingCount > 0 ? [`${remainingCount} more existing invoice(s) omitted from this summary.`] : []),
+  ].join('\n');
+};
+
 const isSalesforceQuoteReadinessPreview = (workflowType: string): boolean =>
   workflowType === 'quote_readiness';
 
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']);
   const message = readString(payload['message']);
-  const text = message ? `${fallbackSummary}: ${message}` : fallbackSummary;
+  const text =
+    buildDealToInvoiceDuplicateSummary(data) ??
+    (message ? `${fallbackSummary}: ${message}` : fallbackSummary);
   return {
     content: [{ type: 'text', text }],
     structuredContent: {

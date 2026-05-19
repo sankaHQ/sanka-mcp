@@ -227,6 +227,47 @@ describe('workflow run MCP tools', () => {
     });
   });
 
+  it('summarizes deal_to_invoice duplicate invoices with Markdown-safe labels', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'deal_to_invoice',
+        source_status: 'synced',
+        duplicate_check: {
+          existing_invoices: [
+            {
+              invoice_id: '3802fa87-d729-4eb2-9cf8-be13e040b965',
+              invoice_number: '7',
+              status: 'draft',
+            },
+          ],
+          would_create_invoice: false,
+        },
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'deal_to_invoice',
+        source_record: {
+          source_system: 'hubspot',
+          object_type: 'deal',
+          external_id: '46558049080',
+        },
+      },
+    });
+
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Invoice No. 7');
+    expect(text).toContain('invoice_id=3802fa87-d729-4eb2-9cf8-be13e040b965');
+    expect(text).not.toContain('#7');
+    expect(text).not.toMatch(/failed|500/i);
+  });
+
   it('starts deal_to_invoice workflows with idempotency and explicit duplicate override', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
