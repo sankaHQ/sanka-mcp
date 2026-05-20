@@ -1,0 +1,21 @@
+app = "sanka-browser-use-worker"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "packages/mcp-server/Dockerfile.browser-use-worker"
+
+[env]
+  PORT = "8787"
+  SANKA_BROWSER_USE_PROFILE_ROOT = "/data/browser-use/profiles"
+  SANKA_BROWSER_USE_ARTIFACT_DIR = "/data/browser-use/artifacts"
+  SANKA_BROWSER_USE_REQUEST_TIMEOUT_MS = "180000"
+  SANKA_BROWSER_USE_HEADED = "false"
+
+[mounts]
+  source = "browser_use_data"
+  destination = "/data"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "2gb"

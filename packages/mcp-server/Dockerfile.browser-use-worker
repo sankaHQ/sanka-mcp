@@ -1,0 +1,96 @@
+# Dockerfile for the Sanka browser_use worker.
+#
+# This image intentionally runs only the registered browser worker, not the MCP
+# HTTP server. It includes agent-browser plus Chrome for Testing so the worker
+# can perform UI-only workflows such as HubSpot company avatar updates.
+
+FROM node:24-bookworm-slim AS builder
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends bash ca-certificates openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY . .
+
+ENV CI=true
+RUN pnpm install --frozen-lockfile && pnpm build
+
+FROM node:24-bookworm-slim
+
+ENV NODE_ENV=production
+ENV PORT=8787
+ENV SANKA_BROWSER_USE_PROFILE_ROOT=/data/browser-use/profiles
+ENV SANKA_BROWSER_USE_ARTIFACT_DIR=/data/browser-use/artifacts
+ENV SANKA_BROWSER_USE_REQUEST_TIMEOUT_MS=180000
+ENV SANKA_BROWSER_USE_HEADED=false
+ENV XDG_CACHE_HOME=/home/nodejs/.cache
+ENV HOME=/home/nodejs
+
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs -d /home/nodejs -m nodejs
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      curl \
+      fonts-freefont-ttf \
+      fonts-noto-cjk \
+      fonts-noto-color-emoji \
+      libasound2 \
+      libatk-bridge2.0-0 \
+      libatk1.0-0 \
+      libatspi2.0-0 \
+      libcairo-gobject2 \
+      libcairo2 \
+      libcups2 \
+      libdbus-1-3 \
+      libdrm2 \
+      libfontconfig1 \
+      libfreetype6 \
+      libgbm1 \
+      libgdk-pixbuf-2.0-0 \
+      libglib2.0-0 \
+      libgtk-3-0 \
+      libnspr4 \
+      libnss3 \
+      libpango-1.0-0 \
+      libpangocairo-1.0-0 \
+      libx11-6 \
+      libx11-xcb1 \
+      libxcb-shm0 \
+      libxcb1 \
+      libxcomposite1 \
+      libxcursor1 \
+      libxdamage1 \
+      libxext6 \
+      libxfixes3 \
+      libxi6 \
+      libxkbcommon0 \
+      libxrandr2 \
+      libxrender1 \
+      libxshmfence1 \
+      openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g agent-browser@0.27.0
+
+# Install Chrome for Testing. Linux system dependencies are installed above so
+# this does not depend on agent-browser's sudo-based dependency installer.
+RUN mkdir -p "$XDG_CACHE_HOME" && \
+    agent-browser install && \
+    chown -R nodejs:nodejs /home/nodejs
+
+WORKDIR /app
+COPY --from=builder /build .
+COPY --from=builder /build/dist ./node_modules/sanka-sdk
+
+RUN mkdir -p "$SANKA_BROWSER_USE_PROFILE_ROOT" "$SANKA_BROWSER_USE_ARTIFACT_DIR" && \
+    chmod +x /app/packages/mcp-server/docker-entrypoint.browser-use-worker.sh && \
+    chown -R nodejs:nodejs /app /home/nodejs
+
+EXPOSE 8787
+
+ENTRYPOINT ["/app/packages/mcp-server/docker-entrypoint.browser-use-worker.sh"]

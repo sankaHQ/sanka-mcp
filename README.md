@@ -131,6 +131,8 @@ export SANKA_BROWSER_USE_WORKER_TOKEN="local-worker-token"
 
 For production, deploy the worker as a separate service, for example on Fly, with a persistent volume mounted at `SANKA_BROWSER_USE_PROFILE_ROOT` so HubSpot login cookies survive restarts. Keep the worker private or token-protected and only expose `/run` to the MCP service.
 
+See [docs/browser-use-worker-fly.md](docs/browser-use-worker-fly.md) for the Fly worker app, persistent volume, secret wiring, and profile seeding runbook.
+
 ## Deployment
 
 This repo deploys to Fly from `packages/mcp-server/Dockerfile`.
