@@ -599,7 +599,17 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   custom_fields: {
     type: 'object',
     description:
-      'Custom field values. For integration mutations these are forwarded as provider property names.',
+      'Sanka custom field values keyed by property id or internal_name. Company billing_cycle and payment_cycle are standard company fields, so prefer the top-level billing_cycle/payment_cycle inputs instead of custom_fields. For integration mutations custom_fields are forwarded as provider property names.',
+  },
+  billing_cycle: {
+    type: 'string',
+    description:
+      'Sanka company billing cycle standard field. Use "end" for month-end closing or "1" through "31" for a specific monthly closing day.',
+  },
+  payment_cycle: {
+    type: 'string',
+    description:
+      'Sanka company payment cycle standard field. Examples: "nmonth_end" for end of next month, "cmonth_end" for end of current month, or "net_30". Ask for clarification if the user only says "月末払い".',
   },
   name: {
     type: 'string',
@@ -1845,7 +1855,8 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   },
   type: {
     type: 'string',
-    description: 'Property type.',
+    description:
+      'Sanka custom property type, for example text, number, date, choice, or tag. Company billing_cycle and payment_cycle are standard company fields and should be set with update_company/create_company top-level inputs, not by creating a custom property.',
   },
   unique: {
     type: 'boolean',
@@ -1858,7 +1869,8 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
   properties: {
     object_name: {
       type: 'string',
-      description: 'Object family to inspect, for example `orders`.',
+      description:
+        'Object family to inspect, for example `orders`, `companies`, `invoices`, or `purchase-orders`.',
     },
     custom_only: {
       type: 'boolean',
@@ -15843,7 +15855,7 @@ export const crmListPropertiesTool: McpTool = {
     name: 'list_properties',
     title: 'List properties',
     description:
-      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema.',
+      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema. Company billing_cycle and payment_cycle are standard company fields, not a custom-property discovery flow.',
     inputSchema: PROPERTY_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15961,7 +15973,8 @@ export const crmCreatePropertyTool: McpTool = {
   tool: {
     name: 'create_property',
     title: 'Create property',
-    description: 'Create a custom property for a Sanka object family such as orders, companies, or deals.',
+    description:
+      'Create a custom property for a Sanka object family such as orders, companies, or deals. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

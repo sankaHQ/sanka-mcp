@@ -161,6 +161,28 @@ describe('profile-aware tool selection', () => {
     }
   });
 
+  it('keeps cleanup tools available for workflow-created records', () => {
+    const workflowCleanupTools = [
+      'delete_estimate',
+      'delete_order',
+      'delete_invoice',
+      'delete_subscription',
+      'delete_purchase_order',
+      'delete_task',
+    ];
+
+    for (const profile of ['full', 'hosted'] as const) {
+      const selectedTools = selectTools(undefined, profile);
+      const toolsByName = new Map(selectedTools.map((selected) => [selected.tool.name, selected.tool]));
+
+      for (const toolName of workflowCleanupTools) {
+        const tool = toolsByName.get(toolName);
+        expect(tool).toBeDefined();
+        expect(tool?.annotations?.destructiveHint).toBe(true);
+      }
+    }
+  });
+
   it('hides generic docs/code tools from the hosted profile', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
 
@@ -373,6 +395,11 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
     expect(instructions).toContain('Do not render Sanka record numbers as Markdown issue references');
+    expect(instructions).toContain('売上請求番号 7');
+    expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
+    expect(instructions).toContain('status=draft should be shown as "下書き"');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
@@ -464,6 +491,11 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
     expect(instructions).toContain('mcp__sanka_key__*');
+    expect(instructions).toContain('売上請求番号 7');
+    expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
+    expect(instructions).toContain('status=draft should be shown as "下書き"');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });
 

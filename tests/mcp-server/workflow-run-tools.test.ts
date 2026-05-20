@@ -284,6 +284,18 @@ describe('workflow run MCP tools', () => {
       status: 'completed',
       result: { invoice: { id: 'invoice-1' } },
     });
+    expect(result.structuredContent?.['display_guidance']).toMatchObject({
+      object_labels_ja: {
+        order: '受注',
+        invoice: '売上請求',
+      },
+      status_labels_ja: {
+        draft: '下書き',
+      },
+    });
+    expect((result.structuredContent?.['display_guidance'] as any).record_number_format).toContain(
+      '売上請求番号 9',
+    );
   });
 
   it('previews order_to_subscription workflows through the public endpoint', async () => {
