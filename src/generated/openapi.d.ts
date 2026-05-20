@@ -7071,6 +7071,10 @@ export interface components {
       status?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Billing Cycle */
+      billing_cycle?: string | null;
+      /** Payment Cycle */
+      payment_cycle?: string | null;
       /** Custom Fields */
       custom_fields?: {
         [key: string]: unknown;
@@ -7174,6 +7178,10 @@ export interface components {
       status?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Billing Cycle */
+      billing_cycle?: string | null;
+      /** Payment Cycle */
+      payment_cycle?: string | null;
       /** Custom Fields */
       custom_fields?: {
         [key: string]: unknown;
@@ -10605,6 +10613,14 @@ export interface components {
       url?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Billing Cycle */
+      billing_cycle?: string | null;
+      /** Billing Cycle Display */
+      billing_cycle_display?: string | null;
+      /** Payment Cycle */
+      payment_cycle?: string | null;
+      /** Payment Cycle Display */
+      payment_cycle_display?: string | null;
       /** Custom Fields */
       custom_fields?: {
         [key: string]: unknown;
