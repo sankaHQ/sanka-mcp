@@ -599,7 +599,7 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   custom_fields: {
     type: 'object',
     description:
-      'Custom field values. For integration mutations these are forwarded as provider property names.',
+      'Sanka custom field values keyed by property id or internal_name. For a company payment-cycle field, first ensure a companies property with type="payment_cycle", then pass values such as {"payment_cycle":"nmonth_end"}. For integration mutations these are forwarded as provider property names.',
   },
   name: {
     type: 'string',
@@ -1845,7 +1845,8 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   },
   type: {
     type: 'string',
-    description: 'Property type.',
+    description:
+      'Sanka custom property type, for example text, number, date, choice, tag, billing_cycle, or payment_cycle. Use type="payment_cycle" for company/order payment-cycle fields.',
   },
   unique: {
     type: 'boolean',
@@ -1858,7 +1859,8 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
   properties: {
     object_name: {
       type: 'string',
-      description: 'Object family to inspect, for example `orders`.',
+      description:
+        'Object family to inspect, for example `orders`, `companies`, `invoices`, or `purchase-orders`.',
     },
     custom_only: {
       type: 'boolean',
@@ -15843,7 +15845,7 @@ export const crmListPropertiesTool: McpTool = {
     name: 'list_properties',
     title: 'List properties',
     description:
-      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema.',
+      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema. For company payment cycle, call with object_name="companies" and custom_only=true to find an existing type="payment_cycle" property.',
     inputSchema: PROPERTY_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15961,7 +15963,8 @@ export const crmCreatePropertyTool: McpTool = {
   tool: {
     name: 'create_property',
     title: 'Create property',
-    description: 'Create a custom property for a Sanka object family such as orders, companies, or deals.',
+    description:
+      'Create a custom property for a Sanka object family such as orders, companies, or deals. For company payment cycle, use object_name="companies", type="payment_cycle", and an internal_name such as "payment_cycle".',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

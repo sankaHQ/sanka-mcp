@@ -170,6 +170,21 @@ describe('ChatGPT CRM tools', () => {
     resetBinaryDownloadStoreForTests();
   });
 
+  it('documents the Sanka company payment-cycle custom property workflow', () => {
+    const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
+    const listPropertiesSchema = crmListPropertiesTool.tool.inputSchema as any;
+    const updateCompanySchema = crmUpdateCompanyTool.tool.inputSchema as any;
+
+    expect(createPropertySchema.properties.type.description).toContain('payment_cycle');
+    expect(createPropertySchema.properties.type.description).toContain('company/order payment-cycle');
+    expect(crmCreatePropertyTool.tool.description).toContain('type="payment_cycle"');
+    expect(listPropertiesSchema.properties.object_name.description).toContain('companies');
+    expect(crmListPropertiesTool.tool.description).toContain('type="payment_cycle"');
+    expect(updateCompanySchema.properties.custom_fields.description).toContain(
+      '{"payment_cycle":"nmonth_end"}',
+    );
+  });
+
   it('advertises auth schemes on CRM tools', () => {
     expect(crmConnectSankaTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);
     expect(crmAuthStatusTool.tool.securitySchemes).toEqual([{ type: 'noauth' }]);

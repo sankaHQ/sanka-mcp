@@ -73,6 +73,32 @@ const WORKFLOW_RUN_OUTPUT_SCHEMA = {
     data: { type: 'object' },
     message: { type: 'string' },
     ctx_id: { type: 'string' },
+    display_guidance: { type: 'object' },
+  },
+};
+
+const WORKFLOW_DISPLAY_GUIDANCE = {
+  record_number_format:
+    'Do not write Sanka record numbers as Markdown issue references like "#9". Use "Order No. 1" / "Invoice No. 9" in English or "受注番号 1" / "売上請求番号 9" in Japanese.',
+  object_labels_ja: {
+    order: '受注',
+    invoice: '売上請求',
+    purchase_order: '発注',
+    bill: '支払請求',
+    payment: '入金',
+    subscription: 'サブスクリプション',
+  },
+  status_labels_ja: {
+    draft: '下書き',
+    sent: '送信済み',
+    approved: '承認済み',
+    paid: '支払済み',
+    completed: '完了',
+    waiting_for_approval: '承認待ち',
+    pending_approval: '承認待ち',
+    cancelled: 'キャンセル済み',
+    canceled: 'キャンセル済み',
+    void: '無効',
   },
 };
 
@@ -445,6 +471,7 @@ const workflowResult = (payload: Record<string, unknown>, fallbackSummary: strin
     structuredContent: {
       ...payload,
       ...(data ? { data } : undefined),
+      display_guidance: WORKFLOW_DISPLAY_GUIDANCE,
     },
   };
 };
