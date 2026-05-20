@@ -149,10 +149,37 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `create_calendar_attendance`: book a calendar attendance
 - `cancel_calendar_attendance`: cancel a calendar attendance
 - `reschedule_calendar_attendance`: reschedule a calendar attendance
+- `browser_use`: run a governed, allowlisted browser workflow through a configured worker
 
 Local stdio development keeps the broader `full` profile available, including:
 
 - `search_docs`: local in-memory docs search built from the repo’s embedded SDK metadata
 - `execute`: local code execution against the internal Sanka TypeScript client
+
+## Browser worker
+
+`browser_use` does not run browser automation inside the MCP request process. Configure a separate worker and point the MCP server to it:
+
+```sh
+export SANKA_BROWSER_USE_WORKER_TOKEN="shared-secret"
+pnpm --dir packages/mcp-server browser-use-worker
+```
+
+In the MCP server process:
+
+```sh
+export SANKA_BROWSER_USE_WORKER_URL="http://127.0.0.1:8787/run"
+export SANKA_BROWSER_USE_WORKER_TOKEN="shared-secret"
+```
+
+Worker-side settings:
+
+- `SANKA_BROWSER_USE_WORKER_TOKEN`: optional bearer token for `/run`
+- `SANKA_BROWSER_USE_PROFILE_ROOT`: persistent browser profile directory
+- `SANKA_BROWSER_USE_ARTIFACT_DIR`: screenshots and downloaded/uploaded files
+- `SANKA_BROWSER_USE_HEADED`: set to `true` for local login recovery
+- `AGENT_BROWSER_BIN`: path to the `agent-browser` executable
+
+The worker currently implements `demo.hubspot.company_avatar` with the `agent_browser` driver.
 
 No Stainless-hosted runtime services are required.

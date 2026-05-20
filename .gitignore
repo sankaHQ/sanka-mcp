@@ -11,3 +11,7 @@ dist-deno
 .eslintcache
 dist-bundle
 *.mcpb
+.browser-use-artifacts/
+.browser-use-profiles/
+packages/*/.browser-use-artifacts/
+packages/*/.browser-use-profiles/
