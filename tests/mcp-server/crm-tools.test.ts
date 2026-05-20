@@ -3,6 +3,7 @@ import {
   crmArchivePrivateMessageThreadTool,
   crmArchiveCustomObjectRecordTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
   crmAuthStatusTool,
@@ -15,6 +16,8 @@ import {
   crmCreateContactTool,
   crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
+  crmCreateAbsenceTool,
+  crmCreateAttendanceRecordTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
@@ -36,6 +39,8 @@ import {
   crmDeleteCompanyTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
+  crmDeleteAbsenceTool,
+  crmDeleteAttendanceRecordTool,
   crmDeleteDisbursementTool,
   crmDeleteEstimateTool,
   crmDeleteExpenseTool,
@@ -59,6 +64,8 @@ import {
   crmCurrentWorkspaceTool,
   crmGetBillTool,
   crmGetCalendarBootstrapTool,
+  crmGetAbsenceTool,
+  crmGetAttendanceRecordTool,
   crmGetCompanyTool,
   crmGetCompanyPriceTableTool,
   crmGetContactTool,
@@ -74,6 +81,7 @@ import {
   crmGetLocationTool,
   crmGetOrderTool,
   crmGetPaymentTool,
+  crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
   crmGetPropertyTool,
   crmGetPurchaseOrderTool,
@@ -82,6 +90,8 @@ import {
   crmGetTaskTool,
   crmGetTicketTool,
   crmListBillsTool,
+  crmListAbsencesTool,
+  crmListAttendanceRecordsTool,
   crmListCompaniesTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
@@ -102,6 +112,8 @@ import {
   crmListOrdersTool,
   crmListOverdueInvoicesTool,
   crmListPaymentsTool,
+  crmListPayrollProfilesTool,
+  crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
@@ -121,6 +133,8 @@ import {
   crmSyncPrivateMessagesTool,
   crmSwitchWorkspaceTool,
   crmUpdateBillTool,
+  crmUpdateAbsenceTool,
+  crmUpdateAttendanceRecordTool,
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
@@ -145,6 +159,8 @@ import {
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
   crmUploadExpenseAttachmentTool,
+  crmUpsertPayrollProfileTool,
+  crmCalculatePayrollRunTool,
 } from '../../packages/mcp-server/src/crm-tools';
 import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
 
@@ -307,6 +323,22 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListAbsencesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListAttendanceRecordsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPayrollProfilesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpsertPayrollProfileTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPayrollRunsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetPayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCalculatePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmApprovePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentiveCompanyOptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -6956,6 +6988,99 @@ describe('ChatGPT CRM tools', () => {
       },
       message: 'Scoring completed.',
       ctx_id: 'ctx-score-1',
+    });
+  });
+
+  it('calls dedicated HR and payroll public endpoints', async () => {
+    const get = jest.fn().mockResolvedValueOnce({
+      data: [
+        {
+          id: 'att-1',
+          track_id: 1,
+          name: 'Daily attendance',
+          status: 'stop',
+        },
+      ],
+      page: 1,
+      total: 1,
+      count: 1,
+      message: 'OK',
+    });
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          id: 'absence-1',
+          absence_id: 1,
+          status: 'submitted',
+        },
+        status: 'created',
+        message: 'created',
+      })
+      .mockResolvedValueOnce({
+        data: {
+          run: {
+            id: 'run-1',
+            period: '2026-04',
+            status: 'calculated',
+          },
+          results: [],
+        },
+        message: 'OK',
+      });
+
+    const reqContext = {
+      client: { get, post } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const absenceResult = await crmCreateAbsenceTool.handler({
+      reqContext,
+      args: {
+        worker_id: 'worker-1',
+        start_date: '2026-05-22',
+        end_date: '2026-05-22',
+        absence_type: 'pto',
+      },
+    });
+    expect(post).toHaveBeenNthCalledWith(1, '/v1/public/absences', {
+      body: {
+        worker_id: 'worker-1',
+        start_date: '2026-05-22',
+        end_date: '2026-05-22',
+        absence_type: 'pto',
+      },
+    });
+    expect(absenceResult.structuredContent).toMatchObject({
+      data: { id: 'absence-1', status: 'submitted' },
+    });
+
+    const attendanceResult = await crmListAttendanceRecordsTool.handler({
+      reqContext,
+      args: { limit: 5, search: 'Daily' },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/attendance-records', {
+      query: { limit: 5, page: 1, search: 'Daily' },
+    });
+    expect(attendanceResult.structuredContent?.['results']).toEqual([
+      {
+        id: 'att-1',
+        track_id: 1,
+        name: 'Daily attendance',
+        status: 'stop',
+      },
+    ]);
+
+    const payrollResult = await crmCalculatePayrollRunTool.handler({
+      reqContext,
+      args: { period: '2026-04', pay_date: '2026-04-30' },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/public/payroll/runs/calculate', {
+      body: { period: '2026-04', pay_date: '2026-04-30' },
+    });
+    expect(payrollResult.structuredContent).toMatchObject({
+      data: { run: { id: 'run-1', period: '2026-04' } },
     });
   });
 });

@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+  '/v1/public/files/export-email-download': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Export Email Download */
+    get: operations['api_routers_v1_files_api_export_email_download'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/enrich': {
     parameters: {
       query?: never;
@@ -55,6 +72,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/orders/handoffs/hubspot/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot deal to Sanka order handoff */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_hubspot_order_handoff'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/orders/handoffs/hubspot': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Sanka order handoff from HubSpot deal */
+    post: operations['api_routers_v1_workflow_runs_business_api_start_public_hubspot_order_handoff'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/orders': {
     parameters: {
       query?: never;
@@ -90,6 +141,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/orders/{order_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Order PDF */
+    get: operations['api_routers_v1_orders_public_api_public_download_order_pdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/orders/{order_id}/': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Order */
+    get: operations['public_get_order_trailing_slash'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/orders/{order_id}': {
     parameters: {
       query?: never;
@@ -109,6 +194,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/logs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Logs */
+    get: operations['api_routers_v1_activity_logs_public_api_list_public_activity_logs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/items': {
     parameters: {
       query?: never;
@@ -121,6 +223,23 @@ export interface paths {
     put?: never;
     /** Create Item */
     post: operations['api_routers_v1_items_public_api_create_public_item'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/items/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Items */
+    post: operations['api_routers_v1_items_public_api_bulk_upsert_public_items'];
     delete?: never;
     options?: never;
     head?: never;
@@ -158,6 +277,23 @@ export interface paths {
     put?: never;
     /** Create Contact */
     post: operations['api_routers_v1_contacts_public_api_create_public_contact'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/contacts/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Contacts */
+    post: operations['api_routers_v1_contacts_public_api_bulk_upsert_public_contacts'];
     delete?: never;
     options?: never;
     head?: never;
@@ -303,6 +439,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/companies/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Companies */
+    post: operations['api_routers_v1_companies_public_api_bulk_upsert_public_companies'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/companies/{company_id}': {
     parameters: {
       query?: never;
@@ -320,6 +473,74 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  '/v1/public/companies/{company_id}/price-table': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Company Price Table */
+    get: operations['api_routers_v1_companies_public_api_get_public_company_price_table'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/companies/{company_id}/price-table/company': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Company Price Table Company Settings */
+    patch: operations['api_routers_v1_companies_public_api_update_public_company_price_table_company'];
+    trace?: never;
+  };
+  '/v1/public/companies/{company_id}/price-table/items/apply-all': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply Company Price Table To All Items */
+    post: operations['api_routers_v1_companies_public_api_apply_public_company_price_table_items'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/companies/{company_id}/price-table/items/{item_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Company Price Table Item Override */
+    patch: operations['api_routers_v1_companies_public_api_update_public_company_price_table_item'];
     trace?: never;
   };
   '/v1/public/deals': {
@@ -521,6 +742,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/estimates/drafts/hubspot/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot deal to Sanka estimate draft */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_hubspot_estimate_draft'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/estimates/drafts/hubspot': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Sanka estimate draft from HubSpot deal */
+    post: operations['api_routers_v1_workflow_runs_business_api_start_public_hubspot_estimate_draft'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/estimates/{estimate_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Estimate PDF */
+    get: operations['api_routers_v1_estimates_public_api_download_public_estimate_pdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/estimates': {
     parameters: {
       query?: never;
@@ -558,6 +830,125 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/invoices/drafts/hubspot/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot deal to Sanka invoice draft */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_hubspot_invoice_draft'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/drafts/hubspot': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Sanka invoice draft from HubSpot deal */
+    post: operations['api_routers_v1_workflow_runs_business_api_start_public_hubspot_invoice_draft'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/exports/freee/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview public Sanka invoice export to freee */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_freee_invoice_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/exports/freee': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Export public Sanka invoice drafts to freee */
+    post: operations['api_routers_v1_workflow_runs_business_api_start_public_freee_invoice_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Invoices */
+    post: operations['api_routers_v1_invoices_public_api_bulk_upsert_public_invoices'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/{invoice_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Invoice PDF */
+    get: operations['api_routers_v1_invoices_public_api_download_public_invoice_pdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/{invoice_id}/email': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Send or Schedule Invoice Email */
+    post: operations['api_routers_v1_invoices_public_api_send_public_invoice_email'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/invoices': {
     parameters: {
       query?: never;
@@ -570,6 +961,23 @@ export interface paths {
     put?: never;
     /** Create Invoice */
     post: operations['api_routers_v1_invoices_public_api_create_public_invoice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/invoices/overdue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Overdue Invoices */
+    get: operations['api_routers_v1_invoices_public_api_list_workspace_overdue_invoices'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -590,6 +998,40 @@ export interface paths {
     post?: never;
     /** Delete Invoice */
     delete: operations['api_routers_v1_invoices_public_api_delete_public_invoice'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payments/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Payments */
+    post: operations['api_routers_v1_payments_public_api_bulk_upsert_public_payments'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payments/{payment_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Payment PDF */
+    get: operations['api_routers_v1_payments_public_api_download_public_payment_pdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -632,6 +1074,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/payments/{payment_id}/allocations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Payment Allocations
+     * @description List invoice allocation rows for a payment. payment_id can be the payment UUID, payment record number, or external_id.
+     */
+    get: operations['api_routers_v1_payments_public_api_list_public_payment_allocations'];
+    /**
+     * Update Payment Allocations
+     * @description Replace invoice allocation rows for a payment. The sum of allocations cannot exceed the payment total, and each invoice allocation plus adjustment cannot exceed that invoice's remaining total. payment_id can be the payment UUID, payment record number, or external_id.
+     */
+    put: operations['api_routers_v1_payments_public_api_update_public_payment_allocations'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/expenses': {
     parameters: {
       query?: never;
@@ -667,6 +1133,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/expenses/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Expenses */
+    post: operations['api_routers_v1_expenses_public_api_bulk_upsert_public_expenses'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/expenses/{expense_id}': {
     parameters: {
       query?: never;
@@ -686,6 +1169,286 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/absences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Absences */
+    get: operations['api_routers_v1_absences_public_api_list_public_absences'];
+    put?: never;
+    /** Create Absence */
+    post: operations['api_routers_v1_absences_public_api_create_public_absence'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/absences/{absence_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Absence */
+    get: operations['api_routers_v1_absences_public_api_get_public_absence'];
+    /** Update Absence */
+    put: operations['api_routers_v1_absences_public_api_update_public_absence'];
+    post?: never;
+    /** Delete Absence */
+    delete: operations['api_routers_v1_absences_public_api_delete_public_absence'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/attendance-records': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Attendance Records */
+    get: operations['api_routers_v1_attendance_public_api_list_public_attendance_records'];
+    put?: never;
+    /** Create Attendance Record */
+    post: operations['api_routers_v1_attendance_public_api_create_public_attendance_record'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/attendance-records/{attendance_record_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Attendance Record */
+    get: operations['api_routers_v1_attendance_public_api_get_public_attendance_record'];
+    /** Update Attendance Record */
+    put: operations['api_routers_v1_attendance_public_api_update_public_attendance_record'];
+    post?: never;
+    /** Delete Attendance Record */
+    delete: operations['api_routers_v1_attendance_public_api_delete_public_attendance_record'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payroll/profiles': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Payroll Profiles */
+    get: operations['api_routers_v1_payroll_public_api_list_public_payroll_profiles'];
+    put?: never;
+    /** Upsert Payroll Profile */
+    post: operations['api_routers_v1_payroll_public_api_upsert_public_payroll_profile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payroll/runs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Payroll Runs */
+    get: operations['api_routers_v1_payroll_public_api_list_public_payroll_runs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payroll/runs/calculate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Calculate Payroll Run */
+    post: operations['api_routers_v1_payroll_public_api_calculate_public_payroll_run'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payroll/runs/{run_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Payroll Run */
+    get: operations['api_routers_v1_payroll_public_api_get_public_payroll_run'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/payroll/runs/{run_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Payroll Run */
+    post: operations['api_routers_v1_payroll_public_api_approve_public_payroll_run'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/commission-calculations/hubspot/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot sales incentive commission calculation */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_hubspot_commission_calculation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Incentives */
+    get: operations['api_routers_v1_incentives_public_api_list_public_incentives'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/plans': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Incentive Plans */
+    get: operations['api_routers_v1_incentives_public_api_list_public_incentive_plans'];
+    put?: never;
+    /** Create Incentive Plan */
+    post: operations['api_routers_v1_incentives_public_api_create_public_incentive_plan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/company-options': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Incentive Company Options */
+    get: operations['api_routers_v1_incentives_public_api_list_public_incentive_company_options'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/calculate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Calculate Incentives */
+    post: operations['api_routers_v1_incentives_public_api_calculate_public_incentives'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/approve-bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Incentives */
+    post: operations['api_routers_v1_incentives_public_api_approve_public_incentives_bulk'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/incentives/{incentive_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Incentive */
+    post: operations['api_routers_v1_incentives_public_api_approve_public_incentive'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/inventories': {
     parameters: {
       query?: never;
@@ -698,6 +1461,23 @@ export interface paths {
     put?: never;
     /** Create Inventory */
     post: operations['api_routers_v1_inventories_public_api_create_public_inventory'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/inventories/bulk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Upsert Inventories */
+    post: operations['api_routers_v1_inventories_public_api_bulk_upsert_public_inventories'];
     delete?: never;
     options?: never;
     head?: never;
@@ -871,6 +1651,131 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/object-schemas': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Object Schemas */
+    get: operations['api_routers_v1_object_schemas_public_api_list_public_object_schemas'];
+    put?: never;
+    /** Mutate Object Schema */
+    post: operations['api_routers_v1_object_schemas_public_api_mutate_public_object_schema'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/journals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Journal Entries */
+    get: operations['api_routers_v1_journals_public_api_list_public_journals'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/journals/views': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Journal Statement View */
+    post: operations['api_routers_v1_journals_public_api_create_public_journal_statement_view'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/views': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Views */
+    get: operations['api_routers_v1_views_public_api_list_public_views'];
+    put?: never;
+    /** Create View */
+    post: operations['api_routers_v1_views_public_api_create_public_view'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/views/{view_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get View */
+    get: operations['api_routers_v1_views_public_api_get_public_view'];
+    put?: never;
+    post?: never;
+    /** Delete View */
+    delete: operations['api_routers_v1_views_public_api_delete_public_view'];
+    options?: never;
+    head?: never;
+    /** Update View */
+    patch: operations['api_routers_v1_views_public_api_update_public_view'];
+    trace?: never;
+  };
+  '/v1/public/views/{view_id}/columns': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get View Columns */
+    get: operations['api_routers_v1_views_public_api_get_public_view_columns'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/associations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Associations */
+    get: operations['api_routers_v1_associations_public_api_list_public_associations'];
+    put?: never;
+    /** Create Association */
+    post: operations['api_routers_v1_associations_public_api_create_public_association'];
+    /** Delete Association */
+    delete: operations['api_routers_v1_associations_public_api_delete_public_association'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/purchase-orders': {
     parameters: {
       query?: never;
@@ -883,6 +1788,23 @@ export interface paths {
     put?: never;
     /** Create Purchase Order */
     post: operations['api_routers_v1_purchase_orders_public_api_create_public_purchase_order'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/purchase-orders/{purchase_order_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Purchase Order PDF */
+    get: operations['api_routers_v1_purchase_orders_public_api_download_public_purchase_order_pdf'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -903,6 +1825,23 @@ export interface paths {
     post?: never;
     /** Delete Purchase Order */
     delete: operations['api_routers_v1_purchase_orders_public_api_delete_public_purchase_order'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/slips/{slip_id}/pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Slip PDF */
+    get: operations['api_routers_v1_slips_public_api_download_public_slip_pdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -957,6 +1896,23 @@ export interface paths {
     put?: never;
     /** Create Bill */
     post: operations['api_routers_v1_bills_public_api_create_public_bill'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/bills/files': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Upload Bill Attachment File */
+    post: operations['api_routers_v1_bills_public_api_upload_public_bill_file'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1019,6 +1975,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/reports/revenue-control/hubspot': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Summarize HubSpot revenue control */
+    post: operations['api_routers_v1_workflow_runs_business_api_summarize_public_revenue_control_hubspot'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/reports': {
     parameters: {
       query?: never;
@@ -1051,6 +2024,91 @@ export interface paths {
     post?: never;
     /** Delete Report */
     delete: operations['api_routers_v1_reports_public_api_delete_public_report'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/records/query': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Query Records */
+    post: operations['api_routers_v1_records_public_api_query_public_records'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/records/aggregate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Aggregate Records */
+    post: operations['api_routers_v1_records_public_api_aggregate_public_records'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/records/custom-objects/records': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Custom Object Record */
+    post: operations['api_routers_v1_records_public_api_create_public_custom_object_record'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/records/custom-objects/records/{record_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Update Custom Object Record */
+    post: operations['api_routers_v1_records_public_api_update_public_custom_object_record'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/records/custom-objects/records/{record_id}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Custom Object Record */
+    post: operations['api_routers_v1_records_public_api_archive_public_custom_object_record'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1136,6 +2194,262 @@ export interface paths {
     get: operations['api_routers_v1_workflows_public_api_get_public_workflow_by_ref'];
     put?: never;
     post?: never;
+    /** Delete Workflow */
+    delete: operations['api_routers_v1_workflows_public_api_delete_public_workflow_by_ref'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/workflow-runs/resolve-record': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Resolve Record */
+    post: operations['api_routers_v1_workflow_runs_public_api_resolve_public_record'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/workflow-runs/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Workflow */
+    post: operations['api_routers_v1_workflow_runs_public_api_preview_public_workflow'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/workflow-runs/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start Workflow */
+    post: operations['api_routers_v1_workflow_runs_public_api_start_public_workflow'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/workflow-runs/{run_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Workflow Run */
+    get: operations['api_routers_v1_workflow_runs_public_api_get_public_workflow_run'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/cpq/quote-readiness/salesforce/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Summarize public Salesforce quote readiness */
+    post: operations['api_routers_v1_workflow_runs_business_api_get_public_salesforce_quote_readiness_summary'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/cpq/quote-readiness/salesforce/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview public Salesforce quote readiness */
+    post: operations['api_routers_v1_workflow_runs_business_api_preview_public_salesforce_quote_readiness'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/cpq/quote-readiness/salesforce/writeback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Write public Salesforce quote readiness fields */
+    post: operations['api_routers_v1_workflow_runs_business_api_writeback_public_salesforce_quote_readiness'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/freee/invoices/preview-sync': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview public freee invoice draft sync */
+    post: operations['api_routers_v1_freee_api_preview_public_freee_invoice_draft_sync'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/freee/invoices/sync': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync public Sanka invoice drafts to freee invoice drafts */
+    post: operations['api_routers_v1_freee_api_sync_public_freee_invoice_drafts'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/salesforce/cpq/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Get Public Salesforce Cpq Summary */
+    post: operations['api_routers_v1_salesforce_api_get_public_salesforce_cpq_summary'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/salesforce/cpq/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Public Salesforce Cpq Quote Readiness */
+    post: operations['api_routers_v1_salesforce_api_preview_public_salesforce_cpq_quote_readiness'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/salesforce/cpq/writeback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Writeback Public Salesforce Cpq Fields */
+    post: operations['api_routers_v1_salesforce_api_writeback_public_salesforce_cpq_fields'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/deals/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search HubSpot Deals */
+    post: operations['api_routers_v1_hubspot_public_api_search_public_hubspot_deals'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/deals/get': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Get HubSpot Deal */
+    post: operations['api_routers_v1_hubspot_public_api_get_public_hubspot_deal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/revenue-control/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Summarize HubSpot Revenue Control */
+    post: operations['api_routers_v1_hubspot_public_api_summarize_public_hubspot_revenue_control'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1227,6 +2541,244 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/public/reactivation/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview reactivation candidates for a supported integration */
+    post: operations['api_routers_v1_reactivation_public_api_preview_public_reactivation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/reactivation/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create reactivation tasks for a supported integration */
+    post: operations['api_routers_v1_reactivation_public_api_start_public_reactivation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-expansion/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview account expansion opportunities for a supported integration */
+    post: operations['api_routers_v1_account_expansion_public_api_preview_public_account_expansion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/account-expansion/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create account expansion tasks for a supported integration */
+    post: operations['api_routers_v1_account_expansion_public_api_start_public_account_expansion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/smart-routing/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview smart-routing recommendations for a supported integration */
+    post: operations['api_routers_v1_smart_routing_public_api_preview_public_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/smart-routing/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply smart-routing updates for a supported integration */
+    post: operations['api_routers_v1_smart_routing_public_api_start_public_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/smart-routing/workflow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview or create the smart-routing workflow for a supported integration */
+    post: operations['api_routers_v1_smart_routing_public_api_workflow_public_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/reactivation/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot reactivation candidates */
+    post: operations['api_routers_v1_reactivation_hubspot_public_api_preview_public_hubspot_reactivation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/reactivation/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create HubSpot reactivation tasks */
+    post: operations['api_routers_v1_reactivation_hubspot_public_api_start_public_hubspot_reactivation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/account-expansion/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot account expansion opportunities */
+    post: operations['api_routers_v1_account_expansion_hubspot_public_api_preview_public_hubspot_account_expansion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/account-expansion/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create HubSpot account expansion tasks */
+    post: operations['api_routers_v1_account_expansion_hubspot_public_api_start_public_hubspot_account_expansion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/smart-routing/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview HubSpot smart-routing recommendations */
+    post: operations['api_routers_v1_smart_routing_hubspot_public_api_preview_public_hubspot_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/smart-routing/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply HubSpot smart-routing owner updates */
+    post: operations['api_routers_v1_smart_routing_hubspot_public_api_start_public_hubspot_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/hubspot/smart-routing/workflow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview or create the HubSpot smart-routing workflow */
+    post: operations['api_routers_v1_smart_routing_hubspot_public_api_workflow_public_hubspot_smart_routing'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/public/auth/whoami': {
     parameters: {
       query?: never;
@@ -1238,6 +2790,246 @@ export interface paths {
     get: operations['api_routers_v1_public_auth_api_get_public_auth_whoami'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/auth/session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get the current OAuth session resolved from the bearer token */
+    get: operations['api_routers_v1_public_auth_api_get_public_auth_session'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/auth/session/switch-workspace': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Switch the workspace bound to the current OAuth bearer session */
+    post: operations['api_routers_v1_public_auth_api_switch_public_auth_session_workspace'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/auth/mcp-session/switch-workspace': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Switch the workspace bound to the current MCP OAuth session */
+    post: operations['api_routers_v1_public_auth_api_switch_public_auth_mcp_session_workspace'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/auth/mcp-session/tool-call-log': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Record a public MCP tool call for workspace audit logs */
+    post: operations['api_routers_v1_public_auth_api_record_public_auth_mcp_tool_call'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/auth/session/revoke': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Revoke the current OAuth bearer session */
+    post: operations['api_routers_v1_public_auth_api_revoke_public_auth_session'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/qrbot/{channel_id}/{api_key}/': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qrbot Public Api */
+    post: operations['api_routers_v1_qrbot_api_qrbot_public_api'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/files': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Upload Import File */
+    post: operations['api_routers_v1_public_transfer_jobs_public_api_upload_public_transfer_file'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/imports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Import Jobs */
+    get: operations['api_routers_v1_public_transfer_jobs_public_api_list_public_import_jobs'];
+    put?: never;
+    /** Create Import Job */
+    post: operations['api_routers_v1_public_transfer_jobs_public_api_create_public_import_job'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/imports/{job_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Import Job */
+    get: operations['api_routers_v1_public_transfer_jobs_public_api_get_public_import_job'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/imports/{job_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Import Job */
+    post: operations['api_routers_v1_public_transfer_jobs_public_api_cancel_public_import_job'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/integrations/channels': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Integration Channels */
+    get: operations['api_routers_v1_public_transfer_jobs_public_api_list_public_integration_channels'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Export Jobs */
+    get: operations['api_routers_v1_public_transfer_jobs_public_api_list_public_export_jobs'];
+    put?: never;
+    /** Create Export Job */
+    post: operations['api_routers_v1_public_transfer_jobs_public_api_create_public_export_job'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/exports/{job_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Export Job */
+    get: operations['api_routers_v1_public_transfer_jobs_public_api_get_public_export_job'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/exports/{job_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Export Job */
+    post: operations['api_routers_v1_public_transfer_jobs_public_api_cancel_public_export_job'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1258,6 +3050,230 @@ export interface components {
       errors?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** WorkflowRunErrorResponse */
+    WorkflowRunErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** ViewsListResponse */
+    ViewsListResponse: {
+      /** Data */
+      data: components['schemas']['ViewSummary'][];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ViewSummary */
+    ViewSummary: {
+      /** Id */
+      id: string;
+      /** Title */
+      title?: string | null;
+      /** Label */
+      label?: string | null;
+      /** Target */
+      target?: string | null;
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default: boolean;
+      /**
+       * Is Private
+       * @default false
+       */
+      is_private: boolean;
+      /** View Type */
+      view_type?: string | null;
+    };
+    /** ViewsErrorResponse */
+    ViewsErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ViewMutationResponse */
+    ViewMutationResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ViewDetailResponse */
+    ViewDetailResponse: {
+      view: components['schemas']['ViewSummary'];
+      filter: components['schemas']['ViewFilterDetail'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ViewFilterDetail */
+    ViewFilterDetail: {
+      /** View Type */
+      view_type?: string | null;
+      /** Filter Value */
+      filter_value?: {
+        [key: string]: unknown;
+      } | null;
+      /** Columns */
+      columns: string[];
+      /** Pagination */
+      pagination?: number | null;
+      /** Sort Order By */
+      sort_order_by?: string | null;
+      /** Sort Order Method */
+      sort_order_method?: string | null;
+    };
+    /** ViewColumnsResponse */
+    ViewColumnsResponse: {
+      /** View Id */
+      view_id: string;
+      /** Target */
+      target?: string | null;
+      /** View Type */
+      view_type?: string | null;
+      /** Pagination */
+      pagination?: number | null;
+      /** Columns */
+      columns: components['schemas']['ViewColumn'][];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ViewColumn */
+    ViewColumn: {
+      /** Key */
+      key: string;
+      /** Label */
+      label?: string | null;
+    };
+    /** TransferJobResponse */
+    TransferJobResponse: {
+      /** Job Id */
+      job_id: string;
+      /** Job Type */
+      job_type: string;
+      /** Object Type */
+      object_type: string;
+      /** Status */
+      status: string;
+      /** Mode */
+      mode?: string | null;
+      /**
+       * Started Async
+       * @default false
+       */
+      started_async: boolean;
+      /** Source Kind */
+      source_kind?: string | null;
+      /** Destination Kind */
+      destination_kind?: string | null;
+      /** File Format */
+      file_format?: string | null;
+      /** File Id */
+      file_id?: string | null;
+      /** Filename */
+      filename?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Workspace Scope */
+      workspace_scope?: string | null;
+      summary: components['schemas']['TransferJobSummary'];
+      /** Message */
+      message?: string | null;
+      /** Error Message */
+      error_message?: string | null;
+      /** Error File Url */
+      error_file_url?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at?: string | null;
+      /**
+       * Ended At
+       * Format: date-time
+       */
+      ended_at?: string | null;
+    };
+    /** TransferJobSummary */
+    TransferJobSummary: {
+      /** Processed */
+      processed?: number | null;
+      /** Succeeded */
+      succeeded?: number | null;
+      /** Failed */
+      failed?: number | null;
+      /** Total */
+      total?: number | null;
+      /** Requested Count */
+      requested_count?: number | null;
+      /** Skipped Count */
+      skipped_count?: number | null;
+      /** Emitted Event Ids */
+      emitted_event_ids?: string[];
+    };
+    /** TransferJobListResponse */
+    TransferJobListResponse: {
+      /** Jobs */
+      jobs: components['schemas']['TransferJobResponse'][];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** TransferJobErrorResponse */
+    TransferJobErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** TransferFileUploadResponse */
+    TransferFileUploadResponse: {
+      /** Ok */
+      ok: boolean;
+      /** File Id */
+      file_id: string;
+      /** Object Type */
+      object_type: string;
+      /** Filename */
+      filename?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
     };
     /** TicketsErrorResponse */
     TicketsErrorResponse: {
@@ -1336,6 +3352,10 @@ export interface components {
       owner_id?: string | null;
       /** Deal Ids */
       deal_ids?: string[];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1431,6 +3451,8 @@ export interface components {
       contact_info: components['schemas']['SubscriptionContactSchema'][];
       /** Items */
       items: components['schemas']['SubscriptionItemSchema'][];
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
       /** Number Item */
       number_item: number;
       /**
@@ -1452,11 +3474,19 @@ export interface components {
       tax?: number | null;
       /** Shipping Cost Tax Status */
       shipping_cost_tax_status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
     };
     /** SubscriptionItemSchema */
     SubscriptionItemSchema: {
       /** Id */
-      id: string;
+      id?: string | null;
+      /** Item Id */
+      item_id?: string | null;
+      /** Line Item Id */
+      line_item_id?: string | null;
       /** Name */
       name?: string | null;
       /** Price */
@@ -1477,10 +3507,61 @@ export interface components {
       /** Phone */
       phone?: string | null;
     };
+    /** PublicLineItemOutput */
+    PublicLineItemOutput: {
+      /** Id */
+      id?: string | null;
+      /** Item Id */
+      item_id?: string | null;
+      /** Item Name */
+      item_name?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Linked Item Name */
+      linked_item_name?: string | null;
+      /** Linked Item Number */
+      linked_item_number?: unknown;
+      /** Quantity */
+      quantity?: number | null;
+      /** Unit Price */
+      unit_price?: number | null;
+      /** Price */
+      price?: number | null;
+      /** Price Without Tax */
+      price_without_tax?: number | null;
+      /** Amount Item */
+      amount_item?: number | null;
+      /** Amount Price */
+      amount_price?: number | null;
+      /** Tax Rate */
+      tax_rate?: unknown;
+      /** Tax Type */
+      tax_type?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Currency */
+      currency?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /** Source Item Fields */
+      source_item_fields?: {
+        [key: string]: unknown;
+      };
+    };
     /** SubscriptionCreatePayload */
     SubscriptionCreatePayload: {
       /** Cid */
-      cid: string;
+      cid?: string | null;
+      /** Contact Id */
+      contact_id?: string | null;
+      /** Company Id */
+      company_id?: string | null;
       /** Items */
       items: components['schemas']['SubscriptionItemInput'][];
       /** Subscription Status */
@@ -1492,6 +3573,8 @@ export interface components {
        * Format: date
        */
       start_date?: string | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
       /** Total Price */
       total_price?: number | null;
       /** Frequency */
@@ -1502,17 +3585,341 @@ export interface components {
       tax?: number | null;
       /** Shipping Cost Tax Status */
       shipping_cost_tax_status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** SubscriptionItemInput */
     SubscriptionItemInput: {
-      /** Id */
-      id: string;
-      /** Amount */
-      amount: number;
-      /** Price */
-      price?: number | null;
-      /** Name */
-      name?: string | null;
+      /** Item */
+      item?: string | null;
+      /** Item Id */
+      item_id?: string | null;
+      /** Item External Id */
+      item_external_id?: string | null;
+      /** Item Name */
+      item_name?: string | null;
+      /** Amount Price */
+      amount_price?: number | null;
+      /** Amount Item */
+      amount_item?: number | null;
+      /** Tax Item Rate */
+      tax_item_rate?: unknown;
+      /** Line Item Properties */
+      line_item_properties?: {
+        [key: string]: components['schemas']['PublicLineItemProperty'];
+      } | null;
+      /** Section */
+      section?: string | null;
+      /** Section Type */
+      section_type?: string | null;
+      /** Section Position */
+      section_position?: number | null;
+    };
+    /** PublicLineItemProperty */
+    PublicLineItemProperty: {
+      /** Value */
+      value?: unknown;
+      /** Value Number Format */
+      value_number_format?: string | null;
+    };
+    /** StartWorkflowResponse */
+    StartWorkflowResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** StartWorkflowRequest */
+    StartWorkflowRequest: {
+      /** Workflow Type */
+      workflow_type: string;
+      source_record: components['schemas']['WorkflowRecordRef'];
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** WorkflowRecordRef */
+    WorkflowRecordRef: {
+      /** Source System */
+      source_system?: string | null;
+      /**
+       * Object Type
+       * @default deal
+       */
+      object_type: string;
+      /** Record Id */
+      record_id?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Url */
+      url?: string | null;
+    };
+    /** SmartRoutingWorkflowResponse */
+    SmartRoutingWorkflowResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** SmartRoutingWorkflowRequest */
+    SmartRoutingWorkflowRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Workflow Name */
+      workflow_name?: string | null;
+      /**
+       * Enable Workflow
+       * @default false
+       */
+      enable_workflow: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+    };
+    /** SmartRoutingStartResponse */
+    SmartRoutingStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** SmartRoutingStartRequest */
+    SmartRoutingStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /** Record Ids */
+      record_ids?: string[];
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Created From
+       * Format: date
+       */
+      created_from?: string | null;
+      /**
+       * Created To
+       * Format: date
+       */
+      created_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Source */
+      source?: string | null;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * History Days
+       * @default 365
+       */
+      history_days: number;
+      /**
+       * Fairness Weight
+       * @default 20
+       */
+      fairness_weight: number;
+      /**
+       * Ambiguity Margin
+       * @default 3
+       */
+      ambiguity_margin: number;
+      /**
+       * Preserve Existing Owner
+       * @default true
+       */
+      preserve_existing_owner: boolean;
+      /**
+       * Preserve Account Owner
+       * @default true
+       */
+      preserve_account_owner: boolean;
+      /**
+       * Group By
+       * @default owner
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Recommendation Ids */
+      recommendation_ids?: string[];
+      /**
+       * Action Mode
+       * @default update_owners
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Create Review Tasks
+       * @default false
+       */
+      create_review_tasks: boolean;
+      /** Manager Owner Id */
+      manager_owner_id?: string | null;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** SmartRoutingPreviewResponse */
+    SmartRoutingPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** SmartRoutingPreviewRequest */
+    SmartRoutingPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /** Record Ids */
+      record_ids?: string[];
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Created From
+       * Format: date
+       */
+      created_from?: string | null;
+      /**
+       * Created To
+       * Format: date
+       */
+      created_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Source */
+      source?: string | null;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * History Days
+       * @default 365
+       */
+      history_days: number;
+      /**
+       * Fairness Weight
+       * @default 20
+       */
+      fairness_weight: number;
+      /**
+       * Ambiguity Margin
+       * @default 3
+       */
+      ambiguity_margin: number;
+      /**
+       * Preserve Existing Owner
+       * @default true
+       */
+      preserve_existing_owner: boolean;
+      /**
+       * Preserve Account Owner
+       * @default true
+       */
+      preserve_account_owner: boolean;
+      /**
+       * Group By
+       * @default owner
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** SmartRoutingErrorResponse */
+    SmartRoutingErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** SlipsErrorResponse */
     SlipsErrorResponse: {
@@ -1529,6 +3936,8 @@ export interface components {
     };
     /** SlipSchema */
     SlipSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Slip */
       id_slip?: number | null;
       /** Contact Name */
@@ -1555,6 +3964,10 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1566,6 +3979,53 @@ export interface components {
        */
       updated_at: string;
     };
+    /** SlipDetailSchema */
+    SlipDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Slip */
+      id_slip?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Slip Type */
+      slip_type?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
+    };
     /** ShopTurboItemSchema */
     ShopTurboItemSchema: {
       /**
@@ -1575,12 +4035,20 @@ export interface components {
       id?: string | null;
       /** Item Id */
       item_id?: number | null;
+      /** Product Id */
+      product_id?: string | null;
       /** Name */
       name?: string | null;
+      /** Description */
+      description?: string | null;
       /** Price */
       price?: number | null;
+      /** Purchase Price */
+      purchase_price?: number | null;
       /** Currency */
       currency?: string | null;
+      /** Tax */
+      tax?: number | null;
       /** Status */
       status?: string | null;
       /**
@@ -1593,6 +4061,16 @@ export interface components {
        * Format: uuid
        */
       contact_id?: string | null;
+      /** External Ids */
+      external_ids?: string[];
+      /** Platforms */
+      platforms?: {
+        [key: string]: unknown;
+      }[];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1651,6 +4129,10 @@ export interface components {
        * Format: date-time
        */
       date?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1725,8 +4207,112 @@ export interface components {
        */
       score_model_id?: string | null;
     };
+    /** SalesforceSafeWritebackRequest */
+    SalesforceSafeWritebackRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      source_record: components['schemas']['SalesforceSourceRecordRef'];
+      /**
+       * Object Api Name
+       * @default Opportunity
+       */
+      object_api_name: string;
+      /** Updates */
+      updates?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Apply
+       * @default false
+       */
+      apply: boolean;
+      /** Language */
+      language?: string | null;
+    };
+    /** SalesforceSourceRecordRef */
+    SalesforceSourceRecordRef: {
+      /** Source System */
+      source_system?: string | null;
+      /**
+       * Object Type
+       * @default opportunity
+       */
+      object_type: string;
+      /** Record Id */
+      record_id?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Url */
+      url?: string | null;
+    };
+    /** SalesforceQuoteReadinessResponse */
+    SalesforceQuoteReadinessResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** SalesforceQuoteReadinessRequest */
+    SalesforceQuoteReadinessRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      source_record: components['schemas']['SalesforceSourceRecordRef'];
+      /** Language */
+      language?: string | null;
+    };
+    /** SalesforceCpqErrorResponse */
+    SalesforceCpqErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** ResolveRecordResponse */
+    ResolveRecordResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ResolveRecordRequest */
+    ResolveRecordRequest: {
+      /** Query */
+      query: string;
+      /**
+       * Object Type
+       * @default deal
+       */
+      object_type: string;
+      /** Source System */
+      source_system?: string | null;
+      /**
+       * Limit
+       * @default 5
+       */
+      limit: number;
+    };
     /** ReceiptSchema */
     ReceiptSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Rcp */
       id_rcp?: number | null;
       /** Contact Name */
@@ -1748,6 +4334,10 @@ export interface components {
       total_price_without_tax?: number | null;
       /** Entry Type */
       entry_type?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1758,6 +4348,199 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** ReactivationStartResponse */
+    ReactivationStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ReactivationStartRequest */
+    ReactivationStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /** Segment */
+      segment?: string | null;
+      /** Lifecycle Stages */
+      lifecycle_stages?: string[];
+      /** Lost Reasons */
+      lost_reasons?: string[];
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /**
+       * Inactive Days
+       * @default 45
+       */
+      inactive_days: number;
+      /**
+       * Recent Contact Days
+       * @default 14
+       */
+      recent_contact_days: number;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Product */
+      product?: string | null;
+      /** Campaign Source */
+      campaign_source?: string | null;
+      /**
+       * Group By
+       * @default reason
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Candidate Ids */
+      candidate_ids?: string[];
+      /**
+       * Action Mode
+       * @default create_tasks
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** ReactivationPreviewResponse */
+    ReactivationPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ReactivationPreviewRequest */
+    ReactivationPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /** Segment */
+      segment?: string | null;
+      /** Lifecycle Stages */
+      lifecycle_stages?: string[];
+      /** Lost Reasons */
+      lost_reasons?: string[];
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /**
+       * Inactive Days
+       * @default 45
+       */
+      inactive_days: number;
+      /**
+       * Recent Contact Days
+       * @default 14
+       */
+      recent_contact_days: number;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Product */
+      product?: string | null;
+      /** Campaign Source */
+      campaign_source?: string | null;
+      /**
+       * Group By
+       * @default reason
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** ReactivationErrorResponse */
+    ReactivationErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** QRBotScanRequest */
+    QRBotScanRequest: {
+      /** Content */
+      content?: unknown;
     };
     /** PurchaseOrdersErrorResponse */
     PurchaseOrdersErrorResponse: {
@@ -1774,6 +4557,8 @@ export interface components {
     };
     /** PurchaseOrderSchema */
     PurchaseOrderSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Po */
       id_po?: number | null;
       /** Contact Name */
@@ -1793,6 +4578,10 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -1803,6 +4592,46 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** PurchaseOrderDetailSchema */
+    PurchaseOrderDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Po */
+      id_po?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Date
+       * Format: date
+       */
+      date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
     };
     /** PublicWorkflowRunResponse */
     PublicWorkflowRunResponse: {
@@ -1959,10 +4788,20 @@ export interface components {
       data: components['schemas']['PublicWorkflowListItemResponse'][];
       /** Count */
       count: number;
+      /** Total */
+      total?: number | null;
       /** Page */
       page: number;
       /** Limit */
       limit: number;
+      /** Has Next */
+      has_next?: boolean | null;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -2091,6 +4930,19 @@ export interface components {
         [key: string]: unknown;
       } | null;
     };
+    /** PublicWorkflowDeleteResponse */
+    PublicWorkflowDeleteResponse: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** External Id */
+      external_id: string;
+      /** Workflow Id */
+      workflow_id: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
     /** PublicWorkflowActionsResponse */
     PublicWorkflowActionsResponse: {
       /** Data */
@@ -2126,6 +4978,54 @@ export interface components {
       required_conditions?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** PublicViewMutationRequest */
+    PublicViewMutationRequest: {
+      /** Object */
+      object?: string | null;
+      /** Custom Object Id */
+      custom_object_id?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Title */
+      title?: string | null;
+      /** View Type */
+      view_type?: string | null;
+      /** Columns */
+      columns?: string[] | null;
+      /** Column */
+      column?: string | null;
+      /** Pagination */
+      pagination?: number | null;
+      /**
+       * Is Private
+       * @default false
+       */
+      is_private: boolean;
+      /** Sort Order By */
+      sort_order_by?: string | null;
+      /** Sort Order Method */
+      sort_order_method?: string | null;
+      /** Filters */
+      filters?: components['schemas']['PublicViewFilterRequest'][] | null;
+      /** Form Data */
+      form_data?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicViewFilterRequest */
+    PublicViewFilterRequest: {
+      /** Field */
+      field: string;
+      /**
+       * Operator
+       * @default equals
+       */
+      operator: string;
+      /** Value */
+      value?: unknown;
+      /** Value2 */
+      value2?: unknown;
     };
     /** PublicUpdateReportRequest */
     PublicUpdateReportRequest: {
@@ -2295,6 +5195,10 @@ export interface components {
       owner_id?: string | null;
       /** Deal Ids */
       deal_ids?: string[] | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicTasksListResponse */
     PublicTasksListResponse: {
@@ -2302,12 +5206,20 @@ export interface components {
       data: components['schemas']['PublicTaskSchema'][];
       /** Page */
       page: number;
+      /** Limit */
+      limit?: number | null;
       /** Count */
       count: number;
       /** Total */
       total: number;
       /** Has Next */
       has_next: boolean;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
       /** Message */
       message: string;
       /** Ctx Id */
@@ -2361,6 +5273,10 @@ export interface components {
        * Format: date
        */
       due_date?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -2426,6 +5342,10 @@ export interface components {
       contact?: string | null;
       /** Status */
       status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicSubscriptionDeleteResponse */
     PublicSubscriptionDeleteResponse: {
@@ -2473,6 +5393,8 @@ export interface components {
       slip_type?: string | null;
       /** Currency */
       currency?: string | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -2485,6 +5407,35 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
+    };
+    /** PublicLineItemInput */
+    PublicLineItemInput: {
+      /** Item */
+      item?: string | null;
+      /** Item Id */
+      item_id?: string | null;
+      /** Item External Id */
+      item_external_id?: string | null;
+      /** Item Name */
+      item_name?: string | null;
+      /** Amount Price */
+      amount_price?: number | null;
+      /** Amount Item */
+      amount_item?: number | null;
+      /** Tax Item Rate */
+      tax_item_rate?: unknown;
+      /** Line Item Properties */
+      line_item_properties?: {
+        [key: string]: components['schemas']['PublicLineItemProperty'];
+      } | null;
+      /** Section */
+      section?: string | null;
+      /** Section Type */
+      section_type?: string | null;
+      /** Section Position */
+      section_position?: number | null;
     };
     /** PublicReportListItemSchema */
     PublicReportListItemSchema: {
@@ -2633,6 +5584,216 @@ export interface components {
         [key: string]: unknown;
       } | null;
     };
+    /** PublicRecordQueryResponse */
+    PublicRecordQueryResponse: {
+      /** Object Type */
+      object_type: string;
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Next Cursor */
+      next_cursor?: string | null;
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      }[];
+      /** Page */
+      page: number;
+      /** Limit */
+      limit: number;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Message */
+      message: string;
+      /** Permission */
+      permission?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Data Origin */
+      data_origin?: string | null;
+      /** Source Of Truth */
+      source_of_truth?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicRecordQueryRequest */
+    PublicRecordQueryRequest: {
+      /** Object Type */
+      object_type: string;
+      /**
+       * Scope
+       * @default sanka
+       */
+      scope: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Select */
+      select?: string[];
+      /** Filters */
+      filters?: components['schemas']['PublicRecordFilterSchema'][];
+      /** Mode */
+      mode?: string | null;
+      /** Match Fields */
+      match_fields?: string[];
+      /**
+       * Min Count
+       * @default 2
+       */
+      min_count: number;
+      /**
+       * Scan Limit
+       * @default 250
+       */
+      scan_limit: number;
+      /** Search */
+      search?: string | null;
+      /** Sort */
+      sort?: string | null;
+      /**
+       * Page
+       * @default 1
+       */
+      page: number;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+    };
+    /** PublicRecordFilterSchema */
+    PublicRecordFilterSchema: {
+      /** Field */
+      field: string;
+      /**
+       * Operator
+       * @default equals
+       */
+      operator: string;
+      /** Value */
+      value?: unknown;
+    };
+    /** PublicRecordErrorResponse */
+    PublicRecordErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicRecordAggregateResponse */
+    PublicRecordAggregateResponse: {
+      /** Object Type */
+      object_type: string;
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Metrics */
+      metrics: {
+        [key: string]: unknown;
+      };
+      /** Groups */
+      groups: {
+        [key: string]: unknown;
+      }[];
+      /** Message */
+      message: string;
+      /** Permission */
+      permission?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Data Origin */
+      data_origin?: string | null;
+      /** Source Of Truth */
+      source_of_truth?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicRecordAggregateRequest */
+    PublicRecordAggregateRequest: {
+      /** Object Type */
+      object_type: string;
+      /**
+       * Scope
+       * @default sanka
+       */
+      scope: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Filters */
+      filters?: components['schemas']['PublicRecordFilterSchema'][];
+      /** Mode */
+      mode?: string | null;
+      /** Match Fields */
+      match_fields?: string[];
+      /**
+       * Min Count
+       * @default 2
+       */
+      min_count: number;
+      /**
+       * Scan Limit
+       * @default 250
+       */
+      scan_limit: number;
+      /** Search */
+      search?: string | null;
+      /** Metrics */
+      metrics?: string[];
+      /** Group By */
+      group_by?: string[];
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+    };
     /** PublicPurchaseOrderResponse */
     PublicPurchaseOrderResponse: {
       /** Ok */
@@ -2643,6 +5804,12 @@ export interface components {
       external_id?: string | null;
       /** Purchase Order Id */
       purchase_order_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -2664,6 +5831,8 @@ export interface components {
       status?: string | null;
       /** Currency */
       currency?: string | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -2674,15 +5843,44 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
     };
     /** PublicPropertyUpsertRequest */
     PublicPropertyUpsertRequest: {
+      /**
+       * Target
+       * @default sanka
+       */
+      target: string;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
       /** Name */
       name?: string | null;
       /** Internal Name */
       internal_name?: string | null;
       /** Type */
       type?: string | null;
+      /** Field Type */
+      field_type?: string | null;
+      /** Group Name */
+      group_name?: string | null;
       /** Description */
       description?: string | null;
       /** Number Format */
@@ -2702,6 +5900,12 @@ export interface components {
       } | null;
       /** Tag Values */
       tag_values?: string[] | null;
+      /** Options */
+      options?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Unique */
       unique?: boolean | null;
       /** Required Field */
@@ -2721,16 +5925,42 @@ export interface components {
       id: string;
       /** Object */
       object: string;
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** External Id */
+      external_id?: string | null;
       /** Name */
       name?: string | null;
       /** Internal Name */
       internal_name?: string | null;
       /** Type */
       type?: string | null;
+      /** Field Type */
+      field_type?: string | null;
+      /** Group Name */
+      group_name?: string | null;
       /** Is Custom */
       is_custom: boolean;
       /** Immutable */
       immutable: boolean;
+      /** Read Only */
+      read_only: boolean;
+      /** Write Enabled */
+      write_enabled: boolean;
+      /** Read Only Reason */
+      read_only_reason?: string | null;
+      /** Read Scope */
+      read_scope?: string | null;
+      /** Write Scope */
+      write_scope?: string | null;
       /** Description */
       description?: string | null;
       /** Number Format */
@@ -2750,6 +5980,12 @@ export interface components {
       } | null;
       /** Tag Values */
       tag_values?: string[] | null;
+      /** Options */
+      options?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Unique */
       unique?: boolean | null;
       /** Required Field */
@@ -2762,6 +5998,10 @@ export interface components {
       badge_color?: string | null;
       /** Order */
       order?: number | null;
+      /** Raw */
+      raw?: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Created At
        * Format: date-time
@@ -2785,6 +6025,32 @@ export interface components {
       property_id: string;
       /** Ctx Id */
       ctx_id: string;
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Dry Run */
+      dry_run?: boolean | null;
+      /** Sanka Action */
+      sanka_action?: {
+        [key: string]: unknown;
+      } | null;
+      /** Warnings */
+      warnings?: string[] | null;
+      /** Message */
+      message?: string | null;
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicPropertyErrorResponse */
     PublicPropertyErrorResponse: {
@@ -2794,6 +6060,10 @@ export interface components {
       message: string;
       /** Code */
       code?: string | null;
+      /** Object */
+      object?: string | null;
+      /** Read Only Reason */
+      read_only_reason?: string | null;
     };
     /** PublicPaymentResponse */
     PublicPaymentResponse: {
@@ -2830,10 +6100,24 @@ export interface components {
       totalPrice?: number | null;
       /** Totalpricewithouttax */
       totalPriceWithoutTax?: number | null;
+      /** Taxrate */
+      taxRate?: number | null;
+      /** Taxinclusive */
+      taxInclusive?: boolean | null;
+      /** Taxoption */
+      taxOption?: string | null;
       /** Entrytype */
       entryType?: string | null;
+      /** Sendfrom */
+      sendFrom?: string | null;
       /** Notes */
       notes?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
     };
     /** PublicOrderRequest */
     PublicOrderRequest: {
@@ -2862,7 +6146,13 @@ export interface components {
       /** Deliverystatus */
       deliveryStatus?: string | null;
       /** Items */
-      items: components['schemas']['BulkOrderItemIn'][];
+      items?: components['schemas']['BulkOrderItemIn'][];
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** BulkOrderItemIn */
     BulkOrderItemIn: {
@@ -2919,6 +6209,12 @@ export interface components {
       company_id?: string | null;
       /** Contact Id */
       contact_id?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
     };
     /** PublicOrderDeleteResponse */
     PublicOrderDeleteResponse: {
@@ -2932,6 +6228,167 @@ export interface components {
       order_id?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
+    };
+    /** PublicObjectSchemaMutationResponse */
+    PublicObjectSchemaMutationResponse: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** Operation */
+      operation: string;
+      /** Target */
+      target: string;
+      /** Object Schema Id */
+      object_schema_id?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Slug */
+      slug?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Dry Run */
+      dry_run?: boolean | null;
+      /** Sanka Action */
+      sanka_action?: {
+        [key: string]: unknown;
+      } | null;
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Warnings */
+      warnings?: string[] | null;
+      /** Message */
+      message?: string | null;
+      /** Ctx Id */
+      ctx_id: string;
+    };
+    /** PublicObjectSchemaMutationRequest */
+    PublicObjectSchemaMutationRequest: {
+      /**
+       * Operation
+       * @default create
+       */
+      operation: string;
+      /**
+       * Target
+       * @default sanka
+       */
+      target: string;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Schema Ref */
+      schema_ref?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Slug */
+      slug?: string | null;
+      /** Singular Label */
+      singular_label?: string | null;
+      /** Plural Label */
+      plural_label?: string | null;
+      /** Labels */
+      labels?: {
+        [key: string]: unknown;
+      } | null;
+      /** Description */
+      description?: string | null;
+      /** Primary Display Property */
+      primary_display_property?: string | null;
+      /** Required Properties */
+      required_properties?: string[];
+      /** Searchable Properties */
+      searchable_properties?: string[];
+      /** Secondary Display Properties */
+      secondary_display_properties?: string[];
+      /** Properties */
+      properties?: {
+        [key: string]: unknown;
+      }[];
+      /** Associations */
+      associations?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+    };
+    /** PublicObjectSchemaErrorResponse */
+    PublicObjectSchemaErrorResponse: {
+      /** Ctx Id */
+      ctx_id: string;
+      /** Message */
+      message: string;
+      /** Code */
+      code?: string | null;
+    };
+    /** PublicObjectSchema */
+    PublicObjectSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name?: string | null;
+      /** Slug */
+      slug?: string | null;
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Labels */
+      labels?: {
+        [key: string]: unknown;
+      } | null;
+      /** Primary Display Property */
+      primary_display_property?: string | null;
+      /** Searchable Properties */
+      searchable_properties?: string[] | null;
+      /** Required Properties */
+      required_properties?: string[] | null;
+      /** Secondary Display Properties */
+      secondary_display_properties?: string[] | null;
+      /**
+       * Is Custom
+       * @default true
+       */
+      is_custom: boolean;
+      /** Archived */
+      archived?: boolean | null;
+      /** Raw */
+      raw?: {
+        [key: string]: unknown;
+      } | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
     };
     /** PublicMeterResponse */
     PublicMeterResponse: {
@@ -3006,6 +6463,10 @@ export interface components {
       bin?: string | null;
       /** Usagestatus */
       usageStatus?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicItemResponse */
     PublicItemResponse: {
@@ -3038,6 +6499,10 @@ export interface components {
       tax?: number | null;
       /** Status */
       status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicInvoiceResponse */
     PublicInvoiceResponse: {
@@ -3049,6 +6514,12 @@ export interface components {
       external_id?: string | null;
       /** Invoice Id */
       invoice_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -3072,6 +6543,8 @@ export interface components {
       status?: string | null;
       /** Currency */
       currency?: string | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -3084,6 +6557,78 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicInvoiceEmailResponse */
+    PublicInvoiceEmailResponse: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** Invoice Id */
+      invoice_id: string;
+      /** Id Inv */
+      id_inv?: number | null;
+      /** Message Thread Ids */
+      message_thread_ids?: string[];
+      /** Scheduled At */
+      scheduled_at?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Message */
+      message?: string | null;
+    };
+    /** PublicInvoiceEmailRequest */
+    PublicInvoiceEmailRequest: {
+      /**
+       * Action
+       * @default send
+       */
+      action: string;
+      /** To */
+      to?: string[] | null;
+      /** Cc */
+      cc?: string[] | null;
+      /** Subject */
+      subject?: string | null;
+      /** Body */
+      body?: string | null;
+      /** Scheduled At */
+      scheduled_at?: string | null;
+      /** Template Select */
+      template_select?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** External Id */
+      external_id?: string | null;
+    };
+    /** PublicInventoryTransactionUpdateRequest */
+    PublicInventoryTransactionUpdateRequest: {
+      /** Inventoryid */
+      inventoryId?: string | null;
+      /** Inventoryexternalid */
+      inventoryExternalId?: string | null;
+      /** Transactiontype */
+      transactionType?: string | null;
+      /** Amount */
+      amount?: number | null;
+      /** Transactionamount */
+      transactionAmount?: number | null;
+      /** Transactiondate */
+      transactionDate?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Inventorytype */
+      inventoryType?: string | null;
+      /** Useunitvalue */
+      useUnitValue?: boolean | null;
+      /** Price */
+      price?: number | null;
     };
     /** PublicInventoryTransactionResponse */
     PublicInventoryTransactionResponse: {
@@ -3160,6 +6705,10 @@ export interface components {
       date?: string | null;
       /** Warehouseid */
       warehouseId?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicExpenseResponse */
     PublicExpenseResponse: {
@@ -3171,6 +6720,12 @@ export interface components {
       external_id?: string | null;
       /** Expense Id */
       expense_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -3198,7 +6753,13 @@ export interface components {
       currency?: string | null;
       /** Amount */
       amount?: number | null;
+      /** Base Currency */
+      base_currency?: number | null;
       attachment_file?: components['schemas']['PublicExpenseAttachmentPayload'];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicExpenseAttachmentPayload */
     PublicExpenseAttachmentPayload: {
@@ -3235,6 +6796,12 @@ export interface components {
       external_id?: string | null;
       /** Estimate Id */
       estimate_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -3258,6 +6825,8 @@ export interface components {
       status?: string | null;
       /** Currency */
       currency?: string | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -3270,6 +6839,12 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicDisbursementResponse */
     PublicDisbursementResponse: {
@@ -3302,6 +6877,8 @@ export interface components {
       status?: string | null;
       /** Currency */
       currency?: string | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -3316,6 +6893,8 @@ export interface components {
       total_price_without_tax?: number | null;
       /** Fee */
       fee?: number | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
     };
     /** PublicDeleteReportResponse */
     PublicDeleteReportResponse: {
@@ -3327,6 +6906,46 @@ export interface components {
       report_id?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
+    };
+    /** PublicCustomObjectRecordMutationResponse */
+    PublicCustomObjectRecordMutationResponse: {
+      data: components['schemas']['PublicCustomObjectRecordMutationItemResponse'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicCustomObjectRecordMutationItemResponse */
+    PublicCustomObjectRecordMutationItemResponse: {
+      /** Id */
+      id: string;
+      /** Row Id */
+      row_id?: number | null;
+      /** Property Set Id */
+      property_set_id?: string | null;
+      /** Status */
+      status?: string | null;
+    };
+    /** PublicCustomObjectRecordMutationRequest */
+    PublicCustomObjectRecordMutationRequest: {
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Form Set Id */
+      form_set_id?: string | null;
+      /** Property Set Id */
+      property_set_id?: string | null;
+      /** View Id */
+      view_id?: string | null;
+      /** Data */
+      data?: {
+        [key: string]: unknown;
+      };
+      /** Associations */
+      associations?: {
+        [key: string]: {
+          [key: string]: unknown;
+        }[];
+      } | null;
     };
     /** PublicCreateReportResponse */
     PublicCreateReportResponse: {
@@ -3387,9 +7006,55 @@ export interface components {
       contact_id?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /** Dry Run */
+      dry_run?: boolean | null;
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Warnings */
+      warnings?: string[] | null;
+      /** Message */
+      message?: string | null;
     };
     /** PublicContactRequest */
     PublicContactRequest: {
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channelid */
+      channelId?: string | null;
+      /** Externalobjecttype */
+      externalObjectType?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /**
+       * Dryrun
+       * @default false
+       */
+      dryRun: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
       /** External Id */
       external_id?: string | null;
       /** Name */
@@ -3406,6 +7071,10 @@ export interface components {
       status?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicCompanyResponse */
     PublicCompanyResponse: {
@@ -3413,17 +7082,84 @@ export interface components {
       ok: boolean;
       /** Status */
       status: string;
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /** Dry Run */
+      dry_run?: boolean | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Warnings */
+      warnings?: string[] | null;
+      /** Sanka Action */
+      sanka_action?: {
+        [key: string]: unknown;
+      } | null;
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Message */
+      message?: string | null;
       /** External Id */
       external_id?: string | null;
       /** Company Id */
       company_id?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
+      /** Data Origin */
+      data_origin?: string | null;
+      /** Source Of Truth */
+      source_of_truth?: string | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicCompanyRequest */
     PublicCompanyRequest: {
+      /**
+       * Target
+       * @default sanka
+       */
+      target: string;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
       /** External Id */
       external_id?: string | null;
+      /** Primary External Id */
+      primary_external_id?: string | null;
+      /** Secondary External Ids */
+      secondary_external_ids?: string[];
       /** Name */
       name?: string | null;
       /** Address */
@@ -3438,6 +7174,10 @@ export interface components {
       status?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** PublicCaseResponse */
     PublicCaseResponse: {
@@ -3451,9 +7191,55 @@ export interface components {
       case_id?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /** Dry Run */
+      dry_run?: boolean | null;
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Warnings */
+      warnings?: string[] | null;
+      /** Message */
+      message?: string | null;
     };
     /** PublicCaseRequest */
     PublicCaseRequest: {
+      /** Target */
+      target?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channelid */
+      channelId?: string | null;
+      /** Externalobjecttype */
+      externalObjectType?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /**
+       * Dryrun
+       * @default false
+       */
+      dryRun: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
       /** Externalid */
       externalId?: string | null;
       /** Name */
@@ -3472,6 +7258,12 @@ export interface components {
       companyId?: string | null;
       /** Companyexternalid */
       companyExternalId?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
     };
     /** PublicCasePipelineSchema */
     PublicCasePipelineSchema: {
@@ -3688,6 +7480,95 @@ export interface components {
        */
       comment: string | null;
     };
+    /** PublicBulkUpsertResponse */
+    PublicBulkUpsertResponse: {
+      /** Ok */
+      ok: boolean;
+      /** Results */
+      results?: components['schemas']['PublicBulkUpsertResult'][] | null;
+      /** Job Id */
+      job_id?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicBulkUpsertResult */
+    PublicBulkUpsertResult: {
+      /** Index */
+      index: number;
+      /** External Id */
+      external_id?: string | null;
+      /** Status */
+      status: string;
+      /** Object Id */
+      object_id?: string | null;
+      /** Errors */
+      errors?: string[];
+    };
+    /** PublicBulkUpsertRequest */
+    PublicBulkUpsertRequest: {
+      /** Records */
+      records?: {
+        [key: string]: unknown;
+      }[];
+      /** Items */
+      items?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Companies */
+      companies?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Contacts */
+      contacts?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Invoices */
+      invoices?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Payments */
+      payments?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Expenses */
+      expenses?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Inventories */
+      inventories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /**
+       * Async
+       * @default false
+       */
+      async: boolean;
+    };
+    /** PublicBulkUpsertErrorResponse */
+    PublicBulkUpsertErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
     /** PublicBillResponse */
     PublicBillResponse: {
       /** Ok */
@@ -3698,6 +7579,12 @@ export interface components {
       external_id?: string | null;
       /** Bill Id */
       bill_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
       /** Ctx Id */
       ctx_id?: string | null;
     };
@@ -3729,6 +7616,8 @@ export interface components {
       amount?: number | null;
       /** Amount Without Tax */
       amount_without_tax?: number | null;
+      /** Send From */
+      send_from?: string | null;
       /** Notes */
       notes?: string | null;
       /** Tax Rate */
@@ -3737,6 +7626,34 @@ export interface components {
       tax_inclusive?: boolean | null;
       /** Tax Option */
       tax_option?: string | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemInput'][] | null;
+      attachment_file?: components['schemas']['PublicBillAttachmentPayload'];
+    };
+    /** PublicBillAttachmentPayload */
+    PublicBillAttachmentPayload: {
+      /** Files */
+      files?: components['schemas']['PublicBillAttachmentFileRef'][];
+    };
+    /** PublicBillAttachmentFileRef */
+    PublicBillAttachmentFileRef: {
+      /** Id */
+      id?: string | null;
+      /** File Id */
+      file_id?: string | null;
+      /** Name */
+      name?: string | null;
+    };
+    /** PublicBillFileUploadResponse */
+    PublicBillFileUploadResponse: {
+      /** Ok */
+      ok: boolean;
+      /** File Id */
+      file_id: string;
+      /** Filename */
+      filename?: string | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
     };
     /** PublicAuthWhoamiResponse */
     PublicAuthWhoamiResponse: {
@@ -3777,16 +7694,523 @@ export interface components {
       /** Oauth App Id */
       oauth_app_id?: string | null;
     };
+    /** PublicAuthSwitchWorkspaceRequest */
+    PublicAuthSwitchWorkspaceRequest: {
+      /** Workspace Id */
+      workspace_id: string;
+    };
+    /** PublicAuthSessionResponse */
+    PublicAuthSessionResponse: {
+      data: components['schemas']['PublicAuthSessionPayload'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAuthSessionPayload */
+    PublicAuthSessionPayload: {
+      /** Id */
+      id: string;
+      /** App Id */
+      app_id: string;
+      /** Client Id */
+      client_id?: string | null;
+      /** Client Name */
+      client_name?: string | null;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Workspace Name */
+      workspace_name?: string | null;
+      /** Workspace Code */
+      workspace_code?: string | null;
+      /** Scope */
+      scope: string;
+      /** Issued At */
+      issued_at?: string | null;
+      /** Last Used At */
+      last_used_at?: string | null;
+      /** Expires At */
+      expires_at?: string | null;
+      /** Absolute Expires At */
+      absolute_expires_at?: string | null;
+      /** Revoked At */
+      revoked_at?: string | null;
+      /**
+       * Active
+       * @default false
+       */
+      active: boolean;
+      /** Available Workspaces */
+      available_workspaces?: components['schemas']['PublicAuthWorkspaceOption'][];
+    };
+    /** PublicAuthWorkspaceOption */
+    PublicAuthWorkspaceOption: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Workspace Code */
+      workspace_code?: string | null;
+      /**
+       * Selected
+       * @default false
+       */
+      selected: boolean;
+    };
+    /** PublicAuthMcpToolCallLogRequest */
+    PublicAuthMcpToolCallLogRequest: {
+      /** Tool Name */
+      tool_name: string;
+      /** Tool Title */
+      tool_title?: string | null;
+      /** Resource */
+      resource?: string | null;
+      /** Operation */
+      operation?: string | null;
+      /**
+       * Success
+       * @default true
+       */
+      success: boolean;
+      /** Duration Ms */
+      duration_ms?: number | null;
+      /** Client Name */
+      client_name?: string | null;
+      /** Client Version */
+      client_version?: string | null;
+      /** Error */
+      error?: string | null;
+    };
     /** PublicAuthErrorResponse */
     PublicAuthErrorResponse: {
       /** Message */
       message: string;
+      /** Error */
+      error?: string | null;
       /** Ctx Id */
       ctx_id?: string | null;
       /** Errors */
       errors?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** PublicAuthActionResponse */
+    PublicAuthActionResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAttendanceRecordsListResponse */
+    PublicAttendanceRecordsListResponse: {
+      /** Data */
+      data: components['schemas']['PublicAttendanceRecordResponse'][];
+      /** Page */
+      page: number;
+      /** Limit */
+      limit: number;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAttendanceRecordResponse */
+    PublicAttendanceRecordResponse: {
+      /** Id */
+      id: string;
+      /** Track Id */
+      track_id?: number | null;
+      /** External Id */
+      external_id?: string | null;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /** Usage Status */
+      usage_status: string;
+      /** Is Manual Entry */
+      is_manual_entry: boolean;
+      /** Control Time Mode */
+      control_time_mode: string;
+      /** User Id */
+      user_id?: string | null;
+      /** Duration */
+      duration: string;
+      /** Start Time */
+      start_time?: string | null;
+      /** End Time */
+      end_time?: string | null;
+      /** Hours */
+      hours: number;
+      /** Minutes */
+      minutes: number;
+      /** Seconds */
+      seconds: number;
+      /** Subtracks */
+      subtracks?: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** PublicAttendanceRecordRequest */
+    PublicAttendanceRecordRequest: {
+      /** External Id */
+      external_id?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Assignee User Id */
+      assignee_user_id?: number | null;
+      /**
+       * Control Time Mode
+       * @default manual_entry
+       */
+      control_time_mode: string;
+      /**
+       * Timetracker Toggle
+       * @default false
+       */
+      timetracker_toggle: boolean;
+      /** Subtracks */
+      subtracks?: components['schemas']['PublicAttendanceManualSubtrackPayload'][];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicAttendanceManualSubtrackPayload */
+    PublicAttendanceManualSubtrackPayload: {
+      /** Id */
+      id?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Start Time */
+      start_time?: string | null;
+      /**
+       * Hours
+       * @default 0
+       */
+      hours: number;
+      /**
+       * Minutes
+       * @default 0
+       */
+      minutes: number;
+      /**
+       * Seconds
+       * @default 0
+       */
+      seconds: number;
+      /**
+       * Activity Track Type
+       * @default work
+       */
+      activity_track_type: string;
+      /**
+       * Delete
+       * @default false
+       */
+      delete: boolean;
+    };
+    /** PublicAttendanceRecordMutationResponse */
+    PublicAttendanceRecordMutationResponse: {
+      data: components['schemas']['PublicAttendanceRecordResponse'];
+      /** Status */
+      status: string;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAssociationsErrorResponse */
+    PublicAssociationsErrorResponse: {
+      /** Ctx Id */
+      ctx_id: string;
+      /** Message */
+      message: string;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** PublicAssociationMutationResponse */
+    PublicAssociationMutationResponse: {
+      association: components['schemas']['PublicAssociationSchema'];
+      /** Created */
+      created: boolean;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id: string;
+    };
+    /** PublicAssociationSchema */
+    PublicAssociationSchema: {
+      /** Id */
+      id: string;
+      source: components['schemas']['PublicAssociationObjectRefSchema'];
+      target: components['schemas']['PublicAssociationObjectRefSchema'];
+      label?: components['schemas']['PublicAssociationLabelSchema'];
+      /** Created At */
+      created_at?: string | null;
+    };
+    /** PublicAssociationObjectRefSchema */
+    PublicAssociationObjectRefSchema: {
+      /** Object */
+      object: string;
+      /** Object Type */
+      object_type: string;
+      /** Id */
+      id: string;
+      /** Custom Object Id */
+      custom_object_id?: string | null;
+      /** Custom Object Slug */
+      custom_object_slug?: string | null;
+      /** Custom Object Name */
+      custom_object_name?: string | null;
+    };
+    /** PublicAssociationLabelSchema */
+    PublicAssociationLabelSchema: {
+      /** Id */
+      id: string;
+      /** Label */
+      label?: string | null;
+      /** Label Ja */
+      label_ja?: string | null;
+      /** Object Source */
+      object_source?: string | null;
+      /** Object Target */
+      object_target?: string | null;
+      /** Association Type */
+      association_type?: string | null;
+      /** Created By Sanka */
+      created_by_sanka?: boolean | null;
+    };
+    /** PublicAssociationMutationRequest */
+    PublicAssociationMutationRequest: {
+      /** Source Object */
+      source_object?: string | null;
+      /** Source Id */
+      source_id?: string | null;
+      /** Source Custom Object Id */
+      source_custom_object_id?: string | null;
+      /** Target Object */
+      target_object?: string | null;
+      /** Target Id */
+      target_id?: string | null;
+      /** Target Custom Object Id */
+      target_custom_object_id?: string | null;
+      /** Label Id */
+      label_id?: string | null;
+      /** Label */
+      label?: string | null;
+    };
+    /** PublicAssociationListResponse */
+    PublicAssociationListResponse: {
+      /** Data */
+      data: components['schemas']['PublicAssociationSchema'][];
+      /** Page */
+      page: number;
+      /** Limit */
+      limit?: number | null;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next?: boolean | null;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id: string;
+    };
+    /** PublicAssociationDeleteResponse */
+    PublicAssociationDeleteResponse: {
+      /** Deleted */
+      deleted: boolean;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id: string;
+    };
+    /** PublicActivityLogsListResponse */
+    PublicActivityLogsListResponse: {
+      /** Data */
+      data: components['schemas']['PublicActivityLogItem'][];
+      /** Page */
+      page: number;
+      /** Limit */
+      limit?: number | null;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicActivityLogItem */
+    PublicActivityLogItem: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id?: string | null;
+      /** Action */
+      action?: string | null;
+      /** Target */
+      target?: string | null;
+      /** Object Type */
+      object_type?: string | null;
+      /** Object Id */
+      object_id?: string | null;
+      /** Object Display */
+      object_display?: string | null;
+      /** Field Name */
+      field_name?: string | null;
+      /** Old Value */
+      old_value?: unknown;
+      /** New Value */
+      new_value?: unknown;
+      /** Action Uid */
+      action_uid?: string | null;
+      actor?: components['schemas']['PublicActivityLogActor'];
+      /** Governance Execution Id */
+      governance_execution_id?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** PublicActivityLogActor */
+    PublicActivityLogActor: {
+      /** Name */
+      name?: string | null;
+    };
+    /** PublicAbsenceSchema */
+    PublicAbsenceSchema: {
+      /** Id */
+      id: string;
+      /** Absence Id */
+      absence_id?: number | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * End Date
+       * Format: date
+       */
+      end_date?: string | null;
+      /** Absence Type */
+      absence_type?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Usage Status */
+      usage_status?: string | null;
+      /** Worker Id */
+      worker_id?: string | null;
+      /** Worker Name */
+      worker_name?: string | null;
+      /** Requested By Id */
+      requested_by_id?: number | null;
+      /** Requested By Name */
+      requested_by_name?: string | null;
+      /** Approved By Id */
+      approved_by_id?: number | null;
+      /** Approved By Name */
+      approved_by_name?: string | null;
+      /** Requester Name */
+      requester_name?: string | null;
+      /** Note */
+      note?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+    };
+    /** PublicAbsenceRequest */
+    PublicAbsenceRequest: {
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * End Date
+       * Format: date
+       */
+      end_date?: string | null;
+      /** Absence Type */
+      absence_type?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Worker Id */
+      worker_id?: string | null;
+      /** Requested By User Id */
+      requested_by_user_id?: number | null;
+      /** Approved By User Id */
+      approved_by_user_id?: number | null;
+      /** Requester Name */
+      requester_name?: string | null;
+      /** Note */
+      note?: string | null;
+    };
+    /** PublicAbsenceMutationResponse */
+    PublicAbsenceMutationResponse: {
+      data: components['schemas']['PublicAbsenceSchema'];
+      /** Status */
+      status: string;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAbsenceListResponse */
+    PublicAbsenceListResponse: {
+      /** Data */
+      data: components['schemas']['PublicAbsenceSchema'][];
+      /** Page */
+      page: number;
+      /** Limit */
+      limit: number;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PublicAbsenceErrorResponse */
+    PublicAbsenceErrorResponse: {
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Message */
+      message: string;
     };
     /** ProspectCompaniesResponse */
     ProspectCompaniesResponse: {
@@ -3883,6 +8307,378 @@ export interface components {
       /** Sources */
       sources?: string[];
     };
+    /** PreviewWorkflowResponse */
+    PreviewWorkflowResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PreviewWorkflowRequest */
+    PreviewWorkflowRequest: {
+      /** Workflow Type */
+      workflow_type: string;
+      source_record: components['schemas']['WorkflowRecordRef'];
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
+    };
+    /** PayrollRunsResponse */
+    PayrollRunsResponse: {
+      /** Data */
+      data: components['schemas']['PayrollRunSchema'][];
+      /** Count */
+      count: number;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PayrollRunSchema */
+    PayrollRunSchema: {
+      /** Id */
+      id: string;
+      /** Period */
+      period: string;
+      /** Country Code */
+      country_code: string;
+      /** Currency */
+      currency: string;
+      /** Status */
+      status: string;
+      /**
+       * Pay Date
+       * Format: date
+       */
+      pay_date?: string | null;
+      /** Employee Count */
+      employee_count: number;
+      /** Total Gross Earnings */
+      total_gross_earnings: number;
+      /** Total Deductions */
+      total_deductions: number;
+      /** Total Net Pay */
+      total_net_pay: number;
+      /** Calculation Snapshot */
+      calculation_snapshot: {
+        [key: string]: unknown;
+      };
+      /** Approved By Id */
+      approved_by_id?: string | null;
+      /**
+       * Approved At
+       * Format: date-time
+       */
+      approved_at?: string | null;
+      /**
+       * Paid At
+       * Format: date-time
+       */
+      paid_at?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** PayrollRunDetailResponse */
+    PayrollRunDetailResponse: {
+      data: components['schemas']['PayrollRunDetailData'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PayrollRunDetailData */
+    PayrollRunDetailData: {
+      run: components['schemas']['PayrollRunSchema'];
+      /** Results */
+      results: components['schemas']['PayrollResultSchema'][];
+    };
+    /** PayrollResultSchema */
+    PayrollResultSchema: {
+      /** Id */
+      id: string;
+      /** Payroll Run Id */
+      payroll_run_id: string;
+      /** Employee Id */
+      employee_id: string;
+      /** Employee Name */
+      employee_name?: string | null;
+      /** Employee Number */
+      employee_number?: number | null;
+      /** Profile Id */
+      profile_id?: string | null;
+      /** Status */
+      status: string;
+      /** Period */
+      period: string;
+      /** Currency */
+      currency: string;
+      /** Attendance Days */
+      attendance_days: number;
+      /** Scheduled Hours */
+      scheduled_hours: number;
+      /** Overtime Hours */
+      overtime_hours: number;
+      /** Gross Earnings */
+      gross_earnings: number;
+      /** Taxable Earnings */
+      taxable_earnings: number;
+      /** Social Insurance Total */
+      social_insurance_total: number;
+      /** Income Tax */
+      income_tax: number;
+      /** Resident Tax */
+      resident_tax: number;
+      /** Total Deductions */
+      total_deductions: number;
+      /** Adjustments Total */
+      adjustments_total: number;
+      /** Net Pay */
+      net_pay: number;
+      /** Calculation Snapshot */
+      calculation_snapshot: {
+        [key: string]: unknown;
+      };
+      /** Line Items */
+      line_items: components['schemas']['PayrollLineItemSchema'][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** PayrollLineItemSchema */
+    PayrollLineItemSchema: {
+      /** Id */
+      id: string;
+      /** Employee Result Id */
+      employee_result_id: string;
+      /** Category */
+      category: string;
+      /** Code */
+      code: string;
+      /** Label */
+      label: string;
+      /** Amount */
+      amount: number;
+      /** Taxable */
+      taxable: boolean;
+      /** Statutory */
+      statutory: boolean;
+      /** Sort Order */
+      sort_order: number;
+      /** Metadata */
+      metadata: {
+        [key: string]: unknown;
+      };
+    };
+    /** PayrollRunCalculateRequest */
+    PayrollRunCalculateRequest: {
+      /** Period */
+      period: string;
+      /**
+       * Pay Date
+       * Format: date
+       */
+      pay_date?: string | null;
+      /** Country Code */
+      country_code?: string | null;
+    };
+    /** PayrollProfilesResponse */
+    PayrollProfilesResponse: {
+      /** Data */
+      data: components['schemas']['PayrollProfileSchema'][];
+      /** Employee Options */
+      employee_options: components['schemas']['PayrollEmployeeOptionSchema'][];
+      /** Count */
+      count: number;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PayrollProfileSchema */
+    PayrollProfileSchema: {
+      /** Id */
+      id: string;
+      /** Employee Id */
+      employee_id: string;
+      /** Employee Name */
+      employee_name?: string | null;
+      /** Employee Number */
+      employee_number?: number | null;
+      /** Employee Email */
+      employee_email?: string | null;
+      /** Jurisdiction Country Code */
+      jurisdiction_country_code: string;
+      /** Pay Type */
+      pay_type: string;
+      /** Base Salary */
+      base_salary: number;
+      /** Hourly Rate */
+      hourly_rate?: number | null;
+      /** Scheduled Monthly Hours */
+      scheduled_monthly_hours?: number | null;
+      /** Tax Table Type */
+      tax_table_type: string;
+      /** Dependent Count */
+      dependent_count: number;
+      /** Resident Tax Monthly Amount */
+      resident_tax_monthly_amount: number;
+      /** Standard Monthly Remuneration */
+      standard_monthly_remuneration?: number | null;
+      /** Health Insurance Prefecture Code */
+      health_insurance_prefecture_code?: string | null;
+      /** Is Health Insurance Enrolled */
+      is_health_insurance_enrolled: boolean;
+      /** Is Care Insurance Enrolled */
+      is_care_insurance_enrolled: boolean;
+      /** Is Pension Enrolled */
+      is_pension_enrolled: boolean;
+      /** Is Employment Insurance Enrolled */
+      is_employment_insurance_enrolled: boolean;
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from?: string | null;
+      /**
+       * Effective To
+       * Format: date
+       */
+      effective_to?: string | null;
+      /** Extra Settings */
+      extra_settings: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** PayrollEmployeeOptionSchema */
+    PayrollEmployeeOptionSchema: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Employee Number */
+      employee_number?: number | null;
+      /** Email */
+      email?: string | null;
+    };
+    /** PayrollProfileUpsertRequest */
+    PayrollProfileUpsertRequest: {
+      /** Employee Id */
+      employee_id: string;
+      /** Jurisdiction Country Code */
+      jurisdiction_country_code?: string | null;
+      /**
+       * Pay Type
+       * @default monthly
+       */
+      pay_type: string;
+      /**
+       * Base Salary
+       * @default 0
+       */
+      base_salary: number;
+      /** Hourly Rate */
+      hourly_rate?: number | null;
+      /** Scheduled Monthly Hours */
+      scheduled_monthly_hours?: number | null;
+      /**
+       * Tax Table Type
+       * @default ko
+       */
+      tax_table_type: string;
+      /**
+       * Dependent Count
+       * @default 0
+       */
+      dependent_count: number;
+      /**
+       * Resident Tax Monthly Amount
+       * @default 0
+       */
+      resident_tax_monthly_amount: number;
+      /** Standard Monthly Remuneration */
+      standard_monthly_remuneration?: number | null;
+      /** Health Insurance Prefecture Code */
+      health_insurance_prefecture_code?: string | null;
+      /**
+       * Is Health Insurance Enrolled
+       * @default false
+       */
+      is_health_insurance_enrolled: boolean;
+      /**
+       * Is Care Insurance Enrolled
+       * @default false
+       */
+      is_care_insurance_enrolled: boolean;
+      /**
+       * Is Pension Enrolled
+       * @default false
+       */
+      is_pension_enrolled: boolean;
+      /**
+       * Is Employment Insurance Enrolled
+       * @default false
+       */
+      is_employment_insurance_enrolled: boolean;
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from?: string | null;
+      /**
+       * Effective To
+       * Format: date
+       */
+      effective_to?: string | null;
+      /** Extra Settings */
+      extra_settings?: {
+        [key: string]: unknown;
+      };
+    };
+    /** PayrollProfileResponse */
+    PayrollProfileResponse: {
+      data: components['schemas']['PayrollProfileSchema'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** PayrollErrorResponse */
+    PayrollErrorResponse: {
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Message */
+      message: string;
+    };
     /** PaymentsErrorResponse */
     PaymentsErrorResponse: {
       /** Message */
@@ -3894,6 +8690,105 @@ export interface components {
         [key: string]: unknown;
       } | null;
     };
+    /** PaymentDetailSchema */
+    PaymentDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Rcp */
+      id_rcp?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Entry Type */
+      entry_type?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
+    };
+    /** PaymentAllocationsUpdateRequest */
+    PaymentAllocationsUpdateRequest: {
+      /** Allocations */
+      allocations?: components['schemas']['PaymentAllocationInput'][];
+    };
+    /** PaymentAllocationInput */
+    PaymentAllocationInput: {
+      /** Invoice Id */
+      invoice_id: string;
+      /** Amount */
+      amount: number;
+      /**
+       * Adjustment Amount
+       * @default 0
+       */
+      adjustment_amount: number | null;
+      /** Adjustment Type */
+      adjustment_type?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Source */
+      source?: string | null;
+      /** Notes */
+      notes?: string | null;
+    };
+    /** PaymentAllocationsResponse */
+    PaymentAllocationsResponse: {
+      /** Payment */
+      payment?: {
+        [key: string]: unknown;
+      } | null;
+      /** Invoice */
+      invoice?: {
+        [key: string]: unknown;
+      } | null;
+      /** Allocations */
+      allocations?: {
+        [key: string]: unknown;
+      }[];
+      /** Adjustments */
+      adjustments?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Adjustment Total
+       * @default 0
+       */
+      adjustment_total: number;
+      /** Available Invoices */
+      available_invoices?: {
+        [key: string]: unknown;
+      }[];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
     /** OrdersListResponse */
     OrdersListResponse: {
       /** Data */
@@ -3902,10 +8797,20 @@ export interface components {
       }[];
       /** Page */
       page: number;
+      /** Limit */
+      limit?: number | null;
       /** Count */
       count: number;
       /** Total */
       total: number;
+      /** Has Next */
+      has_next?: boolean | null;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
       /** Message */
       message: string;
       /** Ctx Id */
@@ -3940,6 +8845,97 @@ export interface components {
       /** Code */
       code?: string | null;
     };
+    /** JournalsListResponse */
+    JournalsListResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      }[];
+      /** Page */
+      page: number;
+      /** Count */
+      count: number;
+      /** Total */
+      total: number;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** View Type */
+      view_type?: string | null;
+      /** Balance Sheet Display */
+      balance_sheet_display?: string | null;
+      /** Columns */
+      columns?: string[] | null;
+      /** Column Labels */
+      column_labels?: {
+        [key: string]: unknown;
+      } | null;
+      /** Permission */
+      permission?: string | null;
+    };
+    /** JournalsErrorResponse */
+    JournalsErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Code */
+      code?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** JournalStatementViewCreateResponse */
+    JournalStatementViewCreateResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Statement */
+      statement?: {
+        [key: string]: unknown;
+      } | null;
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** JournalStatementViewCreateRequest */
+    JournalStatementViewCreateRequest: {
+      /** Name */
+      name?: string | null;
+      /** Title */
+      title?: string | null;
+      /**
+       * View Type
+       * @default profit_and_loss
+       * @enum {string}
+       */
+      view_type: 'profit_and_loss' | 'balance_sheet' | 'cash_flow' | 'cashflow' | 'cash_flow_statement';
+      /**
+       * Is Private
+       * @default false
+       */
+      is_private: boolean;
+      /**
+       * Balance Sheet Display
+       * @enum {string|null}
+       */
+      balance_sheet_display?: 'vertical' | 'two_column' | null;
+      /** Balance Sheet Type */
+      balance_sheet_type?: string | null;
+      /** Date Range */
+      date_range?: string | null;
+      /**
+       * Include Preview
+       * @default true
+       */
+      include_preview: boolean;
+      /** Limit */
+      limit?: number | null;
+    };
     /** ItemsErrorResponse */
     ItemsErrorResponse: {
       /** Message */
@@ -3957,13 +8953,27 @@ export interface components {
       message: string;
       /** Ctx Id */
       ctx_id?: string | null;
+      /** Code */
+      code?: string | null;
       /** Errors */
       errors?: {
         [key: string]: unknown;
       } | null;
+      /** Invoice Lifecycle */
+      invoice_lifecycle?: {
+        [key: string]: unknown;
+      } | null;
+      /** Missingrequiredfields */
+      missingRequiredFields?:
+        | {
+            [key: string]: string;
+          }[]
+        | null;
     };
     /** InvoiceSchema */
     InvoiceSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Inv */
       id_inv?: number | null;
       /** Contact Name */
@@ -3982,12 +8992,24 @@ export interface components {
       due_date?: string | null;
       /** Status */
       status?: string | null;
+      /** Status Key */
+      status_key?: string | null;
       /** Currency */
       currency?: string | null;
       /** Total Price */
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Paid Amount */
+      paid_amount?: number | null;
+      /** Outstanding Balance */
+      outstanding_balance?: number | null;
+      /** Days Overdue */
+      days_overdue?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -3998,6 +9020,59 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** InvoiceDetailSchema */
+    InvoiceDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Inv */
+      id_inv?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Status Key */
+      status_key?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Paid Amount */
+      paid_amount?: number | null;
+      /** Outstanding Balance */
+      outstanding_balance?: number | null;
+      /** Days Overdue */
+      days_overdue?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
     };
     /** InventoryWarehouseSchema */
     InventoryWarehouseSchema: {
@@ -4028,6 +9103,10 @@ export interface components {
       map_location_id?: string | null;
       /** Usage Status */
       usage_status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4100,6 +9179,10 @@ export interface components {
       updated_at: string;
       /** Usage Status */
       usage_status?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
     };
     /** InventoriesErrorResponse */
     InventoriesErrorResponse: {
@@ -4113,6 +9196,1016 @@ export interface components {
       } | null;
       /** Code */
       code?: string | null;
+    };
+    /** IntegrationChannelListResponse */
+    IntegrationChannelListResponse: {
+      /** Channels */
+      channels: {
+        [key: string]: unknown;
+      }[];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** IncentiveSchema */
+    IncentiveSchema: {
+      /** Id */
+      id: string;
+      /** Id Inc */
+      id_inc?: number | null;
+      /** Plan Id */
+      plan_id?: string | null;
+      /** Plan Name */
+      plan_name?: string | null;
+      /** Owner Id */
+      owner_id?: string | null;
+      /** Owner Name */
+      owner_name?: string | null;
+      /**
+       * Payee Type
+       * @default user
+       */
+      payee_type: string;
+      /** Payee Company Id */
+      payee_company_id?: string | null;
+      /** Payee Company Name */
+      payee_company_name?: string | null;
+      /** Source Object Type */
+      source_object_type: string;
+      /** Source Record Id */
+      source_record_id: string;
+      /** Source Label */
+      source_label?: string | null;
+      /** Period */
+      period: string;
+      /** Currency */
+      currency?: string | null;
+      /** Base Amount */
+      base_amount: number;
+      /** Rate Value */
+      rate_value: number;
+      /** Incentive Amount */
+      incentive_amount: number;
+      /** Status */
+      status: string;
+      /** Dedupe Key */
+      dedupe_key: string;
+      /** Calc Snapshot */
+      calc_snapshot?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Approved At
+       * Format: date-time
+       */
+      approved_at?: string | null;
+      /**
+       * Paid At
+       * Format: date-time
+       */
+      paid_at?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** IncentivePlanSchema */
+    IncentivePlanSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /** Base Event */
+      base_event: string;
+      /** Source Status */
+      source_status?: string | null;
+      /** Source Company Id */
+      source_company_id?: string | null;
+      /** Source Company Name */
+      source_company_name?: string | null;
+      /**
+       * Payee Type
+       * @default user
+       */
+      payee_type: string;
+      /** Payee Company Id */
+      payee_company_id?: string | null;
+      /** Payee Company Name */
+      payee_company_name?: string | null;
+      /**
+       * Amount Basis
+       * @default tax_exclusive
+       */
+      amount_basis: string;
+      /** Rate Type */
+      rate_type: string;
+      /** Rate Value */
+      rate_value: number;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Max Payout Amount */
+      max_payout_amount?: number | null;
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /**
+       * Effective To
+       * Format: date
+       */
+      effective_to?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+    };
+    /** IncentivePlanResponse */
+    IncentivePlanResponse: {
+      data: components['schemas']['IncentivePlanSchema'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** IncentivePlanCreateRequest */
+    IncentivePlanCreateRequest: {
+      /** Name */
+      name: string;
+      /** Base Event */
+      base_event: string;
+      /** Source Status */
+      source_status?: string | null;
+      /** Source Company Id */
+      source_company_id?: string | null;
+      /**
+       * Payee Type
+       * @default user
+       */
+      payee_type: string;
+      /** Payee Company Id */
+      payee_company_id?: string | null;
+      /**
+       * Amount Basis
+       * @default tax_exclusive
+       */
+      amount_basis: string;
+      /** Rate Type */
+      rate_type: string;
+      /** Rate Value */
+      rate_value: number;
+      /**
+       * Effective From
+       * Format: date
+       */
+      effective_from: string;
+      /**
+       * Effective To
+       * Format: date
+       */
+      effective_to?: string | null;
+      /**
+       * Status
+       * @default active
+       */
+      status: string;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Max Payout Amount */
+      max_payout_amount?: number | null;
+    };
+    /** IncentiveErrorResponse */
+    IncentiveErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Code */
+      code?: string | null;
+    };
+    /** IncentiveCompanyOptionSchema */
+    IncentiveCompanyOptionSchema: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+    };
+    /** IncentiveCalculateResponse */
+    IncentiveCalculateResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** IncentiveCalculateRequest */
+    IncentiveCalculateRequest: {
+      /** Period */
+      period: string;
+      /** Plan Id */
+      plan_id?: string | null;
+      /** Owner User Id */
+      owner_user_id?: string | null;
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
+    };
+    /** IncentiveApproveBulkRequest */
+    IncentiveApproveBulkRequest: {
+      /** Ids */
+      ids: string[];
+    };
+    /** IncentiveActionResponse */
+    IncentiveActionResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** ImportJobCreateRequest */
+    ImportJobCreateRequest: {
+      /** Object Type */
+      object_type: string;
+      /**
+       * Source Kind
+       * @default file
+       */
+      source_kind: string;
+      /**
+       * File Format
+       * @default csv
+       */
+      file_format: string;
+      /** File Id */
+      file_id: string;
+      /**
+       * Operation
+       * @default upsert
+       */
+      operation: string;
+      /**
+       * Mapping Mode
+       * @default auto
+       */
+      mapping_mode: string;
+      /** Key Field */
+      key_field?: string | null;
+      /** Column Mappings */
+      column_mappings?: components['schemas']['TransferColumnMapping'][];
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
+    };
+    /** TransferColumnMapping */
+    TransferColumnMapping: {
+      /** Source Header */
+      source_header: string;
+      /** Target Field */
+      target_field: string;
+    };
+    /** HubSpotSmartRoutingWorkflowResponse */
+    HubSpotSmartRoutingWorkflowResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotSmartRoutingWorkflowRequest */
+    HubSpotSmartRoutingWorkflowRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Workflow Name */
+      workflow_name?: string | null;
+      /**
+       * Enable Workflow
+       * @default false
+       */
+      enable_workflow: boolean;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+    };
+    /** HubSpotSmartRoutingStartResponse */
+    HubSpotSmartRoutingStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotSmartRoutingStartRequest */
+    HubSpotSmartRoutingStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /** Record Ids */
+      record_ids?: string[];
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Created From
+       * Format: date
+       */
+      created_from?: string | null;
+      /**
+       * Created To
+       * Format: date
+       */
+      created_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Source */
+      source?: string | null;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * History Days
+       * @default 365
+       */
+      history_days: number;
+      /**
+       * Fairness Weight
+       * @default 20
+       */
+      fairness_weight: number;
+      /**
+       * Ambiguity Margin
+       * @default 3
+       */
+      ambiguity_margin: number;
+      /**
+       * Preserve Existing Owner
+       * @default true
+       */
+      preserve_existing_owner: boolean;
+      /**
+       * Preserve Account Owner
+       * @default true
+       */
+      preserve_account_owner: boolean;
+      /**
+       * Group By
+       * @default owner
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Recommendation Ids */
+      recommendation_ids?: string[];
+      /**
+       * Action Mode
+       * @default update_owners
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Create Review Tasks
+       * @default false
+       */
+      create_review_tasks: boolean;
+      /** Manager Owner Id */
+      manager_owner_id?: string | null;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** HubSpotSmartRoutingPreviewResponse */
+    HubSpotSmartRoutingPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotSmartRoutingPreviewRequest */
+    HubSpotSmartRoutingPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /** Record Ids */
+      record_ids?: string[];
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Created From
+       * Format: date
+       */
+      created_from?: string | null;
+      /**
+       * Created To
+       * Format: date
+       */
+      created_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Source */
+      source?: string | null;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * History Days
+       * @default 365
+       */
+      history_days: number;
+      /**
+       * Fairness Weight
+       * @default 20
+       */
+      fairness_weight: number;
+      /**
+       * Ambiguity Margin
+       * @default 3
+       */
+      ambiguity_margin: number;
+      /**
+       * Preserve Existing Owner
+       * @default true
+       */
+      preserve_existing_owner: boolean;
+      /**
+       * Preserve Account Owner
+       * @default true
+       */
+      preserve_account_owner: boolean;
+      /**
+       * Group By
+       * @default owner
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** HubSpotSmartRoutingErrorResponse */
+    HubSpotSmartRoutingErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** HubSpotRevenueControlSummaryRequest */
+    HubSpotRevenueControlSummaryRequest: {
+      /** Source Record */
+      source_record?: {
+        [key: string]: unknown;
+      };
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
+    };
+    /** HubSpotResponse */
+    HubSpotResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotReactivationStartResponse */
+    HubSpotReactivationStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotReactivationStartRequest */
+    HubSpotReactivationStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /** Segment */
+      segment?: string | null;
+      /** Lifecycle Stages */
+      lifecycle_stages?: string[];
+      /** Lost Reasons */
+      lost_reasons?: string[];
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /**
+       * Inactive Days
+       * @default 45
+       */
+      inactive_days: number;
+      /**
+       * Recent Contact Days
+       * @default 14
+       */
+      recent_contact_days: number;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Product */
+      product?: string | null;
+      /** Campaign Source */
+      campaign_source?: string | null;
+      /**
+       * Group By
+       * @default reason
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Candidate Ids */
+      candidate_ids?: string[];
+      /**
+       * Action Mode
+       * @default create_tasks
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** HubSpotReactivationPreviewResponse */
+    HubSpotReactivationPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotReactivationPreviewRequest */
+    HubSpotReactivationPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /** Segment */
+      segment?: string | null;
+      /** Lifecycle Stages */
+      lifecycle_stages?: string[];
+      /** Lost Reasons */
+      lost_reasons?: string[];
+      /**
+       * Object Scope
+       * @default deals
+       */
+      object_scope: string;
+      /**
+       * Inactive Days
+       * @default 45
+       */
+      inactive_days: number;
+      /**
+       * Recent Contact Days
+       * @default 14
+       */
+      recent_contact_days: number;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Min Amount */
+      min_amount?: number | null;
+      /** Product */
+      product?: string | null;
+      /** Campaign Source */
+      campaign_source?: string | null;
+      /**
+       * Group By
+       * @default reason
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** HubSpotReactivationErrorResponse */
+    HubSpotReactivationErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** HubSpotErrorResponse */
+    HubSpotErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** HubSpotDealSearchRequest */
+    HubSpotDealSearchRequest: {
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Query */
+      query?: string | null;
+      /** Filters */
+      filters?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Limit
+       * @default 10
+       */
+      limit: number;
+      /** After */
+      after?: string | null;
+    };
+    /** HubSpotDealReadRequest */
+    HubSpotDealReadRequest: {
+      /** Deal Id */
+      deal_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Url */
+      url?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+    };
+    /** HubSpotAccountExpansionStartResponse */
+    HubSpotAccountExpansionStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotAccountExpansionStartRequest */
+    HubSpotAccountExpansionStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Account Scope
+       * @default customers
+       */
+      account_scope: string;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Product */
+      product?: string | null;
+      /**
+       * Inactive Days
+       * @default 30
+       */
+      inactive_days: number;
+      /**
+       * Group By
+       * @default angle
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Opportunity Ids */
+      opportunity_ids?: string[];
+      /**
+       * Action Mode
+       * @default create_tasks
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** HubSpotAccountExpansionPreviewResponse */
+    HubSpotAccountExpansionPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** HubSpotAccountExpansionPreviewRequest */
+    HubSpotAccountExpansionPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Account Scope
+       * @default customers
+       */
+      account_scope: string;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Product */
+      product?: string | null;
+      /**
+       * Inactive Days
+       * @default 30
+       */
+      inactive_days: number;
+      /**
+       * Group By
+       * @default angle
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** HubSpotAccountExpansionErrorResponse */
+    HubSpotAccountExpansionErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** GetWorkflowRunResponse */
+    GetWorkflowRunResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** FreeeResponse */
+    FreeeResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** FreeeInvoiceSyncRequest */
+    FreeeInvoiceSyncRequest: {
+      /** Source Record */
+      source_record?: {
+        [key: string]: unknown;
+      } | null;
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+      /** Workspace Id */
+      workspace_id?: string | null;
+    };
+    /** FreeeErrorResponse */
+    FreeeErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** ExportJobCreateRequest */
+    ExportJobCreateRequest: {
+      /** Object Type */
+      object_type: string;
+      /**
+       * Destination Kind
+       * @default integration
+       */
+      destination_kind: string;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /**
+       * Operation
+       * @default update
+       */
+      operation: string;
+      /** Record Ids */
+      record_ids?: string[] | null;
+      /** Workspace Scope */
+      workspace_scope?: string | null;
+      /** Custom Object Id */
+      custom_object_id?: string | null;
+      /**
+       * Limit
+       * @default 200
+       */
+      limit: number;
+      /** File Format */
+      file_format?: string | null;
+      /**
+       * Dry Run
+       * @default false
+       */
+      dry_run: boolean;
     };
     /** ExpensesErrorResponse */
     ExpensesErrorResponse: {
@@ -4155,6 +10248,12 @@ export interface components {
       currency?: string | null;
       /** Amount */
       amount?: number | null;
+      /** Base Currency */
+      base_currency?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4179,6 +10278,8 @@ export interface components {
     };
     /** EstimateSchema */
     EstimateSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Est */
       id_est?: number | null;
       /** Contact Name */
@@ -4203,6 +10304,10 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4213,6 +10318,51 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** EstimateDetailSchema */
+    EstimateDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Est */
+      id_est?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Start Date
+       * Format: date
+       */
+      start_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
     };
     /** EnrichResponse */
     EnrichResponse: {
@@ -4308,6 +10458,8 @@ export interface components {
     };
     /** DisbursementSchema */
     DisbursementSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Dsb */
       id_dsb?: number | null;
       /** Contact Name */
@@ -4327,6 +10479,10 @@ export interface components {
       total_price?: number | null;
       /** Total Price Without Tax */
       total_price_without_tax?: number | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4340,16 +10496,44 @@ export interface components {
     };
     /** ContactsListResponse */
     ContactsListResponse: {
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Next Cursor */
+      next_cursor?: string | null;
       /** Data */
       data: {
         [key: string]: unknown;
       }[];
       /** Page */
       page: number;
+      /** Limit */
+      limit?: number | null;
       /** Count */
       count: number;
       /** Total */
       total: number;
+      /** Has Next */
+      has_next?: boolean | null;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
       /** Permission */
       permission?: string | null;
       /** Message */
@@ -4385,6 +10569,10 @@ export interface components {
       phone_number?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4417,6 +10605,10 @@ export interface components {
       url?: string | null;
       /** Allowed In Store */
       allowed_in_store?: boolean | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4428,24 +10620,167 @@ export interface components {
        */
       updated_at: string;
     };
+    /** CompanyPriceTableResponse */
+    CompanyPriceTableResponse: {
+      /** Field Id */
+      field_id: string;
+      /** Mode */
+      mode: string;
+      /**
+       * Company Price Precentage
+       * @default 100
+       */
+      company_price_precentage: number;
+      /**
+       * Company Price Percentage
+       * @default 100
+       */
+      company_price_percentage: number;
+      /** Items */
+      items: components['schemas']['CompanyPriceTableItem'][];
+      pagination: components['schemas']['CompanyPriceTablePagination'];
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** CompanyPriceTablePagination */
+    CompanyPriceTablePagination: {
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+      /** Total Count */
+      total_count: number;
+      /** Total Pages */
+      total_pages: number;
+      /** Has Next */
+      has_next: boolean;
+      /** Has Previous */
+      has_previous: boolean;
+    };
+    /** CompanyPriceTableItem */
+    CompanyPriceTableItem: {
+      /** Item Id */
+      item_id: string;
+      /** Item Record Id */
+      item_record_id?: number | null;
+      /** Item Name */
+      item_name: string;
+      /** Currency */
+      currency?: string | null;
+      /**
+       * Default Price
+       * @default 0
+       */
+      default_price: number;
+      /**
+       * Discount Price
+       * @default 0
+       */
+      discount_price: number;
+      /** Discount Rate */
+      discount_rate?: number | null;
+      /**
+       * Has Override
+       * @default false
+       */
+      has_override: boolean;
+    };
+    /** CompanyPriceTableMutationResponse */
+    CompanyPriceTableMutationResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** CompanyPriceTableItemPatchRequest */
+    CompanyPriceTableItemPatchRequest: {
+      /** Price Precentage */
+      price_precentage?: number | null;
+      /** Field Ref */
+      field_ref?: string | null;
+      /** Discount Price */
+      discount_price?: number | null;
+    };
+    /** CompanyPriceTableCompanyPatchRequest */
+    CompanyPriceTableCompanyPatchRequest: {
+      /** Price Precentage */
+      price_precentage?: number | null;
+      /** Field Ref */
+      field_ref?: string | null;
+      /** Mode */
+      mode?: string | null;
+    };
+    /** CompanyPriceTableApplyAllRequest */
+    CompanyPriceTableApplyAllRequest: {
+      /** Price Precentage */
+      price_precentage?: number | null;
+      /** Field Ref */
+      field_ref?: string | null;
+      /** Mode */
+      mode?: string | null;
+      /** Exclude Item Ids */
+      exclude_item_ids?: string[];
+    };
     /** CompaniesListResponse */
     CompaniesListResponse: {
+      /** Scope */
+      scope?: string | null;
+      /** Provider */
+      provider?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Channel Name */
+      channel_name?: string | null;
+      /** External Object Type */
+      external_object_type?: string | null;
+      /** Sync State */
+      sync_state?: {
+        [key: string]: unknown;
+      } | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
+      /** Next Cursor */
+      next_cursor?: string | null;
       /** Data */
       data: {
         [key: string]: unknown;
       }[];
       /** Page */
       page: number;
+      /** Limit */
+      limit?: number | null;
       /** Count */
       count: number;
       /** Total */
       total: number;
+      /** Has Next */
+      has_next?: boolean | null;
+      /** Next Page */
+      next_page?: number | null;
+      /** Pagination */
+      pagination?: {
+        [key: string]: unknown;
+      } | null;
       /** Permission */
       permission?: string | null;
       /** Message */
       message: string;
       /** Ctx Id */
       ctx_id?: string | null;
+      /** Data Origin */
+      data_origin?: string | null;
+      /** Source Of Truth */
+      source_of_truth?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** CompaniesErrorResponse */
     CompaniesErrorResponse: {
@@ -4457,6 +10792,8 @@ export interface components {
       errors?: {
         [key: string]: unknown;
       } | null;
+      /** Unavailable Reason */
+      unavailable_reason?: string | null;
     };
     /** CommerceMeterSchema */
     CommerceMeterSchema: {
@@ -4514,6 +10851,10 @@ export interface components {
       item_name?: string | null;
       /** Subscription Name */
       subscription_name?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
     };
     /** CasesErrorResponse */
     CasesErrorResponse: {
@@ -4555,6 +10896,10 @@ export interface components {
       stage_score?: number | null;
       /** Currency */
       currency?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4566,6 +10911,52 @@ export interface components {
        */
       updated_at: string;
     };
+    /** CaseDetailSchema */
+    CaseDetailSchema: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id?: string | null;
+      /** Deal Id */
+      deal_id?: number | null;
+      /** Name */
+      name?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Case Status */
+      case_status?: string | null;
+      /** Pipeline Name */
+      pipeline_name?: string | null;
+      /** Pipeline Order */
+      pipeline_order?: number | null;
+      /** Stage Key */
+      stage_key?: string | null;
+      /** Stage Label */
+      stage_label?: string | null;
+      /** Stage Position */
+      stage_position?: number | null;
+      /** Stage Score */
+      stage_score?: number | null;
+      /** Currency */
+      currency?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
+    };
     /** CalendarErrorResponse */
     CalendarErrorResponse: {
       /** Message */
@@ -4576,6 +10967,28 @@ export interface components {
       errors?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** BusinessWorkflowStartRequest */
+    BusinessWorkflowStartRequest: {
+      /** Workflow Type */
+      workflow_type?: string | null;
+      source_record: components['schemas']['WorkflowRecordRef'];
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** BusinessWorkflowPreviewRequest */
+    BusinessWorkflowPreviewRequest: {
+      /** Workflow Type */
+      workflow_type?: string | null;
+      source_record: components['schemas']['WorkflowRecordRef'];
+      /** Options */
+      options?: {
+        [key: string]: unknown;
+      };
     };
     /** BulkOrdersResponse */
     BulkOrdersResponse: {
@@ -4629,6 +11042,8 @@ export interface components {
     };
     /** BillSchema */
     BillSchema: {
+      /** Id */
+      id?: string | null;
       /** Id Bill */
       id_bill?: number | null;
       /** Contact Name */
@@ -4658,6 +11073,14 @@ export interface components {
       amount?: number | null;
       /** Amount Without Tax */
       amount_without_tax?: number | null;
+      /** Attachment File */
+      attachment_file?: {
+        [key: string]: unknown;
+      }[];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -4668,6 +11091,80 @@ export interface components {
        * Format: date-time
        */
       updated_at?: string | null;
+    };
+    /** BillDetailSchema */
+    BillDetailSchema: {
+      /** Id */
+      id?: string | null;
+      /** Id Bill */
+      id_bill?: number | null;
+      /** Contact Name */
+      contact_name?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /**
+       * Issued Date
+       * Format: date
+       */
+      issued_date?: string | null;
+      /**
+       * Due Date
+       * Format: date
+       */
+      due_date?: string | null;
+      /**
+       * Payment Date
+       * Format: date
+       */
+      payment_date?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Amount */
+      amount?: number | null;
+      /** Amount Without Tax */
+      amount_without_tax?: number | null;
+      /** Attachment File */
+      attachment_file?: {
+        [key: string]: unknown;
+      }[];
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string | null;
+      /** Line Items */
+      line_items?: components['schemas']['PublicLineItemOutput'][];
+    };
+    /** AttendanceErrorResponse */
+    AttendanceErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+      /** Code */
+      code?: string | null;
+    };
+    /** ActivityLogsErrorResponse */
+    ActivityLogsErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
     };
     /** AccountMessagesResponse */
     AccountMessagesResponse: {
@@ -4683,6 +11180,18 @@ export interface components {
       channels: components['schemas']['AccountMessageChannel'][];
       /** Threads */
       threads: components['schemas']['AccountMessageThread'][];
+      /**
+       * Has Connected Private Inbox
+       * @default false
+       */
+      has_connected_private_inbox: boolean;
+      /**
+       * Setup Required
+       * @default false
+       */
+      setup_required: boolean;
+      /** Setup Message */
+      setup_message?: string | null;
     };
     /** AccountMessageThread */
     AccountMessageThread: {
@@ -4897,6 +11406,168 @@ export interface components {
       /** Status */
       status?: string | null;
     };
+    /** AccountExpansionStartResponse */
+    AccountExpansionStartResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountExpansionStartRequest */
+    AccountExpansionStartRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Account Scope
+       * @default customers
+       */
+      account_scope: string;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Product */
+      product?: string | null;
+      /**
+       * Inactive Days
+       * @default 30
+       */
+      inactive_days: number;
+      /**
+       * Group By
+       * @default angle
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+      /** Opportunity Ids */
+      opportunity_ids?: string[];
+      /**
+       * Action Mode
+       * @default create_tasks
+       */
+      action_mode: string;
+      /**
+       * Confirm
+       * @default false
+       */
+      confirm: boolean;
+      /**
+       * Task Due Date
+       * Format: date
+       */
+      task_due_date?: string | null;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+    };
+    /** AccountExpansionPreviewResponse */
+    AccountExpansionPreviewResponse: {
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+    };
+    /** AccountExpansionPreviewRequest */
+    AccountExpansionPreviewRequest: {
+      /** Workspace Id */
+      workspace_id?: string | null;
+      /**
+       * Integration
+       * @default hubspot
+       */
+      integration: string;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** Portal Id */
+      portal_id?: string | null;
+      /** Owner Ids */
+      owner_ids?: string[];
+      /**
+       * Account Scope
+       * @default customers
+       */
+      account_scope: string;
+      /** Segment */
+      segment?: string | null;
+      /**
+       * Date From
+       * Format: date
+       */
+      date_from?: string | null;
+      /**
+       * Date To
+       * Format: date
+       */
+      date_to?: string | null;
+      /** Product */
+      product?: string | null;
+      /**
+       * Inactive Days
+       * @default 30
+       */
+      inactive_days: number;
+      /**
+       * Group By
+       * @default angle
+       */
+      group_by: string;
+      /**
+       * Limit
+       * @default 25
+       */
+      limit: number;
+      /**
+       * Scan Limit
+       * @default 100
+       */
+      scan_limit: number;
+    };
+    /** AccountExpansionErrorResponse */
+    AccountExpansionErrorResponse: {
+      /** Message */
+      message: string;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Errors */
+      errors?: {
+        [key: string]: unknown;
+      } | null;
+    };
     /** AIErrorResponse */
     AIErrorResponse: {
       /** Message */
@@ -4917,6 +11588,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  api_routers_v1_files_api_export_email_download: {
+    parameters: {
+      query: {
+        token: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   api_routers_v1_ai_api_enrich_record: {
     parameters: {
       query?: never;
@@ -5151,6 +11842,135 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_workflow_runs_business_api_preview_public_hubspot_order_handoff: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_start_public_hubspot_order_handoff: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_orders_public_api_public_list_orders: {
     parameters: {
       query?: {
@@ -5159,6 +11979,10 @@ export interface operations {
         page?: number;
         limit?: number | null;
         sort?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
         reference_id?: string | null;
       };
       header?: {
@@ -5309,6 +12133,113 @@ export interface operations {
       };
       /** @description Forbidden */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_orders_public_api_public_download_order_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrdersErrorResponse'];
+        };
+      };
+    };
+  };
+  public_get_order_trailing_slash: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+      };
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicOrderDetailSchema'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
         headers: {
           [name: string]: unknown;
         };
@@ -5527,12 +12458,89 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_activity_logs_public_api_list_public_activity_logs: {
+    parameters: {
+      query?: {
+        object_type?: string | null;
+        object_id?: string | null;
+        action?: string | null;
+        field_name?: string | null;
+        created_after?: string | null;
+        created_before?: string | null;
+        q?: string | null;
+        page?: number;
+        limit?: number | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicActivityLogsListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivityLogsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivityLogsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivityLogsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivityLogsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_items_public_api_list_workspace_items: {
     parameters: {
       query?: {
         workspace_id?: string | null;
         lang?: string | null;
         language?: string | null;
+        page?: number;
+        limit?: number | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
+        has_components?: boolean | null;
+        component_property_id?: string | null;
       };
       header?: {
         'Accept-Language'?: string;
@@ -5549,6 +12557,42 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ShopTurboItemSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ItemsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ItemsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ItemsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ItemsErrorResponse'];
         };
       };
     };
@@ -5609,6 +12653,75 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ItemsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_items_public_api_bulk_upsert_public_items: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
         };
       };
     };
@@ -5807,11 +12920,19 @@ export interface operations {
   api_routers_v1_contacts_public_api_public_list_contacts: {
     parameters: {
       query?: {
+        scope?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
         view?: string | null;
         search?: string | null;
         page?: number;
         limit?: number | null;
         sort?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
         reference_id?: string | null;
       };
       header?: {
@@ -5925,6 +13046,75 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ContactsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_contacts_public_api_bulk_upsert_public_contacts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
         };
       };
     };
@@ -6055,6 +13245,13 @@ export interface operations {
     parameters: {
       query?: {
         external_id?: string | null;
+        target?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
+        operation?: string | null;
+        dry_run?: boolean;
+        confirm?: boolean;
       };
       header?: never;
       path: {
@@ -6491,11 +13688,19 @@ export interface operations {
   api_routers_v1_companies_public_api_list_workspace_companies: {
     parameters: {
       query?: {
+        scope?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
         view?: string | null;
         search?: string | null;
         page?: number;
         limit?: number | null;
         sort?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
         reference_id?: string | null;
       };
       header?: {
@@ -6609,6 +13814,75 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_companies_public_api_bulk_upsert_public_companies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
         };
       };
     };
@@ -6739,6 +14013,13 @@ export interface operations {
     parameters: {
       query?: {
         external_id?: string | null;
+        target?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
+        operation?: string | null;
+        dry_run?: boolean;
+        confirm?: boolean;
       };
       header?: never;
       path: {
@@ -6804,10 +14085,266 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_companies_public_api_get_public_company_price_table: {
+    parameters: {
+      query?: {
+        field_ref?: string | null;
+        q?: string | null;
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path: {
+        company_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompanyPriceTableResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_companies_public_api_update_public_company_price_table_company: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        company_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompanyPriceTableCompanyPatchRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompanyPriceTableMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_companies_public_api_apply_public_company_price_table_items: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        company_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompanyPriceTableApplyAllRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompanyPriceTableMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_companies_public_api_update_public_company_price_table_item: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        company_id: string;
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompanyPriceTableItemPatchRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompanyPriceTableMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompaniesErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_cases_public_api_list_public_cases: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -6894,6 +14431,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
       };
       header?: never;
       path?: never;
@@ -6971,7 +14510,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['CaseSchema'];
+          'application/json': components['schemas']['CaseDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -7089,6 +14628,13 @@ export interface operations {
     parameters: {
       query?: {
         external_id?: string | null;
+        target?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
+        operation?: string | null;
+        dry_run?: boolean;
+        confirm?: boolean;
       };
       header?: never;
       path: {
@@ -7161,7 +14707,7 @@ export interface operations {
         usage_status?: string | null;
         project_id?: string | null;
         page?: number;
-        limit?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
         workspace_id?: string | null;
@@ -7526,6 +15072,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
       };
       header?: never;
       path?: never;
@@ -7644,6 +15192,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
       };
       header?: never;
       path?: never;
@@ -7969,6 +15519,12 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
       };
       header?: {
         'Accept-Language'?: string;
@@ -8242,10 +15798,201 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_workflow_runs_business_api_preview_public_hubspot_estimate_draft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_start_public_hubspot_estimate_draft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_estimates_public_api_download_public_estimate_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        estimate_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EstimatesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EstimatesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EstimatesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EstimatesErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_estimates_public_api_list_workspace_estimates: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -8351,7 +16098,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['EstimateSchema'];
+          'application/json': components['schemas']['EstimateDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -8523,10 +16270,457 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_workflow_runs_business_api_preview_public_hubspot_invoice_draft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_start_public_hubspot_invoice_draft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_preview_public_freee_invoice_export: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreeeInvoiceSyncRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_start_public_freee_invoice_export: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreeeInvoiceSyncRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_invoices_public_api_bulk_upsert_public_invoices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_invoices_public_api_download_public_invoice_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        invoice_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_invoices_public_api_send_public_invoice_email: {
+    parameters: {
+      query?: {
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        invoice_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicInvoiceEmailRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicInvoiceEmailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_invoices_public_api_list_workspace_invoices: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -8609,6 +16803,53 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_invoices_public_api_list_workspace_overdue_invoices: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        as_of_date?: string | null;
+        page?: number;
+        limit?: number | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoiceSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvoicesErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_invoices_public_api_get_public_invoice: {
     parameters: {
       query?: {
@@ -8632,7 +16873,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['InvoiceSchema'];
+          'application/json': components['schemas']['InvoiceDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -8804,10 +17045,141 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_payments_public_api_bulk_upsert_public_payments: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payments_public_api_download_public_payment_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_payments_public_api_list_workspace_payments: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -8913,7 +17285,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['ReceiptSchema'];
+          'application/json': components['schemas']['PaymentDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -9096,10 +17468,157 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_payments_public_api_list_public_payment_allocations: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentAllocationsResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payments_public_api_update_public_payment_allocations: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PaymentAllocationsUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentAllocationsResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaymentsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_expenses_public_api_list_workspace_expenses: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -9262,6 +17781,75 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ExpensesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_expenses_public_api_bulk_upsert_public_expenses: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
         };
       };
     };
@@ -9461,10 +18049,1525 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_absences_public_api_list_public_absences: {
+    parameters: {
+      query?: {
+        page?: number;
+        limit?: number | null;
+        worker_id?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        start_date_from?: string | null;
+        start_date_to?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_absences_public_api_create_public_absence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAbsenceRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_absences_public_api_get_public_absence: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path: {
+        absence_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceSchema'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_absences_public_api_update_public_absence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        absence_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAbsenceRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_absences_public_api_delete_public_absence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        absence_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAbsenceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_attendance_public_api_list_public_attendance_records: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        page?: number;
+        limit?: number | null;
+        sort?: string | null;
+        usage_status?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAttendanceRecordsListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_attendance_public_api_create_public_attendance_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAttendanceRecordRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAttendanceRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_attendance_public_api_get_public_attendance_record: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path: {
+        attendance_record_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAttendanceRecordResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_attendance_public_api_update_public_attendance_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attendance_record_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAttendanceRecordRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAttendanceRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_attendance_public_api_delete_public_attendance_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attendance_record_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAttendanceRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AttendanceErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_list_public_payroll_profiles: {
+    parameters: {
+      query?: {
+        employee_id?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollProfilesResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_upsert_public_payroll_profile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PayrollProfileUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollProfileResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_list_public_payroll_runs: {
+    parameters: {
+      query?: {
+        period?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollRunsResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_calculate_public_payroll_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PayrollRunCalculateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollRunDetailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_get_public_payroll_run: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollRunDetailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_payroll_public_api_approve_public_payroll_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollRunDetailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PayrollErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_preview_public_hubspot_commission_calculation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BusinessWorkflowPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_list_public_incentives: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        period?: string | null;
+        status?: string | null;
+        owner_user_id?: string | null;
+        source_object_type?: string | null;
+        search?: string | null;
+        sort?: string | null;
+        sort_direction?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_list_public_incentive_plans: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentivePlanSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_create_public_incentive_plan: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IncentivePlanCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentivePlanResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_list_public_incentive_company_options: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        q?: string;
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveCompanyOptionSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_calculate_public_incentives: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IncentiveCalculateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveCalculateResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_approve_public_incentives_bulk: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IncentiveApproveBulkRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveActionResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_incentives_public_api_approve_public_incentive: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path: {
+        incentive_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveActionResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncentiveErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_inventories_public_api_list_workspace_inventories: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -9543,6 +19646,75 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['InventoriesErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_inventories_public_api_bulk_upsert_public_inventories: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicBulkUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBulkUpsertErrorResponse'];
         };
       };
     };
@@ -9746,6 +19918,12 @@ export interface operations {
         workspace_id?: string | null;
         search?: string | null;
         q?: string | null;
+        page?: number;
+        limit?: number | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+        sort_by?: string | null;
+        sort_order?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -10034,6 +20212,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -10178,7 +20358,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['PublicInventoryTransactionRequest'];
+        'application/json': components['schemas']['PublicInventoryTransactionUpdateRequest'];
       };
     };
     responses: {
@@ -10300,6 +20480,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -10593,6 +20775,14 @@ export interface operations {
       query?: {
         workspace_id?: string | null;
         custom_only?: boolean;
+        scope?: string | null;
+        source?: string | null;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
+        search?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -10719,6 +20909,11 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        scope?: string | null;
+        source?: string | null;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -10845,7 +21040,14 @@ export interface operations {
   };
   api_routers_v1_properties_public_api_delete_public_property: {
     parameters: {
-      query?: never;
+      query?: {
+        target?: string;
+        provider?: string | null;
+        channel_id?: string | null;
+        external_object_type?: string | null;
+        dry_run?: boolean;
+        confirm?: boolean;
+      };
       header?: never;
       path: {
         object_name: string;
@@ -10902,10 +21104,859 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_object_schemas_public_api_list_public_object_schemas: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        scope?: string | null;
+        source?: string | null;
+        provider?: string | null;
+        channel_id?: string | null;
+        custom_only?: boolean;
+        search?: string | null;
+        page?: number;
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchema'][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_object_schemas_public_api_mutate_public_object_schema: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicObjectSchemaMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicObjectSchemaErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_journals_public_api_list_public_journals: {
+    parameters: {
+      query?: {
+        view?: string | null;
+        search?: string | null;
+        status?: string | null;
+        page?: number;
+        limit?: number | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_journals_public_api_create_public_journal_statement_view: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['JournalStatementViewCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalStatementViewCreateResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JournalsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_list_public_views: {
+    parameters: {
+      query: {
+        object: string;
+        custom_object_id?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_create_public_view: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicViewMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_get_public_view: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewDetailResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_delete_public_view: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicViewMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_update_public_view: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicViewMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_views_public_api_get_public_view_columns: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewColumnsResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ViewsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_associations_public_api_list_public_associations: {
+    parameters: {
+      query?: {
+        source_object?: string | null;
+        source_id?: string | null;
+        source_custom_object_id?: string | null;
+        target_object?: string | null;
+        target_id?: string | null;
+        target_custom_object_id?: string | null;
+        label_id?: string | null;
+        label?: string | null;
+        page?: number;
+        limit?: number | null;
+        workspace_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_associations_public_api_create_public_association: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAssociationMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationMutationResponse'];
+        };
+      };
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_associations_public_api_delete_public_association: {
+    parameters: {
+      query?: {
+        source_object?: string | null;
+        source_id?: string | null;
+        source_custom_object_id?: string | null;
+        target_object?: string | null;
+        target_id?: string | null;
+        target_custom_object_id?: string | null;
+        label_id?: string | null;
+        label?: string | null;
+        page?: number;
+        limit?: number | null;
+        workspace_id?: string | null;
+        association_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationDeleteResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAssociationsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_purchase_orders_public_api_list_workspace_purchase_orders: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -11015,6 +22066,62 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_purchase_orders_public_api_download_public_purchase_order_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        purchase_order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PurchaseOrdersErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PurchaseOrdersErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PurchaseOrdersErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PurchaseOrdersErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_purchase_orders_public_api_get_public_purchase_order: {
     parameters: {
       query?: {
@@ -11038,7 +22145,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['PurchaseOrderSchema'];
+          'application/json': components['schemas']['PurchaseOrderDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -11210,10 +22317,68 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_slips_public_api_download_public_slip_pdf: {
+    parameters: {
+      query?: {
+        external_id?: string | null;
+        template_select?: string | null;
+        lang?: string | null;
+        language?: string | null;
+      };
+      header?: {
+        'Accept-Language'?: string;
+      };
+      path: {
+        slip_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SlipsErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SlipsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SlipsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SlipsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_slips_public_api_list_workspace_slips: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -11346,7 +22511,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['SlipSchema'];
+          'application/json': components['schemas']['SlipDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -11522,6 +22687,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -11631,6 +22798,63 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_bills_public_api_upload_public_bill_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': {
+          /**
+           * File
+           * Format: binary
+           */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBillFileUploadResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BillsErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_bills_public_api_get_public_bill: {
     parameters: {
       query?: {
@@ -11654,7 +22878,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['BillSchema'];
+          'application/json': components['schemas']['BillDetailSchema'];
         };
       };
       /** @description Bad Request */
@@ -11830,6 +23054,8 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
         lang?: string | null;
         language?: string | null;
       };
@@ -12134,10 +23360,81 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_workflow_runs_business_api_summarize_public_revenue_control_hubspot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotRevenueControlSummaryRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_reports_public_api_list_public_reports: {
     parameters: {
       query?: {
         workspace_id?: string | null;
+        page?: number;
+        limit?: number | null;
       };
       header?: never;
       path?: never;
@@ -12436,11 +23733,311 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_records_public_api_query_public_records: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicRecordQueryRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordQueryResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_records_public_api_aggregate_public_records: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicRecordAggregateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordAggregateResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_records_public_api_create_public_custom_object_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicCustomObjectRecordMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCustomObjectRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_records_public_api_update_public_custom_object_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        record_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicCustomObjectRecordMutationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCustomObjectRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_records_public_api_archive_public_custom_object_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        record_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCustomObjectRecordMutationResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRecordErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_workflows_public_api_list_workflows: {
     parameters: {
       query?: {
         page?: number;
-        limit?: number;
+        limit?: number | null;
       };
       header?: never;
       path?: never;
@@ -12758,6 +24355,1043 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_workflows_public_api_delete_public_workflow_by_ref: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workflow_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicWorkflowDeleteResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowsErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowsErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowsErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_public_api_resolve_public_record: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ResolveRecordRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ResolveRecordResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_public_api_preview_public_workflow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PreviewWorkflowRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_public_api_start_public_workflow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StartWorkflowRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_public_api_get_public_workflow_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetWorkflowRunResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkflowRunErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_get_public_salesforce_quote_readiness_summary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceQuoteReadinessRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_preview_public_salesforce_quote_readiness: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceQuoteReadinessRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_workflow_runs_business_api_writeback_public_salesforce_quote_readiness: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceSafeWritebackRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_freee_api_preview_public_freee_invoice_draft_sync: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreeeInvoiceSyncRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_freee_api_sync_public_freee_invoice_drafts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreeeInvoiceSyncRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreeeErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_salesforce_api_get_public_salesforce_cpq_summary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceQuoteReadinessRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_salesforce_api_preview_public_salesforce_cpq_quote_readiness: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceQuoteReadinessRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_salesforce_api_writeback_public_salesforce_cpq_fields: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalesforceSafeWritebackRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceQuoteReadinessResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesforceCpqErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_hubspot_public_api_search_public_hubspot_deals: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotDealSearchRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_hubspot_public_api_get_public_hubspot_deal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotDealReadRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_hubspot_public_api_summarize_public_hubspot_revenue_control: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotRevenueControlSummaryRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_calendar_public_api_public_calendar_bootstrap: {
     parameters: {
       query?: {
@@ -12970,6 +25604,846 @@ export interface operations {
       };
     };
   };
+  api_routers_v1_reactivation_public_api_preview_public_reactivation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReactivationPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_reactivation_public_api_start_public_reactivation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReactivationStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReactivationErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_expansion_public_api_preview_public_account_expansion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountExpansionPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_expansion_public_api_start_public_account_expansion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountExpansionStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountExpansionErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_public_api_preview_public_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SmartRoutingPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_public_api_start_public_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SmartRoutingStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_public_api_workflow_public_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SmartRoutingWorkflowRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_reactivation_hubspot_public_api_preview_public_hubspot_reactivation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotReactivationPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_reactivation_hubspot_public_api_start_public_hubspot_reactivation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotReactivationStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotReactivationErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_expansion_hubspot_public_api_preview_public_hubspot_account_expansion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotAccountExpansionPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_account_expansion_hubspot_public_api_start_public_hubspot_account_expansion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotAccountExpansionStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotAccountExpansionErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_hubspot_public_api_preview_public_hubspot_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotSmartRoutingPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingPreviewResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_hubspot_public_api_start_public_hubspot_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotSmartRoutingStartRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingStartResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_smart_routing_hubspot_public_api_workflow_public_hubspot_smart_routing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubSpotSmartRoutingWorkflowRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingWorkflowResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HubSpotSmartRoutingErrorResponse'];
+        };
+      };
+    };
+  };
   api_routers_v1_public_auth_api_get_public_auth_whoami: {
     parameters: {
       query?: never;
@@ -13004,6 +26478,1001 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_auth_api_get_public_auth_session: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthSessionResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_auth_api_switch_public_auth_session_workspace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAuthSwitchWorkspaceRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthSessionResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_auth_api_switch_public_auth_mcp_session_workspace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAuthSwitchWorkspaceRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthSessionResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_auth_api_record_public_auth_mcp_tool_call: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicAuthMcpToolCallLogRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthActionResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_auth_api_revoke_public_auth_session: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthActionResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAuthErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_qrbot_api_qrbot_public_api: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        channel_id: string;
+        api_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['QRBotScanRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_upload_public_transfer_file: {
+    parameters: {
+      query: {
+        object_type: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': {
+          /**
+           * File
+           * Format: binary
+           */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferFileUploadResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_list_public_import_jobs: {
+    parameters: {
+      query?: {
+        object_type?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_create_public_import_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImportJobCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_get_public_import_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_cancel_public_import_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_list_public_integration_channels: {
+    parameters: {
+      query?: {
+        object_type?: string;
+        provider?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IntegrationChannelListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_list_public_export_jobs: {
+    parameters: {
+      query?: {
+        object_type?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobListResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_create_public_export_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExportJobCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_get_public_export_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+    };
+  };
+  api_routers_v1_public_transfer_jobs_public_api_cancel_public_export_job: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TransferJobErrorResponse'];
         };
       };
     };
