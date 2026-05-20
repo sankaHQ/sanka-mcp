@@ -416,13 +416,31 @@ const validateHubSpotURL = (value: string): boolean => {
   }
 };
 
-const isHubSpotRecordURL = (value: string): boolean => {
+const hubSpotRecordKey = (value: string): string | undefined => {
   try {
     const url = new URL(value);
-    return url.hostname.endsWith('hubspot.com') && /\/record\/0-2\//.test(url.pathname);
+    if (url.protocol !== 'https:' || url.hostname !== 'app.hubspot.com') {
+      return undefined;
+    }
+    const match = /^\/contacts\/([^/]+)\/record\/0-2\/([^/]+)/.exec(url.pathname);
+    if (!match) {
+      return undefined;
+    }
+    const portalId = match[1];
+    const recordId = match[2];
+    if (!portalId || !recordId) {
+      return undefined;
+    }
+    return `${decodeURIComponent(portalId)}:0-2:${decodeURIComponent(recordId)}`;
   } catch {
-    return false;
+    return undefined;
   }
+};
+
+const matchesHubSpotRecordURL = (value: string, expected: string): boolean => {
+  const currentRecordKey = hubSpotRecordKey(value);
+  const expectedRecordKey = hubSpotRecordKey(expected);
+  return Boolean(currentRecordKey && expectedRecordKey && currentRecordKey === expectedRecordKey);
 };
 
 const recordURLForCompany = (portalId: string, company: HubSpotAvatarCompanyInput): string | undefined => {
@@ -760,7 +778,7 @@ export const runHubSpotAvatarWorkflow = async ({
       recordResult.current_url = currentURL;
       recordResult.title = title;
       if (openResult.exitCode !== 0) {
-        if (!isHubSpotRecordURL(currentURL)) {
+        if (!matchesHubSpotRecordURL(currentURL, recordURL)) {
           recordResult.status = 'open_failed';
           recordResult.message = openResult.stderr || openResult.stdout || 'agent-browser open failed';
           failed += 1;

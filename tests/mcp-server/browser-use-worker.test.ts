@@ -24,6 +24,7 @@ const commandResult = (overrides?: Partial<BrowserCommandResult>): BrowserComman
 
 class FakeBrowserDriver implements BrowserDriverClient {
   currentURL = 'https://app.hubspot.com/contacts/51471618/record/0-2/54986820785';
+  openExitCode = 0;
   title = 'HubSpot company';
   evalOutputs: string[] = [
     JSON.stringify({
@@ -56,7 +57,10 @@ class FakeBrowserDriver implements BrowserDriverClient {
     timeoutMs: number;
   }): Promise<BrowserCommandResult> {
     this.openedURLs.push(input.url);
-    return commandResult();
+    return commandResult({
+      exitCode: this.openExitCode,
+      stderr: this.openExitCode === 0 ? '' : 'open timed out',
+    });
   }
 
   async getURL(): Promise<BrowserCommandResult> {
@@ -355,6 +359,27 @@ describe('browser_use worker', () => {
     expect(response.status).toBe('login_required');
     expect((response.result['records'] as Array<Record<string, unknown>>)[0]).toMatchObject({
       status: 'login_required',
+    });
+    expect(driver.uploads).toEqual([]);
+  });
+
+  it('does not continue after an open failure if the browser stayed on a different HubSpot company', async () => {
+    const config = await testConfig();
+    const driver = new FakeBrowserDriver();
+    driver.openExitCode = 1;
+    driver.currentURL = 'https://app.hubspot.com/contacts/51471618/record/0-2/previous-company';
+
+    const response = await runBrowserUseWorkerPayload({
+      config,
+      driver,
+      payload: hubSpotAvatarPayload({ dry_run: false, confirm: true }),
+      runId: 'run-wrong-record',
+    });
+
+    expect(response.status).toBe('failed');
+    expect((response.result['records'] as Array<Record<string, unknown>>)[0]).toMatchObject({
+      status: 'open_failed',
+      current_url: 'https://app.hubspot.com/contacts/51471618/record/0-2/previous-company',
     });
     expect(driver.uploads).toEqual([]);
   });
