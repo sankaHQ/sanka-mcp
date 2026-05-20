@@ -7599,12 +7599,14 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'address',
+    'billing_cycle',
     'channel_id',
     'email',
     'external_id',
     'external_object_type',
     'name',
     'operation',
+    'payment_cycle',
     'phone_number',
     'primary_external_id',
     'provider',

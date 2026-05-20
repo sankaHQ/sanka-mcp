@@ -189,8 +189,11 @@ describe('ChatGPT CRM tools', () => {
 
   it('documents Sanka company cycle fields as standard company inputs', () => {
     const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
+    const createCompanySchema = crmCreateCompanyTool.tool.inputSchema as any;
     const updateCompanySchema = crmUpdateCompanyTool.tool.inputSchema as any;
 
+    expect(createCompanySchema.properties.billing_cycle.description).toContain('month-end closing');
+    expect(createCompanySchema.properties.payment_cycle.description).toContain('nmonth_end');
     expect(updateCompanySchema.properties.billing_cycle.description).toContain('month-end closing');
     expect(updateCompanySchema.properties.payment_cycle.description).toContain('nmonth_end');
     expect(updateCompanySchema.properties.custom_fields.description).toContain(
@@ -1656,6 +1659,8 @@ describe('ChatGPT CRM tools', () => {
         external_id: 'COMP-1',
         name: 'Acme',
         email: 'team@acme.com',
+        billing_cycle: 'end',
+        payment_cycle: 'nmonth_end',
         allowed_in_store: false,
       },
     });
@@ -1665,6 +1670,8 @@ describe('ChatGPT CRM tools', () => {
         external_id: 'COMP-1',
         name: 'Acme',
         email: 'team@acme.com',
+        billing_cycle: 'end',
+        payment_cycle: 'nmonth_end',
         allowed_in_store: false,
       },
       undefined,
@@ -1750,6 +1757,8 @@ describe('ChatGPT CRM tools', () => {
       args: {
         company_id: 'company-1',
         phone_number: '+1-555-0100',
+        billing_cycle: 'end',
+        payment_cycle: 'net_30',
         url: 'https://acme.com',
       },
     });
@@ -1758,6 +1767,8 @@ describe('ChatGPT CRM tools', () => {
       'company-1',
       {
         phone_number: '+1-555-0100',
+        billing_cycle: 'end',
+        payment_cycle: 'net_30',
         url: 'https://acme.com',
       },
       undefined,
