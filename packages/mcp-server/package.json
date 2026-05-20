@@ -17,6 +17,7 @@
   "scripts": {
     "test": "jest",
     "build": "bash ./build",
+    "browser-use-worker": "ts-node -r tsconfig-paths/register src/browser-use-worker.ts",
     "format": "prettier --write --cache --cache-strategy metadata . !dist",
     "tsn": "ts-node -r tsconfig-paths/register",
     "lint": "eslint .",
@@ -47,7 +48,8 @@
     "zod-validation-error": "^4.0.1"
   },
   "bin": {
-    "mcp-server": "dist/index.js"
+    "mcp-server": "dist/index.js",
+    "sanka-browser-use-worker": "dist/browser-use-worker.js"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",

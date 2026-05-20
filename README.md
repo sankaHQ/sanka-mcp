@@ -104,6 +104,33 @@ curl -sS -D - http://127.0.0.1:8080/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
 ```
 
+## Browser Use worker
+
+The `browser_use` MCP tool dispatches allowlisted browser workflows to a separate worker. The MCP server keeps OAuth, audit metadata, workflow routing, and confirmation gates; the worker owns browser state and third-party UI interaction. The first registered workflow is:
+
+- `demo.hubspot.company_avatar`: update HubSpot demo company avatars through the HubSpot UI when CRM APIs cannot set the visible avatar.
+
+Run a local worker with `agent-browser`:
+
+```sh
+npm install -g agent-browser
+agent-browser install
+
+export SANKA_BROWSER_USE_WORKER_TOKEN="local-worker-token"
+export SANKA_BROWSER_USE_PROFILE_ROOT=".browser-use-profiles"
+export SANKA_BROWSER_USE_ARTIFACT_DIR=".browser-use-artifacts"
+pnpm --dir packages/mcp-server browser-use-worker
+```
+
+Point the MCP server at it:
+
+```sh
+export SANKA_BROWSER_USE_WORKER_URL="http://127.0.0.1:8787/run"
+export SANKA_BROWSER_USE_WORKER_TOKEN="local-worker-token"
+```
+
+For production, deploy the worker as a separate service, for example on Fly, with a persistent volume mounted at `SANKA_BROWSER_USE_PROFILE_ROOT` so HubSpot login cookies survive restarts. Keep the worker private or token-protected and only expose `/run` to the MCP service.
+
 ## Deployment
 
 This repo deploys to Fly from `packages/mcp-server/Dockerfile`.

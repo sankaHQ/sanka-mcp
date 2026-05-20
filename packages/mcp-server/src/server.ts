@@ -9,6 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
+import { browserUseTool } from './browser-use-tools';
 import { codeTool } from './code-tool';
 import {
   crmArchiveCustomObjectRecordTool,
@@ -681,6 +682,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     cancelExportJobTool,
     demoGenerateTool,
     integrationSyncPushTool,
+    browserUseTool,
   );
   return includedTools;
 }
