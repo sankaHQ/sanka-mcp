@@ -123,6 +123,8 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `delete_estimate`: delete an estimate
 - `list_invoices`: read-only invoice review
 - `get_invoice`: load a single invoice
+- `download_invoice_pdf`: download an invoice PDF
+- `send_invoice_email`: send or schedule an invoice PDF email
 - `create_invoice`: create an invoice
 - `update_invoice`: update an invoice
 - `delete_invoice`: delete an invoice
