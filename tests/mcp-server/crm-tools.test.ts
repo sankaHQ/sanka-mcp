@@ -117,6 +117,7 @@ import {
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
+  crmSendInvoiceEmailTool,
   crmSyncPrivateMessagesTool,
   crmSwitchWorkspaceTool,
   crmUpdateBillTool,
@@ -252,6 +253,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDownloadInvoicePDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSendInvoiceEmailTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListSubscriptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -3928,6 +3930,60 @@ describe('ChatGPT CRM tools', () => {
     expect(done).toBe(true);
     expect(stitchedBase64).toBe(contentBase64);
     expect(Buffer.from(stitchedBase64, 'base64')).toEqual(pdfBytes);
+  });
+
+  it('sends or schedules invoice emails through the public invoice email endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'scheduled',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      message_thread_ids: ['message-thread-1'],
+      scheduled_at: '2026-05-21T09:00:00+09:00',
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'schedule',
+        to: ['finance@example.com'],
+        cc: ['ops@example.com'],
+        subject: 'May invoice',
+        body: 'Please see attached.',
+        scheduled_at: '2026-05-21T09:00:00+09:00',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/email', {
+      body: {
+        action: 'schedule',
+        to: ['finance@example.com'],
+        cc: ['ops@example.com'],
+        subject: 'May invoice',
+        body: 'Please see attached.',
+        scheduled_at: '2026-05-21T09:00:00+09:00',
+        template_select: 'template-1',
+      },
+      query: {
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'scheduled',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      message_thread_ids: ['message-thread-1'],
+      scheduled_at: '2026-05-21T09:00:00+09:00',
+    });
+    expect((result.content[0] as any).text).toContain('Scheduled Invoice No. 1233 email');
   });
 
   it('creates an invoice', async () => {

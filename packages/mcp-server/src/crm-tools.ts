@@ -3511,6 +3511,63 @@ const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
   required: ['invoice_id'],
 };
 
+const INVOICE_EMAIL_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    action: {
+      type: 'string',
+      description: 'Send now or schedule for later.',
+      enum: ['send', 'schedule'],
+      default: 'send',
+    },
+    to: {
+      type: 'array',
+      description:
+        'Primary recipient email addresses or supported Sanka recipient selectors. Omit to use the invoice customer email.',
+      items: { type: 'string' },
+    },
+    cc: {
+      type: 'array',
+      description: 'Optional CC email addresses or supported Sanka recipient selectors.',
+      items: { type: 'string' },
+    },
+    subject: {
+      type: 'string',
+      description: 'Optional email subject. Defaults to the workspace invoice PDF email subject.',
+    },
+    body: {
+      type: 'string',
+      description: 'Optional email body. Defaults to the workspace invoice PDF email body.',
+    },
+    scheduled_at: {
+      type: 'string',
+      description:
+        'Required when action="schedule". ISO datetime for scheduled send, for example 2026-05-21T09:00:00+09:00.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional invoice PDF template selector. Pass a template UUID or built-in template path.',
+    },
+    channel_id: {
+      type: 'string',
+      description: 'Optional SMTP/email channel UUID. Omit to use Sanka default sending.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['invoice_id'],
+};
+
 const INVOICE_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -4480,6 +4537,24 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
     },
   },
   required: ['ok', 'status'],
+};
+
+const INVOICE_EMAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    invoice_id: { type: 'string' },
+    id_inv: { type: 'integer' },
+    message_thread_ids: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    scheduled_at: { type: 'string' },
+    message: { type: 'string' },
+  },
+  required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
 };
 
 const SLIP_OUTPUT_SCHEMA = {
@@ -8420,6 +8495,55 @@ const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const action = readString(args?.['action']);
+  const to = readStringArray(args?.['to'] ?? args?.['recipients'] ?? args?.['recipient_emails']);
+  const cc = readStringArray(args?.['cc']);
+  const subject = readString(args?.['subject']);
+  const messageBody = readString(args?.['body']);
+  const scheduledAt = readString(args?.['scheduled_at'] ?? args?.['schedule_at'] ?? args?.['scheduledAt']);
+  const templateSelect = readString(args?.['template_select']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  if (action) body['action'] = action;
+  if (to.length > 0) body['to'] = to;
+  if (cc.length > 0) body['cc'] = cc;
+  if (subject) body['subject'] = subject;
+  if (messageBody) body['body'] = messageBody;
+  if (scheduledAt) body['scheduled_at'] = scheduledAt;
+  if (templateSelect) body['template_select'] = templateSelect;
+  if (channelID) body['channel_id'] = channelID;
+  if (externalID) body['external_id'] = externalID;
+
+  return {
+    body,
+    query: {
+      ...(language ? { language } : undefined),
+    },
+  };
+};
+
+const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
+  const status = readString(payload['status']) ?? 'sent';
+  const invoiceID = readString(payload['invoice_id']);
+  const invoiceNumber = typeof payload['id_inv'] === 'number' ? payload['id_inv'] : undefined;
+  const invoiceLabel =
+    invoiceNumber !== undefined ? `Invoice No. ${invoiceNumber}`
+    : invoiceID ? `invoice ${invoiceID}`
+    : 'invoice';
+  const threadIDs = readStringArray(payload['message_thread_ids']);
+  const scheduledAt = readString(payload['scheduled_at']);
+  if (status === 'scheduled') {
+    return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
+      threadIDs.length
+    }.`;
+  }
+  return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
 };
 
 const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
@@ -14216,6 +14340,64 @@ export const crmDownloadInvoicePDFTool: McpTool = {
 
     const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
     return asStoredBinaryDownloadResult(reqContext, response, 'invoice.pdf');
+  },
+};
+
+export const crmSendInvoiceEmailTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/invoices/{invoice_id}/email',
+    operationId: 'public.invoices.email',
+  },
+  tool: {
+    name: 'send_invoice_email',
+    title: 'Send invoice email',
+    description:
+      'Send or schedule an invoice PDF email from Sanka. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
+    inputSchema: INVOICE_EMAIL_INPUT_SCHEMA,
+    outputSchema: INVOICE_EMAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Send invoice email',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Send invoice email',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const invoiceID = readString(args?.['invoice_id']);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+    const { body, query } = buildInvoiceEmailBody(args);
+    const response = (await reqContext.client.post(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/email`,
+      {
+        body,
+        query,
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildInvoiceEmailSummary(response),
+        },
+      ],
+      structuredContent: response,
+    };
   },
 };
 
