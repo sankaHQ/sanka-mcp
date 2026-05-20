@@ -9,6 +9,7 @@ dist/
 # Git
 .git/
 .gitignore
+.worktrees/
 
 # CI/CD
 .github/
@@ -49,6 +50,12 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+.browser-use-artifacts/
+**/.browser-use-artifacts/
+.browser-use-profiles/
+**/.browser-use-profiles/
+*.mcpb
+**/*.mcpb
 
 # Examples and scripts
 examples/

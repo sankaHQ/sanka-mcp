@@ -45,6 +45,18 @@ type CompanyRunResult = {
 
 const HUBSPOT_AVATAR_PROBE_SCRIPT = String.raw`
 (() => {
+  const fallbackSelectorFor = (el) => {
+    const parts = [];
+    let current = el;
+    while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.body) {
+      const tag = current.tagName.toLowerCase();
+      const siblings = Array.from(current.parentElement?.children || []).filter((sibling) => sibling.tagName === current.tagName);
+      const index = siblings.indexOf(current) + 1;
+      parts.unshift(siblings.length > 1 ? tag + ':nth-of-type(' + index + ')' : tag);
+      current = current.parentElement;
+    }
+    return parts.length ? 'body > ' + parts.join(' > ') : undefined;
+  };
   const selectorFor = (el) => {
     const testId = el.getAttribute('data-testid') || el.getAttribute('data-test-id') || el.getAttribute('data-selenium-test');
     if (testId) return '[' + (el.getAttribute('data-testid') ? 'data-testid' : el.getAttribute('data-test-id') ? 'data-test-id' : 'data-selenium-test') + '="' + CSS.escape(testId) + '"]';
@@ -53,7 +65,7 @@ const HUBSPOT_AVATAR_PROBE_SCRIPT = String.raw`
     if (name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(name) + '"]';
     const aria = el.getAttribute('aria-label');
     if (aria) return el.tagName.toLowerCase() + '[aria-label="' + CSS.escape(aria) + '"]';
-    return undefined;
+    return fallbackSelectorFor(el);
   };
   const serialize = (el) => {
     const rect = el.getBoundingClientRect();
@@ -96,6 +108,59 @@ const HUBSPOT_AVATAR_PROBE_SCRIPT = String.raw`
     .slice(0, 20)
     .map(serialize);
   return JSON.stringify({ fileInputs, avatarCandidates });
+})()
+`;
+
+const HUBSPOT_AVATAR_FILE_CHOOSER_SCRIPT = String.raw`
+(() => {
+  const visible = (el) => {
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+  };
+  const fallbackSelectorFor = (el) => {
+    const parts = [];
+    let current = el;
+    while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.body) {
+      const tag = current.tagName.toLowerCase();
+      const siblings = Array.from(current.parentElement?.children || []).filter((sibling) => sibling.tagName === current.tagName);
+      const index = siblings.indexOf(current) + 1;
+      parts.unshift(siblings.length > 1 ? tag + ':nth-of-type(' + index + ')' : tag);
+      current = current.parentElement;
+    }
+    return parts.length ? 'body > ' + parts.join(' > ') : undefined;
+  };
+  const selectorFor = (el) => {
+    const testId = el.getAttribute('data-testid') || el.getAttribute('data-test-id') || el.getAttribute('data-selenium-test');
+    if (testId) return '[' + (el.getAttribute('data-testid') ? 'data-testid' : el.getAttribute('data-test-id') ? 'data-test-id' : 'data-selenium-test') + '="' + CSS.escape(testId) + '"]';
+    if (el.id) return '#' + CSS.escape(el.id);
+    const aria = el.getAttribute('aria-label');
+    if (aria) return el.tagName.toLowerCase() + '[aria-label="' + CSS.escape(aria) + '"]';
+    return fallbackSelectorFor(el);
+  };
+  const serialize = (el) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      selector: selectorFor(el),
+      tag: el.tagName.toLowerCase(),
+      text: (el.innerText || el.textContent || '').trim().slice(0, 120),
+      ariaLabel: el.getAttribute('aria-label') || undefined,
+      role: el.getAttribute('role') || undefined,
+      rect: {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+    };
+  };
+  const target = Array.from(document.querySelectorAll('button,[role="button"],label'))
+    .filter(visible)
+    .find((el) => {
+      const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim();
+      return /ファイルを選択|ファイルを選ぶ|Choose file|Select file|Browse/i.test(text);
+    });
+  return JSON.stringify({ found: Boolean(target), target: target ? serialize(target) : undefined });
 })()
 `;
 
@@ -351,6 +416,15 @@ const validateHubSpotURL = (value: string): boolean => {
   }
 };
 
+const isHubSpotRecordURL = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.hostname.endsWith('hubspot.com') && /\/record\/0-2\//.test(url.pathname);
+  } catch {
+    return false;
+  }
+};
+
 const recordURLForCompany = (portalId: string, company: HubSpotAvatarCompanyInput): string | undefined => {
   if (company.record_url) {
     return company.record_url;
@@ -506,10 +580,51 @@ const probeUploadSelector = async ({
       }
     }
   }
+  if (!uploadSelector) {
+    const fileChooserOutput = await driver.evaluate({
+      session,
+      profilePath,
+      script: HUBSPOT_AVATAR_FILE_CHOOSER_SCRIPT,
+      timeoutMs: 20000,
+    });
+    if (fileChooserOutput.exitCode !== 0) {
+      warnings.push(
+        `Failed to detect HubSpot avatar file chooser button for ${recordURL}: ${
+          fileChooserOutput.stderr || fileChooserOutput.stdout || 'agent-browser eval failed'
+        }`,
+      );
+    } else if (fileChooserOutput.stdout.trim()) {
+      try {
+        const fileChooserResult = parseFileChooserResult(fileChooserOutput.stdout);
+        recordResult.message = `avatar file chooser probe: ${fileChooserResult.raw}`;
+        uploadSelector = fileChooserResult.selector;
+      } catch (error) {
+        warnings.push(`Failed to parse HubSpot avatar file chooser probe for ${recordURL}: ${String(error)}`);
+      }
+    }
+  }
   if (uploadSelector) {
     recordResult.upload_selector = uploadSelector;
   }
   return uploadSelector;
+};
+
+const parseFileChooserResult = (value: string): { selector?: string; raw: string } => {
+  const raw = value.trim();
+  if (!raw) {
+    return { raw };
+  }
+  const parsed = JSON.parse(raw) as unknown;
+  const object =
+    typeof parsed === 'string' ?
+      (JSON.parse(parsed) as Record<string, unknown>)
+    : (parsed as Record<string, unknown>);
+  const target = readPlainObject(object['target']);
+  const selector = readString(target?.['selector']);
+  return {
+    ...(selector ? { selector } : undefined),
+    raw: typeof parsed === 'string' ? parsed : JSON.stringify(parsed),
+  };
 };
 
 const parseClickedResult = (value: string): { clicked: boolean; raw: string } => {
@@ -637,17 +752,24 @@ export const runHubSpotAvatarWorkflow = async ({
         headed: config.headed,
         timeoutMs: config.requestTimeoutMs,
       });
-      if (openResult.exitCode !== 0) {
-        recordResult.status = 'open_failed';
-        recordResult.message = openResult.stderr || openResult.stdout || 'agent-browser open failed';
-        failed += 1;
-        continue;
-      }
 
-      const currentURL = (await driver.getURL({ session, profilePath, timeoutMs: 15000 })).stdout.trim();
-      const title = (await driver.getTitle({ session, profilePath, timeoutMs: 15000 })).stdout.trim();
+      const currentURLResult = await driver.getURL({ session, profilePath, timeoutMs: 15000 });
+      const titleResult = await driver.getTitle({ session, profilePath, timeoutMs: 15000 });
+      const currentURL = currentURLResult.stdout.trim();
+      const title = titleResult.stdout.trim();
       recordResult.current_url = currentURL;
       recordResult.title = title;
+      if (openResult.exitCode !== 0) {
+        if (!isHubSpotRecordURL(currentURL)) {
+          recordResult.status = 'open_failed';
+          recordResult.message = openResult.stderr || openResult.stdout || 'agent-browser open failed';
+          failed += 1;
+          continue;
+        }
+        warnings.push(
+          `agent-browser open returned a non-zero exit for ${recordURL}, but the browser reached the record URL; continuing with probe.`,
+        );
+      }
       if (/\/login|\/signin|app\.hubspot\.com\/login/i.test(currentURL)) {
         recordResult.status = 'login_required';
         recordResult.message = `Open this profile locally and log in to HubSpot: ${profilePath}`;
