@@ -170,19 +170,20 @@ describe('ChatGPT CRM tools', () => {
     resetBinaryDownloadStoreForTests();
   });
 
-  it('documents the Sanka company payment-cycle custom property workflow', () => {
+  it('documents Sanka company cycle fields as standard company inputs', () => {
     const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
-    const listPropertiesSchema = crmListPropertiesTool.tool.inputSchema as any;
     const updateCompanySchema = crmUpdateCompanyTool.tool.inputSchema as any;
 
-    expect(createPropertySchema.properties.type.description).toContain('payment_cycle');
-    expect(createPropertySchema.properties.type.description).toContain('company/order payment-cycle');
-    expect(crmCreatePropertyTool.tool.description).toContain('type="payment_cycle"');
-    expect(listPropertiesSchema.properties.object_name.description).toContain('companies');
-    expect(crmListPropertiesTool.tool.description).toContain('type="payment_cycle"');
+    expect(updateCompanySchema.properties.billing_cycle.description).toContain('month-end closing');
+    expect(updateCompanySchema.properties.payment_cycle.description).toContain('nmonth_end');
     expect(updateCompanySchema.properties.custom_fields.description).toContain(
-      '{"payment_cycle":"nmonth_end"}',
+      'Company billing_cycle and payment_cycle are standard company fields',
     );
+    expect(createPropertySchema.properties.type.description).toContain('not by creating a custom property');
+    expect(crmCreatePropertyTool.tool.description).toContain(
+      'Do not use this for company billing_cycle or payment_cycle',
+    );
+    expect(crmListPropertiesTool.tool.description).toContain('not a custom-property discovery flow');
   });
 
   it('advertises auth schemes on CRM tools', () => {

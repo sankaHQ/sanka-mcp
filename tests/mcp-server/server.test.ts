@@ -376,7 +376,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('売上請求番号 7');
     expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
     expect(instructions).toContain('status=draft should be shown as "下書き"');
-    expect(instructions).toContain('For Sanka company payment cycles');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
@@ -471,7 +472,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('売上請求番号 7');
     expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
     expect(instructions).toContain('status=draft should be shown as "下書き"');
-    expect(instructions).toContain('For Sanka company payment cycles');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });
 
