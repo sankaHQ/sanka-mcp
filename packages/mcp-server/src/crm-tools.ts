@@ -1928,10 +1928,16 @@ const DEAL_LIST_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional free-text search over deal names/stages when record-query routing is used.',
     },
+    filters: {
+      type: 'array',
+      description:
+        'Server-side filters for record-query backed deal lists. For HubSpot/Salesforce date filters, fields such as closed_at, closedate, close_date, CloseDate, stage, dealstage, or StageName are accepted by the Sanka API.',
+      items: RECORD_FILTER_SCHEMA,
+    },
     select: {
       type: 'array',
       description:
-        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status"].',
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status", "closed_at"]. Provider names and common aliases such as dealname, dealstage, stage, closedate, close_date, and CloseDate are also accepted by the Sanka API.',
       items: { type: 'string' },
     },
   },
@@ -7551,6 +7557,7 @@ const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): bo
       readString(args['channel_id'] ?? args['channelId']) ||
       readString(args['external_object_type'] ?? args['externalObjectType']) ||
       readString(args['search']) ||
+      buildRecordFilters(args['filters']).length ||
       readStringArray(args['select']).length,
   );
 };
@@ -7577,8 +7584,8 @@ const buildDealRecordQueryBody = (args: Record<string, unknown> | undefined) => 
         readIntegrationScope(args?.['scope'] ?? args?.['source']) ||
         readIntegrationProvider(args?.['provider'])
       ) ?
-        ['id', 'name', 'amount', 'case_status', 'updated_at']
-      : ['id', 'name', 'case_status', 'updated_at'];
+        ['id', 'name', 'amount', 'case_status', 'closed_at', 'updated_at']
+      : ['id', 'name', 'case_status', 'closed_at', 'updated_at'];
   }
   return body;
 };

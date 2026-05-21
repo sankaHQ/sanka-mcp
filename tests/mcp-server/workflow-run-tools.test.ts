@@ -46,8 +46,10 @@ describe('workflow run MCP tools', () => {
 
     expect(workflowTypes).toContain('deal_to_order');
     expect(workflowTypes).toContain('deal_to_subscription');
+    expect(workflowTypes).toContain('estimate_to_invoice');
     expect(workflowTypes).toContain('order_to_invoice');
     expect(workflowTypes).toContain('order_to_subscription');
+    expect(workflowTypes).toContain('subscription_to_invoice');
     expect(workflowTypes).toContain('order_to_purchase_order');
     expect(workflowTypes).toContain('deal_to_order_handoff');
     expect(workflowTypes).toContain('invoice_export');
@@ -68,6 +70,14 @@ describe('workflow run MCP tools', () => {
     expect(toolNames).not.toContain('calculate_hubspot_commissions');
     expect(toolNames).not.toContain('calculate_salesforce_commissions');
     expect(toolNames).not.toContain('calculate_rep_commission');
+  });
+
+  it('allows estimate and subscription source records for billing workflows', () => {
+    const sourceRecordSchema = (previewWorkflowTool.tool.inputSchema as any).properties.source_record;
+    const objectTypes = sourceRecordSchema.properties.object_type.enum as string[];
+
+    expect(objectTypes).toContain('estimate');
+    expect(objectTypes).toContain('subscription');
   });
 
   it('resolves records through the public workflow-runs endpoint', async () => {
@@ -336,6 +346,104 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       workflow_type: 'order_to_subscription',
       can_start: true,
+    });
+  });
+
+  it('starts estimate_to_invoice workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'estimate-invoice-run-1',
+        status: 'completed',
+        result: { invoice: { id: 'invoice-1' } },
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'estimate_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'estimate',
+          record_id: 'estimate-1',
+        },
+        options: { status: 'draft' },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'estimate_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'estimate',
+          record_id: 'estimate-1',
+        },
+        options: { status: 'draft' },
+        idempotency_key: undefined,
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'estimate-invoice-run-1',
+      status: 'completed',
+      result: { invoice: { id: 'invoice-1' } },
+    });
+  });
+
+  it('starts subscription_to_invoice workflows through the public endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'subscription-invoice-run-1',
+        status: 'completed',
+        result: { invoice: { id: 'invoice-1' } },
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'subscription_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'subscription',
+          record_id: 'subscription-1',
+        },
+        options: {
+          start_date: '2026-06-01',
+          due_date: '2026-06-30',
+          status: 'draft',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'subscription_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'subscription',
+          record_id: 'subscription-1',
+        },
+        options: {
+          start_date: '2026-06-01',
+          due_date: '2026-06-30',
+          status: 'draft',
+        },
+        idempotency_key: undefined,
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'subscription-invoice-run-1',
+      status: 'completed',
+      result: { invoice: { id: 'invoice-1' } },
     });
   });
 
