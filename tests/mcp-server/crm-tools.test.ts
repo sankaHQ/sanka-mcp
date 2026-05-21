@@ -2397,6 +2397,10 @@ describe('ChatGPT CRM tools', () => {
         channel_id: 'channel-1',
         external_object_type: 'opportunity',
         search: 'Renewal',
+        filters: [
+          { field: 'stage', operator: 'equals', value: 'Closed Won' },
+          { field: 'closedate', operator: 'greater_than_equal', value: '2026-05-18' },
+        ],
         limit: 5,
       },
     });
@@ -2408,10 +2412,14 @@ describe('ChatGPT CRM tools', () => {
         provider: 'salesforce',
         channel_id: 'channel-1',
         external_object_type: 'opportunity',
+        filters: [
+          { field: 'stage', operator: 'equals', value: 'Closed Won' },
+          { field: 'closedate', operator: 'greater_than_equal', value: '2026-05-18' },
+        ],
         search: 'Renewal',
         page: 1,
         limit: 5,
-        select: ['id', 'name', 'amount', 'case_status', 'updated_at'],
+        select: ['id', 'name', 'amount', 'case_status', 'closed_at', 'updated_at'],
       },
     });
     expect(list).not.toHaveBeenCalled();

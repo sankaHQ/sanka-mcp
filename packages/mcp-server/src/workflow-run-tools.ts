@@ -13,10 +13,10 @@ const SOURCE_RECORD_SCHEMA = {
     },
     object_type: {
       type: 'string',
-      enum: ['deal', 'opportunity', 'invoice', 'order'],
+      enum: ['deal', 'opportunity', 'estimate', 'invoice', 'order', 'subscription'],
       default: 'deal',
       description:
-        'Business object type. Use deal for Sanka/HubSpot deal workflows, opportunity for Salesforce quote-readiness checks, invoice for Sanka invoice export workflows, and order for Sanka Order billing workflows.',
+        'Business object type. Use deal for Sanka/HubSpot deal workflows, opportunity for Salesforce quote-readiness checks, estimate for Sanka Estimate billing workflows, invoice for Sanka invoice export workflows, order for Sanka Order billing workflows, and subscription for Sanka Subscription billing workflows.',
     },
     record_id: {
       type: 'string',
@@ -39,7 +39,7 @@ const SOURCE_RECORD_SCHEMA = {
     url: {
       type: 'string',
       description:
-        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate, deal_to_order, deal_to_subscription, and deal_to_order_handoff. HubSpot deals are searched/read directly for sales_incentive_commission. Salesforce Opportunity URLs are accepted for quote_readiness preview. invoice_export uses Sanka invoice ids, record ids, filters, or workflow run ids instead of external URLs.',
+        'External source URL. HubSpot deal URLs are accepted for deal_to_estimate, deal_to_order, deal_to_subscription, and deal_to_order_handoff. HubSpot deals are searched/read directly for sales_incentive_commission. Salesforce Opportunity URLs are accepted for quote_readiness preview. estimate_to_invoice, order_to_invoice, and subscription_to_invoice use Sanka record ids instead of external URLs. invoice_export uses Sanka invoice ids, record ids, filters, or workflow run ids instead of external URLs.',
     },
   },
 };
@@ -50,8 +50,10 @@ const WORKFLOW_TYPE_SCHEMA = {
     'deal_to_estimate',
     'deal_to_order',
     'deal_to_subscription',
+    'estimate_to_invoice',
     'order_to_invoice',
     'order_to_subscription',
+    'subscription_to_invoice',
     'order_to_purchase_order',
     'deal_to_order_handoff',
     'invoice_export',
@@ -60,7 +62,7 @@ const WORKFLOW_TYPE_SCHEMA = {
     'sales_incentive_commission',
   ],
   description:
-    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_order for CRM deal/opportunity to Sanka Order workflows, deal_to_subscription for CRM deal to Order then Subscription, order_to_invoice for Sanka Order billing, order_to_subscription for Sanka Order subscriptions, order_to_purchase_order for Sanka Order inventory-shortage procurement, deal_to_order_handoff for HubSpot closed-won deal to Sanka order draft / fulfillment handoff workflows, invoice_export for syncing selected Sanka invoice drafts to freee invoice drafts, quote_readiness for read-only Salesforce Opportunity quote readiness checks, revenue_control_summary for read-only HubSpot/Sanka revenue-control buckets, and sales_incentive_commission for draft/read-only commission reports by rep and deal. Direct CRM deal_to_invoice is intentionally unavailable; create an order first, then invoice from the order.',
+    'Workflow type to preview or run. Use deal_to_estimate for estimate draft workflows, deal_to_order for CRM deal/opportunity to Sanka Order workflows, deal_to_subscription for CRM deal to Order then Subscription, estimate_to_invoice for Sanka Estimate to Order then Invoice, order_to_invoice for Sanka Order billing, order_to_subscription for Sanka Order subscriptions, subscription_to_invoice for Sanka Subscription billing, order_to_purchase_order for Sanka Order inventory-shortage procurement, deal_to_order_handoff for HubSpot closed-won deal to Sanka order draft / fulfillment handoff workflows, invoice_export for syncing selected Sanka invoice drafts to freee invoice drafts, quote_readiness for read-only Salesforce Opportunity quote readiness checks, revenue_control_summary for read-only HubSpot/Sanka revenue-control buckets, and sales_incentive_commission for draft/read-only commission reports by rep and deal. Direct CRM deal_to_invoice is intentionally unavailable; create an order first, then invoice from the order.',
 };
 
 const DIRECT_CRM_INVOICE_WORKFLOW_TYPE = 'deal_to_invoice';
@@ -140,7 +142,7 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For CRM Order-first workflows, pass channel_id when needed, subscription flag filters for deal_to_subscription batch previews, and order/customer filters for order_to_invoice, order_to_subscription, or order_to_purchase_order. For HubSpot deal_to_order_handoff, pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, and allow_duplicate_order only when the user explicitly approves another order. For invoice_export to freee, provide an explicit sync_scope such as created_in_workflow_run, selected_invoice_ids, selected_record_ids, filtered_unsynced_invoices, or all_eligible_unsynced. For revenue_control_summary, pass date range, channel_id, owner/customer filters, include_records, include_freee_status/include_stripe_status, aging_as_of, and limit_per_bucket. For sales_incentive_commission, pass period or date range, channel_id, CRM owner/rep/customer filters, compensation_rule_id or plan_id, include_records/include_excluded, include_payment_status/include_margin/include_refunds, min_gross_margin_percent, and limits. Ambiguous freee sync requests return needs_confirmation and do not mutate.',
+        'Optional workflow-specific controls. For CRM Order-first workflows, pass channel_id when needed, subscription flag filters for deal_to_subscription batch previews, and order/customer filters for order_to_invoice, order_to_subscription, or order_to_purchase_order. For estimate_to_invoice, pass allow_duplicate_order only when the user explicitly approves another order. For subscription_to_invoice, pass start_date, due_date, status, notes, send_from, or subscription_ids for batch billing. For HubSpot deal_to_order_handoff, pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, and allow_duplicate_order only when the user explicitly approves another order. For invoice_export to freee, provide an explicit sync_scope such as created_in_workflow_run, selected_invoice_ids, selected_record_ids, filtered_unsynced_invoices, or all_eligible_unsynced. For revenue_control_summary, pass date range, channel_id, owner/customer filters, include_records, include_freee_status/include_stripe_status, aging_as_of, and limit_per_bucket. For sales_incentive_commission, pass period or date range, channel_id, CRM owner/rep/customer filters, compensation_rule_id or plan_id, include_records/include_excluded, include_payment_status/include_margin/include_refunds, min_gross_margin_percent, and limits. Ambiguous freee sync requests return needs_confirmation and do not mutate.',
       properties: {
         channel_id: { type: 'string' },
         source_system: { type: 'string', enum: ['hubspot', 'sanka', 'salesforce'] },
@@ -184,6 +186,14 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
           type: 'array',
           items: { type: 'string' },
         },
+        estimate_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        subscription_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
         record_ids: {
           type: 'array',
           items: { type: 'string' },
@@ -191,6 +201,13 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
         close_date_from: { type: 'string' },
         close_date_to: { type: 'string' },
         start_date: { type: 'string' },
+        due_date: { type: 'string' },
+        closing_date: { type: 'string' },
+        payment_base_date: { type: 'string' },
+        status: { type: 'string' },
+        notes: { type: 'string' },
+        send_from: { type: 'string' },
+        allow_duplicate_invoice: { type: 'boolean' },
         end_date: { type: 'string' },
         date_range_start: { type: 'string' },
         date_range_end: { type: 'string' },
@@ -300,7 +317,7 @@ const START_WORKFLOW_INPUT_SCHEMA = {
     options: {
       type: 'object',
       description:
-        'Optional workflow-specific controls. For CRM Order-first workflows, pass channel_id when needed, subscription flag filters for deal_to_subscription batch starts, and order/customer filters for order_to_invoice, order_to_subscription, or order_to_purchase_order. For HubSpot deal_to_order_handoff, start only after preview or explicit user confirmation; pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, include_hubspot_writeback, and allow_duplicate_order only when the user explicitly approved another order. For invoice_export to freee, start only after explicit scope/confirmation; pass sync_scope, invoice_ids or workflow_run_id, freee_channel_id, idempotency_key, and confirm_all only when the user explicitly approved all eligible unsynced invoices. Do not start quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only and must use preview_workflow.',
+        'Optional workflow-specific controls. For CRM Order-first workflows, pass channel_id when needed, subscription flag filters for deal_to_subscription batch starts, and order/customer filters for order_to_invoice, order_to_subscription, or order_to_purchase_order. For estimate_to_invoice, pass allow_duplicate_order only when the user explicitly approves another order. For subscription_to_invoice, pass start_date, due_date, status, notes, send_from, or subscription_ids for batch billing. For HubSpot deal_to_order_handoff, start only after preview or explicit user confirmation; pass channel_id when needed, include_inventory_check/include_lead_time_check, requested_delivery_date or delivery address details, handoff_target or ops_owner, include_hubspot_writeback, and allow_duplicate_order only when the user explicitly approved another order. For invoice_export to freee, start only after explicit scope/confirmation; pass sync_scope, invoice_ids or workflow_run_id, freee_channel_id, idempotency_key, and confirm_all only when the user explicitly approved all eligible unsynced invoices. Do not start quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only and must use preview_workflow.',
       properties: {
         channel_id: { type: 'string' },
         target_system: { type: 'string', enum: ['freee', 'sanka'] },
@@ -324,12 +341,28 @@ const START_WORKFLOW_INPUT_SCHEMA = {
           type: 'array',
           items: { type: 'string' },
         },
+        estimate_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        subscription_ids: {
+          type: 'array',
+          items: { type: 'string' },
+        },
         record_ids: {
           type: 'array',
           items: { type: 'string' },
         },
         allow_multiple_invoices: { type: 'boolean' },
+        allow_duplicate_invoice: { type: 'boolean' },
         allow_duplicate_order: { type: 'boolean' },
+        start_date: { type: 'string' },
+        due_date: { type: 'string' },
+        closing_date: { type: 'string' },
+        payment_base_date: { type: 'string' },
+        status: { type: 'string' },
+        notes: { type: 'string' },
+        send_from: { type: 'string' },
         include_inventory_check: { type: 'boolean' },
         include_lead_time_check: { type: 'boolean' },
         requested_delivery_date: { type: 'string' },
@@ -555,7 +588,7 @@ export const previewWorkflowTool: McpTool = {
     name: 'preview_workflow',
     title: 'Preview workflow',
     description:
-      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_order, previews creating or reusing a Sanka Order from a HubSpot Deal or synced CRM revenue record. For deal_to_subscription, previews the Order-first subscription flow and supports HubSpot batch filters such as subscription_flag_property. For order_to_invoice, order_to_subscription, and order_to_purchase_order, previews billing, subscription, or shortage-driven procurement creation from Sanka Orders. For deal_to_order_handoff, previews a closed-won HubSpot Deal to Sanka order draft / fulfillment handoff with customer/contact resolution, line items, inventory availability, lead-time and delivery timing, duplicate warnings, and HubSpot writeback plan. For invoice_export, previews syncing explicitly scoped Sanka invoice drafts to freee invoice drafts and returns needs_confirmation for ambiguous or broad sync requests without writing records. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, source links, and the generic Sanka platform-mapping reuse/create plan. For revenue_control_summary, summarizes read-only HubSpot closed-won revenue into won, quote_drafted, approval_pending, unbilled, invoiced, unpaid, and blocked buckets with totals and next actions. For sales_incentive_commission, calculates a draft/read-only commission report by rep and deal from HubSpot closed-won deals reconciled with Sanka invoices/orders, payment status, refunds/credits, margin, ownership splits, and Sanka incentive rules. Direct CRM deal_to_invoice is disabled; create an order first. Does not write records.',
+      'Dry-run a supported business workflow. For deal_to_estimate, previews the Sanka estimate draft and approval state. For deal_to_order, previews creating or reusing a Sanka Order from a HubSpot Deal or synced CRM revenue record. For deal_to_subscription, previews the Order-first subscription flow and supports HubSpot batch filters such as subscription_flag_property. For estimate_to_invoice, previews creating/reusing a Sanka Order from a Sanka Estimate before invoicing. For order_to_invoice, order_to_subscription, and order_to_purchase_order, previews billing, subscription, or shortage-driven procurement creation from Sanka Orders. For subscription_to_invoice, previews invoice generation from Sanka Subscriptions, including duplicate-period checks by start_date. For deal_to_order_handoff, previews a closed-won HubSpot Deal to Sanka order draft / fulfillment handoff with customer/contact resolution, line items, inventory availability, lead-time and delivery timing, duplicate warnings, and HubSpot writeback plan. For invoice_export, previews syncing explicitly scoped Sanka invoice drafts to freee invoice drafts and returns needs_confirmation for ambiguous or broad sync requests without writing records. For quote_readiness, checks whether a Salesforce Opportunity has enough clean data to quote and returns blockers, warnings, fixes, source links, and the generic Sanka platform-mapping reuse/create plan. For revenue_control_summary, summarizes read-only HubSpot closed-won revenue into won, quote_drafted, approval_pending, unbilled, invoiced, unpaid, and blocked buckets with totals and next actions. For sales_incentive_commission, calculates a draft/read-only commission report by rep and deal from HubSpot closed-won deals reconciled with Sanka invoices/orders, payment status, refunds/credits, margin, ownership splits, and Sanka incentive rules. Direct CRM deal_to_invoice is disabled; create an order first. Does not write records.',
     inputSchema: PREVIEW_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -624,7 +657,7 @@ export const startWorkflowTool: McpTool = {
     name: 'start_workflow',
     title: 'Start workflow',
     description:
-      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_order, creates or reuses a Sanka Order from a HubSpot Deal or synced CRM revenue record. For deal_to_subscription, creates/reuses the Sanka Order and then creates/updates the Subscription from that Order, including HubSpot batch lists filtered by subscription flags. For order_to_invoice, order_to_subscription, and order_to_purchase_order, starts from Sanka Order records; order_to_purchase_order creates POs only for detected inventory shortages. For deal_to_order_handoff, creates a Sanka order draft and optional fulfillment handoff task from an eligible closed-won HubSpot Deal only after explicit start/confirmation; it reruns duplicate/idempotency checks and writes HubSpot order/fulfillment status only after Sanka creation succeeds. For invoice_export, syncs only explicitly scoped Sanka invoice drafts to freee invoice drafts after duplicate/idempotency checks; do not use it for an ambiguous sync-all request. Do not use start_workflow for quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only preview workflows. Direct CRM deal_to_invoice is disabled.',
+      'Start a supported business workflow. For deal_to_estimate, creates a Sanka estimate draft from the deal, applies existing estimate approval rules, creates pending approval requests when required, and stops there until approval. For deal_to_order, creates or reuses a Sanka Order from a HubSpot Deal or synced CRM revenue record. For deal_to_subscription, creates/reuses the Sanka Order and then creates/updates the Subscription from that Order, including HubSpot batch lists filtered by subscription flags. For estimate_to_invoice, creates/reuses a Sanka Order from a Sanka Estimate, then creates the Invoice from that Order. For order_to_invoice, order_to_subscription, and order_to_purchase_order, starts from Sanka Order records; order_to_purchase_order creates POs only for detected inventory shortages. For subscription_to_invoice, creates invoice drafts from selected Sanka Subscription records. For deal_to_order_handoff, creates a Sanka order draft and optional fulfillment handoff task from an eligible closed-won HubSpot Deal only after explicit start/confirmation; it reruns duplicate/idempotency checks and writes HubSpot order/fulfillment status only after Sanka creation succeeds. For invoice_export, syncs only explicitly scoped Sanka invoice drafts to freee invoice drafts after duplicate/idempotency checks; do not use it for an ambiguous sync-all request. Do not use start_workflow for quote_readiness, revenue_control_summary, or sales_incentive_commission; they are read-only preview workflows. Direct CRM deal_to_invoice is disabled.',
     inputSchema: START_WORKFLOW_INPUT_SCHEMA,
     outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
