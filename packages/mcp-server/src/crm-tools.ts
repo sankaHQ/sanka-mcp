@@ -5708,6 +5708,22 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Subscription start date in ISO format.',
     },
+    end_date: {
+      type: 'string',
+      description:
+        'Subscription end date in ISO format. Use this when completing or time-bounding a subscription contract.',
+    },
+    contract_id: {
+      type: 'string',
+      description: 'Contract record identifier to associate with the subscription.',
+    },
+    contract_ids: {
+      type: 'array',
+      description: 'Contract record identifiers to associate with the subscription.',
+      items: {
+        type: 'string',
+      },
+    },
     total_price: {
       type: 'number',
       description: 'Total subscription price.',
@@ -5776,6 +5792,30 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Subscription status.',
     },
+    subscription_status: {
+      type: 'string',
+      description: 'Alias for status. Updates the subscription business status.',
+    },
+    start_date: {
+      type: 'string',
+      description: 'Subscription start date in ISO format.',
+    },
+    end_date: {
+      type: 'string',
+      description: 'Subscription end date in ISO format.',
+    },
+    contract_id: {
+      type: 'string',
+      description: 'Contract record identifier to associate with the subscription.',
+    },
+    contract_ids: {
+      type: 'array',
+      description:
+        'Contract record identifiers to associate with the subscription. Passing an empty array clears the contract association.',
+      items: {
+        type: 'string',
+      },
+    },
   },
   required: ['subscription_id'],
 };
@@ -5804,6 +5844,20 @@ const SUBSCRIPTION_OUTPUT_SCHEMA = {
     currency: { type: 'string' },
     total_price: { type: 'number' },
     created_at: { type: 'string' },
+    start_date: { type: 'string' },
+    end_date: { type: 'string' },
+    contract_info: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          contract_id: { type: 'integer' },
+          name: { type: 'string' },
+          status: { type: 'string' },
+        },
+      },
+    },
     items: {
       type: 'array',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
@@ -9625,7 +9679,13 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
     ['frequency_time', 'frequency_time'],
     ['shipping_cost_tax_status', 'shipping_cost_tax_status'],
     ['start_date', 'start_date'],
+    ['end_date', 'end_date'],
+    ['contract_id', 'contract_id'],
   ]);
+  const contractIDs = readStringArray(args?.['contract_ids']);
+  if (contractIDs.length > 0) {
+    body['contract_ids'] = contractIDs;
+  }
   const contactID = readString(args?.['contact_id']);
   const companyID = readString(args?.['company_id']);
   if (contactID) {
@@ -9668,7 +9728,17 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
   const lookupExternalID = readString(args?.['lookup_external_id']);
   const body: Record<string, unknown> = {};
 
-  assignStringFields(body, args, ['contact', 'status']);
+  assignStringFields(body, args, [
+    'contact',
+    'status',
+    'subscription_status',
+    'start_date',
+    'end_date',
+    'contract_id',
+  ]);
+  if (Object.prototype.hasOwnProperty.call(args ?? {}, 'contract_ids')) {
+    body['contract_ids'] = readStringArray(args?.['contract_ids']);
+  }
 
   assignPublicLineItems(body, args, {
     targetKey: 'items',
@@ -18424,9 +18494,12 @@ export const crmCreateSubscriptionTool: McpTool = {
         frequency_time?: string;
         shipping_cost_tax_status?: string;
         start_date?: string;
+        end_date?: string;
         tax?: number;
         total_price?: number;
         total_price_without_tax?: number;
+        contract_id?: string;
+        contract_ids?: string[];
       },
       undefined,
     )) as unknown as Record<string, unknown>;
@@ -18497,6 +18570,11 @@ export const crmUpdateSubscriptionTool: McpTool = {
         contact?: string;
         items?: Array<{ id: string; amount: number; name?: string; price?: number }>;
         status?: string;
+        subscription_status?: string;
+        start_date?: string;
+        end_date?: string;
+        contract_id?: string;
+        contract_ids?: string[];
       },
       undefined,
     )) as unknown as Record<string, unknown>;

@@ -7102,4 +7102,102 @@ describe('ChatGPT CRM tools', () => {
       data: { run: { id: 'run-1', period: '2026-04' } },
     });
   });
+
+  it('creates subscriptions with end dates and contract associations', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      subscription_status: 'active',
+      start_date: '2026-05-01',
+      end_date: '2026-05-31',
+      contract_info: [{ id: 'contract-1', contract_id: 7, name: 'MSA' }],
+      created_at: '2026-05-01T00:00:00Z',
+      items: [],
+    });
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-1',
+        items: [{ item_name: 'Monthly platform fee', quantity: 1, unit_price: 1000 }],
+        subscription_status: 'active',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: ['contract-1'],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        cid: 'company-1',
+        company_id: 'company-1',
+        items: [{ item_name: 'Monthly platform fee', quantity: 1, unit_price: 1000 }],
+        subscription_status: 'active',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: ['contract-1'],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      id: 'sub-1',
+      end_date: '2026-05-31',
+      contract_info: [{ id: 'contract-1' }],
+    });
+  });
+
+  it('updates subscription dates and clears contract associations', async () => {
+    const update = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      subscription_status: 'completed',
+      start_date: '2026-05-01',
+      end_date: '2026-05-31',
+      contract_info: [],
+      created_at: '2026-05-01T00:00:00Z',
+      items: [],
+    });
+
+    const result = await crmUpdateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_id: 'sub-1',
+        status: 'completed',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: [],
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'sub-1',
+      {
+        status: 'completed',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: [],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      id: 'sub-1',
+      subscription_status: 'completed',
+      end_date: '2026-05-31',
+      contract_info: [],
+    });
+  });
 });
