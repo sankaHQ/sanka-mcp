@@ -593,16 +593,18 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     params: [
       'address?: string;',
       'allowed_in_store?: boolean;',
+      'billing_cycle?: string;',
       'email?: string;',
       'external_id?: string;',
       'name?: string;',
+      'payment_cycle?: string;',
       'phone_number?: string;',
       'status?: string;',
       'url?: string;',
     ],
     response: '{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }',
     markdown:
-      "## create\n\n`client.public.companies.create(address?: string, allowed_in_store?: boolean, email?: string, external_id?: string, name?: string, phone_number?: string, status?: string, url?: string): { ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n**post** `/v1/public/companies`\n\nCreate Company\n\n### Parameters\n\n- `address?: string`\n\n- `allowed_in_store?: boolean`\n\n- `email?: string`\n\n- `external_id?: string`\n\n- `name?: string`\n\n- `phone_number?: string`\n\n- `status?: string`\n\n- `url?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n  - `ok: boolean`\n  - `status: string`\n  - `company_id?: string`\n  - `ctx_id?: string`\n  - `external_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst publicCompanyResponse = await client.public.companies.create();\n\nconsole.log(publicCompanyResponse);\n```",
+      "## create\n\n`client.public.companies.create(address?: string, allowed_in_store?: boolean, billing_cycle?: string, email?: string, external_id?: string, name?: string, payment_cycle?: string, phone_number?: string, status?: string, url?: string): { ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n**post** `/v1/public/companies`\n\nCreate Company\n\n### Parameters\n\n- `address?: string`\n\n- `allowed_in_store?: boolean`\n\n- `billing_cycle?: string`\n\n- `email?: string`\n\n- `external_id?: string`\n\n- `name?: string`\n\n- `payment_cycle?: string`\n\n- `phone_number?: string`\n\n- `status?: string`\n\n- `url?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n  - `ok: boolean`\n  - `status: string`\n  - `company_id?: string`\n  - `ctx_id?: string`\n  - `external_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst publicCompanyResponse = await client.public.companies.create();\n\nconsole.log(publicCompanyResponse);\n```",
   },
   {
     name: 'retrieve',
@@ -614,9 +616,9 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     qualified: 'client.public.companies.retrieve',
     params: ['company_id: string;', 'external_id?: string;'],
     response:
-      '{ created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; company_id?: number; email?: string; name?: string; phone_number?: string; url?: string; }',
+      '{ created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; billing_cycle?: string; billing_cycle_display?: string; company_id?: number; custom_fields?: object; email?: string; name?: string; payment_cycle?: string; payment_cycle_display?: string; phone_number?: string; url?: string; }',
     markdown:
-      "## retrieve\n\n`client.public.companies.retrieve(company_id: string, external_id?: string): { created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; company_id?: number; email?: string; name?: string; phone_number?: string; url?: string; }`\n\n**get** `/v1/public/companies/{company_id}`\n\nGet Company\n\n### Parameters\n\n- `company_id: string`\n\n- `external_id?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; company_id?: number; email?: string; name?: string; phone_number?: string; url?: string; }`\n\n  - `created_at: string`\n  - `updated_at: string`\n  - `id?: string`\n  - `address?: string`\n  - `allowed_in_store?: boolean`\n  - `company_id?: number`\n  - `email?: string`\n  - `name?: string`\n  - `phone_number?: string`\n  - `url?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst company = await client.public.companies.retrieve('company_id');\n\nconsole.log(company);\n```",
+      "## retrieve\n\n`client.public.companies.retrieve(company_id: string, external_id?: string): { created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; billing_cycle?: string; billing_cycle_display?: string; company_id?: number; custom_fields?: object; email?: string; name?: string; payment_cycle?: string; payment_cycle_display?: string; phone_number?: string; url?: string; }`\n\n**get** `/v1/public/companies/{company_id}`\n\nGet Company\n\n### Parameters\n\n- `company_id: string`\n\n- `external_id?: string`\n\n### Returns\n\n- `{ created_at: string; updated_at: string; id?: string; address?: string; allowed_in_store?: boolean; billing_cycle?: string; billing_cycle_display?: string; company_id?: number; custom_fields?: object; email?: string; name?: string; payment_cycle?: string; payment_cycle_display?: string; phone_number?: string; url?: string; }`\n\n  - `created_at: string`\n  - `updated_at: string`\n  - `id?: string`\n  - `address?: string`\n  - `allowed_in_store?: boolean`\n  - `billing_cycle?: string`\n  - `billing_cycle_display?: string`\n  - `company_id?: number`\n  - `custom_fields?: object`\n  - `email?: string`\n  - `name?: string`\n  - `payment_cycle?: string`\n  - `payment_cycle_display?: string`\n  - `phone_number?: string`\n  - `url?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst company = await client.public.companies.retrieve('company_id');\n\nconsole.log(company);\n```",
   },
   {
     name: 'update',
@@ -630,16 +632,18 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       'company_id: string;',
       'address?: string;',
       'allowed_in_store?: boolean;',
+      'billing_cycle?: string;',
       'email?: string;',
       'external_id?: string;',
       'name?: string;',
+      'payment_cycle?: string;',
       'phone_number?: string;',
       'status?: string;',
       'url?: string;',
     ],
     response: '{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }',
     markdown:
-      "## update\n\n`client.public.companies.update(company_id: string, address?: string, allowed_in_store?: boolean, email?: string, external_id?: string, name?: string, phone_number?: string, status?: string, url?: string): { ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n**put** `/v1/public/companies/{company_id}`\n\nUpdate Company\n\n### Parameters\n\n- `company_id: string`\n\n- `address?: string`\n\n- `allowed_in_store?: boolean`\n\n- `email?: string`\n\n- `external_id?: string`\n\n- `name?: string`\n\n- `phone_number?: string`\n\n- `status?: string`\n\n- `url?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n  - `ok: boolean`\n  - `status: string`\n  - `company_id?: string`\n  - `ctx_id?: string`\n  - `external_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst publicCompanyResponse = await client.public.companies.update('company_id');\n\nconsole.log(publicCompanyResponse);\n```",
+      "## update\n\n`client.public.companies.update(company_id: string, address?: string, allowed_in_store?: boolean, billing_cycle?: string, email?: string, external_id?: string, name?: string, payment_cycle?: string, phone_number?: string, status?: string, url?: string): { ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n**put** `/v1/public/companies/{company_id}`\n\nUpdate Company\n\n### Parameters\n\n- `company_id: string`\n\n- `address?: string`\n\n- `allowed_in_store?: boolean`\n\n- `billing_cycle?: string`\n\n- `email?: string`\n\n- `external_id?: string`\n\n- `name?: string`\n\n- `payment_cycle?: string`\n\n- `phone_number?: string`\n\n- `status?: string`\n\n- `url?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; company_id?: string; ctx_id?: string; external_id?: string; }`\n\n  - `ok: boolean`\n  - `status: string`\n  - `company_id?: string`\n  - `ctx_id?: string`\n  - `external_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst publicCompanyResponse = await client.public.companies.update('company_id');\n\nconsole.log(publicCompanyResponse);\n```",
   },
   {
     name: 'list',

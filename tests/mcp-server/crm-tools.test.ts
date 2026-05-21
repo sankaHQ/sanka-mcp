@@ -3,6 +3,7 @@ import {
   crmArchivePrivateMessageThreadTool,
   crmArchiveCustomObjectRecordTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
   crmAuthStatusTool,
@@ -15,6 +16,8 @@ import {
   crmCreateContactTool,
   crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
+  crmCreateAbsenceTool,
+  crmCreateAttendanceRecordTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
@@ -36,6 +39,8 @@ import {
   crmDeleteCompanyTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
+  crmDeleteAbsenceTool,
+  crmDeleteAttendanceRecordTool,
   crmDeleteDisbursementTool,
   crmDeleteEstimateTool,
   crmDeleteExpenseTool,
@@ -59,6 +64,8 @@ import {
   crmCurrentWorkspaceTool,
   crmGetBillTool,
   crmGetCalendarBootstrapTool,
+  crmGetAbsenceTool,
+  crmGetAttendanceRecordTool,
   crmGetCompanyTool,
   crmGetCompanyPriceTableTool,
   crmGetContactTool,
@@ -74,6 +81,7 @@ import {
   crmGetLocationTool,
   crmGetOrderTool,
   crmGetPaymentTool,
+  crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
   crmGetPropertyTool,
   crmGetPurchaseOrderTool,
@@ -82,6 +90,8 @@ import {
   crmGetTaskTool,
   crmGetTicketTool,
   crmListBillsTool,
+  crmListAbsencesTool,
+  crmListAttendanceRecordsTool,
   crmListCompaniesTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
@@ -102,6 +112,8 @@ import {
   crmListOrdersTool,
   crmListOverdueInvoicesTool,
   crmListPaymentsTool,
+  crmListPayrollProfilesTool,
+  crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
@@ -117,9 +129,12 @@ import {
   crmReplyPrivateMessageThreadTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
+  crmSendInvoiceEmailTool,
   crmSyncPrivateMessagesTool,
   crmSwitchWorkspaceTool,
   crmUpdateBillTool,
+  crmUpdateAbsenceTool,
+  crmUpdateAttendanceRecordTool,
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
@@ -144,6 +159,8 @@ import {
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
   crmUploadExpenseAttachmentTool,
+  crmUpsertPayrollProfileTool,
+  crmCalculatePayrollRunTool,
 } from '../../packages/mcp-server/src/crm-tools';
 import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
 
@@ -168,6 +185,25 @@ const oauthContext = (overrides?: {
 describe('ChatGPT CRM tools', () => {
   beforeEach(() => {
     resetBinaryDownloadStoreForTests();
+  });
+
+  it('documents Sanka company cycle fields as standard company inputs', () => {
+    const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
+    const createCompanySchema = crmCreateCompanyTool.tool.inputSchema as any;
+    const updateCompanySchema = crmUpdateCompanyTool.tool.inputSchema as any;
+
+    expect(createCompanySchema.properties.billing_cycle.description).toContain('month-end closing');
+    expect(createCompanySchema.properties.payment_cycle.description).toContain('nmonth_end');
+    expect(updateCompanySchema.properties.billing_cycle.description).toContain('month-end closing');
+    expect(updateCompanySchema.properties.payment_cycle.description).toContain('nmonth_end');
+    expect(updateCompanySchema.properties.custom_fields.description).toContain(
+      'Company billing_cycle and payment_cycle are standard company fields',
+    );
+    expect(createPropertySchema.properties.type.description).toContain('not by creating a custom property');
+    expect(crmCreatePropertyTool.tool.description).toContain(
+      'Do not use this for company billing_cycle or payment_cycle',
+    );
+    expect(crmListPropertiesTool.tool.description).toContain('not a custom-property discovery flow');
   });
 
   it('advertises auth schemes on CRM tools', () => {
@@ -236,6 +272,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDownloadInvoicePDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSendInvoiceEmailTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListSubscriptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateSubscriptionTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -289,6 +326,22 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListAbsencesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListAttendanceRecordsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteAttendanceRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPayrollProfilesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpsertPayrollProfileTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListPayrollRunsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetPayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCalculatePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmApprovePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentiveCompanyOptionsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -1606,6 +1659,8 @@ describe('ChatGPT CRM tools', () => {
         external_id: 'COMP-1',
         name: 'Acme',
         email: 'team@acme.com',
+        billing_cycle: 'end',
+        payment_cycle: 'nmonth_end',
         allowed_in_store: false,
       },
     });
@@ -1615,6 +1670,8 @@ describe('ChatGPT CRM tools', () => {
         external_id: 'COMP-1',
         name: 'Acme',
         email: 'team@acme.com',
+        billing_cycle: 'end',
+        payment_cycle: 'nmonth_end',
         allowed_in_store: false,
       },
       undefined,
@@ -1700,6 +1757,8 @@ describe('ChatGPT CRM tools', () => {
       args: {
         company_id: 'company-1',
         phone_number: '+1-555-0100',
+        billing_cycle: 'end',
+        payment_cycle: 'net_30',
         url: 'https://acme.com',
       },
     });
@@ -1708,6 +1767,8 @@ describe('ChatGPT CRM tools', () => {
       'company-1',
       {
         phone_number: '+1-555-0100',
+        billing_cycle: 'end',
+        payment_cycle: 'net_30',
         url: 'https://acme.com',
       },
       undefined,
@@ -2347,6 +2408,10 @@ describe('ChatGPT CRM tools', () => {
         channel_id: 'channel-1',
         external_object_type: 'opportunity',
         search: 'Renewal',
+        filters: [
+          { field: 'stage', operator: 'equals', value: 'Closed Won' },
+          { field: 'closedate', operator: 'greater_than_equal', value: '2026-05-18' },
+        ],
         limit: 5,
       },
     });
@@ -2358,10 +2423,14 @@ describe('ChatGPT CRM tools', () => {
         provider: 'salesforce',
         channel_id: 'channel-1',
         external_object_type: 'opportunity',
+        filters: [
+          { field: 'stage', operator: 'equals', value: 'Closed Won' },
+          { field: 'closedate', operator: 'greater_than_equal', value: '2026-05-18' },
+        ],
         search: 'Renewal',
         page: 1,
         limit: 5,
-        select: ['id', 'name', 'amount', 'case_status', 'updated_at'],
+        select: ['id', 'name', 'amount', 'case_status', 'closed_at', 'updated_at'],
       },
     });
     expect(list).not.toHaveBeenCalled();
@@ -3912,6 +3981,60 @@ describe('ChatGPT CRM tools', () => {
     expect(done).toBe(true);
     expect(stitchedBase64).toBe(contentBase64);
     expect(Buffer.from(stitchedBase64, 'base64')).toEqual(pdfBytes);
+  });
+
+  it('sends or schedules invoice emails through the public invoice email endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'scheduled',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      message_thread_ids: ['message-thread-1'],
+      scheduled_at: '2026-05-21T09:00:00+09:00',
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'schedule',
+        to: ['finance@example.com'],
+        cc: ['ops@example.com'],
+        subject: 'May invoice',
+        body: 'Please see attached.',
+        scheduled_at: '2026-05-21T09:00:00+09:00',
+        template_select: 'template-1',
+        language: 'ja',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/email', {
+      body: {
+        action: 'schedule',
+        to: ['finance@example.com'],
+        cc: ['ops@example.com'],
+        subject: 'May invoice',
+        body: 'Please see attached.',
+        scheduled_at: '2026-05-21T09:00:00+09:00',
+        template_select: 'template-1',
+      },
+      query: {
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'scheduled',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      message_thread_ids: ['message-thread-1'],
+      scheduled_at: '2026-05-21T09:00:00+09:00',
+    });
+    expect((result.content[0] as any).text).toContain('Scheduled Invoice No. 1233 email');
   });
 
   it('creates an invoice', async () => {
@@ -6884,6 +7007,197 @@ describe('ChatGPT CRM tools', () => {
       },
       message: 'Scoring completed.',
       ctx_id: 'ctx-score-1',
+    });
+  });
+
+  it('calls dedicated HR and payroll public endpoints', async () => {
+    const get = jest.fn().mockResolvedValueOnce({
+      data: [
+        {
+          id: 'att-1',
+          track_id: 1,
+          name: 'Daily attendance',
+          status: 'stop',
+        },
+      ],
+      page: 1,
+      total: 1,
+      count: 1,
+      message: 'OK',
+    });
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          id: 'absence-1',
+          absence_id: 1,
+          status: 'submitted',
+        },
+        status: 'created',
+        message: 'created',
+      })
+      .mockResolvedValueOnce({
+        data: {
+          run: {
+            id: 'run-1',
+            period: '2026-04',
+            status: 'calculated',
+          },
+          results: [],
+        },
+        message: 'OK',
+      });
+
+    const reqContext = {
+      client: { get, post } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const absenceResult = await crmCreateAbsenceTool.handler({
+      reqContext,
+      args: {
+        worker_id: 'worker-1',
+        start_date: '2026-05-22',
+        end_date: '2026-05-22',
+        absence_type: 'pto',
+      },
+    });
+    expect(post).toHaveBeenNthCalledWith(1, '/v1/public/absences', {
+      body: {
+        worker_id: 'worker-1',
+        start_date: '2026-05-22',
+        end_date: '2026-05-22',
+        absence_type: 'pto',
+      },
+    });
+    expect(absenceResult.structuredContent).toMatchObject({
+      data: { id: 'absence-1', status: 'submitted' },
+    });
+
+    const attendanceResult = await crmListAttendanceRecordsTool.handler({
+      reqContext,
+      args: { limit: 5, search: 'Daily' },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/attendance-records', {
+      query: { limit: 5, page: 1, search: 'Daily' },
+    });
+    expect(attendanceResult.structuredContent?.['results']).toEqual([
+      {
+        id: 'att-1',
+        track_id: 1,
+        name: 'Daily attendance',
+        status: 'stop',
+      },
+    ]);
+
+    const payrollResult = await crmCalculatePayrollRunTool.handler({
+      reqContext,
+      args: { period: '2026-04', pay_date: '2026-04-30' },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/public/payroll/runs/calculate', {
+      body: { period: '2026-04', pay_date: '2026-04-30' },
+    });
+    expect(payrollResult.structuredContent).toMatchObject({
+      data: { run: { id: 'run-1', period: '2026-04' } },
+    });
+  });
+
+  it('creates subscriptions with end dates and contract associations', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      subscription_status: 'active',
+      start_date: '2026-05-01',
+      end_date: '2026-05-31',
+      contract_info: [{ id: 'contract-1', contract_id: 7, name: 'MSA' }],
+      created_at: '2026-05-01T00:00:00Z',
+      items: [],
+    });
+
+    const result = await crmCreateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        company_id: 'company-1',
+        items: [{ item_name: 'Monthly platform fee', quantity: 1, unit_price: 1000 }],
+        subscription_status: 'active',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: ['contract-1'],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        cid: 'company-1',
+        company_id: 'company-1',
+        items: [{ item_name: 'Monthly platform fee', quantity: 1, unit_price: 1000 }],
+        subscription_status: 'active',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: ['contract-1'],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      id: 'sub-1',
+      end_date: '2026-05-31',
+      contract_info: [{ id: 'contract-1' }],
+    });
+  });
+
+  it('updates subscription dates and clears contract associations', async () => {
+    const update = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      subscription_status: 'completed',
+      start_date: '2026-05-01',
+      end_date: '2026-05-31',
+      contract_info: [],
+      created_at: '2026-05-01T00:00:00Z',
+      items: [],
+    });
+
+    const result = await crmUpdateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_id: 'sub-1',
+        status: 'completed',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: [],
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'sub-1',
+      {
+        status: 'completed',
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+        contract_ids: [],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      id: 'sub-1',
+      subscription_status: 'completed',
+      end_date: '2026-05-31',
+      contract_info: [],
     });
   });
 });

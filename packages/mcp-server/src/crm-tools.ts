@@ -599,7 +599,17 @@ const COMPANY_MUTATION_INPUT_PROPERTIES = {
   custom_fields: {
     type: 'object',
     description:
-      'Custom field values. For integration mutations these are forwarded as provider property names.',
+      'Sanka custom field values keyed by property id or internal_name. Company billing_cycle and payment_cycle are standard company fields, so prefer the top-level billing_cycle/payment_cycle inputs instead of custom_fields. For integration mutations custom_fields are forwarded as provider property names.',
+  },
+  billing_cycle: {
+    type: 'string',
+    description:
+      'Sanka company billing cycle standard field. Use "end" for month-end closing or "1" through "31" for a specific monthly closing day.',
+  },
+  payment_cycle: {
+    type: 'string',
+    description:
+      'Sanka company payment cycle standard field. Examples: "nmonth_end" for end of next month, "cmonth_end" for end of current month, or "net_30". Ask for clarification if the user only says "月末払い".',
   },
   name: {
     type: 'string',
@@ -888,6 +898,410 @@ const EXPENSE_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['expense_id'],
+};
+
+const ABSENCE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of absences to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    worker_id: {
+      type: 'string',
+      description: 'Optional Worker UUID to filter leave and absence records.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional absence status, for example submitted, approved, declined, or draft.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional usage status. Defaults to active.',
+    },
+    start_date_from: {
+      type: 'string',
+      description: 'Optional lower bound for start_date in YYYY-MM-DD format.',
+    },
+    start_date_to: {
+      type: 'string',
+      description: 'Optional upper bound for start_date in YYYY-MM-DD format.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const ABSENCE_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    absence_id: {
+      type: 'string',
+      description: 'Absence identifier. May be a UUID or workspace absence number.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['absence_id'],
+};
+
+const ABSENCE_MUTATION_INPUT_PROPERTIES = {
+  worker_id: {
+    type: 'string',
+    description: 'Worker UUID for the person taking leave.',
+  },
+  start_date: {
+    type: 'string',
+    description: 'Absence start date in YYYY-MM-DD format.',
+  },
+  end_date: {
+    type: 'string',
+    description: 'Absence end date in YYYY-MM-DD format.',
+  },
+  absence_type: {
+    type: 'string',
+    description: 'Absence type, for example pto, sick, or personal.',
+  },
+  status: {
+    type: 'string',
+    description: 'Absence status, for example submitted, approved, declined, or draft.',
+  },
+  requested_by_user_id: {
+    type: 'integer',
+    description: 'Optional requesting User id. Defaults to the authenticated user.',
+  },
+  approved_by_user_id: {
+    type: 'integer',
+    description: 'Optional approving User id.',
+  },
+  requester_name: {
+    type: 'string',
+    description: 'Optional requester display name.',
+  },
+  note: {
+    type: 'string',
+    description: 'Optional leave request note or reason.',
+  },
+};
+
+const ABSENCE_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ABSENCE_MUTATION_INPUT_PROPERTIES,
+};
+
+const ABSENCE_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    absence_id: {
+      type: 'string',
+      description: 'Absence identifier to update.',
+    },
+    ...ABSENCE_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['absence_id'],
+};
+
+const ATTENDANCE_RECORD_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of attendance records to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional name or numeric attendance record search.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional usage status. Defaults to active.',
+    },
+    sort: {
+      type: 'string',
+      description:
+        'Sort field, optionally prefixed with "-". Supported fields include created_at, start_time, end_time, and track_id.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const ATTENDANCE_RECORD_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    attendance_record_id: {
+      type: 'string',
+      description: 'Attendance record identifier. May be a UUID, numeric track id, or external_id.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['attendance_record_id'],
+};
+
+const ATTENDANCE_RECORD_SUBTRACK_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: {
+      type: 'string',
+      description: 'Existing subtrack UUID when updating a subtrack.',
+    },
+    name: {
+      type: 'string',
+      description: 'Optional subtrack name.',
+    },
+    start_time: {
+      type: 'string',
+      description: 'Optional start time. Use YYYY-MM-DD HH:mm for English locale.',
+    },
+    hours: {
+      type: 'integer',
+      default: 0,
+    },
+    minutes: {
+      type: 'integer',
+      default: 0,
+    },
+    seconds: {
+      type: 'integer',
+      default: 0,
+    },
+    activity_track_type: {
+      type: 'string',
+      description: 'work or break.',
+      enum: ['work', 'break'],
+      default: 'work',
+    },
+    delete: {
+      type: 'boolean',
+      description: 'Set true to remove this subtrack on update.',
+      default: false,
+    },
+  },
+};
+
+const ATTENDANCE_RECORD_MUTATION_INPUT_PROPERTIES = {
+  external_id: {
+    type: 'string',
+    description: 'Optional external id for idempotent integrations.',
+  },
+  name: {
+    type: 'string',
+    description: 'Attendance record name.',
+  },
+  assignee_user_id: {
+    type: 'integer',
+    description: 'Optional assignee User id. Defaults to the authenticated user.',
+  },
+  control_time_mode: {
+    type: 'string',
+    description: 'manual_entry or timetracker.',
+    enum: ['manual_entry', 'timetracker'],
+    default: 'manual_entry',
+  },
+  timetracker_toggle: {
+    type: 'boolean',
+    description: 'Start a running timetracker entry when true.',
+    default: false,
+  },
+  subtracks: {
+    type: 'array',
+    description: 'Manual work or break segments.',
+    items: ATTENDANCE_RECORD_SUBTRACK_SCHEMA,
+  },
+  custom_fields: {
+    type: 'object',
+    description: 'Optional custom field values keyed by field UUID.',
+  },
+};
+
+const ATTENDANCE_RECORD_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ATTENDANCE_RECORD_MUTATION_INPUT_PROPERTIES,
+  required: ['name'],
+};
+
+const ATTENDANCE_RECORD_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    attendance_record_id: {
+      type: 'string',
+      description: 'Attendance record identifier to update.',
+    },
+    ...ATTENDANCE_RECORD_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['attendance_record_id'],
+};
+
+const PAYROLL_PROFILE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    employee_id: {
+      type: 'string',
+      description: 'Optional Worker UUID or supported employee token.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const PAYROLL_PROFILE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    employee_id: {
+      type: 'string',
+      description: 'Worker UUID or supported employee token.',
+    },
+    jurisdiction_country_code: {
+      type: 'string',
+      description: 'Optional payroll jurisdiction country code. Defaults from workspace settings.',
+    },
+    pay_type: {
+      type: 'string',
+      description: 'Payroll pay type, for example monthly, hourly, or director.',
+      default: 'monthly',
+    },
+    base_salary: {
+      type: 'number',
+      description: 'Base salary amount.',
+    },
+    hourly_rate: {
+      type: 'number',
+      description: 'Optional hourly rate.',
+    },
+    scheduled_monthly_hours: {
+      type: 'number',
+      description: 'Optional scheduled monthly hours.',
+    },
+    tax_table_type: {
+      type: 'string',
+      description: 'Tax table type. JP default is ko.',
+      default: 'ko',
+    },
+    dependent_count: {
+      type: 'integer',
+      default: 0,
+    },
+    resident_tax_monthly_amount: {
+      type: 'number',
+      default: 0,
+    },
+    standard_monthly_remuneration: {
+      type: 'number',
+    },
+    health_insurance_prefecture_code: {
+      type: 'string',
+    },
+    is_health_insurance_enrolled: {
+      type: 'boolean',
+      default: false,
+    },
+    is_care_insurance_enrolled: {
+      type: 'boolean',
+      default: false,
+    },
+    is_pension_enrolled: {
+      type: 'boolean',
+      default: false,
+    },
+    is_employment_insurance_enrolled: {
+      type: 'boolean',
+      default: false,
+    },
+    effective_from: {
+      type: 'string',
+      description: 'Optional effective start date in YYYY-MM-DD format.',
+    },
+    effective_to: {
+      type: 'string',
+      description: 'Optional effective end date in YYYY-MM-DD format.',
+    },
+    extra_settings: {
+      type: 'object',
+      description: 'Optional country-specific payroll calculation overrides.',
+    },
+  },
+  required: ['employee_id'],
+};
+
+const PAYROLL_RUN_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    period: {
+      type: 'string',
+      description: 'Optional payroll period in YYYY-MM format.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['run_id'],
+};
+
+const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    period: {
+      type: 'string',
+      description: 'Payroll period in YYYY-MM format.',
+    },
+    pay_date: {
+      type: 'string',
+      description: 'Optional pay date in YYYY-MM-DD format.',
+    },
+    country_code: {
+      type: 'string',
+      description: 'Optional payroll country code. Currently JP is supported.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['period'],
 };
 
 const INCENTIVE_LIST_INPUT_SCHEMA = {
@@ -1426,6 +1840,22 @@ const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const RECORD_DETAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+};
+
+const RECORD_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: { type: 'object', additionalProperties: true },
+    status: { type: 'string' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['data', 'message'],
+};
+
 const INCENTIVE_ACTION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1498,10 +1928,16 @@ const DEAL_LIST_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional free-text search over deal names/stages when record-query routing is used.',
     },
+    filters: {
+      type: 'array',
+      description:
+        'Server-side filters for record-query backed deal lists. For HubSpot/Salesforce date filters, fields such as closed_at, closedate, close_date, CloseDate, stage, dealstage, or StageName are accepted by the Sanka API.',
+      items: RECORD_FILTER_SCHEMA,
+    },
     select: {
       type: 'array',
       description:
-        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status"].',
+        'Optional fields to return when scope/provider routing is used, for example ["id", "name", "amount", "case_status", "closed_at"]. Provider names and common aliases such as dealname, dealstage, stage, closedate, close_date, and CloseDate are also accepted by the Sanka API.',
       items: { type: 'string' },
     },
   },
@@ -1845,7 +2281,8 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   },
   type: {
     type: 'string',
-    description: 'Property type.',
+    description:
+      'Sanka custom property type, for example text, number, date, choice, or tag. Company billing_cycle and payment_cycle are standard company fields and should be set with update_company/create_company top-level inputs, not by creating a custom property.',
   },
   unique: {
     type: 'boolean',
@@ -1858,7 +2295,8 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
   properties: {
     object_name: {
       type: 'string',
-      description: 'Object family to inspect, for example `orders`.',
+      description:
+        'Object family to inspect, for example `orders`, `companies`, `invoices`, or `purchase-orders`.',
     },
     custom_only: {
       type: 'boolean',
@@ -3499,6 +3937,63 @@ const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
   required: ['invoice_id'],
 };
 
+const INVOICE_EMAIL_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Invoice identifier. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    action: {
+      type: 'string',
+      description: 'Send now or schedule for later.',
+      enum: ['send', 'schedule'],
+      default: 'send',
+    },
+    to: {
+      type: 'array',
+      description:
+        'Primary recipient email addresses or supported Sanka recipient selectors. Omit to use the invoice customer email.',
+      items: { type: 'string' },
+    },
+    cc: {
+      type: 'array',
+      description: 'Optional CC email addresses or supported Sanka recipient selectors.',
+      items: { type: 'string' },
+    },
+    subject: {
+      type: 'string',
+      description: 'Optional email subject. Defaults to the workspace invoice PDF email subject.',
+    },
+    body: {
+      type: 'string',
+      description: 'Optional email body. Defaults to the workspace invoice PDF email body.',
+    },
+    scheduled_at: {
+      type: 'string',
+      description:
+        'Required when action="schedule". ISO datetime for scheduled send, for example 2026-05-21T09:00:00+09:00.',
+    },
+    template_select: {
+      type: 'string',
+      description: 'Optional invoice PDF template selector. Pass a template UUID or built-in template path.',
+    },
+    channel_id: {
+      type: 'string',
+      description: 'Optional SMTP/email channel UUID. Omit to use Sanka default sending.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['invoice_id'],
+};
+
 const INVOICE_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -4470,6 +4965,24 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const INVOICE_EMAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    ctx_id: { type: 'string' },
+    invoice_id: { type: 'string' },
+    id_inv: { type: 'integer' },
+    message_thread_ids: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    scheduled_at: { type: 'string' },
+    message: { type: 'string' },
+  },
+  required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
+};
+
 const SLIP_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -5195,6 +5708,22 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Subscription start date in ISO format.',
     },
+    end_date: {
+      type: 'string',
+      description:
+        'Subscription end date in ISO format. Use this when completing or time-bounding a subscription contract.',
+    },
+    contract_id: {
+      type: 'string',
+      description: 'Contract record identifier to associate with the subscription.',
+    },
+    contract_ids: {
+      type: 'array',
+      description: 'Contract record identifiers to associate with the subscription.',
+      items: {
+        type: 'string',
+      },
+    },
     total_price: {
       type: 'number',
       description: 'Total subscription price.',
@@ -5263,6 +5792,30 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Subscription status.',
     },
+    subscription_status: {
+      type: 'string',
+      description: 'Alias for status. Updates the subscription business status.',
+    },
+    start_date: {
+      type: 'string',
+      description: 'Subscription start date in ISO format.',
+    },
+    end_date: {
+      type: 'string',
+      description: 'Subscription end date in ISO format.',
+    },
+    contract_id: {
+      type: 'string',
+      description: 'Contract record identifier to associate with the subscription.',
+    },
+    contract_ids: {
+      type: 'array',
+      description:
+        'Contract record identifiers to associate with the subscription. Passing an empty array clears the contract association.',
+      items: {
+        type: 'string',
+      },
+    },
   },
   required: ['subscription_id'],
 };
@@ -5291,6 +5844,20 @@ const SUBSCRIPTION_OUTPUT_SCHEMA = {
     currency: { type: 'string' },
     total_price: { type: 'number' },
     created_at: { type: 'string' },
+    start_date: { type: 'string' },
+    end_date: { type: 'string' },
+    contract_info: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          contract_id: { type: 'integer' },
+          name: { type: 'string' },
+          status: { type: 'string' },
+        },
+      },
+    },
     items: {
       type: 'array',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
@@ -7044,6 +7611,7 @@ const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): bo
       readString(args['channel_id'] ?? args['channelId']) ||
       readString(args['external_object_type'] ?? args['externalObjectType']) ||
       readString(args['search']) ||
+      buildRecordFilters(args['filters']).length ||
       readStringArray(args['select']).length,
   );
 };
@@ -7070,8 +7638,8 @@ const buildDealRecordQueryBody = (args: Record<string, unknown> | undefined) => 
         readIntegrationScope(args?.['scope'] ?? args?.['source']) ||
         readIntegrationProvider(args?.['provider'])
       ) ?
-        ['id', 'name', 'amount', 'case_status', 'updated_at']
-      : ['id', 'name', 'case_status', 'updated_at'];
+        ['id', 'name', 'amount', 'case_status', 'closed_at', 'updated_at']
+      : ['id', 'name', 'case_status', 'closed_at', 'updated_at'];
   }
   return body;
 };
@@ -7092,12 +7660,14 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'address',
+    'billing_cycle',
     'channel_id',
     'email',
     'external_id',
     'external_object_type',
     'name',
     'operation',
+    'payment_cycle',
     'phone_number',
     'primary_external_id',
     'provider',
@@ -7258,6 +7828,143 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
   }
 
   return body;
+};
+
+const buildPagedWorkspaceParams = (args: Record<string, unknown> | undefined, defaultLimit = 10) => {
+  const rawLimit = readNumber(args?.['limit'], defaultLimit);
+  const rawPage = readNumber(args?.['page'], 1);
+  const limit = Math.max(1, Math.min(100, rawLimit));
+  const page = Math.max(1, rawPage);
+  const params: Record<string, unknown> = { limit, page };
+  assignStringFields(params, args, ['workspace_id']);
+  return { limit, page, params };
+};
+
+const buildAbsenceListParams = (args: Record<string, unknown> | undefined) => {
+  const result = buildPagedWorkspaceParams(args, 10);
+  assignStringFields(result.params, args, [
+    'worker_id',
+    'status',
+    'usage_status',
+    'start_date_from',
+    'start_date_to',
+  ]);
+  return result;
+};
+
+const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, ['workspace_id']);
+  return params;
+};
+
+const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'worker_id',
+    'start_date',
+    'end_date',
+    'absence_type',
+    'status',
+    'requester_name',
+    'note',
+  ]);
+  assignIntegerFields(body, args, ['requested_by_user_id', 'approved_by_user_id']);
+  return body;
+};
+
+const buildAttendanceRecordListParams = (args: Record<string, unknown> | undefined) => {
+  const result = buildPagedWorkspaceParams(args, 10);
+  assignStringFields(result.params, args, ['search', 'usage_status', 'sort']);
+  return result;
+};
+
+const buildAttendanceRecordMutationBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['external_id', 'name', 'control_time_mode']);
+  assignIntegerFields(body, args, ['assignee_user_id']);
+  assignBooleanFields(body, args, ['timetracker_toggle']);
+  const subtracks = readObjectArray(args?.['subtracks']);
+  if (subtracks && subtracks.length > 0) {
+    body['subtracks'] = subtracks;
+  }
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
+  return body;
+};
+
+const buildPayrollProfileBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'employee_id',
+    'jurisdiction_country_code',
+    'pay_type',
+    'tax_table_type',
+    'health_insurance_prefecture_code',
+    'effective_from',
+    'effective_to',
+  ]);
+  assignIntegerFields(body, args, ['dependent_count']);
+  assignMappedNumberFields(body, args, [
+    ['base_salary', 'base_salary'],
+    ['hourly_rate', 'hourly_rate'],
+    ['scheduled_monthly_hours', 'scheduled_monthly_hours'],
+    ['resident_tax_monthly_amount', 'resident_tax_monthly_amount'],
+    ['standard_monthly_remuneration', 'standard_monthly_remuneration'],
+  ]);
+  assignBooleanFields(body, args, [
+    'is_health_insurance_enrolled',
+    'is_care_insurance_enrolled',
+    'is_pension_enrolled',
+    'is_employment_insurance_enrolled',
+  ]);
+  const extraSettings = readRecord(args?.['extra_settings']);
+  if (extraSettings) {
+    body['extra_settings'] = extraSettings;
+  }
+  return body;
+};
+
+const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) => {
+  const params = buildWorkspaceQuery(args);
+  assignStringFields(params, args, ['period']);
+  return params;
+};
+
+const buildPayrollRunCalculateBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['period', 'pay_date', 'country_code']);
+  return body;
+};
+
+const readDataArray = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = payload['data'];
+  return Array.isArray(data) ? data.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const readPayloadDataRecord = (payload: Record<string, unknown>): Record<string, unknown> => {
+  return readRecord(payload['data']) ?? payload;
+};
+
+const buildRecordMutationSummary = ({
+  entity,
+  action,
+  payload,
+  idKeys,
+}: {
+  entity: string;
+  action: 'created' | 'updated' | 'deleted' | 'upserted' | 'calculated' | 'approved';
+  payload: Record<string, unknown>;
+  idKeys: string[];
+}): string => {
+  const data = readPayloadDataRecord(payload);
+  const reference =
+    idKeys.map((key) => readString(data[key]) ?? String(data[key] ?? '')).find((value) => value.trim()) ||
+    readString(payload['status']) ||
+    entity;
+  return `${entity} ${action}: ${reference}.`;
 };
 
 const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => {
@@ -8410,6 +9117,55 @@ const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined
   };
 };
 
+const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const action = readString(args?.['action']);
+  const to = readStringArray(args?.['to'] ?? args?.['recipients'] ?? args?.['recipient_emails']);
+  const cc = readStringArray(args?.['cc']);
+  const subject = readString(args?.['subject']);
+  const messageBody = readString(args?.['body']);
+  const scheduledAt = readString(args?.['scheduled_at'] ?? args?.['schedule_at'] ?? args?.['scheduledAt']);
+  const templateSelect = readString(args?.['template_select']);
+  const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  if (action) body['action'] = action;
+  if (to.length > 0) body['to'] = to;
+  if (cc.length > 0) body['cc'] = cc;
+  if (subject) body['subject'] = subject;
+  if (messageBody) body['body'] = messageBody;
+  if (scheduledAt) body['scheduled_at'] = scheduledAt;
+  if (templateSelect) body['template_select'] = templateSelect;
+  if (channelID) body['channel_id'] = channelID;
+  if (externalID) body['external_id'] = externalID;
+
+  return {
+    body,
+    query: {
+      ...(language ? { language } : undefined),
+    },
+  };
+};
+
+const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
+  const status = readString(payload['status']) ?? 'sent';
+  const invoiceID = readString(payload['invoice_id']);
+  const invoiceNumber = typeof payload['id_inv'] === 'number' ? payload['id_inv'] : undefined;
+  const invoiceLabel =
+    invoiceNumber !== undefined ? `Invoice No. ${invoiceNumber}`
+    : invoiceID ? `invoice ${invoiceID}`
+    : 'invoice';
+  const threadIDs = readStringArray(payload['message_thread_ids']);
+  const scheduledAt = readString(payload['scheduled_at']);
+  if (status === 'scheduled') {
+    return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
+      threadIDs.length
+    }.`;
+  }
+  return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
+};
+
 const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
   const paymentID = readString(args?.['payment_id']);
   const externalID = readString(args?.['external_id']);
@@ -8923,7 +9679,13 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
     ['frequency_time', 'frequency_time'],
     ['shipping_cost_tax_status', 'shipping_cost_tax_status'],
     ['start_date', 'start_date'],
+    ['end_date', 'end_date'],
+    ['contract_id', 'contract_id'],
   ]);
+  const contractIDs = readStringArray(args?.['contract_ids']);
+  if (contractIDs.length > 0) {
+    body['contract_ids'] = contractIDs;
+  }
   const contactID = readString(args?.['contact_id']);
   const companyID = readString(args?.['company_id']);
   if (contactID) {
@@ -8966,7 +9728,17 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
   const lookupExternalID = readString(args?.['lookup_external_id']);
   const body: Record<string, unknown> = {};
 
-  assignStringFields(body, args, ['contact', 'status']);
+  assignStringFields(body, args, [
+    'contact',
+    'status',
+    'subscription_status',
+    'start_date',
+    'end_date',
+    'contract_id',
+  ]);
+  if (Object.prototype.hasOwnProperty.call(args ?? {}, 'contract_ids')) {
+    body['contract_ids'] = readStringArray(args?.['contract_ids']);
+  }
 
   assignPublicLineItems(body, args, {
     targetKey: 'items',
@@ -11019,6 +11791,792 @@ export const crmDeleteExpenseTool: McpTool = {
     return {
       content: [
         { type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListAbsencesTool: McpTool = {
+  metadata: {
+    resource: 'absences',
+    operation: 'read',
+    tags: ['crm', 'hr', 'absences'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/absences',
+    operationId: 'public.absences.list',
+  },
+  tool: {
+    name: 'list_absences',
+    title: 'List absences',
+    description:
+      'Review leave and absence records in Sanka. Use this for vacation, PTO, sick leave, and other absence requests.',
+    inputSchema: ABSENCE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List absences',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List absences' });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, page, params } = buildAbsenceListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/absences', {
+      query: params,
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload).slice(0, limit);
+    return buildListResult({
+      label: 'absences',
+      payload: {
+        count: data.length,
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} absences.`,
+        page: readNumber(payload['page'], page),
+        total: readNumber(payload['total'], data.length),
+      },
+      previewKeys: ['absence_id', 'absence_type', 'status', 'worker_name', 'start_date', 'end_date'],
+    });
+  },
+};
+
+export const crmGetAbsenceTool: McpTool = {
+  metadata: {
+    resource: 'absences',
+    operation: 'read',
+    tags: ['crm', 'hr', 'absences'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/absences/{absence_id}',
+    operationId: 'public.absences.retrieve',
+  },
+  tool: {
+    name: 'get_absence',
+    title: 'Get absence',
+    description: 'Load one leave or absence record from Sanka by UUID or workspace absence number.',
+    inputSchema: ABSENCE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get absence',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get absence' });
+    if (authError) {
+      return authError;
+    }
+    const absenceID = readString(args?.['absence_id']);
+    if (!absenceID) {
+      return asErrorResult('`absence_id` is required.');
+    }
+    const payload = (await reqContext.client.get(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
+      query: buildWorkspaceQuery(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        { type: 'text', text: `Loaded absence ${payload['absence_id'] ?? payload['id'] ?? absenceID}.` },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCreateAbsenceTool: McpTool = {
+  metadata: {
+    resource: 'absences',
+    operation: 'write',
+    tags: ['crm', 'hr', 'absences'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/absences',
+    operationId: 'public.absences.create',
+  },
+  tool: {
+    name: 'create_absence',
+    title: 'Create absence',
+    description: 'Create a leave or absence request in Sanka.',
+    inputSchema: ABSENCE_CREATE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create absence',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create absence' });
+    if (authError) {
+      return authError;
+    }
+    const response = (await reqContext.client.post('/v1/public/absences', {
+      body: buildAbsenceMutationBody(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Absence',
+            action: 'created',
+            payload: response,
+            idKeys: ['absence_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateAbsenceTool: McpTool = {
+  metadata: {
+    resource: 'absences',
+    operation: 'write',
+    tags: ['crm', 'hr', 'absences'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/absences/{absence_id}',
+    operationId: 'public.absences.update',
+  },
+  tool: {
+    name: 'update_absence',
+    title: 'Update absence',
+    description: 'Update an existing leave or absence record in Sanka.',
+    inputSchema: ABSENCE_UPDATE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update absence',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update absence' });
+    if (authError) {
+      return authError;
+    }
+    const absenceID = readString(args?.['absence_id']);
+    if (!absenceID) {
+      return asErrorResult('`absence_id` is required.');
+    }
+    const response = (await reqContext.client.put(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
+      body: buildAbsenceMutationBody(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Absence',
+            action: 'updated',
+            payload: response,
+            idKeys: ['absence_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteAbsenceTool: McpTool = {
+  metadata: {
+    resource: 'absences',
+    operation: 'write',
+    tags: ['crm', 'hr', 'absences'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/absences/{absence_id}',
+    operationId: 'public.absences.delete',
+  },
+  tool: {
+    name: 'delete_absence',
+    title: 'Delete absence',
+    description: 'Archive/delete an absence record in Sanka.',
+    inputSchema: ABSENCE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete absence',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete absence' });
+    if (authError) {
+      return authError;
+    }
+    const absenceID = readString(args?.['absence_id']);
+    if (!absenceID) {
+      return asErrorResult('`absence_id` is required.');
+    }
+    const response = (await reqContext.client.delete(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
+      query: buildWorkspaceQuery(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Absence',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['absence_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListAttendanceRecordsTool: McpTool = {
+  metadata: {
+    resource: 'attendance_records',
+    operation: 'read',
+    tags: ['crm', 'hr', 'attendance_records'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/attendance-records',
+    operationId: 'public.attendanceRecords.list',
+  },
+  tool: {
+    name: 'list_attendance_records',
+    title: 'List attendance records',
+    description:
+      'Review Sanka work attendance records. This is for employee attendance/time tracking, not public calendar attendance bookings.',
+    inputSchema: ATTENDANCE_RECORD_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List attendance records',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List attendance records' });
+    if (authError) {
+      return authError;
+    }
+    const { limit, page, params } = buildAttendanceRecordListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/attendance-records', {
+      query: params,
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload).slice(0, limit);
+    return buildListResult({
+      label: 'attendance records',
+      payload: {
+        count: data.length,
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} attendance records.`,
+        page: readNumber(payload['page'], page),
+        total: readNumber(payload['total'], data.length),
+      },
+      previewKeys: ['track_id', 'external_id', 'name', 'status', 'start_time', 'duration'],
+    });
+  },
+};
+
+export const crmGetAttendanceRecordTool: McpTool = {
+  metadata: {
+    resource: 'attendance_records',
+    operation: 'read',
+    tags: ['crm', 'hr', 'attendance_records'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    operationId: 'public.attendanceRecords.retrieve',
+  },
+  tool: {
+    name: 'get_attendance_record',
+    title: 'Get attendance record',
+    description: 'Load one employee attendance record by UUID, numeric track id, or external_id.',
+    inputSchema: ATTENDANCE_RECORD_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get attendance record',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get attendance record' });
+    if (authError) {
+      return authError;
+    }
+    const attendanceRecordID = readString(args?.['attendance_record_id']);
+    if (!attendanceRecordID) {
+      return asErrorResult('`attendance_record_id` is required.');
+    }
+    const payload = (await reqContext.client.get(
+      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      {
+        query: buildWorkspaceQuery(args),
+      },
+    )) as Record<string, unknown>;
+    return {
+      content: [{ type: 'text', text: `Loaded attendance record ${payload['track_id'] ?? payload['id']}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCreateAttendanceRecordTool: McpTool = {
+  metadata: {
+    resource: 'attendance_records',
+    operation: 'write',
+    tags: ['crm', 'hr', 'attendance_records'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/attendance-records',
+    operationId: 'public.attendanceRecords.create',
+  },
+  tool: {
+    name: 'create_attendance_record',
+    title: 'Create attendance record',
+    description: 'Create an employee attendance/time tracking record in Sanka.',
+    inputSchema: ATTENDANCE_RECORD_CREATE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create attendance record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create attendance record' });
+    if (authError) {
+      return authError;
+    }
+    const response = (await reqContext.client.post('/v1/public/attendance-records', {
+      body: buildAttendanceRecordMutationBody(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Attendance record',
+            action: 'created',
+            payload: response,
+            idKeys: ['track_id', 'external_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateAttendanceRecordTool: McpTool = {
+  metadata: {
+    resource: 'attendance_records',
+    operation: 'write',
+    tags: ['crm', 'hr', 'attendance_records'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    operationId: 'public.attendanceRecords.update',
+  },
+  tool: {
+    name: 'update_attendance_record',
+    title: 'Update attendance record',
+    description: 'Update an employee attendance/time tracking record in Sanka.',
+    inputSchema: ATTENDANCE_RECORD_UPDATE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update attendance record',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update attendance record' });
+    if (authError) {
+      return authError;
+    }
+    const attendanceRecordID = readString(args?.['attendance_record_id']);
+    if (!attendanceRecordID) {
+      return asErrorResult('`attendance_record_id` is required.');
+    }
+    const response = (await reqContext.client.put(
+      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      {
+        body: buildAttendanceRecordMutationBody(args),
+      },
+    )) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Attendance record',
+            action: 'updated',
+            payload: response,
+            idKeys: ['track_id', 'external_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteAttendanceRecordTool: McpTool = {
+  metadata: {
+    resource: 'attendance_records',
+    operation: 'write',
+    tags: ['crm', 'hr', 'attendance_records'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    operationId: 'public.attendanceRecords.delete',
+  },
+  tool: {
+    name: 'delete_attendance_record',
+    title: 'Delete attendance record',
+    description: 'Archive/delete an employee attendance record in Sanka.',
+    inputSchema: ATTENDANCE_RECORD_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete attendance record',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete attendance record' });
+    if (authError) {
+      return authError;
+    }
+    const attendanceRecordID = readString(args?.['attendance_record_id']);
+    if (!attendanceRecordID) {
+      return asErrorResult('`attendance_record_id` is required.');
+    }
+    const response = (await reqContext.client.delete(
+      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      {
+        query: buildWorkspaceQuery(args),
+      },
+    )) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Attendance record',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['track_id', 'external_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListPayrollProfilesTool: McpTool = {
+  metadata: {
+    resource: 'payroll_profiles',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/profiles',
+    operationId: 'public.payroll.profiles.list',
+  },
+  tool: {
+    name: 'list_payroll_profiles',
+    title: 'List payroll profiles',
+    description: 'Review employee payroll profiles in Sanka.',
+    inputSchema: PAYROLL_PROFILE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List payroll profiles',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List payroll profiles' });
+    if (authError) {
+      return authError;
+    }
+    const params = buildWorkspaceQuery(args);
+    assignStringFields(params, args, ['employee_id']);
+    const payload = (await reqContext.client.get('/v1/public/payroll/profiles', {
+      query: params,
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload);
+    return buildListResult({
+      label: 'payroll profiles',
+      payload: {
+        count: readNumber(payload['count'], data.length),
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} payroll profiles.`,
+        page: 1,
+        total: readNumber(payload['count'], data.length),
+      },
+      previewKeys: ['employee_name', 'pay_type', 'base_salary', 'jurisdiction_country_code'],
+    });
+  },
+};
+
+export const crmUpsertPayrollProfileTool: McpTool = {
+  metadata: {
+    resource: 'payroll_profiles',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/profiles',
+    operationId: 'public.payroll.profiles.upsert',
+  },
+  tool: {
+    name: 'upsert_payroll_profile',
+    title: 'Upsert payroll profile',
+    description: 'Create or update an employee payroll profile in Sanka.',
+    inputSchema: PAYROLL_PROFILE_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upsert payroll profile',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Upsert payroll profile' });
+    if (authError) {
+      return authError;
+    }
+    const employeeID = readString(args?.['employee_id']);
+    if (!employeeID) {
+      return asErrorResult('`employee_id` is required.');
+    }
+    const response = (await reqContext.client.post('/v1/public/payroll/profiles', {
+      body: buildPayrollProfileBody(args),
+    })) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildRecordMutationSummary({
+            entity: 'Payroll profile',
+            action: 'upserted',
+            payload: response,
+            idKeys: ['employee_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListPayrollRunsTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/runs',
+    operationId: 'public.payroll.runs.list',
+  },
+  tool: {
+    name: 'list_payroll_runs',
+    title: 'List payroll runs',
+    description: 'Review payroll runs in Sanka.',
+    inputSchema: PAYROLL_RUN_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List payroll runs',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List payroll runs' });
+    if (authError) {
+      return authError;
+    }
+    const payload = (await reqContext.client.get('/v1/public/payroll/runs', {
+      query: buildPayrollRunListParams(args),
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload);
+    return buildListResult({
+      label: 'payroll runs',
+      payload: {
+        count: readNumber(payload['count'], data.length),
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} payroll runs.`,
+        page: 1,
+        total: readNumber(payload['count'], data.length),
+      },
+      previewKeys: ['period', 'status', 'employee_count', 'total_net_pay'],
+    });
+  },
+};
+
+export const crmGetPayrollRunTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/runs/{run_id}',
+    operationId: 'public.payroll.runs.retrieve',
+  },
+  tool: {
+    name: 'get_payroll_run',
+    title: 'Get payroll run',
+    description: 'Load a payroll run and employee calculation results from Sanka.',
+    inputSchema: PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get payroll run',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get payroll run' });
+    if (authError) {
+      return authError;
+    }
+    const runID = readString(args?.['run_id']);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const payload = (await reqContext.client.get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}`, {
+      query: buildWorkspaceQuery(args),
+    })) as Record<string, unknown>;
+    const data = readPayloadDataRecord(payload);
+    const run = readRecord(data['run']) ?? data;
+    return {
+      content: [{ type: 'text', text: `Loaded payroll run ${run['period'] ?? runID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCalculatePayrollRunTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/runs/calculate',
+    operationId: 'public.payroll.runs.calculate',
+  },
+  tool: {
+    name: 'calculate_payroll_run',
+    title: 'Calculate payroll run',
+    description: 'Calculate a payroll run for a period in Sanka.',
+    inputSchema: PAYROLL_RUN_CALCULATE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Calculate payroll run',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Calculate payroll run' });
+    if (authError) {
+      return authError;
+    }
+    if (!readString(args?.['period'])) {
+      return asErrorResult('`period` is required.');
+    }
+    const response = (await reqContext.client.post('/v1/public/payroll/runs/calculate', {
+      body: buildPayrollRunCalculateBody(args),
+    })) as Record<string, unknown>;
+    const data = readPayloadDataRecord(response);
+    const run = readRecord(data['run']) ?? data;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Payroll run calculated: ${run['period'] ?? run['id'] ?? readString(args?.['period'])}.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmApprovePayrollRunTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/runs/{run_id}/approve',
+    operationId: 'public.payroll.runs.approve',
+  },
+  tool: {
+    name: 'approve_payroll_run',
+    title: 'Approve payroll run',
+    description: 'Approve a calculated payroll run in Sanka after the user explicitly confirms approval.',
+    inputSchema: PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Approve payroll run',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Approve payroll run' });
+    if (authError) {
+      return authError;
+    }
+    const runID = readString(args?.['run_id']);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = (await reqContext.client.post(
+      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/approve`,
+      {
+        query: buildWorkspaceQuery(args),
+      },
+    )) as Record<string, unknown>;
+    const data = readPayloadDataRecord(response);
+    const run = readRecord(data['run']) ?? data;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Payroll run approved: ${run['period'] ?? run['id'] ?? runID}.`,
+        },
       ],
       structuredContent: response,
     };
@@ -14207,6 +15765,64 @@ export const crmDownloadInvoicePDFTool: McpTool = {
   },
 };
 
+export const crmSendInvoiceEmailTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/invoices/{invoice_id}/email',
+    operationId: 'public.invoices.email',
+  },
+  tool: {
+    name: 'send_invoice_email',
+    title: 'Send invoice email',
+    description:
+      'Send or schedule an invoice PDF email from Sanka. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
+    inputSchema: INVOICE_EMAIL_INPUT_SCHEMA,
+    outputSchema: INVOICE_EMAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Send invoice email',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Send invoice email',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const invoiceID = readString(args?.['invoice_id']);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+    const { body, query } = buildInvoiceEmailBody(args);
+    const response = (await reqContext.client.post(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/email`,
+      {
+        body,
+        query,
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildInvoiceEmailSummary(response),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
 export const crmCreateInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -15843,7 +17459,7 @@ export const crmListPropertiesTool: McpTool = {
     name: 'list_properties',
     title: 'List properties',
     description:
-      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema.',
+      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema. Company billing_cycle and payment_cycle are standard company fields, not a custom-property discovery flow.',
     inputSchema: PROPERTY_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15961,7 +17577,8 @@ export const crmCreatePropertyTool: McpTool = {
   tool: {
     name: 'create_property',
     title: 'Create property',
-    description: 'Create a custom property for a Sanka object family such as orders, companies, or deals.',
+    description:
+      'Create a custom property for a Sanka object family such as orders, companies, or deals. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16877,9 +18494,12 @@ export const crmCreateSubscriptionTool: McpTool = {
         frequency_time?: string;
         shipping_cost_tax_status?: string;
         start_date?: string;
+        end_date?: string;
         tax?: number;
         total_price?: number;
         total_price_without_tax?: number;
+        contract_id?: string;
+        contract_ids?: string[];
       },
       undefined,
     )) as unknown as Record<string, unknown>;
@@ -16950,6 +18570,11 @@ export const crmUpdateSubscriptionTool: McpTool = {
         contact?: string;
         items?: Array<{ id: string; amount: number; name?: string; price?: number }>;
         status?: string;
+        subscription_status?: string;
+        start_date?: string;
+        end_date?: string;
+        contract_id?: string;
+        contract_ids?: string[];
       },
       undefined,
     )) as unknown as Record<string, unknown>;

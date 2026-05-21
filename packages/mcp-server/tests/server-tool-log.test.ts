@@ -6,6 +6,7 @@ describe('MCP tool call logging', () => {
     ['list_expenses', 'List expenses', 'expenses', 'read'],
     ['list_companies', 'List companies', 'companies', 'read'],
     ['create_invoice', 'Create invoice', 'invoices', 'write'],
+    ['send_invoice_email', 'Send invoice email', 'invoices', 'write'],
     ['switch_workspace', 'Switch workspace', 'workspace', 'write'],
   ])(
     'records authenticated MCP tool calls for %s with the session header',

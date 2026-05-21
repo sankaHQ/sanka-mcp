@@ -65,6 +65,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_invoices');
     expect(toolNames).toContain('list_overdue_invoices');
     expect(toolNames).toContain('get_invoice');
+    expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
     expect(toolNames).toContain('delete_invoice');
@@ -131,6 +132,22 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_absences');
+    expect(toolNames).toContain('get_absence');
+    expect(toolNames).toContain('create_absence');
+    expect(toolNames).toContain('update_absence');
+    expect(toolNames).toContain('delete_absence');
+    expect(toolNames).toContain('list_attendance_records');
+    expect(toolNames).toContain('get_attendance_record');
+    expect(toolNames).toContain('create_attendance_record');
+    expect(toolNames).toContain('update_attendance_record');
+    expect(toolNames).toContain('delete_attendance_record');
+    expect(toolNames).toContain('list_payroll_profiles');
+    expect(toolNames).toContain('upsert_payroll_profile');
+    expect(toolNames).toContain('list_payroll_runs');
+    expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
     expect(toolNames).toContain('list_incentive_company_options');
@@ -158,6 +175,28 @@ describe('profile-aware tool selection', () => {
     for (const profile of ['full', 'hosted'] as const) {
       const toolNames = selectTools(undefined, profile).map((tool) => tool.tool.name);
       expect(toolNames).toHaveLength(new Set(toolNames).size);
+    }
+  });
+
+  it('keeps cleanup tools available for workflow-created records', () => {
+    const workflowCleanupTools = [
+      'delete_estimate',
+      'delete_order',
+      'delete_invoice',
+      'delete_subscription',
+      'delete_purchase_order',
+      'delete_task',
+    ];
+
+    for (const profile of ['full', 'hosted'] as const) {
+      const selectedTools = selectTools(undefined, profile);
+      const toolsByName = new Map(selectedTools.map((selected) => [selected.tool.name, selected.tool]));
+
+      for (const toolName of workflowCleanupTools) {
+        const tool = toolsByName.get(toolName);
+        expect(tool).toBeDefined();
+        expect(tool?.annotations?.destructiveHint).toBe(true);
+      }
     }
   });
 
@@ -217,6 +256,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_invoices');
     expect(toolNames).toContain('list_overdue_invoices');
     expect(toolNames).toContain('get_invoice');
+    expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
     expect(toolNames).toContain('delete_invoice');
@@ -283,6 +323,22 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_absences');
+    expect(toolNames).toContain('get_absence');
+    expect(toolNames).toContain('create_absence');
+    expect(toolNames).toContain('update_absence');
+    expect(toolNames).toContain('delete_absence');
+    expect(toolNames).toContain('list_attendance_records');
+    expect(toolNames).toContain('get_attendance_record');
+    expect(toolNames).toContain('create_attendance_record');
+    expect(toolNames).toContain('update_attendance_record');
+    expect(toolNames).toContain('delete_attendance_record');
+    expect(toolNames).toContain('list_payroll_profiles');
+    expect(toolNames).toContain('upsert_payroll_profile');
+    expect(toolNames).toContain('list_payroll_runs');
+    expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
     expect(toolNames).toContain('list_incentive_company_options');
@@ -372,7 +428,13 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_invoices');
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
+    expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('Do not render Sanka record numbers as Markdown issue references');
+    expect(instructions).toContain('売上請求番号 7');
+    expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
+    expect(instructions).toContain('status=draft should be shown as "下書き"');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
@@ -440,6 +502,13 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_absences');
+    expect(instructions).toContain('create_absence');
+    expect(instructions).toContain('list_attendance_records');
+    expect(instructions).toContain('create_attendance_record');
+    expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');
     expect(instructions).toContain('list_incentive_company_options');
@@ -464,6 +533,11 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('push_integration_sync');
     expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
     expect(instructions).toContain('mcp__sanka_key__*');
+    expect(instructions).toContain('売上請求番号 7');
+    expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
+    expect(instructions).toContain('status=draft should be shown as "下書き"');
+    expect(instructions).toContain('For Sanka company cycles');
+    expect(instructions).toContain('billing_cycle and payment_cycle are standard company fields');
     expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });
 
@@ -524,6 +598,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_invoices');
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
+    expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
     expect(instructions).toContain('delete_invoice');
@@ -590,6 +665,13 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_absences');
+    expect(instructions).toContain('create_absence');
+    expect(instructions).toContain('list_attendance_records');
+    expect(instructions).toContain('create_attendance_record');
+    expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');
     expect(instructions).toContain('list_incentive_company_options');

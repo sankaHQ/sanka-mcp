@@ -142,6 +142,8 @@ export interface PublicCompanyRequest {
 
   allowed_in_store?: boolean | null;
 
+  billing_cycle?: string | null;
+
   channel_id?: string | null;
 
   confirm?: boolean | null;
@@ -159,6 +161,8 @@ export interface PublicCompanyRequest {
   name?: string | null;
 
   operation?: string | null;
+
+  payment_cycle?: string | null;
 
   phone_number?: string | null;
 
@@ -218,11 +222,21 @@ export interface CompanyRetrieveResponse {
 
   allowed_in_store?: boolean | null;
 
+  billing_cycle?: string | null;
+
+  billing_cycle_display?: string | null;
+
   company_id?: number | null;
+
+  custom_fields?: Record<string, unknown> | null;
 
   email?: string | null;
 
   name?: string | null;
+
+  payment_cycle?: string | null;
+
+  payment_cycle_display?: string | null;
 
   phone_number?: string | null;
 
@@ -328,6 +342,8 @@ export interface CompanyCreateParams {
 
   allowed_in_store?: boolean | null;
 
+  billing_cycle?: string | null;
+
   channel_id?: string | null;
 
   confirm?: boolean | null;
@@ -345,6 +361,8 @@ export interface CompanyCreateParams {
   name?: string | null;
 
   operation?: string | null;
+
+  payment_cycle?: string | null;
 
   phone_number?: string | null;
 
@@ -370,6 +388,8 @@ export interface CompanyUpdateParams {
 
   allowed_in_store?: boolean | null;
 
+  billing_cycle?: string | null;
+
   channel_id?: string | null;
 
   confirm?: boolean | null;
@@ -387,6 +407,8 @@ export interface CompanyUpdateParams {
   name?: string | null;
 
   operation?: string | null;
+
+  payment_cycle?: string | null;
 
   phone_number?: string | null;
 

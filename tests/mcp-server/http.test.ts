@@ -554,6 +554,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"list_invoices"');
     expect(text).toContain('"name":"list_overdue_invoices"');
     expect(text).toContain('"name":"get_invoice"');
+    expect(text).toContain('"name":"send_invoice_email"');
     expect(text).toContain('"name":"create_invoice"');
     expect(text).toContain('"name":"update_invoice"');
     expect(text).toContain('"name":"delete_invoice"');
