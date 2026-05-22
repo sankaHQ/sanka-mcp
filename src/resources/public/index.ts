@@ -22,6 +22,19 @@ export {
   type Threads,
 } from './account-messages/index';
 export {
+  Associations,
+  type AssociationObjectRef,
+  type AssociationLabel,
+  type Association,
+  type AssociationListResponse,
+  type AssociationMutationResponse,
+  type AssociationDeleteResponse,
+  type AssociationBaseParams,
+  type AssociationListParams,
+  type AssociationCreateParams,
+  type AssociationDeleteParams,
+} from './associations';
+export {
   Bills,
   type Bill,
   type PublicBillRequest,
@@ -248,8 +261,12 @@ export {
   type PaymentResponse,
   type Receipt,
   type PaymentListResponse,
+  type PaymentAllocationInput,
+  type PaymentAllocationsResponse,
   type PaymentCreateParams,
   type PaymentRetrieveParams,
+  type PaymentListAllocationsParams,
+  type PaymentUpdateAllocationsParams,
   type PaymentUpdateParams,
   type PaymentListParams,
   type PaymentDeleteParams,

@@ -35,6 +35,45 @@ export class Payments extends APIResource {
   }
 
   /**
+   * List Payment Allocations
+   */
+  listAllocations(
+    paymentID: string,
+    params: PaymentListAllocationsParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<PaymentAllocationsResponse> {
+    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
+    return this._client.get(path`/v1/public/payments/${paymentID}/allocations`, {
+      query,
+      ...options,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
+  }
+
+  /**
+   * Update Payment Allocations
+   */
+  updateAllocations(
+    paymentID: string,
+    params: PaymentUpdateAllocationsParams,
+    options?: RequestOptions,
+  ): APIPromise<PaymentAllocationsResponse> {
+    const { external_id, lang, language, 'Accept-Language': acceptLanguage, allocations } = params;
+    return this._client.put(path`/v1/public/payments/${paymentID}/allocations`, {
+      query: { external_id, lang, language },
+      body: { allocations },
+      ...options,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
+  }
+
+  /**
    * Update Payment
    */
   update(
@@ -170,6 +209,40 @@ export interface Receipt {
 
 export type PaymentListResponse = Array<Receipt>;
 
+export interface PaymentAllocationInput {
+  invoice_id: string;
+
+  amount: number;
+
+  adjustment_amount?: number | null;
+
+  adjustment_type?: string | null;
+
+  currency?: string | null;
+
+  source?: string | null;
+
+  notes?: string | null;
+}
+
+export interface PaymentAllocationsResponse {
+  message: string;
+
+  payment?: Record<string, unknown> | null;
+
+  invoice?: Record<string, unknown> | null;
+
+  allocations?: Array<Record<string, unknown>>;
+
+  adjustments?: Array<Record<string, unknown>>;
+
+  adjustment_total?: number;
+
+  available_invoices?: Array<Record<string, unknown>>;
+
+  ctx_id?: string | null;
+}
+
 export interface PaymentCreateParams {
   companyExternalId?: string | null;
 
@@ -197,6 +270,55 @@ export interface PaymentCreateParams {
 }
 
 export interface PaymentRetrieveParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface PaymentListAllocationsParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface PaymentUpdateAllocationsParams {
+  /**
+   * Body param
+   */
+  allocations: Array<PaymentAllocationInput>;
+
   /**
    * Query param
    */
@@ -344,8 +466,12 @@ export declare namespace Payments {
     type PaymentResponse as PaymentResponse,
     type Receipt as Receipt,
     type PaymentListResponse as PaymentListResponse,
+    type PaymentAllocationInput as PaymentAllocationInput,
+    type PaymentAllocationsResponse as PaymentAllocationsResponse,
     type PaymentCreateParams as PaymentCreateParams,
     type PaymentRetrieveParams as PaymentRetrieveParams,
+    type PaymentListAllocationsParams as PaymentListAllocationsParams,
+    type PaymentUpdateAllocationsParams as PaymentUpdateAllocationsParams,
     type PaymentUpdateParams as PaymentUpdateParams,
     type PaymentListParams as PaymentListParams,
     type PaymentDeleteParams as PaymentDeleteParams,

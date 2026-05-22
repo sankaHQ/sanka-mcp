@@ -21,6 +21,20 @@ import {
   AccountMessageThreadRetrieveParams,
   Threads,
 } from './account-messages/account-messages';
+import * as AssociationsAPI from './associations';
+import {
+  Association,
+  AssociationBaseParams,
+  AssociationCreateParams,
+  AssociationDeleteParams,
+  AssociationDeleteResponse,
+  AssociationLabel,
+  AssociationListParams,
+  AssociationListResponse,
+  AssociationMutationResponse,
+  AssociationObjectRef,
+  Associations,
+} from './associations';
 import * as AuthAPI from './auth';
 import { Auth, AuthGetCurrentIdentityResponse } from './auth';
 import { PublicLineItem } from './line-items';
@@ -255,11 +269,15 @@ import * as PaymentsAPI from './payments';
 import {
   PaymentCreateParams,
   PaymentDeleteParams,
+  PaymentAllocationInput,
+  PaymentAllocationsResponse,
   PaymentListParams,
   PaymentListResponse,
+  PaymentListAllocationsParams,
   PaymentRequest,
   PaymentResponse,
   PaymentRetrieveParams,
+  PaymentUpdateAllocationsParams,
   PaymentUpdateParams,
   Payments,
   Receipt,
@@ -371,6 +389,7 @@ import {
 
 export class Public extends APIResource {
   accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
+  associations: AssociationsAPI.Associations = new AssociationsAPI.Associations(this._client);
   imports: ImportsAPI.Imports = new ImportsAPI.Imports(this._client);
   exports: ExportsAPI.Exports = new ExportsAPI.Exports(this._client);
   integrations: IntegrationsAPI.Integrations = new IntegrationsAPI.Integrations(this._client);
@@ -403,6 +422,7 @@ export class Public extends APIResource {
 }
 
 Public.AccountMessages = AccountMessages;
+Public.Associations = Associations;
 Public.Imports = Imports;
 Public.Exports = Exports;
 Public.Integrations = Integrations;
@@ -453,6 +473,20 @@ export declare namespace Public {
     type AccountMessageThreadArchiveParams as AccountMessageThreadArchiveParams,
     type AccountMessageThreadReplyParams as AccountMessageThreadReplyParams,
     type Threads as Threads,
+  };
+
+  export {
+    Associations as Associations,
+    type AssociationObjectRef as AssociationObjectRef,
+    type AssociationLabel as AssociationLabel,
+    type Association as Association,
+    type AssociationListResponse as AssociationListResponse,
+    type AssociationMutationResponse as AssociationMutationResponse,
+    type AssociationDeleteResponse as AssociationDeleteResponse,
+    type AssociationBaseParams as AssociationBaseParams,
+    type AssociationListParams as AssociationListParams,
+    type AssociationCreateParams as AssociationCreateParams,
+    type AssociationDeleteParams as AssociationDeleteParams,
   };
 
   export {
@@ -634,8 +668,12 @@ export declare namespace Public {
     type PaymentResponse as PaymentResponse,
     type Receipt as Receipt,
     type PaymentListResponse as PaymentListResponse,
+    type PaymentAllocationInput as PaymentAllocationInput,
+    type PaymentAllocationsResponse as PaymentAllocationsResponse,
     type PaymentCreateParams as PaymentCreateParams,
     type PaymentRetrieveParams as PaymentRetrieveParams,
+    type PaymentListAllocationsParams as PaymentListAllocationsParams,
+    type PaymentUpdateAllocationsParams as PaymentUpdateAllocationsParams,
     type PaymentUpdateParams as PaymentUpdateParams,
     type PaymentListParams as PaymentListParams,
     type PaymentDeleteParams as PaymentDeleteParams,
