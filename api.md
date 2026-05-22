@@ -20,6 +20,23 @@ Methods:
 
 # Public
 
+## Associations
+
+Types:
+
+- <code><a href="./src/resources/public/associations.ts">AssociationObjectRef</a></code>
+- <code><a href="./src/resources/public/associations.ts">AssociationLabel</a></code>
+- <code><a href="./src/resources/public/associations.ts">Association</a></code>
+- <code><a href="./src/resources/public/associations.ts">AssociationListResponse</a></code>
+- <code><a href="./src/resources/public/associations.ts">AssociationMutationResponse</a></code>
+- <code><a href="./src/resources/public/associations.ts">AssociationDeleteResponse</a></code>
+
+Methods:
+
+- <code title="get /v1/public/associations">client.public.associations.<a href="./src/resources/public/associations.ts">list</a>({ ...params }) -> AssociationListResponse</code>
+- <code title="post /v1/public/associations">client.public.associations.<a href="./src/resources/public/associations.ts">create</a>({ ...params }) -> AssociationMutationResponse</code>
+- <code title="delete /v1/public/associations">client.public.associations.<a href="./src/resources/public/associations.ts">delete</a>({ ...params }) -> AssociationDeleteResponse</code>
+
 ## Orders
 
 Types:
@@ -214,6 +231,8 @@ Methods:
 
 - <code title="post /v1/public/payments">client.public.payments.<a href="./src/resources/public/payments.ts">create</a>({ ...params }) -> PaymentResponse</code>
 - <code title="get /v1/public/payments/{payment_id}">client.public.payments.<a href="./src/resources/public/payments.ts">retrieve</a>(paymentID, { ...params }) -> Receipt</code>
+- <code title="get /v1/public/payments/{payment_id}/allocations">client.public.payments.<a href="./src/resources/public/payments.ts">listAllocations</a>(paymentID, { ...params }) -> PaymentAllocationsResponse</code>
+- <code title="put /v1/public/payments/{payment_id}/allocations">client.public.payments.<a href="./src/resources/public/payments.ts">updateAllocations</a>(paymentID, { ...params }) -> PaymentAllocationsResponse</code>
 - <code title="get /v1/public/payments/{payment_id}/pdf">client.public.payments.<a href="./src/resources/public/payments.ts">downloadPDF</a>(paymentID, { ...params }) -> Response</code>
 - <code title="put /v1/public/payments/{payment_id}">client.public.payments.<a href="./src/resources/public/payments.ts">update</a>(paymentID, { ...params }) -> PaymentResponse</code>
 - <code title="get /v1/public/payments">client.public.payments.<a href="./src/resources/public/payments.ts">list</a>({ ...params }) -> PaymentListResponse</code>

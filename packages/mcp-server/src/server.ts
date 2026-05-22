@@ -22,6 +22,7 @@ import {
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateCalendarAttendanceTool,
+  crmCreateAssociationTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
   crmCreateCustomObjectRecordTool,
@@ -50,6 +51,7 @@ import {
   crmCreateTicketTool,
   crmCreateViewTool,
   crmDeleteCompanyTool,
+  crmDeleteAssociationTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
   crmDeleteEstimateTool,
@@ -115,6 +117,7 @@ import {
   crmListCompaniesTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
+  crmListAssociationsTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
@@ -132,6 +135,7 @@ import {
   crmListItemsTool,
   crmListLocationsTool,
   crmListOrdersTool,
+  crmListPaymentAllocationsTool,
   crmListPaymentsTool,
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
@@ -172,6 +176,7 @@ import {
   crmUpdateItemTool,
   crmUpdateLocationTool,
   crmUpdateOrderTool,
+  crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateReportTool,
@@ -219,6 +224,7 @@ import {
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
+import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 
 export const newMcpServer = async ({
   customInstructionsPath,
@@ -400,6 +406,11 @@ export async function initMcpServer(params: {
       toolTitle: mcpTool.tool.title ?? mcpTool.tool.name,
     });
     if (scopeError) {
+      const normalizedScopeError = normalizeToolCallResult({
+        mcpTool,
+        result: scopeError,
+        args,
+      });
       try {
         const client = getClient();
         await recordMcpToolCall({
@@ -410,28 +421,24 @@ export async function initMcpServer(params: {
             ...reqContext,
             client,
           },
-          result: scopeError,
+          result: normalizedScopeError,
           startedAt,
         });
       } catch (error) {
         logger.warn('Failed to record MCP tool call scope error log', error);
       }
-      return scopeError;
+      return normalizedScopeError;
     }
 
     let client: Sanka;
     try {
       client = getClient();
     } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Failed to initialize client: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      return normalizeToolCallResult({
+        mcpTool,
+        args,
+        result: buildToolErrorResult(error),
+      });
     }
 
     const reqContextWithClient = {
@@ -440,9 +447,13 @@ export async function initMcpServer(params: {
     };
 
     try {
-      const result = await executeHandler({
-        handler: mcpTool.handler,
-        reqContext: reqContextWithClient,
+      const result = normalizeToolCallResult({
+        mcpTool,
+        result: await executeHandler({
+          handler: mcpTool.handler,
+          reqContext: reqContextWithClient,
+          args,
+        }),
         args,
       });
       await recordMcpToolCall({
@@ -455,23 +466,20 @@ export async function initMcpServer(params: {
       });
       return result;
     } catch (error) {
+      const errorResult = normalizeToolCallResult({
+        mcpTool,
+        args,
+        result: buildToolErrorResult(error),
+      });
       await recordMcpToolCall({
         client,
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: error instanceof Error ? error.message : String(error),
-            },
-          ],
-          isError: true,
-        },
+        result: errorResult,
         startedAt,
       });
-      throw error;
+      return errorResult;
     }
   });
 
@@ -539,6 +547,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateCustomObjectRecordTool,
     crmUpdateCustomObjectRecordTool,
     crmArchiveCustomObjectRecordTool,
+    crmListAssociationsTool,
+    crmCreateAssociationTool,
+    crmDeleteAssociationTool,
     crmListCompaniesTool,
     crmGetCompanyTool,
     crmCreateCompanyTool,
@@ -619,6 +630,8 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmDeleteSubscriptionTool,
     crmListPaymentsTool,
     crmGetPaymentTool,
+    crmListPaymentAllocationsTool,
+    crmUpdatePaymentAllocationsTool,
     crmCreatePaymentTool,
     crmUpdatePaymentTool,
     crmDeletePaymentTool,

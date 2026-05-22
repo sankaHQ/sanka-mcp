@@ -413,6 +413,24 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/v1/public/invoices/{invoice_id}',
   },
   {
+    clientCallName: 'client.public.associations.list',
+    fullyQualifiedName: 'public.associations.list',
+    httpMethod: 'get',
+    httpPath: '/v1/public/associations',
+  },
+  {
+    clientCallName: 'client.public.associations.create',
+    fullyQualifiedName: 'public.associations.create',
+    httpMethod: 'post',
+    httpPath: '/v1/public/associations',
+  },
+  {
+    clientCallName: 'client.public.associations.delete',
+    fullyQualifiedName: 'public.associations.delete',
+    httpMethod: 'delete',
+    httpPath: '/v1/public/associations',
+  },
+  {
     clientCallName: 'client.public.payments.create',
     fullyQualifiedName: 'public.payments.create',
     httpMethod: 'post',
@@ -429,6 +447,18 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.payments.downloadPDF',
     httpMethod: 'get',
     httpPath: '/v1/public/payments/{payment_id}/pdf',
+  },
+  {
+    clientCallName: 'client.public.payments.listAllocations',
+    fullyQualifiedName: 'public.payments.listAllocations',
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
+  },
+  {
+    clientCallName: 'client.public.payments.updateAllocations',
+    fullyQualifiedName: 'public.payments.updateAllocations',
+    httpMethod: 'put',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.update',

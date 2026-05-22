@@ -50,6 +50,32 @@ describe('resource payments', () => {
   });
 
   // Mock server tests are disabled
+  test.skip('listAllocations', async () => {
+    const responsePromise = client.public.payments.listAllocations('payment_id');
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).not.toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
+  test.skip('updateAllocations', async () => {
+    const responsePromise = client.public.payments.updateAllocations('payment_id', {
+      allocations: [{ invoice_id: 'invoice_id', amount: 100 }],
+    });
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).not.toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
   test.skip('update', async () => {
     const responsePromise = client.public.payments.update('payment_id', {});
     const rawResponse = await responsePromise.asResponse();

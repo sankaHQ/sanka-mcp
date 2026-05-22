@@ -21,6 +21,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_associations');
+    expect(toolNames).toContain('create_association');
+    expect(toolNames).toContain('delete_association');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -76,6 +79,8 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_subscription');
     expect(toolNames).toContain('list_payments');
     expect(toolNames).toContain('get_payment');
+    expect(toolNames).toContain('list_payment_allocations');
+    expect(toolNames).toContain('update_payment_allocations');
     expect(toolNames).toContain('create_payment');
     expect(toolNames).toContain('update_payment');
     expect(toolNames).toContain('delete_payment');
@@ -212,6 +217,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_associations');
+    expect(toolNames).toContain('create_association');
+    expect(toolNames).toContain('delete_association');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -267,6 +275,8 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_subscription');
     expect(toolNames).toContain('list_payments');
     expect(toolNames).toContain('get_payment');
+    expect(toolNames).toContain('list_payment_allocations');
+    expect(toolNames).toContain('update_payment_allocations');
     expect(toolNames).toContain('create_payment');
     expect(toolNames).toContain('update_payment');
     expect(toolNames).toContain('delete_payment');
@@ -383,6 +393,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_associations');
+    expect(instructions).toContain('create_association');
+    expect(instructions).toContain('delete_association');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');
@@ -446,6 +459,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_subscription');
     expect(instructions).toContain('list_payments');
     expect(instructions).toContain('get_payment');
+    expect(instructions).toContain('list_payment_allocations');
+    expect(instructions).toContain('update_payment_allocations');
     expect(instructions).toContain('create_payment');
     expect(instructions).toContain('update_payment');
     expect(instructions).toContain('delete_payment');
@@ -553,6 +568,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_associations');
+    expect(instructions).toContain('create_association');
+    expect(instructions).toContain('delete_association');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');
@@ -609,6 +627,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_subscription');
     expect(instructions).toContain('list_payments');
     expect(instructions).toContain('get_payment');
+    expect(instructions).toContain('list_payment_allocations');
+    expect(instructions).toContain('update_payment_allocations');
     expect(instructions).toContain('create_payment');
     expect(instructions).toContain('update_payment');
     expect(instructions).toContain('delete_payment');

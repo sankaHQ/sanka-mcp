@@ -166,6 +166,10 @@ export interface PublicCaseResponse {
 
   external_id?: string | null;
 
+  record_preview?: PublicCaseResponse.RecordPreview | null;
+
+  updated_fields?: Record<string, unknown> | null;
+
   target?: string | null;
 
   provider?: string | null;
@@ -187,6 +191,24 @@ export interface PublicCaseResponse {
   warnings?: Array<string> | null;
 
   message?: string | null;
+}
+
+export namespace PublicCaseResponse {
+  export interface RecordPreview {
+    id?: string | null;
+
+    deal_id?: number | null;
+
+    name?: string | null;
+
+    status?: string | null;
+
+    case_status?: string | null;
+
+    currency?: string | null;
+
+    updated_at?: string | null;
+  }
 }
 
 export type DealListResponse = Array<Case>;

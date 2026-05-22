@@ -524,6 +524,145 @@ const CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA = {
   required: ['data', 'message'],
 };
 
+const ASSOCIATION_REF_INPUT_PROPERTIES = {
+  source_object: {
+    type: 'string',
+    description:
+      'Source Sanka object slug, for example companies, contacts, deals, orders, invoices, payments, bills, or custom_objects.',
+  },
+  source_id: {
+    type: 'string',
+    description: 'Source record identifier. Accepts the public API identifier supported for that object.',
+  },
+  source_custom_object_id: {
+    type: 'string',
+    description: 'Required when source_object is custom_objects; pass the custom object id, slug, or name.',
+  },
+  target_object: {
+    type: 'string',
+    description:
+      'Target Sanka object slug, for example companies, contacts, deals, orders, invoices, payments, bills, or custom_objects.',
+  },
+  target_id: {
+    type: 'string',
+    description: 'Target record identifier. Accepts the public API identifier supported for that object.',
+  },
+  target_custom_object_id: {
+    type: 'string',
+    description: 'Required when target_object is custom_objects; pass the custom object id, slug, or name.',
+  },
+  label_id: {
+    type: 'string',
+    description: 'Association label UUID. Prefer this when known.',
+  },
+  label: {
+    type: 'string',
+    description:
+      'Association label name. Use when label_id is not known; the label must allow the source and target object types.',
+  },
+};
+
+const ASSOCIATION_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...ASSOCIATION_REF_INPUT_PROPERTIES,
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    page: {
+      type: 'integer',
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+};
+
+const ASSOCIATION_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ASSOCIATION_REF_INPUT_PROPERTIES,
+  required: ['source_object', 'source_id', 'target_object', 'target_id'],
+};
+
+const ASSOCIATION_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    association_id: {
+      type: 'string',
+      description:
+        'Association edge UUID to delete. If omitted, source_object/source_id, target_object/target_id, and label_id or label are required.',
+    },
+    associationId: {
+      type: 'string',
+      description: 'Alias for association_id.',
+    },
+    id: {
+      type: 'string',
+      description: 'Alias for association_id.',
+    },
+    ...ASSOCIATION_REF_INPUT_PROPERTIES,
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const ASSOCIATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    source: { type: 'object', additionalProperties: true },
+    target: { type: 'object', additionalProperties: true },
+    label: { type: 'object', additionalProperties: true },
+    created_at: { type: 'string' },
+  },
+  required: ['id', 'source', 'target'],
+};
+
+const ASSOCIATION_LIST_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    count: { type: 'integer' },
+    page: { type: 'integer' },
+    total: { type: 'integer' },
+    message: { type: 'string' },
+    results: {
+      type: 'array',
+      items: ASSOCIATION_OUTPUT_SCHEMA,
+    },
+    ctx_id: { type: 'string' },
+  },
+  required: ['count', 'page', 'total', 'message', 'results'],
+};
+
+const ASSOCIATION_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    association: ASSOCIATION_OUTPUT_SCHEMA,
+    created: { type: 'boolean' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['association', 'created', 'message'],
+};
+
+const ASSOCIATION_DELETE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    deleted: { type: 'boolean' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['deleted', 'message'],
+};
+
 type OrderLineItem = {
   item_id?: string;
   itemExternalId?: string;
@@ -2871,6 +3010,14 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     case_id: { type: 'string' },
     external_id: { type: 'string' },
+    record_preview: {
+      type: ['object', 'null'] as any,
+      additionalProperties: true,
+    },
+    updated_fields: {
+      type: ['object', 'null'] as any,
+      additionalProperties: true,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -5992,6 +6139,88 @@ const PAYMENT_UPDATE_INPUT_SCHEMA = {
   required: ['payment_id'],
 };
 
+const PAYMENT_ALLOCATION_LINE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description:
+        'Invoice identifier to allocate this payment to. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    amount: {
+      type: 'number',
+      description:
+        'Receipt amount to apply to the invoice. May be less than the invoice balance for partial payment.',
+    },
+    adjustment_amount: {
+      type: 'number',
+      description:
+        'Optional adjustment amount cleared together with the payment, for example bank transfer fees.',
+    },
+    adjustment_type: {
+      type: 'string',
+      description: 'Optional adjustment type, for example bank_transfer_fee.',
+    },
+    currency: {
+      type: 'string',
+      description: 'Optional allocation currency. Must match the payment and invoice currency when provided.',
+    },
+    source: {
+      type: 'string',
+      description: 'Optional allocation source label, for example mcp, api, csv, or reconciliation.',
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional allocation notes.',
+    },
+  },
+  required: ['invoice_id', 'amount'],
+};
+
+const PAYMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['payment_id'],
+};
+
+const PAYMENT_ALLOCATIONS_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+    allocations: {
+      type: 'array',
+      description:
+        'Complete replacement set of invoice allocations for this payment. Include every invoice row that should remain linked after the update.',
+      items: PAYMENT_ALLOCATION_LINE_INPUT_SCHEMA,
+    },
+  },
+  required: ['payment_id', 'allocations'],
+};
+
 const buildPrivateMessageListParams = (args: Record<string, unknown> | undefined) => {
   const status = readString(args?.['status']);
   const language = readString(args?.['language']);
@@ -6182,6 +6411,45 @@ const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
   },
   required: ['ok', 'status'],
+};
+
+const PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    invoice: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    allocations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    adjustments: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    adjustment_total: { type: 'number' },
+    available_invoices: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['message'],
 };
 
 const LOCATION_MUTATION_INPUT_PROPERTIES = {
@@ -7549,6 +7817,151 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
       },
     ],
     structuredContent: payload,
+  };
+};
+
+const readAssociationIdentifier = (value: unknown): string | undefined => {
+  const stringValue = readString(value);
+  if (stringValue) {
+    return stringValue;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const buildAssociationBaseParams = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {};
+
+  for (const key of [
+    'source_object',
+    'source_custom_object_id',
+    'target_object',
+    'target_custom_object_id',
+    'label_id',
+    'label',
+  ] as const) {
+    const value = readString(args?.[key]);
+    if (value) {
+      params[key] = value;
+    }
+  }
+
+  const sourceID = readAssociationIdentifier(args?.['source_id']);
+  if (sourceID) {
+    params['source_id'] = sourceID;
+  }
+  const targetID = readAssociationIdentifier(args?.['target_id']);
+  if (targetID) {
+    params['target_id'] = targetID;
+  }
+
+  return params;
+};
+
+const buildAssociationListParams = (args: Record<string, unknown> | undefined) => {
+  const params = buildAssociationBaseParams(args);
+  const workspaceID = readString(args?.['workspace_id']);
+  if (workspaceID) {
+    params['workspace_id'] = workspaceID;
+  }
+  params['page'] = Math.max(1, Math.trunc(readNumber(args?.['page'], 1)));
+  params['limit'] = Math.max(1, Math.min(100, Math.trunc(readNumber(args?.['limit'], 25))));
+  return params;
+};
+
+const buildAssociationCreateBody = (args: Record<string, unknown> | undefined) =>
+  buildAssociationBaseParams(args);
+
+const buildAssociationDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const params = buildAssociationBaseParams(args);
+  const workspaceID = readString(args?.['workspace_id']);
+  const associationID =
+    readAssociationIdentifier(args?.['association_id']) ??
+    readAssociationIdentifier(args?.['associationId']) ??
+    readAssociationIdentifier(args?.['id']);
+  if (workspaceID) {
+    params['workspace_id'] = workspaceID;
+  }
+  if (associationID) {
+    params['association_id'] = associationID;
+  }
+  return params;
+};
+
+const hasAssociationSourceRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['source_object']) && readString(params['source_id']));
+
+const hasAssociationTargetRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['target_object']) && readString(params['target_id']));
+
+const hasAssociationLabelRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['label_id']) || readString(params['label']));
+
+const associationEndpointLabel = (
+  association: Record<string, unknown> | undefined,
+  key: 'source' | 'target',
+) => {
+  const endpoint = readRecord(association?.[key]);
+  const object = readString(endpoint?.['object']) ?? readString(endpoint?.['object_type']);
+  const id = readString(endpoint?.['id']);
+  return [object, id].filter(Boolean).join(':') || key;
+};
+
+const buildAssociationMutationText = (
+  payload: Record<string, unknown>,
+  action: 'created' | 'loaded' | 'deleted',
+) => {
+  if (action === 'deleted') {
+    return readBoolean(payload['deleted']) === false ?
+        readString(payload['message']) ?? 'Association was not deleted.'
+      : readString(payload['message']) ?? 'Deleted association.';
+  }
+
+  const association = readRecord(payload['association']);
+  const source = associationEndpointLabel(association, 'source');
+  const target = associationEndpointLabel(association, 'target');
+  const label = readRecord(association?.['label']);
+  const labelName =
+    readString(label?.['label']) ?? readString(label?.['label_ja']) ?? readString(label?.['id']);
+  const associationID = readString(association?.['id']);
+  const verb =
+    action === 'created' && readBoolean(payload['created']) === false ? 'Found existing' : 'Created';
+  const labelText = labelName ? ` with label ${labelName}` : '';
+  const idText = associationID ? ` (${associationID})` : '';
+  return `${verb} association ${source} -> ${target}${labelText}${idText}.`;
+};
+
+const buildAssociationListResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+  const associations = rows
+    .map((row) => readRecord(row))
+    .filter((row): row is Record<string, unknown> => Boolean(row));
+  const count = readNumber(payload['count'], associations.length);
+  const total = readNumber(payload['total'], count);
+  const page = readNumber(payload['page'], 1);
+  const message = readString(payload['message']) ?? `Returned ${associations.length} associations.`;
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Found ${total} association${total === 1 ? '' : 's'}.`,
+      },
+    ],
+    structuredContent: {
+      count,
+      page,
+      total,
+      message,
+      results: associations,
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      limit: readNumber(payload['limit'], 0) || undefined,
+      has_next: readBoolean(payload['has_next']) ?? undefined,
+      next_page: readNumber(payload['next_page'], 0) || undefined,
+      pagination: readRecord(payload['pagination']) ?? undefined,
+    },
   };
 };
 
@@ -9768,6 +10181,95 @@ const buildPaymentRetrieveParams = (args: Record<string, unknown> | undefined) =
   };
 };
 
+const buildPaymentAllocationsParams = (args: Record<string, unknown> | undefined) => {
+  const paymentID = readString(args?.['payment_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    paymentID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPaymentAllocationRows = (args: Record<string, unknown> | undefined) => {
+  const rows = Array.isArray(args?.['allocations']) ? args?.['allocations'] : [];
+  const readIdentifier = (value: unknown) => {
+    const stringValue = readString(value);
+    if (stringValue) {
+      return stringValue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    return undefined;
+  };
+  return rows
+    .map((row) => readRecord(row))
+    .filter((row): row is Record<string, unknown> => Boolean(row))
+    .map((row) => {
+      const allocation: Record<string, unknown> = {};
+      const invoiceID =
+        readIdentifier(row['invoice_id']) ??
+        readIdentifier(row['invoiceId']) ??
+        readIdentifier(row['id_inv']) ??
+        readIdentifier(row['idInv']);
+      if (invoiceID) {
+        allocation['invoice_id'] = invoiceID;
+      }
+      for (const [sourceKey, targetKey] of [
+        ['amount', 'amount'],
+        ['adjustment_amount', 'adjustment_amount'],
+        ['adjustmentAmount', 'adjustment_amount'],
+      ] as const) {
+        const value = row[sourceKey];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          allocation[targetKey] = value;
+        }
+      }
+      const adjustmentType = readString(row['adjustment_type']) ?? readString(row['adjustmentType']);
+      if (adjustmentType) {
+        allocation['adjustment_type'] = adjustmentType;
+      }
+      for (const key of ['currency', 'source', 'notes'] as const) {
+        const value = readString(row[key]);
+        if (value) {
+          allocation[key] = value;
+        }
+      }
+      return allocation;
+    });
+};
+
+const buildPaymentAllocationsSummary = (
+  payload: Record<string, unknown>,
+  paymentID: string,
+  action: 'Loaded' | 'Updated',
+) => {
+  const payment = readRecord(payload['payment']);
+  const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
+  const resolvedPaymentID =
+    readString(payment?.['id']) ??
+    readString(payment?.['payment_id']) ??
+    readString(payment?.['id_rcp']) ??
+    paymentID;
+  const allocatedAmount = payment?.['allocated_amount'];
+  const unallocatedAmount = payment?.['unallocated_amount'];
+  const totals =
+    typeof allocatedAmount === 'number' || typeof unallocatedAmount === 'number' ?
+      ` Allocated: ${typeof allocatedAmount === 'number' ? allocatedAmount : 0}; unallocated: ${
+        typeof unallocatedAmount === 'number' ? unallocatedAmount : 0
+      }.`
+    : '';
+
+  return `${action} ${allocations.length} invoice allocation${
+    allocations.length === 1 ? '' : 's'
+  } for payment ${resolvedPaymentID}.${totals}`;
+};
+
 const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
 
@@ -10905,6 +11407,163 @@ export const crmArchiveCustomObjectRecordTool: McpTool = {
       action: 'archived',
       payload,
     });
+  },
+};
+
+export const crmListAssociationsTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'read',
+    tags: ['crm', 'associations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.list',
+  },
+  tool: {
+    name: 'list_associations',
+    title: 'List associations',
+    description:
+      'Review associations between Sanka records. Provide source_object/source_id or target_object/target_id; optionally filter by label_id or label.',
+    inputSchema: ASSOCIATION_LIST_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List associations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List associations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const params = buildAssociationListParams(args);
+    if (!hasAssociationSourceRef(params) && !hasAssociationTargetRef(params)) {
+      return asErrorResult('`source_object`/`source_id` or `target_object`/`target_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.associations.list(
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildAssociationListResult(payload);
+  },
+};
+
+export const crmCreateAssociationTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'write',
+    tags: ['crm', 'associations'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.create',
+  },
+  tool: {
+    name: 'create_association',
+    title: 'Create association',
+    description:
+      'Create an association between two Sanka records using a workspace association label. Pass label_id when known; otherwise pass label.',
+    inputSchema: ASSOCIATION_CREATE_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create association',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create association',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildAssociationCreateBody(args);
+    if (!hasAssociationSourceRef(body) || !hasAssociationTargetRef(body)) {
+      return asErrorResult('`source_object`, `source_id`, `target_object`, and `target_id` are required.');
+    }
+    if (!hasAssociationLabelRef(body)) {
+      return asErrorResult('`label_id` or `label` is required.');
+    }
+
+    const payload = (await reqContext.client.public.associations.create(
+      body,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildAssociationMutationText(payload, 'created') }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmDeleteAssociationTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'write',
+    tags: ['crm', 'associations'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.delete',
+  },
+  tool: {
+    name: 'delete_association',
+    title: 'Delete association',
+    description:
+      'Delete an association between two Sanka records. Prefer association_id; otherwise pass source_object/source_id, target_object/target_id, and label_id or label.',
+    inputSchema: ASSOCIATION_DELETE_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_DELETE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete association',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete association',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const params = buildAssociationDeleteParams(args);
+    if (!readString(params['association_id'])) {
+      if (!hasAssociationSourceRef(params) || !hasAssociationTargetRef(params)) {
+        return asErrorResult(
+          '`association_id` is required unless source_object/source_id and target_object/target_id are provided.',
+        );
+      }
+      if (!hasAssociationLabelRef(params)) {
+        return asErrorResult('`label_id` or `label` is required when deleting without `association_id`.');
+      }
+    }
+
+    const payload = (await reqContext.client.public.associations.delete(
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildAssociationMutationText(payload, 'deleted') }],
+      structuredContent: payload,
+    };
   },
 };
 
@@ -18760,6 +19419,128 @@ export const crmGetPaymentTool: McpTool = {
         },
       ],
       structuredContent: payment,
+    };
+  },
+};
+
+export const crmListPaymentAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'read',
+    tags: ['crm', 'payments', 'allocations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    operationId: 'public.payments.listAllocations',
+  },
+  tool: {
+    name: 'list_payment_allocations',
+    title: 'List payment allocations',
+    description: 'Review invoice allocation rows for one payment in Sanka.',
+    inputSchema: PAYMENT_ALLOCATIONS_LIST_INPUT_SCHEMA,
+    outputSchema: PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List payment allocations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List payment allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentAllocationsParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.listAllocations(
+      paymentID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildPaymentAllocationsSummary(response, paymentID, 'Loaded'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdatePaymentAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'write',
+    tags: ['crm', 'payments', 'allocations'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    operationId: 'public.payments.updateAllocations',
+  },
+  tool: {
+    name: 'update_payment_allocations',
+    title: 'Update payment allocations',
+    description:
+      'Replace invoice allocation rows for one payment in Sanka. Use this to apply full or partial payments to invoices after creating or loading a payment.',
+    inputSchema: PAYMENT_ALLOCATIONS_UPDATE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update payment allocations',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update payment allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentAllocationsParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.updateAllocations(
+      paymentID,
+      {
+        ...params,
+        allocations: buildPaymentAllocationRows(args) as Array<{
+          invoice_id: string;
+          amount: number;
+          adjustment_amount?: number;
+          adjustment_type?: string;
+          currency?: string;
+          source?: string;
+          notes?: string;
+        }>,
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildPaymentAllocationsSummary(response, paymentID, 'Updated'),
+        },
+      ],
+      structuredContent: response,
     };
   },
 };

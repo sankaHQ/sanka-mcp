@@ -10,6 +10,7 @@ import {
   crmCancelCalendarAttendanceTool,
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
+  crmCreateAssociationTool,
   crmCreateBillTool,
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
@@ -36,6 +37,7 @@ import {
   crmCreateTaskTool,
   crmCreateTicketTool,
   crmDeleteBillTool,
+  crmDeleteAssociationTool,
   crmDeleteCompanyTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
@@ -92,6 +94,7 @@ import {
   crmListBillsTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
+  crmListAssociationsTool,
   crmListCompaniesTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
@@ -111,6 +114,7 @@ import {
   crmListObjectSchemasTool,
   crmListOrdersTool,
   crmListOverdueInvoicesTool,
+  crmListPaymentAllocationsTool,
   crmListPaymentsTool,
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
@@ -150,6 +154,7 @@ import {
   crmUpdateItemTool,
   crmUpdateLocationTool,
   crmUpdateOrderTool,
+  crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateSlipTool,
@@ -1093,6 +1098,165 @@ describe('ChatGPT CRM tools', () => {
         text: 'aggregate_records found 1 duplicate candidate groups for companies.',
       }),
     );
+  });
+
+  it('lists associations for a record', async () => {
+    const list = jest.fn().mockResolvedValue({
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [
+        {
+          id: 'association-1',
+          source: { object: 'companies', object_type: 'company', id: 'company-1' },
+          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+          label: { id: 'label-1', label: 'Primary contact' },
+          created_at: '2026-05-22T00:00:00Z',
+        },
+      ],
+      message: 'OK',
+      ctx_id: 'ctx-associations',
+    });
+
+    const result = await crmListAssociationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        source_object: 'companies',
+        source_id: 'company-1',
+        label: 'Primary contact',
+        workspace_id: 'workspace-1',
+        limit: 10,
+        page: 1,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        source_object: 'companies',
+        source_id: 'company-1',
+        label: 'Primary contact',
+        workspace_id: 'workspace-1',
+        page: 1,
+        limit: 10,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      total: 1,
+      page: 1,
+      message: 'OK',
+      ctx_id: 'ctx-associations',
+      results: [
+        {
+          id: 'association-1',
+          source: { object: 'companies', object_type: 'company', id: 'company-1' },
+          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+          label: { id: 'label-1', label: 'Primary contact' },
+        },
+      ],
+    });
+  });
+
+  it('creates an association with a label', async () => {
+    const create = jest.fn().mockResolvedValue({
+      association: {
+        id: 'association-1',
+        source: { object: 'companies', object_type: 'company', id: 'company-1' },
+        target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+        label: { id: 'label-1', label: 'Primary contact' },
+      },
+      created: true,
+      message: 'created',
+      ctx_id: 'ctx-association-create',
+    });
+
+    const result = await crmCreateAssociationTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        source_object: 'companies',
+        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
+        label_id: 'label-1',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        source_object: 'companies',
+        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
+        label_id: 'label-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      association: {
+        id: 'association-1',
+        source: { object: 'companies', object_type: 'company', id: 'company-1' },
+        target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+        label: { id: 'label-1', label: 'Primary contact' },
+      },
+      created: true,
+      message: 'created',
+      ctx_id: 'ctx-association-create',
+    });
+  });
+
+  it('deletes an association by association id', async () => {
+    const deleteAssociation = jest.fn().mockResolvedValue({
+      deleted: true,
+      message: 'deleted',
+      ctx_id: 'ctx-association-delete',
+    });
+
+    const result = await crmDeleteAssociationTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { delete: deleteAssociation },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        associationId: 'association-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(deleteAssociation).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        association_id: 'association-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      deleted: true,
+      message: 'deleted',
+      ctx_id: 'ctx-association-delete',
+    });
   });
 
   it('returns reauth metadata when list companies is called without authentication', async () => {
@@ -2601,6 +2765,13 @@ describe('ChatGPT CRM tools', () => {
       status: 'updated',
       case_id: 'deal-1',
       external_id: 'DEAL-2',
+      record_preview: {
+        id: 'deal-1',
+        currency: 'JPY',
+      },
+      updated_fields: {
+        currency: 'JPY',
+      },
     });
 
     const result = await crmUpdateDealTool.handler({
@@ -2635,6 +2806,13 @@ describe('ChatGPT CRM tools', () => {
       status: 'updated',
       case_id: 'deal-1',
       external_id: 'DEAL-2',
+      record_preview: {
+        id: 'deal-1',
+        currency: 'JPY',
+      },
+      updated_fields: {
+        currency: 'JPY',
+      },
     });
   });
 
@@ -4318,6 +4496,112 @@ describe('ChatGPT CRM tools', () => {
         text: 'Loaded payment successfully: Payment No. 301.',
       },
     ]);
+  });
+
+  it('lists payment allocations', async () => {
+    const listAllocations = jest.fn().mockResolvedValue({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+
+    const result = await crmListPaymentAllocationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { listAllocations },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { payment_id: '301', external_id: 'PAY-301', language: 'ja' },
+    });
+
+    expect(listAllocations).toHaveBeenCalledWith(
+      '301',
+      {
+        external_id: 'PAY-301',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+  });
+
+  it('updates payment allocations', async () => {
+    const updateAllocations = jest.fn().mockResolvedValue({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+
+    const result = await crmUpdatePaymentAllocationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { updateAllocations },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        payment_id: '301',
+        external_id: 'PAY-301',
+        language: 'ja',
+        allocations: [
+          {
+            id_inv: 1147,
+            amount: 150,
+            source: 'mcp',
+            notes: 'CSV reconciliation',
+          },
+        ],
+      },
+    });
+
+    expect(updateAllocations).toHaveBeenCalledWith(
+      '301',
+      {
+        external_id: 'PAY-301',
+        'Accept-Language': 'ja',
+        allocations: [
+          {
+            invoice_id: '1147',
+            amount: 150,
+            source: 'mcp',
+            notes: 'CSV reconciliation',
+          },
+        ],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
   });
 
   it('creates a payment', async () => {
