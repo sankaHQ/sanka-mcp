@@ -1039,6 +1039,51 @@ const EXPENSE_DELETE_INPUT_SCHEMA = {
   required: ['expense_id'],
 };
 
+const EMPLOYEE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of employees to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional employee name, email, username, or record number search.',
+    },
+    sort: {
+      type: 'string',
+      description:
+        'Sort field, optionally prefixed with "-". Supported fields include id_user, id_worker, name, email, created_at, updated_at, status, and login_blocked.',
+    },
+    view: {
+      type: 'string',
+      description: 'Optional saved employee view identifier.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional employee usage status. Use archived to list inactive employees.',
+      enum: ['active', 'archived'],
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override, for example ja or en.',
+    },
+  },
+};
+
 const ABSENCE_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -8265,6 +8310,12 @@ const buildAbsenceListParams = (args: Record<string, unknown> | undefined) => {
   return result;
 };
 
+const buildEmployeeListParams = (args: Record<string, unknown> | undefined) => {
+  const result = buildPagedWorkspaceParams(args, 10);
+  assignStringFields(result.params, args, ['search', 'sort', 'view', 'usage_status', 'language']);
+  return result;
+};
+
 const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
   const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['workspace_id']);
@@ -12453,6 +12504,56 @@ export const crmDeleteExpenseTool: McpTool = {
       ],
       structuredContent: response,
     };
+  },
+};
+
+export const crmListEmployeesTool: McpTool = {
+  metadata: {
+    resource: 'employees',
+    operation: 'read',
+    tags: ['crm', 'hr', 'employees'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/employees',
+    operationId: 'public.employees.list',
+  },
+  tool: {
+    name: 'list_employees',
+    title: 'List employees',
+    description:
+      'Review the Sanka employee directory. Use this to resolve worker_id values before creating absences, attendance records, or payroll profiles.',
+    inputSchema: EMPLOYEE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List employees',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List employees' });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, page, params } = buildEmployeeListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/employees', {
+      query: params,
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload).slice(0, limit);
+    return buildListResult({
+      label: 'employees',
+      payload: {
+        count: data.length,
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} employees.`,
+        page: readNumber(payload['page'], page),
+        total: readNumber(payload['total'], data.length),
+        permission: readString(payload['permission']) ?? null,
+      },
+      previewKeys: ['id_user', 'id_worker', 'worker_id', 'name', 'email', 'role', 'status'],
+    });
   },
 };
 

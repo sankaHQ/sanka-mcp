@@ -137,6 +137,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_employees');
     expect(toolNames).toContain('list_absences');
     expect(toolNames).toContain('get_absence');
     expect(toolNames).toContain('create_absence');
@@ -333,6 +334,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_employees');
     expect(toolNames).toContain('list_absences');
     expect(toolNames).toContain('get_absence');
     expect(toolNames).toContain('create_absence');
@@ -517,6 +519,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_employees');
     expect(instructions).toContain('list_absences');
     expect(instructions).toContain('create_absence');
     expect(instructions).toContain('list_attendance_records');
@@ -685,6 +688,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_employees');
     expect(instructions).toContain('list_absences');
     expect(instructions).toContain('create_absence');
     expect(instructions).toContain('list_attendance_records');

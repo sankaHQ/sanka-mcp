@@ -92,6 +92,7 @@ import {
   crmGetTaskTool,
   crmGetTicketTool,
   crmListBillsTool,
+  crmListEmployeesTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
   crmListAssociationsTool,
@@ -331,6 +332,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListEmployeesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListAbsencesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -7295,20 +7297,38 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('calls dedicated HR and payroll public endpoints', async () => {
-    const get = jest.fn().mockResolvedValueOnce({
-      data: [
-        {
-          id: 'att-1',
-          track_id: 1,
-          name: 'Daily attendance',
-          status: 'stop',
-        },
-      ],
-      page: 1,
-      total: 1,
-      count: 1,
-      message: 'OK',
-    });
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'worker-1',
+            id_worker: 10,
+            worker_id: 'worker-1',
+            name: 'NM',
+            email: null,
+          },
+        ],
+        page: 1,
+        total: 1,
+        count: 1,
+        permission: 'read|edit|archive',
+        message: 'OK',
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'att-1',
+            track_id: 1,
+            name: 'Daily attendance',
+            status: 'stop',
+          },
+        ],
+        page: 1,
+        total: 1,
+        count: 1,
+        message: 'OK',
+      });
     const post = jest
       .fn()
       .mockResolvedValueOnce({
@@ -7338,6 +7358,24 @@ describe('ChatGPT CRM tools', () => {
       toolProfile: 'full' as const,
     };
 
+    const employeeResult = await crmListEmployeesTool.handler({
+      reqContext,
+      args: { limit: 5, search: 'NM', language: 'ja' },
+    });
+    expect(get).toHaveBeenNthCalledWith(1, '/v1/public/employees', {
+      query: { limit: 5, page: 1, search: 'NM', language: 'ja' },
+    });
+    expect(employeeResult.structuredContent?.['results']).toEqual([
+      {
+        id: 'worker-1',
+        id_worker: 10,
+        worker_id: 'worker-1',
+        name: 'NM',
+        email: null,
+      },
+    ]);
+    expect(employeeResult.structuredContent?.['permission']).toBe('read|edit|archive');
+
     const absenceResult = await crmCreateAbsenceTool.handler({
       reqContext,
       args: {
@@ -7363,7 +7401,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { limit: 5, search: 'Daily' },
     });
-    expect(get).toHaveBeenCalledWith('/v1/public/attendance-records', {
+    expect(get).toHaveBeenNthCalledWith(2, '/v1/public/attendance-records', {
       query: { limit: 5, page: 1, search: 'Daily' },
     });
     expect(attendanceResult.structuredContent?.['results']).toEqual([

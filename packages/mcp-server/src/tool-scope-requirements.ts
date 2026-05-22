@@ -29,6 +29,7 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'estimates:write',
   'expenses:read',
   'expenses:write',
+  'employees:read',
   'incentives:read',
   'incentives:write',
   'inventories:read',
