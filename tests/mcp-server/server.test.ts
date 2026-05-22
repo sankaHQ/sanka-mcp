@@ -146,7 +146,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('upsert_payroll_profile');
     expect(toolNames).toContain('list_payroll_runs');
     expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('download_payroll_payslip_pdf');
     expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('create_payroll_journal_entry');
     expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
@@ -337,7 +339,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('upsert_payroll_profile');
     expect(toolNames).toContain('list_payroll_runs');
     expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('download_payroll_payslip_pdf');
     expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('create_payroll_journal_entry');
     expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
@@ -507,7 +511,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_attendance_records');
     expect(instructions).toContain('create_attendance_record');
     expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('download_payroll_payslip_pdf');
     expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('create_payroll_journal_entry');
     expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');
@@ -670,7 +676,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_attendance_records');
     expect(instructions).toContain('create_attendance_record');
     expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('download_payroll_payslip_pdf');
     expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('create_payroll_journal_entry');
     expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');

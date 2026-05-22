@@ -30,6 +30,7 @@ import {
   crmCreateOrderTool,
   crmCreatePaymentTool,
   crmCreatePropertyTool,
+  crmCreatePayrollJournalEntryTool,
   crmCreatePurchaseOrderTool,
   crmCreateSlipTool,
   crmCreateSubscriptionTool,
@@ -60,6 +61,7 @@ import {
   crmDownloadEstimatePDFTool,
   crmDownloadInvoicePDFTool,
   crmDownloadPurchaseOrderPDFTool,
+  crmDownloadPayrollPayslipPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -341,6 +343,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListPayrollRunsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCalculatePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreatePayrollJournalEntryTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmApprovePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -7046,6 +7049,16 @@ describe('ChatGPT CRM tools', () => {
           results: [],
         },
         message: 'OK',
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'journal-1',
+          id_journal: 12,
+          payroll_run_id: 'run-1',
+          period: '2026-04',
+          created: true,
+        },
+        message: 'OK',
       });
 
     const reqContext = {
@@ -7100,6 +7113,53 @@ describe('ChatGPT CRM tools', () => {
     });
     expect(payrollResult.structuredContent).toMatchObject({
       data: { run: { id: 'run-1', period: '2026-04' } },
+    });
+
+    const payrollJournalResult = await crmCreatePayrollJournalEntryTool.handler({
+      reqContext,
+      args: { run_id: 'run-1', notes: 'Monthly payroll journal' },
+    });
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/public/payroll/runs/run-1/journal-entry', {
+      query: {},
+      body: { notes: 'Monthly payroll journal' },
+    });
+    expect(payrollJournalResult.structuredContent).toMatchObject({
+      data: { id: 'journal-1', id_journal: 12, payroll_run_id: 'run-1' },
+    });
+
+    const pdfBytes = Buffer.from('%PDF-payroll');
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="payslip.pdf"; filename*=UTF-8\'\'payroll-payslip.pdf',
+        },
+      }),
+    );
+    get.mockReturnValueOnce({ asResponse });
+
+    const payslipResult = await crmDownloadPayrollPayslipPDFTool.handler({
+      reqContext,
+      args: {
+        run_id: 'run-1',
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+
+    expect(get).toHaveBeenLastCalledWith('/v1/public/payroll/runs/run-1/payslips/pdf', {
+      query: {
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+    expect(payslipResult.structuredContent).toMatchObject({
+      mime_type: 'application/pdf',
+      filename: 'payroll-payslip.pdf',
+      byte_length: pdfBytes.byteLength,
+      download_complete: true,
+      content_base64_available: true,
+      content_base64: pdfBytes.toString('base64'),
     });
   });
 

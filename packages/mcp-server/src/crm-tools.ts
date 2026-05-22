@@ -1281,6 +1281,34 @@ const PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA = {
   required: ['run_id'],
 };
 
+const PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID.',
+    },
+    result_id: {
+      type: 'string',
+      description: 'Optional payroll employee result UUID. Omit to download all payslips in the run.',
+    },
+    employee_id: {
+      type: 'string',
+      description:
+        'Optional Worker UUID or supported employee token. Omit to download all payslips in the run.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override for the generated PDF labels, for example ja or en.',
+    },
+  },
+  required: ['run_id'],
+};
+
 const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1302,6 +1330,37 @@ const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
     },
   },
   required: ['period'],
+};
+
+const PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID to convert into one monthly Sanka Journal Entry.',
+    },
+    debit_account: {
+      type: 'string',
+      description: 'Optional debit journal account. Defaults to salaries and allowances.',
+    },
+    credit_account: {
+      type: 'string',
+      description: 'Optional credit journal account for net pay. Defaults to other accounts payable.',
+    },
+    deductions_account: {
+      type: 'string',
+      description: 'Optional credit journal account for payroll deductions. Defaults to deposits received.',
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional journal entry notes.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['run_id'],
 };
 
 const INCENTIVE_LIST_INPUT_SCHEMA = {
@@ -7858,6 +7917,13 @@ const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
   return params;
 };
 
+const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
+  const runID = readString(args?.['run_id']);
+  const params = buildWorkspaceQuery(args);
+  assignStringFields(params, args, ['result_id', 'employee_id', 'language']);
+  return { runID, params };
+};
+
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -7936,6 +8002,12 @@ const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) =>
 const buildPayrollRunCalculateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, ['period', 'pay_date', 'country_code']);
+  return body;
+};
+
+const buildPayrollJournalEntryBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['debit_account', 'credit_account', 'deductions_account', 'notes']);
   return body;
 };
 
@@ -12483,6 +12555,48 @@ export const crmGetPayrollRunTool: McpTool = {
   },
 };
 
+export const crmDownloadPayrollPayslipPDFTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    operationId: 'public.payroll.runs.payslips.downloadPDF',
+  },
+  tool: {
+    name: 'download_payroll_payslip_pdf',
+    title: 'Download payroll payslip PDF',
+    description:
+      'Download payroll payslips from Sanka as a PDF document. Pass result_id or employee_id for one employee, or omit both to download the full payroll run.',
+    inputSchema: PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download payroll payslip PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Download payroll payslip PDF' });
+    if (authError) {
+      return authError;
+    }
+    const { runID, params } = buildPayrollPayslipDownloadParams(args);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = await reqContext.client
+      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    return asStoredBinaryDownloadResult(reqContext, response, 'payroll-payslip.pdf');
+  },
+};
+
 export const crmCalculatePayrollRunTool: McpTool = {
   metadata: {
     resource: 'payroll_runs',
@@ -12524,6 +12638,61 @@ export const crmCalculatePayrollRunTool: McpTool = {
         {
           type: 'text',
           text: `Payroll run calculated: ${run['period'] ?? run['id'] ?? readString(args?.['period'])}.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreatePayrollJournalEntryTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll', 'journals'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/runs/{run_id}/journal-entry',
+    operationId: 'public.payroll.runs.journalEntry.create',
+  },
+  tool: {
+    name: 'create_payroll_journal_entry',
+    title: 'Create payroll journal entry',
+    description:
+      'Create or reuse one monthly Sanka Journal Entry from a payroll run. Use after calculate_payroll_run when the user wants payroll posted to accounting.',
+    inputSchema: PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create payroll journal entry',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create payroll journal entry' });
+    if (authError) {
+      return authError;
+    }
+    const runID = readString(args?.['run_id']);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = (await reqContext.client.post(
+      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/journal-entry`,
+      {
+        query: buildWorkspaceQuery(args),
+        body: buildPayrollJournalEntryBody(args),
+      },
+    )) as Record<string, unknown>;
+    const data = readPayloadDataRecord(response);
+    const journalID = data['id_journal'] ?? data['id'] ?? runID;
+    const created = data['created'] === false ? 'already exists' : 'created';
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Payroll journal entry ${created}: ${journalID}.`,
         },
       ],
       structuredContent: response,
