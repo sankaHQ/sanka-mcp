@@ -583,6 +583,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_disbursement"');
     expect(text).toContain('"name":"update_disbursement"');
     expect(text).toContain('"name":"delete_disbursement"');
+    expect(text).toContain('"name":"list_disbursement_allocations"');
+    expect(text).toContain('"name":"create_disbursement_allocation"');
+    expect(text).toContain('"name":"update_disbursement_allocation"');
+    expect(text).toContain('"name":"delete_disbursement_allocation"');
     expect(text).toContain('"name":"list_locations"');
     expect(text).toContain('"name":"get_location"');
     expect(text).toContain('"name":"create_location"');
