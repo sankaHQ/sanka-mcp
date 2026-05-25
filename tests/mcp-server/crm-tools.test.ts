@@ -19,6 +19,7 @@ import {
   crmCreateDealTool,
   crmCreateAbsenceTool,
   crmCreateAttendanceRecordTool,
+  crmCreateDisbursementAllocationTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
@@ -31,6 +32,7 @@ import {
   crmCreateOrderTool,
   crmCreatePaymentTool,
   crmCreatePropertyTool,
+  crmCreatePayrollJournalEntryTool,
   crmCreatePurchaseOrderTool,
   crmCreateSlipTool,
   crmCreateSubscriptionTool,
@@ -43,6 +45,7 @@ import {
   crmDeleteDealTool,
   crmDeleteAbsenceTool,
   crmDeleteAttendanceRecordTool,
+  crmDeleteDisbursementAllocationTool,
   crmDeleteDisbursementTool,
   crmDeleteEstimateTool,
   crmDeleteExpenseTool,
@@ -62,6 +65,7 @@ import {
   crmDownloadEstimatePDFTool,
   crmDownloadInvoicePDFTool,
   crmDownloadPurchaseOrderPDFTool,
+  crmDownloadPayrollPayslipPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -101,6 +105,7 @@ import {
   crmListDealPipelinesTool,
   crmListDealsTool,
   crmListWorkspacesTool,
+  crmListDisbursementAllocationsTool,
   crmListDisbursementsTool,
   crmListEstimatesTool,
   crmListExpensesTool,
@@ -146,6 +151,7 @@ import {
   crmUpdateContactTool,
   crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
+  crmUpdateDisbursementAllocationTool,
   crmUpdateDisbursementTool,
   crmUpdateEstimateTool,
   crmUpdateExpenseTool,
@@ -348,6 +354,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListPayrollRunsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCalculatePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreatePayrollJournalEntryTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmApprovePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -5178,6 +5185,122 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('maps disbursement allocation handlers to public allocation endpoints', async () => {
+    const allocationPayload = {
+      disbursement: {
+        id: 'disbursement-1',
+        id_dsb: 701,
+        allocated_amount: 125,
+        unallocated_amount: 375,
+      },
+      allocations: [
+        {
+          id: 'allocation-1',
+          payable_type: 'expense',
+          payable_id: 'expense-1',
+          amount: 125,
+        },
+      ],
+      available_payables: [],
+      message: 'OK',
+    };
+    const get = jest.fn().mockResolvedValue(allocationPayload);
+    const post = jest.fn().mockResolvedValue(allocationPayload);
+    const patch = jest.fn().mockResolvedValue({
+      ...allocationPayload,
+      allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
+    });
+    const del = jest.fn().mockResolvedValue({
+      ...allocationPayload,
+      allocations: [],
+      disbursement: {
+        ...allocationPayload.disbursement,
+        allocated_amount: 0,
+        unallocated_amount: 500,
+      },
+    });
+
+    const reqContext = {
+      client: { get, post, patch, delete: del } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListDisbursementAllocationsTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        external_id: 'DSB-1',
+        language: 'en',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+      query: {
+        external_id: 'DSB-1',
+        'Accept-Language': 'en',
+      },
+    });
+    expect(listResult.structuredContent).toEqual(allocationPayload);
+
+    const createResult = await crmCreateDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        payable_type: 'expense',
+        expense_id: 'expense-1',
+        amount: 125,
+        notes: 'Receipt allocation',
+      },
+    });
+    expect(post).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+      query: {},
+      body: {
+        payable_type: 'expense',
+        expense_id: 'expense-1',
+        amount: 125,
+        notes: 'Receipt allocation',
+      },
+    });
+    expect(createResult.structuredContent).toEqual(allocationPayload);
+
+    const updateResult = await crmUpdateDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        allocation_id: 'allocation-1',
+        amount: 150,
+      },
+    });
+    expect(patch).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
+      query: {},
+      body: { amount: 150 },
+    });
+    expect(updateResult.structuredContent).toEqual({
+      ...allocationPayload,
+      allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
+    });
+
+    const deleteResult = await crmDeleteDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        allocation_id: 'allocation-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
+      query: {},
+    });
+    expect(deleteResult.structuredContent).toEqual({
+      ...allocationPayload,
+      allocations: [],
+      disbursement: {
+        ...allocationPayload.disbursement,
+        allocated_amount: 0,
+        unallocated_amount: 500,
+      },
+    });
+  });
+
   it('returns reauth metadata when list tickets is called without authentication', async () => {
     const list = jest.fn();
 
@@ -7350,6 +7473,16 @@ describe('ChatGPT CRM tools', () => {
           results: [],
         },
         message: 'OK',
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'journal-1',
+          id_journal: 12,
+          payroll_run_id: 'run-1',
+          period: '2026-04',
+          created: true,
+        },
+        message: 'OK',
       });
 
     const reqContext = {
@@ -7422,6 +7555,53 @@ describe('ChatGPT CRM tools', () => {
     });
     expect(payrollResult.structuredContent).toMatchObject({
       data: { run: { id: 'run-1', period: '2026-04' } },
+    });
+
+    const payrollJournalResult = await crmCreatePayrollJournalEntryTool.handler({
+      reqContext,
+      args: { run_id: 'run-1', notes: 'Monthly payroll journal' },
+    });
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/public/payroll/runs/run-1/journal-entry', {
+      query: {},
+      body: { notes: 'Monthly payroll journal' },
+    });
+    expect(payrollJournalResult.structuredContent).toMatchObject({
+      data: { id: 'journal-1', id_journal: 12, payroll_run_id: 'run-1' },
+    });
+
+    const pdfBytes = Buffer.from('%PDF-payroll');
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="payslip.pdf"; filename*=UTF-8\'\'payroll-payslip.pdf',
+        },
+      }),
+    );
+    get.mockReturnValueOnce({ asResponse });
+
+    const payslipResult = await crmDownloadPayrollPayslipPDFTool.handler({
+      reqContext,
+      args: {
+        run_id: 'run-1',
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+
+    expect(get).toHaveBeenLastCalledWith('/v1/public/payroll/runs/run-1/payslips/pdf', {
+      query: {
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+    expect(payslipResult.structuredContent).toMatchObject({
+      mime_type: 'application/pdf',
+      filename: 'payroll-payslip.pdf',
+      byte_length: pdfBytes.byteLength,
+      download_complete: true,
+      content_base64_available: true,
+      content_base64: pdfBytes.toString('base64'),
     });
   });
 

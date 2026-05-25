@@ -1465,6 +1465,34 @@ const PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA = {
   required: ['run_id'],
 };
 
+const PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID.',
+    },
+    result_id: {
+      type: 'string',
+      description: 'Optional payroll employee result UUID. Omit to download all payslips in the run.',
+    },
+    employee_id: {
+      type: 'string',
+      description:
+        'Optional Worker UUID or supported employee token. Omit to download all payslips in the run.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override for the generated PDF labels, for example ja or en.',
+    },
+  },
+  required: ['run_id'],
+};
+
 const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1486,6 +1514,37 @@ const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
     },
   },
   required: ['period'],
+};
+
+const PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID to convert into one monthly Sanka Journal Entry.',
+    },
+    debit_account: {
+      type: 'string',
+      description: 'Optional debit journal account. Defaults to salaries and allowances.',
+    },
+    credit_account: {
+      type: 'string',
+      description: 'Optional credit journal account for net pay. Defaults to other accounts payable.',
+    },
+    deductions_account: {
+      type: 'string',
+      description: 'Optional credit journal account for payroll deductions. Defaults to deposits received.',
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional journal entry notes.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['run_id'],
 };
 
 const INCENTIVE_LIST_INPUT_SCHEMA = {
@@ -5119,6 +5178,105 @@ const DISBURSEMENT_LIST_INPUT_SCHEMA = {
   },
 };
 
+const DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES = {
+  payable_type: {
+    type: 'string',
+    description: 'Payable object type to allocate. Use "expense" for Expense or "bill" for Bill.',
+    enum: ['bill', 'expense'],
+  },
+  payable_id: {
+    type: 'string',
+    description:
+      'Payable record identifier. Accepts UUID or the workspace numeric id for the selected payable type.',
+  },
+  bill_id: {
+    type: 'string',
+    description: 'Bill identifier alias. Use this instead of payable_id when allocating a bill.',
+  },
+  expense_id: {
+    type: 'string',
+    description: 'Expense identifier alias. Use this instead of payable_id when allocating an expense.',
+  },
+  id_bill: {
+    type: 'string',
+    description: 'Numeric bill id alias.',
+  },
+  id_pm: {
+    type: 'string',
+    description: 'Numeric expense id alias.',
+  },
+  amount: {
+    type: 'number',
+    description: 'Amount to allocate from the disbursement to the payable.',
+  },
+  currency: {
+    type: 'string',
+    description:
+      'Optional allocation currency. Must match the disbursement and payable currency when provided.',
+  },
+  source: {
+    type: 'string',
+    description: 'Optional allocation source label, for example manual, api, bank_statement, or migration.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Optional allocation notes.',
+  },
+};
+
+const DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement_id: {
+      type: 'string',
+      description: 'Disbursement identifier. Accepts a UUID, numeric disbursement id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['disbursement_id'],
+};
+
+const DISBURSEMENT_ALLOCATION_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    ...DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES,
+  },
+  required: ['disbursement_id', 'amount'],
+};
+
+const DISBURSEMENT_ALLOCATION_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    allocation_id: {
+      type: 'string',
+      description: 'Disbursement allocation row UUID returned by list_disbursement_allocations.',
+    },
+    ...DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES,
+  },
+  required: ['disbursement_id', 'allocation_id'],
+};
+
+const DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    allocation_id: {
+      type: 'string',
+      description: 'Disbursement allocation row UUID returned by list_disbursement_allocations.',
+    },
+  },
+  required: ['disbursement_id', 'allocation_id'],
+};
+
 const INVOICE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -5268,6 +5426,41 @@ const DISBURSEMENT_MUTATION_OUTPUT_SCHEMA = {
     external_id: { type: 'string' },
   },
   required: ['ok', 'status'],
+};
+
+const DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    bill: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    expense: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    allocations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    available_payables: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['message'],
 };
 
 const TICKET_LIST_INPUT_SCHEMA = {
@@ -8322,6 +8515,13 @@ const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
   return params;
 };
 
+const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
+  const runID = readString(args?.['run_id']);
+  const params = buildWorkspaceQuery(args);
+  assignStringFields(params, args, ['result_id', 'employee_id', 'language']);
+  return { runID, params };
+};
+
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -8400,6 +8600,12 @@ const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) =>
 const buildPayrollRunCalculateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, ['period', 'pay_date', 'country_code']);
+  return body;
+};
+
+const buildPayrollJournalEntryBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['debit_account', 'credit_account', 'deductions_account', 'notes']);
   return body;
 };
 
@@ -9294,6 +9500,95 @@ const buildDisbursementRetrieveParams = (args: Record<string, unknown> | undefin
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+const buildDisbursementAllocationQueryParams = (args: Record<string, unknown> | undefined) => {
+  const disbursementID = readString(args?.['disbursement_id']);
+  const allocationID = readString(args?.['allocation_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    disbursementID,
+    allocationID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const readRecordIdentifier = (value: unknown) => {
+  const stringValue = readString(value);
+  if (stringValue) {
+    return stringValue;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const buildDisbursementAllocationBody = (
+  args: Record<string, unknown> | undefined,
+  options: { partial?: boolean } = {},
+) => {
+  const body: Record<string, unknown> = {};
+  for (const [sourceKey, targetKey] of [
+    ['payable_type', 'payable_type'],
+    ['payableType', 'payable_type'],
+    ['payable_id', 'payable_id'],
+    ['payableId', 'payable_id'],
+    ['bill_id', 'bill_id'],
+    ['billId', 'bill_id'],
+    ['expense_id', 'expense_id'],
+    ['expenseId', 'expense_id'],
+    ['id_bill', 'id_bill'],
+    ['idBill', 'id_bill'],
+    ['id_pm', 'id_pm'],
+    ['idPm', 'id_pm'],
+    ['currency', 'currency'],
+    ['source', 'source'],
+    ['notes', 'notes'],
+  ] as const) {
+    const value = readRecordIdentifier(args?.[sourceKey]);
+    if (value) {
+      body[targetKey] = value;
+    }
+  }
+  const amount = args?.['amount'];
+  if (typeof amount === 'number' && Number.isFinite(amount)) {
+    body['amount'] = amount;
+  } else if (!options.partial) {
+    body['amount'] = amount;
+  }
+  return body;
+};
+
+const buildDisbursementAllocationsSummary = (
+  payload: Record<string, unknown>,
+  disbursementID: string,
+  action: 'Loaded' | 'Created' | 'Updated' | 'Deleted',
+) => {
+  const disbursement = readRecord(payload['disbursement']);
+  const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
+  const resolvedDisbursementID =
+    readString(disbursement?.['id']) ??
+    readString(disbursement?.['disbursement_id']) ??
+    readRecordIdentifier(disbursement?.['id_dsb']) ??
+    disbursementID;
+  const allocatedAmount = disbursement?.['allocated_amount'];
+  const unallocatedAmount = disbursement?.['unallocated_amount'];
+  const totals =
+    typeof allocatedAmount === 'number' || typeof unallocatedAmount === 'number' ?
+      ` Allocated: ${typeof allocatedAmount === 'number' ? allocatedAmount : 0}; unallocated: ${
+        typeof unallocatedAmount === 'number' ? unallocatedAmount : 0
+      }.`
+    : '';
+
+  return `${action} ${allocations.length} disbursement payable allocation${
+    allocations.length === 1 ? '' : 's'
+  } for disbursement ${resolvedDisbursementID}.${totals}`;
 };
 
 const buildEstimateInvoiceListParams = (args: Record<string, unknown> | undefined) => {
@@ -13243,6 +13538,48 @@ export const crmGetPayrollRunTool: McpTool = {
   },
 };
 
+export const crmDownloadPayrollPayslipPDFTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    operationId: 'public.payroll.runs.payslips.downloadPDF',
+  },
+  tool: {
+    name: 'download_payroll_payslip_pdf',
+    title: 'Download payroll payslip PDF',
+    description:
+      'Download payroll payslips from Sanka as a PDF document. Pass result_id or employee_id for one employee, or omit both to download the full payroll run.',
+    inputSchema: PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download payroll payslip PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Download payroll payslip PDF' });
+    if (authError) {
+      return authError;
+    }
+    const { runID, params } = buildPayrollPayslipDownloadParams(args);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = await reqContext.client
+      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    return asStoredBinaryDownloadResult(reqContext, response, 'payroll-payslip.pdf');
+  },
+};
+
 export const crmCalculatePayrollRunTool: McpTool = {
   metadata: {
     resource: 'payroll_runs',
@@ -13284,6 +13621,61 @@ export const crmCalculatePayrollRunTool: McpTool = {
         {
           type: 'text',
           text: `Payroll run calculated: ${run['period'] ?? run['id'] ?? readString(args?.['period'])}.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreatePayrollJournalEntryTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll', 'journals'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/runs/{run_id}/journal-entry',
+    operationId: 'public.payroll.runs.journalEntry.create',
+  },
+  tool: {
+    name: 'create_payroll_journal_entry',
+    title: 'Create payroll journal entry',
+    description:
+      'Create or reuse one monthly Sanka Journal Entry from a payroll run. Use after calculate_payroll_run when the user wants payroll posted to accounting.',
+    inputSchema: PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create payroll journal entry',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create payroll journal entry' });
+    if (authError) {
+      return authError;
+    }
+    const runID = readString(args?.['run_id']);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = (await reqContext.client.post(
+      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/journal-entry`,
+      {
+        query: buildWorkspaceQuery(args),
+        body: buildPayrollJournalEntryBody(args),
+      },
+    )) as Record<string, unknown>;
+    const data = readPayloadDataRecord(response);
+    const journalID = data['id_journal'] ?? data['id'] ?? runID;
+    const created = data['created'] === false ? 'already exists' : 'created';
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Payroll journal entry ${created}: ${journalID}.`,
         },
       ],
       structuredContent: response,
@@ -17693,6 +18085,239 @@ export const crmDeleteDisbursementTool: McpTool = {
             payload: response,
             idKeys: ['disbursement_id'],
           }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListDisbursementAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'read',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    operationId: 'public.disbursements.listAllocations',
+  },
+  tool: {
+    name: 'list_disbursement_allocations',
+    title: 'List disbursement allocations',
+    description: 'Review bill and expense payable allocation rows for one disbursement in Sanka.',
+    inputSchema: DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List disbursement allocations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List disbursement allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.get(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      { query: params },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Loaded'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreateDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    operationId: 'public.disbursements.createAllocation',
+  },
+  tool: {
+    name: 'create_disbursement_allocation',
+    title: 'Create disbursement allocation',
+    description:
+      'Add one bill or expense payable allocation row to a disbursement without replacing existing allocation rows.',
+    inputSchema: DISBURSEMENT_ALLOCATION_CREATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      {
+        query: params,
+        body: buildDisbursementAllocationBody(args),
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Created'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'patch',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    operationId: 'public.disbursements.updateAllocation',
+  },
+  tool: {
+    name: 'update_disbursement_allocation',
+    title: 'Update disbursement allocation',
+    description: 'Update one bill or expense payable allocation row on a disbursement.',
+    inputSchema: DISBURSEMENT_ALLOCATION_UPDATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, allocationID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+    if (!allocationID) {
+      return asErrorResult('`allocation_id` is required.');
+    }
+
+    const response = (await reqContext.client.patch(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+        allocationID,
+      )}`,
+      {
+        query: params,
+        body: buildDisbursementAllocationBody(args, { partial: true }),
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Updated'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    operationId: 'public.disbursements.deleteAllocation',
+  },
+  tool: {
+    name: 'delete_disbursement_allocation',
+    title: 'Delete disbursement allocation',
+    description: 'Archive/delete one bill or expense payable allocation row from a disbursement.',
+    inputSchema: DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, allocationID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+    if (!allocationID) {
+      return asErrorResult('`allocation_id` is required.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+        allocationID,
+      )}`,
+      { query: params },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Deleted'),
         },
       ],
       structuredContent: response,
