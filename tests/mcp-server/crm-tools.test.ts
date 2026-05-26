@@ -1,7 +1,9 @@
 import { File } from 'node:buffer';
 import {
-  crmArchivePrivateMessageThreadTool,
+  crmActivateInvoiceTool,
+  crmActivateOrderTool,
   crmArchiveCustomObjectRecordTool,
+  crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
   crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
@@ -55,6 +57,8 @@ import {
   crmDeleteItemTool,
   crmDeleteLocationTool,
   crmDeleteOrderTool,
+  crmPermanentDeleteInvoiceTool,
+  crmPermanentDeleteOrderTool,
   crmDeletePaymentTool,
   crmDeletePurchaseOrderTool,
   crmDeletePropertyTool,
@@ -3148,18 +3152,78 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('deletes an order', async () => {
+  it('activates an order with read-after-write verification', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      order_id: 'order-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'order-1',
+      status: 'active',
+    });
+
+    const result = await crmActivateOrderTool.handler({
+      reqContext: {
+        client: {
+          post,
+          public: {
+            orders: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+        external_id: 'ORD-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/orders/order-1/activate', {
+      query: { external_id: 'ORD-1' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'order-1',
+      {
+        external_id: 'ORD-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'active',
+        actual_status: 'active',
+        matched: true,
+      },
+    });
+  });
+
+  it('archives an order with read-after-write verification', async () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
-      status: 'deleted',
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
       order_id: 'order-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'order-1',
+      status: 'archived',
     });
 
     const result = await crmDeleteOrderTool.handler({
       reqContext: {
         client: {
           public: {
-            orders: { delete: del },
+            orders: { delete: del, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -3180,9 +3244,79 @@ describe('ChatGPT CRM tools', () => {
     );
     expect(result.structuredContent).toEqual({
       ok: true,
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'archived',
+        actual_status: 'archived',
+        matched: true,
+        record_id: 'order-1',
+      },
+    });
+  });
+
+  it('permanently deletes an archived order only with explicit confirmation', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'permanent_delete',
       status: 'deleted',
+      permanently_deleted: true,
       order_id: 'order-1',
     });
+    const retrieve = jest.fn().mockRejectedValue(new Error('Not found'));
+
+    const result = await crmPermanentDeleteOrderTool.handler({
+      reqContext: {
+        client: {
+          delete: del,
+          public: {
+            orders: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+        external_id: 'ORD-1',
+        confirm: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/v1/public/orders/order-1/permanent-delete', {
+      query: { external_id: 'ORD-1', confirm: true },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'permanent_delete',
+      status: 'deleted',
+      permanently_deleted: true,
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'deleted',
+        actual_status: 'not_found',
+        matched: true,
+      },
+    });
+
+    const blocked = await crmPermanentDeleteOrderTool.handler({
+      reqContext: {
+        client: {
+          delete: jest.fn(),
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+      },
+    });
+    expect(blocked.isError).toBe(true);
   });
 
   it('maps purchase order CRUD handlers to the SDK client', async () => {
@@ -4360,18 +4494,82 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('deletes an invoice', async () => {
+  it('activates an invoice with read-after-write verification', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      usage_status: 'active',
+      invoice_id: 'invoice-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'invoice-1',
+      usage_status: 'active',
+    });
+
+    const result = await crmActivateInvoiceTool.handler({
+      reqContext: {
+        client: {
+          post,
+          public: {
+            invoices: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/activate', {
+      query: { external_id: 'INV-1' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'invoice-1',
+      {
+        external_id: 'INV-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      usage_status: 'active',
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'active',
+        actual_status: 'active',
+        matched: true,
+      },
+    });
+  });
+
+  it('archives an invoice with read-after-write verification', async () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
-      status: 'deleted',
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
       invoice_id: 'invoice-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'invoice-1',
+      status: '下書き',
+      status_key: 'draft',
+      usage_status: 'archived',
     });
 
     const result = await crmDeleteInvoiceTool.handler({
       reqContext: {
         client: {
           public: {
-            invoices: { delete: del },
+            invoices: { delete: del, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -4392,9 +4590,79 @@ describe('ChatGPT CRM tools', () => {
     );
     expect(result.structuredContent).toEqual({
       ok: true,
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'archived',
+        actual_status: 'archived',
+        matched: true,
+        record_id: 'invoice-1',
+      },
+    });
+  });
+
+  it('permanently deletes an archived invoice only with explicit confirmation', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'permanent_delete',
       status: 'deleted',
+      permanently_deleted: true,
       invoice_id: 'invoice-1',
     });
+    const retrieve = jest.fn().mockRejectedValue(new Error('Not found'));
+
+    const result = await crmPermanentDeleteInvoiceTool.handler({
+      reqContext: {
+        client: {
+          delete: del,
+          public: {
+            invoices: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+        confirm: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/permanent-delete', {
+      query: { external_id: 'INV-1', confirm: true },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'permanent_delete',
+      status: 'deleted',
+      permanently_deleted: true,
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'deleted',
+        actual_status: 'not_found',
+        matched: true,
+      },
+    });
+
+    const blocked = await crmPermanentDeleteInvoiceTool.handler({
+      reqContext: {
+        client: {
+          delete: jest.fn(),
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+      },
+    });
+    expect(blocked.isError).toBe(true);
   });
 
   it('lists payments with a local result limit', async () => {
