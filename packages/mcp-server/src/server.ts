@@ -232,6 +232,7 @@ import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './t
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
+import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
 export const newMcpServer = async ({
   customInstructionsPath,
@@ -463,15 +464,21 @@ export async function initMcpServer(params: {
         }),
         args,
       });
+      const enrichedResult = enrichRecordUrlsForToolResult({
+        result,
+        resource: mcpTool.metadata.resource,
+        reqContext: reqContextWithClient,
+        args,
+      });
       await recordMcpToolCall({
         client,
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
-        result,
+        result: enrichedResult,
         startedAt,
       });
-      return result;
+      return enrichedResult;
     } catch (error) {
       const errorResult = normalizeToolCallResult({
         mcpTool,
