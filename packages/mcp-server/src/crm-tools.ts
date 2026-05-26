@@ -3319,7 +3319,7 @@ const ORDER_DELETE_INPUT_SCHEMA = {
   properties: {
     order_id: {
       type: 'string',
-      description: 'Order identifier to delete.',
+      description: 'Order identifier to archive. This is a soft delete, not a permanent delete.',
     },
     external_id: {
       type: 'string',
@@ -3327,6 +3327,25 @@ const ORDER_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['order_id'],
+};
+
+const ORDER_PERMANENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Archived order identifier to permanently delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Must be true. Permanent delete cannot be undone.',
+    },
+  },
+  required: ['order_id', 'confirm'],
 };
 
 const TASK_MUTATION_INPUT_PROPERTIES = {
@@ -3504,8 +3523,17 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     ok: { type: 'boolean' },
+    operation: { type: 'string' },
+    status: { type: 'string' },
+    usage_status: { type: 'string' },
+    usage_status_label: { type: 'string' },
+    permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
     job_id: { type: 'string' },
+    external_id: { type: 'string' },
+    order_id: { type: 'string' },
+    order_number: { type: 'integer' },
+    verification: { type: 'object' },
     results: {
       type: 'array',
       items: {
@@ -4250,7 +4278,7 @@ const INVOICE_DELETE_INPUT_SCHEMA = {
   properties: {
     invoice_id: {
       type: 'string',
-      description: 'Invoice identifier to delete.',
+      description: 'Invoice identifier to archive. This is a soft delete, not a permanent delete.',
     },
     external_id: {
       type: 'string',
@@ -4258,6 +4286,25 @@ const INVOICE_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['invoice_id'],
+};
+
+const INVOICE_PERMANENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Archived invoice identifier to permanently delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Must be true. Permanent delete cannot be undone.',
+    },
+  },
+  required: ['invoice_id', 'confirm'],
 };
 
 const INVOICE_LIST_INPUT_SCHEMA = {
@@ -5303,10 +5350,16 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     ok: { type: 'boolean' },
+    operation: { type: 'string' },
     status: { type: 'string' },
+    usage_status: { type: 'string' },
+    usage_status_label: { type: 'string' },
+    permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     invoice_id: { type: 'string' },
+    id_inv: { type: 'integer' },
+    verification: { type: 'object' },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -9277,6 +9330,107 @@ const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'cr
     'order';
 
   return `Order ${action}: ${reference}.`;
+};
+
+const buildLifecycleMutationSummary = ({
+  entity,
+  action,
+  payload,
+}: {
+  entity: string;
+  action: string;
+  payload: Record<string, unknown>;
+}): string => {
+  const readReference = (value: unknown): string | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    return readString(value);
+  };
+  const reference =
+    readReference(payload['order_number']) ||
+    readReference(payload['id_inv']) ||
+    readString(payload['order_id']) ||
+    readString(payload['invoice_id']) ||
+    readString(payload['external_id']) ||
+    entity;
+  const usageStatus =
+    readString(payload['usage_status_label']) ||
+    readString(payload['usage_status']) ||
+    readString(payload['status']);
+  const statusText = usageStatus ? ` status=${usageStatus}` : '';
+  return appendGovernanceAdvisorySummary(`${entity} ${action}: ${reference}.${statusText}`, payload);
+};
+
+const buildLifecycleVerification = async ({
+  entity,
+  id,
+  params,
+  expectedStatus,
+  retrieve,
+}: {
+  entity: 'order' | 'invoice';
+  id: string;
+  params?: Record<string, unknown>;
+  expectedStatus: string;
+  retrieve: (id: string, params: Record<string, unknown>) => Promise<Record<string, unknown>>;
+}): Promise<Record<string, unknown>> => {
+  try {
+    const record = await retrieve(id, params ?? {});
+    const actualStatus =
+      readString(record['usage_status']) ||
+      readString(record['status_key']) ||
+      readString(record['status']) ||
+      null;
+    return {
+      entity,
+      expected_status: expectedStatus,
+      actual_status: actualStatus,
+      matched: actualStatus === expectedStatus,
+      record_id: readString(record['id']) || id,
+    };
+  } catch (error) {
+    return {
+      entity,
+      expected_status: expectedStatus,
+      actual_status: null,
+      matched: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
+const buildPermanentDeleteVerification = async ({
+  entity,
+  id,
+  retrieve,
+}: {
+  entity: 'order' | 'invoice';
+  id: string;
+  retrieve: (id: string) => Promise<Record<string, unknown>>;
+}): Promise<Record<string, unknown>> => {
+  try {
+    const record = await retrieve(id);
+    return {
+      entity,
+      expected_status: 'deleted',
+      actual_status:
+        readString(record['usage_status']) ||
+        readString(record['status_key']) ||
+        readString(record['status']) ||
+        'found',
+      matched: false,
+      record_id: readString(record['id']) || id,
+    };
+  } catch (error) {
+    return {
+      entity,
+      expected_status: 'deleted',
+      actual_status: 'not_found',
+      matched: true,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 };
 
 const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -14801,6 +14955,72 @@ export const crmUpdateOrderTool: McpTool = {
   },
 };
 
+export const crmActivateOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/orders/{order_id}/activate',
+    operationId: 'public.orders.activate',
+  },
+  tool: {
+    name: 'activate_order',
+    title: 'Activate order',
+    description: 'Restore an archived order to active status in Sanka.',
+    inputSchema: ORDER_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Activate order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Activate order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/orders/${encodeURIComponent(orderID)}/activate`,
+      { query: params },
+    )) as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'order',
+      id: orderID,
+      params,
+      expectedStatus: 'active',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.orders.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'activated', payload }),
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmDeleteOrderTool: McpTool = {
   metadata: {
     resource: 'orders',
@@ -14812,13 +15032,14 @@ export const crmDeleteOrderTool: McpTool = {
   },
   tool: {
     name: 'delete_order',
-    title: 'Delete order',
-    description: 'Delete an order in Sanka by order id, numeric id, or external reference.',
+    title: 'Archive order',
+    description:
+      'Archive an order in Sanka by order id, numeric id, or external reference. This is a soft delete; use permanent_delete_order only after explicit confirmation.',
     inputSchema: ORDER_DELETE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete order',
+      title: 'Archive order',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
@@ -14843,20 +15064,95 @@ export const crmDeleteOrderTool: McpTool = {
       params,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'order',
+      id: orderID,
+      params,
+      expectedStatus: 'archived',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.orders.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Order',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['order_id'],
-          }),
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'archived', payload }),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmPermanentDeleteOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/orders/{order_id}/permanent-delete',
+    operationId: 'public.orders.permanentDelete',
+  },
+  tool: {
+    name: 'permanent_delete_order',
+    title: 'Permanently delete order',
+    description:
+      'Permanently delete an already archived order in Sanka. Requires confirm=true and cannot be undone.',
+    inputSchema: ORDER_PERMANENT_DELETE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Permanently delete order',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Permanently delete order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult('`confirm=true` is required for permanent delete.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/orders/${encodeURIComponent(orderID)}/permanent-delete`,
+      { query: { ...params, confirm: true } },
+    )) as Record<string, unknown>;
+    const verification = await buildPermanentDeleteVerification({
+      entity: 'order',
+      id: orderID,
+      retrieve: async (id) =>
+        (await reqContext.client.public.orders.retrieve(id, params, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'permanently deleted', payload }),
+        },
+      ],
+      structuredContent: payload,
     };
   },
 };
@@ -17093,6 +17389,72 @@ export const crmUpdateInvoiceTool: McpTool = {
   },
 };
 
+export const crmActivateInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/invoices/{invoice_id}/activate',
+    operationId: 'public.invoices.activate',
+  },
+  tool: {
+    name: 'activate_invoice',
+    title: 'Activate invoice',
+    description: 'Restore an archived invoice to active usage status in Sanka.',
+    inputSchema: INVOICE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Activate invoice',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Activate invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/activate`,
+      { query: params },
+    )) as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      params,
+      expectedStatus: 'active',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.invoices.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'activated', payload }),
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmDeleteInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -17104,13 +17466,14 @@ export const crmDeleteInvoiceTool: McpTool = {
   },
   tool: {
     name: 'delete_invoice',
-    title: 'Delete invoice',
-    description: 'Delete an invoice in Sanka by invoice id or external reference.',
+    title: 'Archive invoice',
+    description:
+      'Archive an invoice in Sanka by invoice id or external reference. This is a soft delete; use permanent_delete_invoice only after explicit confirmation.',
     inputSchema: INVOICE_DELETE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete invoice',
+      title: 'Archive invoice',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
@@ -17136,20 +17499,96 @@ export const crmDeleteInvoiceTool: McpTool = {
       externalID ? { external_id: externalID } : {},
       undefined,
     )) as unknown as Record<string, unknown>;
+    const params = externalID ? { external_id: externalID } : {};
+    const verification = await buildLifecycleVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      params,
+      expectedStatus: 'archived',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.invoices.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Invoice',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['invoice_id'],
-          }),
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'archived', payload }),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmPermanentDeleteInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/invoices/{invoice_id}/permanent-delete',
+    operationId: 'public.invoices.permanentDelete',
+  },
+  tool: {
+    name: 'permanent_delete_invoice',
+    title: 'Permanently delete invoice',
+    description:
+      'Permanently delete an already archived invoice in Sanka. Requires confirm=true and cannot be undone.',
+    inputSchema: INVOICE_PERMANENT_DELETE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Permanently delete invoice',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Permanently delete invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult('`confirm=true` is required for permanent delete.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/permanent-delete`,
+      { query: { ...params, confirm: true } },
+    )) as Record<string, unknown>;
+    const verification = await buildPermanentDeleteVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      retrieve: async (id) =>
+        (await reqContext.client.public.invoices.retrieve(id, params, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'permanently deleted', payload }),
+        },
+      ],
+      structuredContent: payload,
     };
   },
 };

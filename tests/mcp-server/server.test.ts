@@ -53,7 +53,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_order');
     expect(toolNames).toContain('create_order');
     expect(toolNames).toContain('update_order');
+    expect(toolNames).toContain('activate_order');
     expect(toolNames).toContain('delete_order');
+    expect(toolNames).toContain('permanent_delete_order');
     expect(toolNames).toContain('list_purchase_orders');
     expect(toolNames).toContain('get_purchase_order');
     expect(toolNames).toContain('download_purchase_order_pdf');
@@ -71,7 +73,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
+    expect(toolNames).toContain('activate_invoice');
     expect(toolNames).toContain('delete_invoice');
+    expect(toolNames).toContain('permanent_delete_invoice');
     expect(toolNames).toContain('list_subscriptions');
     expect(toolNames).toContain('get_subscription');
     expect(toolNames).toContain('create_subscription');
@@ -256,7 +260,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_order');
     expect(toolNames).toContain('create_order');
     expect(toolNames).toContain('update_order');
+    expect(toolNames).toContain('activate_order');
     expect(toolNames).toContain('delete_order');
+    expect(toolNames).toContain('permanent_delete_order');
     expect(toolNames).toContain('list_purchase_orders');
     expect(toolNames).toContain('get_purchase_order');
     expect(toolNames).toContain('download_purchase_order_pdf');
@@ -274,7 +280,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
+    expect(toolNames).toContain('activate_invoice');
     expect(toolNames).toContain('delete_invoice');
+    expect(toolNames).toContain('permanent_delete_invoice');
     expect(toolNames).toContain('list_subscriptions');
     expect(toolNames).toContain('get_subscription');
     expect(toolNames).toContain('create_subscription');
@@ -439,7 +447,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_order');
     expect(instructions).toContain('create_order');
     expect(instructions).toContain('update_order');
+    expect(instructions).toContain('activate_order');
     expect(instructions).toContain('delete_order');
+    expect(instructions).toContain('permanent_delete_order');
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
@@ -465,7 +475,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
+    expect(instructions).toContain('activate_invoice');
     expect(instructions).toContain('delete_invoice');
+    expect(instructions).toContain('permanent_delete_invoice');
     expect(instructions).toContain('list_subscriptions');
     expect(instructions).toContain('get_subscription');
     expect(instructions).toContain('create_subscription');
@@ -621,7 +633,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_order');
     expect(instructions).toContain('create_order');
     expect(instructions).toContain('update_order');
+    expect(instructions).toContain('activate_order');
     expect(instructions).toContain('delete_order');
+    expect(instructions).toContain('permanent_delete_order');
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
@@ -640,7 +654,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
+    expect(instructions).toContain('activate_invoice');
     expect(instructions).toContain('delete_invoice');
+    expect(instructions).toContain('permanent_delete_invoice');
     expect(instructions).toContain('list_subscriptions');
     expect(instructions).toContain('get_subscription');
     expect(instructions).toContain('create_subscription');
