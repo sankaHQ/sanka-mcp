@@ -25,7 +25,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live provider-side records through the connected integration API. Do not fall back to Sanka if an integration read returns unavailable_reason.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from a connected HubSpot/Salesforce integration. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
@@ -11522,7 +11522,7 @@ export const crmQueryRecordsTool: McpTool = {
     name: 'query_records',
     title: 'Query records',
     description:
-      'Query records with server-side filters and field projection. Default scope=sanka reads Sanka records. Use scope=integration with provider=salesforce for live Salesforce-side records; if unavailable_reason is returned, do not silently fall back to Sanka.',
+      'Query Sanka or live integration records with server-side filters and field projection. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side rows; use this instead of list_* when the user asks for filtered rows or only a few fields.',
     inputSchema: RECORD_QUERY_INPUT_SCHEMA,
     outputSchema: RECORD_QUERY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -11568,7 +11568,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Compute counts and grouped counts. Default scope=sanka counts Sanka records; scope=sanka with provider=salesforce counts records linked to Salesforce, while scope=integration with provider=salesforce counts live Salesforce-side records. Do not fall back to Sanka when integration reads return unavailable_reason.',
+      'Compute counts and grouped counts for Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14184,7 +14184,7 @@ export const crmListDealsTool: McpTool = {
     name: 'list_deals',
     title: 'List deals',
     description:
-      'Review deals (sales pipeline records) in Sanka. Use this when the user wants to inspect their pipeline, find open deals, or review deal stages in the current workspace.',
+      'Review deals. By default this lists Sanka pipeline records; use scope="integration" with provider="hubspot" or provider="salesforce" to read live CRM-side deals/opportunities from the connected channel.',
     inputSchema: DEAL_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
