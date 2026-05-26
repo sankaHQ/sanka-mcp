@@ -22,6 +22,9 @@ describe('record URL enrichment', () => {
         content: [{ type: 'text', text: 'ok' }],
         structuredContent: {
           data: [{ id: 'cc59d222-21c1-4a64-af2a-6d6479fc8c51', id_inv: 21 }],
+          result: {
+            data: [{ id: 'cc59d222-21c1-4a64-af2a-6d6479fc8c51', id_inv: 21 }],
+          },
         },
       },
       resource: 'invoices',
@@ -30,6 +33,14 @@ describe('record URL enrichment', () => {
     });
 
     expect(result.structuredContent?.['data']).toEqual([
+      {
+        id: 'cc59d222-21c1-4a64-af2a-6d6479fc8c51',
+        id_inv: 21,
+        workspace_code: '39467777',
+        app_url: 'https://app.sanka.com/ja/39467777/invoices/?id=cc59d222-21c1-4a64-af2a-6d6479fc8c51',
+      },
+    ]);
+    expect((result.structuredContent?.['result'] as any)?.data).toEqual([
       {
         id: 'cc59d222-21c1-4a64-af2a-6d6479fc8c51',
         id_inv: 21,

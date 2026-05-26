@@ -102,6 +102,10 @@ function enrichPayload(payload: JsonRecord, context: EnrichmentContext): JsonRec
       enriched[key] = enrichRecord(value, context);
     }
   }
+  const resultValue = enriched['result'];
+  if (isJsonRecord(resultValue)) {
+    enriched['result'] = enrichPayload(resultValue, context);
+  }
   return enriched;
 }
 
