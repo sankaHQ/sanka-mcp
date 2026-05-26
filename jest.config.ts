@@ -11,6 +11,7 @@ const config: JestConfigWithTsJest = {
     '^sanka-sdk/(.*)$': '<rootDir>/src/$1',
   },
   modulePathIgnorePatterns: [
+    '<rootDir>/.worktrees/',
     '<rootDir>/ecosystem-tests/',
     '<rootDir>/dist/',
     '<rootDir>/deno/',

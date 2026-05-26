@@ -539,7 +539,9 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"get_order"');
     expect(text).toContain('"name":"create_order"');
     expect(text).toContain('"name":"update_order"');
+    expect(text).toContain('"name":"activate_order"');
     expect(text).toContain('"name":"delete_order"');
+    expect(text).toContain('"name":"permanent_delete_order"');
     expect(text).toContain('"name":"list_purchase_orders"');
     expect(text).toContain('"name":"get_purchase_order"');
     expect(text).toContain('"name":"download_purchase_order_pdf"');
@@ -557,7 +559,9 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"send_invoice_email"');
     expect(text).toContain('"name":"create_invoice"');
     expect(text).toContain('"name":"update_invoice"');
+    expect(text).toContain('"name":"activate_invoice"');
     expect(text).toContain('"name":"delete_invoice"');
+    expect(text).toContain('"name":"permanent_delete_invoice"');
     expect(text).toContain('"name":"list_subscriptions"');
     expect(text).toContain('"name":"get_subscription"');
     expect(text).toContain('"name":"create_subscription"');
@@ -583,6 +587,10 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"create_disbursement"');
     expect(text).toContain('"name":"update_disbursement"');
     expect(text).toContain('"name":"delete_disbursement"');
+    expect(text).toContain('"name":"list_disbursement_allocations"');
+    expect(text).toContain('"name":"create_disbursement_allocation"');
+    expect(text).toContain('"name":"update_disbursement_allocation"');
+    expect(text).toContain('"name":"delete_disbursement_allocation"');
     expect(text).toContain('"name":"list_locations"');
     expect(text).toContain('"name":"get_location"');
     expect(text).toContain('"name":"create_location"');

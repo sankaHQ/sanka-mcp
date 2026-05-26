@@ -21,6 +21,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_associations');
+    expect(toolNames).toContain('create_association');
+    expect(toolNames).toContain('delete_association');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -50,7 +53,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_order');
     expect(toolNames).toContain('create_order');
     expect(toolNames).toContain('update_order');
+    expect(toolNames).toContain('activate_order');
     expect(toolNames).toContain('delete_order');
+    expect(toolNames).toContain('permanent_delete_order');
     expect(toolNames).toContain('list_purchase_orders');
     expect(toolNames).toContain('get_purchase_order');
     expect(toolNames).toContain('download_purchase_order_pdf');
@@ -68,7 +73,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
+    expect(toolNames).toContain('activate_invoice');
     expect(toolNames).toContain('delete_invoice');
+    expect(toolNames).toContain('permanent_delete_invoice');
     expect(toolNames).toContain('list_subscriptions');
     expect(toolNames).toContain('get_subscription');
     expect(toolNames).toContain('create_subscription');
@@ -76,6 +83,8 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_subscription');
     expect(toolNames).toContain('list_payments');
     expect(toolNames).toContain('get_payment');
+    expect(toolNames).toContain('list_payment_allocations');
+    expect(toolNames).toContain('update_payment_allocations');
     expect(toolNames).toContain('create_payment');
     expect(toolNames).toContain('update_payment');
     expect(toolNames).toContain('delete_payment');
@@ -94,6 +103,10 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_disbursement');
     expect(toolNames).toContain('update_disbursement');
     expect(toolNames).toContain('delete_disbursement');
+    expect(toolNames).toContain('list_disbursement_allocations');
+    expect(toolNames).toContain('create_disbursement_allocation');
+    expect(toolNames).toContain('update_disbursement_allocation');
+    expect(toolNames).toContain('delete_disbursement_allocation');
     expect(toolNames).toContain('list_tickets');
     expect(toolNames).toContain('get_ticket');
     expect(toolNames).toContain('create_ticket');
@@ -132,6 +145,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_employees');
     expect(toolNames).toContain('list_absences');
     expect(toolNames).toContain('get_absence');
     expect(toolNames).toContain('create_absence');
@@ -146,7 +160,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('upsert_payroll_profile');
     expect(toolNames).toContain('list_payroll_runs');
     expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('download_payroll_payslip_pdf');
     expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('create_payroll_journal_entry');
     expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
@@ -212,6 +228,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_associations');
+    expect(toolNames).toContain('create_association');
+    expect(toolNames).toContain('delete_association');
     expect(toolNames).toContain('list_companies');
     expect(toolNames).toContain('get_company');
     expect(toolNames).toContain('create_company');
@@ -241,7 +260,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_order');
     expect(toolNames).toContain('create_order');
     expect(toolNames).toContain('update_order');
+    expect(toolNames).toContain('activate_order');
     expect(toolNames).toContain('delete_order');
+    expect(toolNames).toContain('permanent_delete_order');
     expect(toolNames).toContain('list_purchase_orders');
     expect(toolNames).toContain('get_purchase_order');
     expect(toolNames).toContain('download_purchase_order_pdf');
@@ -259,7 +280,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
+    expect(toolNames).toContain('activate_invoice');
     expect(toolNames).toContain('delete_invoice');
+    expect(toolNames).toContain('permanent_delete_invoice');
     expect(toolNames).toContain('list_subscriptions');
     expect(toolNames).toContain('get_subscription');
     expect(toolNames).toContain('create_subscription');
@@ -267,6 +290,8 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_subscription');
     expect(toolNames).toContain('list_payments');
     expect(toolNames).toContain('get_payment');
+    expect(toolNames).toContain('list_payment_allocations');
+    expect(toolNames).toContain('update_payment_allocations');
     expect(toolNames).toContain('create_payment');
     expect(toolNames).toContain('update_payment');
     expect(toolNames).toContain('delete_payment');
@@ -285,6 +310,10 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_disbursement');
     expect(toolNames).toContain('update_disbursement');
     expect(toolNames).toContain('delete_disbursement');
+    expect(toolNames).toContain('list_disbursement_allocations');
+    expect(toolNames).toContain('create_disbursement_allocation');
+    expect(toolNames).toContain('update_disbursement_allocation');
+    expect(toolNames).toContain('delete_disbursement_allocation');
     expect(toolNames).toContain('list_tickets');
     expect(toolNames).toContain('get_ticket');
     expect(toolNames).toContain('create_ticket');
@@ -323,6 +352,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_expense');
     expect(toolNames).toContain('update_expense');
     expect(toolNames).toContain('delete_expense');
+    expect(toolNames).toContain('list_employees');
     expect(toolNames).toContain('list_absences');
     expect(toolNames).toContain('get_absence');
     expect(toolNames).toContain('create_absence');
@@ -337,7 +367,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('upsert_payroll_profile');
     expect(toolNames).toContain('list_payroll_runs');
     expect(toolNames).toContain('get_payroll_run');
+    expect(toolNames).toContain('download_payroll_payslip_pdf');
     expect(toolNames).toContain('calculate_payroll_run');
+    expect(toolNames).toContain('create_payroll_journal_entry');
     expect(toolNames).toContain('approve_payroll_run');
     expect(toolNames).toContain('list_incentives');
     expect(toolNames).toContain('list_incentive_plans');
@@ -383,6 +415,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_associations');
+    expect(instructions).toContain('create_association');
+    expect(instructions).toContain('delete_association');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');
@@ -412,7 +447,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_order');
     expect(instructions).toContain('create_order');
     expect(instructions).toContain('update_order');
+    expect(instructions).toContain('activate_order');
     expect(instructions).toContain('delete_order');
+    expect(instructions).toContain('permanent_delete_order');
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
@@ -438,7 +475,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('Do not say a Sanka tool or API call failed unless');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
+    expect(instructions).toContain('activate_invoice');
     expect(instructions).toContain('delete_invoice');
+    expect(instructions).toContain('permanent_delete_invoice');
     expect(instructions).toContain('list_subscriptions');
     expect(instructions).toContain('get_subscription');
     expect(instructions).toContain('create_subscription');
@@ -446,6 +485,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_subscription');
     expect(instructions).toContain('list_payments');
     expect(instructions).toContain('get_payment');
+    expect(instructions).toContain('list_payment_allocations');
+    expect(instructions).toContain('update_payment_allocations');
     expect(instructions).toContain('create_payment');
     expect(instructions).toContain('update_payment');
     expect(instructions).toContain('delete_payment');
@@ -464,6 +505,10 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_disbursement');
     expect(instructions).toContain('update_disbursement');
     expect(instructions).toContain('delete_disbursement');
+    expect(instructions).toContain('list_disbursement_allocations');
+    expect(instructions).toContain('create_disbursement_allocation');
+    expect(instructions).toContain('update_disbursement_allocation');
+    expect(instructions).toContain('delete_disbursement_allocation');
     expect(instructions).toContain('list_tickets');
     expect(instructions).toContain('get_ticket');
     expect(instructions).toContain('create_ticket');
@@ -502,12 +547,15 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_employees');
     expect(instructions).toContain('list_absences');
     expect(instructions).toContain('create_absence');
     expect(instructions).toContain('list_attendance_records');
     expect(instructions).toContain('create_attendance_record');
     expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('download_payroll_payslip_pdf');
     expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('create_payroll_journal_entry');
     expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');
@@ -553,6 +601,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_associations');
+    expect(instructions).toContain('create_association');
+    expect(instructions).toContain('delete_association');
     expect(instructions).toContain('list_companies');
     expect(instructions).toContain('get_company');
     expect(instructions).toContain('create_company');
@@ -582,7 +633,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_order');
     expect(instructions).toContain('create_order');
     expect(instructions).toContain('update_order');
+    expect(instructions).toContain('activate_order');
     expect(instructions).toContain('delete_order');
+    expect(instructions).toContain('permanent_delete_order');
     expect(instructions).toContain('list_purchase_orders');
     expect(instructions).toContain('get_purchase_order');
     expect(instructions).toContain('download_purchase_order_pdf');
@@ -601,7 +654,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
+    expect(instructions).toContain('activate_invoice');
     expect(instructions).toContain('delete_invoice');
+    expect(instructions).toContain('permanent_delete_invoice');
     expect(instructions).toContain('list_subscriptions');
     expect(instructions).toContain('get_subscription');
     expect(instructions).toContain('create_subscription');
@@ -609,6 +664,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_subscription');
     expect(instructions).toContain('list_payments');
     expect(instructions).toContain('get_payment');
+    expect(instructions).toContain('list_payment_allocations');
+    expect(instructions).toContain('update_payment_allocations');
     expect(instructions).toContain('create_payment');
     expect(instructions).toContain('update_payment');
     expect(instructions).toContain('delete_payment');
@@ -627,6 +684,10 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_disbursement');
     expect(instructions).toContain('update_disbursement');
     expect(instructions).toContain('delete_disbursement');
+    expect(instructions).toContain('list_disbursement_allocations');
+    expect(instructions).toContain('create_disbursement_allocation');
+    expect(instructions).toContain('update_disbursement_allocation');
+    expect(instructions).toContain('delete_disbursement_allocation');
     expect(instructions).toContain('list_tickets');
     expect(instructions).toContain('get_ticket');
     expect(instructions).toContain('create_ticket');
@@ -665,12 +726,15 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('create_expense');
     expect(instructions).toContain('update_expense');
     expect(instructions).toContain('delete_expense');
+    expect(instructions).toContain('list_employees');
     expect(instructions).toContain('list_absences');
     expect(instructions).toContain('create_absence');
     expect(instructions).toContain('list_attendance_records');
     expect(instructions).toContain('create_attendance_record');
     expect(instructions).toContain('list_payroll_profiles');
+    expect(instructions).toContain('download_payroll_payslip_pdf');
     expect(instructions).toContain('calculate_payroll_run');
+    expect(instructions).toContain('create_payroll_journal_entry');
     expect(instructions).toContain('approve_payroll_run');
     expect(instructions).toContain('list_incentives');
     expect(instructions).toContain('list_incentive_plans');

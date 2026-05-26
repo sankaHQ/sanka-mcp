@@ -90,7 +90,18 @@ const WORKFLOW_DISPLAY_GUIDANCE = {
     payment: '入金',
     subscription: 'サブスクリプション',
   },
+  workflow_labels_ja: {
+    deal_to_estimate: '取引から見積を作成',
+    deal_to_order: '取引から受注を作成',
+    deal_to_subscription: '取引から受注とサブスクを作成',
+    order_to_invoice: '受注から売上請求を作成',
+    order_to_subscription: '受注からサブスクを作成',
+    order_to_purchase_order: '受注から発注を作成',
+    quote_readiness: '見積作成可否を確認',
+  },
   status_labels_ja: {
+    active: '有効',
+    archived: 'アーカイブ済み',
     draft: '下書き',
     sent: '送信済み',
     approved: '承認済み',
@@ -101,6 +112,10 @@ const WORKFLOW_DISPLAY_GUIDANCE = {
     cancelled: 'キャンセル済み',
     canceled: 'キャンセル済み',
     void: '無効',
+    closedwon: '受注済み',
+    contractsent: '契約送付済み',
+    presentationscheduled: '提案中',
+    qualifiedtobuy: '有望',
   },
 };
 

@@ -22,12 +22,14 @@ import {
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateCalendarAttendanceTool,
+  crmCreateAssociationTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
   crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
+  crmCreateDisbursementAllocationTool,
   crmCreateInvoiceTool,
   crmCreateInventoryTool,
   crmCreateInventoryTransactionTool,
@@ -40,6 +42,7 @@ import {
   crmCreateOrderTool,
   crmCreatePaymentTool,
   crmCreatePurchaseOrderTool,
+  crmCreatePayrollJournalEntryTool,
   crmCreateReportTool,
   crmCreateBillTool,
   crmCreateDisbursementTool,
@@ -50,16 +53,22 @@ import {
   crmCreateTicketTool,
   crmCreateViewTool,
   crmDeleteCompanyTool,
+  crmDeleteAssociationTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
   crmDeleteEstimateTool,
   crmDeleteExpenseTool,
+  crmDeleteDisbursementAllocationTool,
   crmDeleteInventoryTool,
   crmDeleteInventoryTransactionTool,
+  crmActivateInvoiceTool,
   crmDeleteInvoiceTool,
   crmDeleteItemTool,
   crmDeleteLocationTool,
+  crmActivateOrderTool,
   crmDeleteOrderTool,
+  crmPermanentDeleteOrderTool,
+  crmPermanentDeleteInvoiceTool,
   crmDeletePaymentTool,
   crmDeletePurchaseOrderTool,
   crmDeleteReportTool,
@@ -87,6 +96,7 @@ import {
   crmDownloadInvoicePDFTool,
   crmDownloadOrderPDFTool,
   crmDownloadPaymentPDFTool,
+  crmDownloadPayrollPayslipPDFTool,
   crmDownloadPurchaseOrderPDFTool,
   crmDownloadSlipPDFTool,
   crmGetEstimateTool,
@@ -113,8 +123,10 @@ import {
   crmGetViewColumnsTool,
   crmGetViewTool,
   crmListCompaniesTool,
+  crmListEmployeesTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
+  crmListAssociationsTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
@@ -132,6 +144,8 @@ import {
   crmListItemsTool,
   crmListLocationsTool,
   crmListOrdersTool,
+  crmListDisbursementAllocationsTool,
+  crmListPaymentAllocationsTool,
   crmListPaymentsTool,
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
@@ -164,6 +178,7 @@ import {
   crmUpdateContactTool,
   crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
+  crmUpdateDisbursementAllocationTool,
   crmUpdateEstimateTool,
   crmUpdateExpenseTool,
   crmUpdateInventoryTool,
@@ -172,6 +187,7 @@ import {
   crmUpdateItemTool,
   crmUpdateLocationTool,
   crmUpdateOrderTool,
+  crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateReportTool,
@@ -219,6 +235,8 @@ import {
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
+import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
+import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
 export const newMcpServer = async ({
   customInstructionsPath,
@@ -400,6 +418,11 @@ export async function initMcpServer(params: {
       toolTitle: mcpTool.tool.title ?? mcpTool.tool.name,
     });
     if (scopeError) {
+      const normalizedScopeError = normalizeToolCallResult({
+        mcpTool,
+        result: scopeError,
+        args,
+      });
       try {
         const client = getClient();
         await recordMcpToolCall({
@@ -410,28 +433,24 @@ export async function initMcpServer(params: {
             ...reqContext,
             client,
           },
-          result: scopeError,
+          result: normalizedScopeError,
           startedAt,
         });
       } catch (error) {
         logger.warn('Failed to record MCP tool call scope error log', error);
       }
-      return scopeError;
+      return normalizedScopeError;
     }
 
     let client: Sanka;
     try {
       client = getClient();
     } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Failed to initialize client: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      return normalizeToolCallResult({
+        mcpTool,
+        args,
+        result: buildToolErrorResult(error),
+      });
     }
 
     const reqContextWithClient = {
@@ -440,8 +459,18 @@ export async function initMcpServer(params: {
     };
 
     try {
-      const result = await executeHandler({
-        handler: mcpTool.handler,
+      const result = normalizeToolCallResult({
+        mcpTool,
+        result: await executeHandler({
+          handler: mcpTool.handler,
+          reqContext: reqContextWithClient,
+          args,
+        }),
+        args,
+      });
+      const enrichedResult = enrichRecordUrlsForToolResult({
+        result,
+        resource: mcpTool.metadata.resource,
         reqContext: reqContextWithClient,
         args,
       });
@@ -450,28 +479,25 @@ export async function initMcpServer(params: {
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
-        result,
+        result: enrichedResult,
         startedAt,
       });
-      return result;
+      return enrichedResult;
     } catch (error) {
+      const errorResult = normalizeToolCallResult({
+        mcpTool,
+        args,
+        result: buildToolErrorResult(error),
+      });
       await recordMcpToolCall({
         client,
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: error instanceof Error ? error.message : String(error),
-            },
-          ],
-          isError: true,
-        },
+        result: errorResult,
         startedAt,
       });
-      throw error;
+      return errorResult;
     }
   });
 
@@ -539,6 +565,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateCustomObjectRecordTool,
     crmUpdateCustomObjectRecordTool,
     crmArchiveCustomObjectRecordTool,
+    crmListAssociationsTool,
+    crmCreateAssociationTool,
+    crmDeleteAssociationTool,
     crmListCompaniesTool,
     crmGetCompanyTool,
     crmCreateCompanyTool,
@@ -573,7 +602,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmDownloadOrderPDFTool,
     crmCreateOrderTool,
     crmUpdateOrderTool,
+    crmActivateOrderTool,
     crmDeleteOrderTool,
+    crmPermanentDeleteOrderTool,
     crmListPurchaseOrdersTool,
     crmGetPurchaseOrderTool,
     crmDownloadPurchaseOrderPDFTool,
@@ -611,7 +642,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmSendInvoiceEmailTool,
     crmCreateInvoiceTool,
     crmUpdateInvoiceTool,
+    crmActivateInvoiceTool,
     crmDeleteInvoiceTool,
+    crmPermanentDeleteInvoiceTool,
     crmListSubscriptionsTool,
     crmGetSubscriptionTool,
     crmCreateSubscriptionTool,
@@ -619,6 +652,8 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmDeleteSubscriptionTool,
     crmListPaymentsTool,
     crmGetPaymentTool,
+    crmListPaymentAllocationsTool,
+    crmUpdatePaymentAllocationsTool,
     crmCreatePaymentTool,
     crmUpdatePaymentTool,
     crmDeletePaymentTool,
@@ -639,6 +674,10 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateDisbursementTool,
     crmUpdateDisbursementTool,
     crmDeleteDisbursementTool,
+    crmListDisbursementAllocationsTool,
+    crmCreateDisbursementAllocationTool,
+    crmUpdateDisbursementAllocationTool,
+    crmDeleteDisbursementAllocationTool,
     crmListTicketsTool,
     crmGetTicketTool,
     crmCreateTicketTool,
@@ -667,6 +706,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateExpenseTool,
     crmUpdateExpenseTool,
     crmDeleteExpenseTool,
+    crmListEmployeesTool,
     crmListAbsencesTool,
     crmGetAbsenceTool,
     crmCreateAbsenceTool,
@@ -681,7 +721,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmUpsertPayrollProfileTool,
     crmListPayrollRunsTool,
     crmGetPayrollRunTool,
+    crmDownloadPayrollPayslipPDFTool,
     crmCalculatePayrollRunTool,
+    crmCreatePayrollJournalEntryTool,
     crmApprovePayrollRunTool,
     crmListIncentivesTool,
     crmListIncentivePlansTool,

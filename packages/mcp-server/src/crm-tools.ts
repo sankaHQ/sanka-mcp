@@ -25,7 +25,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live provider-side records through the connected integration API. Do not fall back to Sanka if an integration read returns unavailable_reason.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from a connected HubSpot/Salesforce integration. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
@@ -524,6 +524,145 @@ const CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA = {
   required: ['data', 'message'],
 };
 
+const ASSOCIATION_REF_INPUT_PROPERTIES = {
+  source_object: {
+    type: 'string',
+    description:
+      'Source Sanka object slug, for example companies, contacts, deals, orders, invoices, payments, bills, or custom_objects.',
+  },
+  source_id: {
+    type: 'string',
+    description: 'Source record identifier. Accepts the public API identifier supported for that object.',
+  },
+  source_custom_object_id: {
+    type: 'string',
+    description: 'Required when source_object is custom_objects; pass the custom object id, slug, or name.',
+  },
+  target_object: {
+    type: 'string',
+    description:
+      'Target Sanka object slug, for example companies, contacts, deals, orders, invoices, payments, bills, or custom_objects.',
+  },
+  target_id: {
+    type: 'string',
+    description: 'Target record identifier. Accepts the public API identifier supported for that object.',
+  },
+  target_custom_object_id: {
+    type: 'string',
+    description: 'Required when target_object is custom_objects; pass the custom object id, slug, or name.',
+  },
+  label_id: {
+    type: 'string',
+    description: 'Association label UUID. Prefer this when known.',
+  },
+  label: {
+    type: 'string',
+    description:
+      'Association label name. Use when label_id is not known; the label must allow the source and target object types.',
+  },
+};
+
+const ASSOCIATION_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...ASSOCIATION_REF_INPUT_PROPERTIES,
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    page: {
+      type: 'integer',
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+};
+
+const ASSOCIATION_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: ASSOCIATION_REF_INPUT_PROPERTIES,
+  required: ['source_object', 'source_id', 'target_object', 'target_id'],
+};
+
+const ASSOCIATION_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    association_id: {
+      type: 'string',
+      description:
+        'Association edge UUID to delete. If omitted, source_object/source_id, target_object/target_id, and label_id or label are required.',
+    },
+    associationId: {
+      type: 'string',
+      description: 'Alias for association_id.',
+    },
+    id: {
+      type: 'string',
+      description: 'Alias for association_id.',
+    },
+    ...ASSOCIATION_REF_INPUT_PROPERTIES,
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const ASSOCIATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    source: { type: 'object', additionalProperties: true },
+    target: { type: 'object', additionalProperties: true },
+    label: { type: 'object', additionalProperties: true },
+    created_at: { type: 'string' },
+  },
+  required: ['id', 'source', 'target'],
+};
+
+const ASSOCIATION_LIST_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    count: { type: 'integer' },
+    page: { type: 'integer' },
+    total: { type: 'integer' },
+    message: { type: 'string' },
+    results: {
+      type: 'array',
+      items: ASSOCIATION_OUTPUT_SCHEMA,
+    },
+    ctx_id: { type: 'string' },
+  },
+  required: ['count', 'page', 'total', 'message', 'results'],
+};
+
+const ASSOCIATION_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    association: ASSOCIATION_OUTPUT_SCHEMA,
+    created: { type: 'boolean' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['association', 'created', 'message'],
+};
+
+const ASSOCIATION_DELETE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    deleted: { type: 'boolean' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['deleted', 'message'],
+};
+
 type OrderLineItem = {
   item_id?: string;
   itemExternalId?: string;
@@ -898,6 +1037,51 @@ const EXPENSE_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['expense_id'],
+};
+
+const EMPLOYEE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of employees to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional employee name, email, username, or record number search.',
+    },
+    sort: {
+      type: 'string',
+      description:
+        'Sort field, optionally prefixed with "-". Supported fields include id_user, id_worker, name, email, created_at, updated_at, status, and login_blocked.',
+    },
+    view: {
+      type: 'string',
+      description: 'Optional saved employee view identifier.',
+    },
+    usage_status: {
+      type: 'string',
+      description: 'Optional employee usage status. Use archived to list inactive employees.',
+      enum: ['active', 'archived'],
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override, for example ja or en.',
+    },
+  },
 };
 
 const ABSENCE_LIST_INPUT_SCHEMA = {
@@ -1281,6 +1465,34 @@ const PAYROLL_RUN_RETRIEVE_INPUT_SCHEMA = {
   required: ['run_id'],
 };
 
+const PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID.',
+    },
+    result_id: {
+      type: 'string',
+      description: 'Optional payroll employee result UUID. Omit to download all payslips in the run.',
+    },
+    employee_id: {
+      type: 'string',
+      description:
+        'Optional Worker UUID or supported employee token. Omit to download all payslips in the run.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override for the generated PDF labels, for example ja or en.',
+    },
+  },
+  required: ['run_id'],
+};
+
 const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -1302,6 +1514,37 @@ const PAYROLL_RUN_CALCULATE_INPUT_SCHEMA = {
     },
   },
   required: ['period'],
+};
+
+const PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    run_id: {
+      type: 'string',
+      description: 'Payroll run UUID to convert into one monthly Sanka Journal Entry.',
+    },
+    debit_account: {
+      type: 'string',
+      description: 'Optional debit journal account. Defaults to salaries and allowances.',
+    },
+    credit_account: {
+      type: 'string',
+      description: 'Optional credit journal account for net pay. Defaults to other accounts payable.',
+    },
+    deductions_account: {
+      type: 'string',
+      description: 'Optional credit journal account for payroll deductions. Defaults to deposits received.',
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional journal entry notes.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['run_id'],
 };
 
 const INCENTIVE_LIST_INPUT_SCHEMA = {
@@ -2871,6 +3114,14 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     case_id: { type: 'string' },
     external_id: { type: 'string' },
+    record_preview: {
+      type: ['object', 'null'] as any,
+      additionalProperties: true,
+    },
+    updated_fields: {
+      type: ['object', 'null'] as any,
+      additionalProperties: true,
+    },
   },
   required: ['ok', 'status'],
 };
@@ -3068,7 +3319,7 @@ const ORDER_DELETE_INPUT_SCHEMA = {
   properties: {
     order_id: {
       type: 'string',
-      description: 'Order identifier to delete.',
+      description: 'Order identifier to archive. This is a soft delete, not a permanent delete.',
     },
     external_id: {
       type: 'string',
@@ -3076,6 +3327,25 @@ const ORDER_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['order_id'],
+};
+
+const ORDER_PERMANENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    order_id: {
+      type: 'string',
+      description: 'Archived order identifier to permanently delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Must be true. Permanent delete cannot be undone.',
+    },
+  },
+  required: ['order_id', 'confirm'],
 };
 
 const TASK_MUTATION_INPUT_PROPERTIES = {
@@ -3253,8 +3523,17 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     ok: { type: 'boolean' },
+    operation: { type: 'string' },
+    status: { type: 'string' },
+    usage_status: { type: 'string' },
+    usage_status_label: { type: 'string' },
+    permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
     job_id: { type: 'string' },
+    external_id: { type: 'string' },
+    order_id: { type: 'string' },
+    order_number: { type: 'integer' },
+    verification: { type: 'object' },
     results: {
       type: 'array',
       items: {
@@ -3999,7 +4278,7 @@ const INVOICE_DELETE_INPUT_SCHEMA = {
   properties: {
     invoice_id: {
       type: 'string',
-      description: 'Invoice identifier to delete.',
+      description: 'Invoice identifier to archive. This is a soft delete, not a permanent delete.',
     },
     external_id: {
       type: 'string',
@@ -4007,6 +4286,25 @@ const INVOICE_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['invoice_id'],
+};
+
+const INVOICE_PERMANENT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description: 'Archived invoice identifier to permanently delete.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Must be true. Permanent delete cannot be undone.',
+    },
+  },
+  required: ['invoice_id', 'confirm'],
 };
 
 const INVOICE_LIST_INPUT_SCHEMA = {
@@ -4927,6 +5225,105 @@ const DISBURSEMENT_LIST_INPUT_SCHEMA = {
   },
 };
 
+const DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES = {
+  payable_type: {
+    type: 'string',
+    description: 'Payable object type to allocate. Use "expense" for Expense or "bill" for Bill.',
+    enum: ['bill', 'expense'],
+  },
+  payable_id: {
+    type: 'string',
+    description:
+      'Payable record identifier. Accepts UUID or the workspace numeric id for the selected payable type.',
+  },
+  bill_id: {
+    type: 'string',
+    description: 'Bill identifier alias. Use this instead of payable_id when allocating a bill.',
+  },
+  expense_id: {
+    type: 'string',
+    description: 'Expense identifier alias. Use this instead of payable_id when allocating an expense.',
+  },
+  id_bill: {
+    type: 'string',
+    description: 'Numeric bill id alias.',
+  },
+  id_pm: {
+    type: 'string',
+    description: 'Numeric expense id alias.',
+  },
+  amount: {
+    type: 'number',
+    description: 'Amount to allocate from the disbursement to the payable.',
+  },
+  currency: {
+    type: 'string',
+    description:
+      'Optional allocation currency. Must match the disbursement and payable currency when provided.',
+  },
+  source: {
+    type: 'string',
+    description: 'Optional allocation source label, for example manual, api, bank_statement, or migration.',
+  },
+  notes: {
+    type: 'string',
+    description: 'Optional allocation notes.',
+  },
+};
+
+const DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement_id: {
+      type: 'string',
+      description: 'Disbursement identifier. Accepts a UUID, numeric disbursement id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['disbursement_id'],
+};
+
+const DISBURSEMENT_ALLOCATION_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    ...DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES,
+  },
+  required: ['disbursement_id', 'amount'],
+};
+
+const DISBURSEMENT_ALLOCATION_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    allocation_id: {
+      type: 'string',
+      description: 'Disbursement allocation row UUID returned by list_disbursement_allocations.',
+    },
+    ...DISBURSEMENT_ALLOCATION_LINE_INPUT_PROPERTIES,
+  },
+  required: ['disbursement_id', 'allocation_id'],
+};
+
+const DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA.properties,
+    allocation_id: {
+      type: 'string',
+      description: 'Disbursement allocation row UUID returned by list_disbursement_allocations.',
+    },
+  },
+  required: ['disbursement_id', 'allocation_id'],
+};
+
 const INVOICE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -4953,10 +5350,16 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     ok: { type: 'boolean' },
+    operation: { type: 'string' },
     status: { type: 'string' },
+    usage_status: { type: 'string' },
+    usage_status_label: { type: 'string' },
+    permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
     external_id: { type: 'string' },
     invoice_id: { type: 'string' },
+    id_inv: { type: 'integer' },
+    verification: { type: 'object' },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -5076,6 +5479,41 @@ const DISBURSEMENT_MUTATION_OUTPUT_SCHEMA = {
     external_id: { type: 'string' },
   },
   required: ['ok', 'status'],
+};
+
+const DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    disbursement: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    bill: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    expense: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    allocations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    available_payables: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['message'],
 };
 
 const TICKET_LIST_INPUT_SCHEMA = {
@@ -5992,6 +6430,88 @@ const PAYMENT_UPDATE_INPUT_SCHEMA = {
   required: ['payment_id'],
 };
 
+const PAYMENT_ALLOCATION_LINE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: {
+      type: 'string',
+      description:
+        'Invoice identifier to allocate this payment to. Accepts a UUID, numeric invoice id, or external reference.',
+    },
+    amount: {
+      type: 'number',
+      description:
+        'Receipt amount to apply to the invoice. May be less than the invoice balance for partial payment.',
+    },
+    adjustment_amount: {
+      type: 'number',
+      description:
+        'Optional adjustment amount cleared together with the payment, for example bank transfer fees.',
+    },
+    adjustment_type: {
+      type: 'string',
+      description: 'Optional adjustment type, for example bank_transfer_fee.',
+    },
+    currency: {
+      type: 'string',
+      description: 'Optional allocation currency. Must match the payment and invoice currency when provided.',
+    },
+    source: {
+      type: 'string',
+      description: 'Optional allocation source label, for example mcp, api, csv, or reconciliation.',
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional allocation notes.',
+    },
+  },
+  required: ['invoice_id', 'amount'],
+};
+
+const PAYMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['payment_id'],
+};
+
+const PAYMENT_ALLOCATIONS_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment_id: {
+      type: 'string',
+      description: 'Payment identifier. Accepts a UUID, numeric payment id, or external reference.',
+    },
+    external_id: {
+      type: 'string',
+      description: 'Optional explicit external id lookup override.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+    allocations: {
+      type: 'array',
+      description:
+        'Complete replacement set of invoice allocations for this payment. Include every invoice row that should remain linked after the update.',
+      items: PAYMENT_ALLOCATION_LINE_INPUT_SCHEMA,
+    },
+  },
+  required: ['payment_id', 'allocations'],
+};
+
 const buildPrivateMessageListParams = (args: Record<string, unknown> | undefined) => {
   const status = readString(args?.['status']);
   const language = readString(args?.['language']);
@@ -6182,6 +6702,45 @@ const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
   },
   required: ['ok', 'status'],
+};
+
+const PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    payment: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    invoice: {
+      type: 'object',
+      additionalProperties: true,
+    },
+    allocations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    adjustments: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    adjustment_total: { type: 'number' },
+    available_invoices: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+  required: ['message'],
 };
 
 const LOCATION_MUTATION_INPUT_PROPERTIES = {
@@ -7552,6 +8111,151 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
   };
 };
 
+const readAssociationIdentifier = (value: unknown): string | undefined => {
+  const stringValue = readString(value);
+  if (stringValue) {
+    return stringValue;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const buildAssociationBaseParams = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {};
+
+  for (const key of [
+    'source_object',
+    'source_custom_object_id',
+    'target_object',
+    'target_custom_object_id',
+    'label_id',
+    'label',
+  ] as const) {
+    const value = readString(args?.[key]);
+    if (value) {
+      params[key] = value;
+    }
+  }
+
+  const sourceID = readAssociationIdentifier(args?.['source_id']);
+  if (sourceID) {
+    params['source_id'] = sourceID;
+  }
+  const targetID = readAssociationIdentifier(args?.['target_id']);
+  if (targetID) {
+    params['target_id'] = targetID;
+  }
+
+  return params;
+};
+
+const buildAssociationListParams = (args: Record<string, unknown> | undefined) => {
+  const params = buildAssociationBaseParams(args);
+  const workspaceID = readString(args?.['workspace_id']);
+  if (workspaceID) {
+    params['workspace_id'] = workspaceID;
+  }
+  params['page'] = Math.max(1, Math.trunc(readNumber(args?.['page'], 1)));
+  params['limit'] = Math.max(1, Math.min(100, Math.trunc(readNumber(args?.['limit'], 25))));
+  return params;
+};
+
+const buildAssociationCreateBody = (args: Record<string, unknown> | undefined) =>
+  buildAssociationBaseParams(args);
+
+const buildAssociationDeleteParams = (args: Record<string, unknown> | undefined) => {
+  const params = buildAssociationBaseParams(args);
+  const workspaceID = readString(args?.['workspace_id']);
+  const associationID =
+    readAssociationIdentifier(args?.['association_id']) ??
+    readAssociationIdentifier(args?.['associationId']) ??
+    readAssociationIdentifier(args?.['id']);
+  if (workspaceID) {
+    params['workspace_id'] = workspaceID;
+  }
+  if (associationID) {
+    params['association_id'] = associationID;
+  }
+  return params;
+};
+
+const hasAssociationSourceRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['source_object']) && readString(params['source_id']));
+
+const hasAssociationTargetRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['target_object']) && readString(params['target_id']));
+
+const hasAssociationLabelRef = (params: Record<string, unknown>) =>
+  Boolean(readString(params['label_id']) || readString(params['label']));
+
+const associationEndpointLabel = (
+  association: Record<string, unknown> | undefined,
+  key: 'source' | 'target',
+) => {
+  const endpoint = readRecord(association?.[key]);
+  const object = readString(endpoint?.['object']) ?? readString(endpoint?.['object_type']);
+  const id = readString(endpoint?.['id']);
+  return [object, id].filter(Boolean).join(':') || key;
+};
+
+const buildAssociationMutationText = (
+  payload: Record<string, unknown>,
+  action: 'created' | 'loaded' | 'deleted',
+) => {
+  if (action === 'deleted') {
+    return readBoolean(payload['deleted']) === false ?
+        readString(payload['message']) ?? 'Association was not deleted.'
+      : readString(payload['message']) ?? 'Deleted association.';
+  }
+
+  const association = readRecord(payload['association']);
+  const source = associationEndpointLabel(association, 'source');
+  const target = associationEndpointLabel(association, 'target');
+  const label = readRecord(association?.['label']);
+  const labelName =
+    readString(label?.['label']) ?? readString(label?.['label_ja']) ?? readString(label?.['id']);
+  const associationID = readString(association?.['id']);
+  const verb =
+    action === 'created' && readBoolean(payload['created']) === false ? 'Found existing' : 'Created';
+  const labelText = labelName ? ` with label ${labelName}` : '';
+  const idText = associationID ? ` (${associationID})` : '';
+  return `${verb} association ${source} -> ${target}${labelText}${idText}.`;
+};
+
+const buildAssociationListResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const rows = Array.isArray(payload['data']) ? payload['data'] : [];
+  const associations = rows
+    .map((row) => readRecord(row))
+    .filter((row): row is Record<string, unknown> => Boolean(row));
+  const count = readNumber(payload['count'], associations.length);
+  const total = readNumber(payload['total'], count);
+  const page = readNumber(payload['page'], 1);
+  const message = readString(payload['message']) ?? `Returned ${associations.length} associations.`;
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Found ${total} association${total === 1 ? '' : 's'}.`,
+      },
+    ],
+    structuredContent: {
+      count,
+      page,
+      total,
+      message,
+      results: associations,
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      limit: readNumber(payload['limit'], 0) || undefined,
+      has_next: readBoolean(payload['has_next']) ?? undefined,
+      next_page: readNumber(payload['next_page'], 0) || undefined,
+      pagination: readRecord(payload['pagination']) ?? undefined,
+    },
+  };
+};
+
 const readIntegrationScope = (value: unknown): 'sanka' | 'integration' | undefined => {
   const scope = readString(value);
   if (scope === 'sanka' || scope === 'integration') {
@@ -7852,10 +8556,23 @@ const buildAbsenceListParams = (args: Record<string, unknown> | undefined) => {
   return result;
 };
 
+const buildEmployeeListParams = (args: Record<string, unknown> | undefined) => {
+  const result = buildPagedWorkspaceParams(args, 10);
+  assignStringFields(result.params, args, ['search', 'sort', 'view', 'usage_status', 'language']);
+  return result;
+};
+
 const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
   const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['workspace_id']);
   return params;
+};
+
+const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
+  const runID = readString(args?.['run_id']);
+  const params = buildWorkspaceQuery(args);
+  assignStringFields(params, args, ['result_id', 'employee_id', 'language']);
+  return { runID, params };
 };
 
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -7936,6 +8653,12 @@ const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) =>
 const buildPayrollRunCalculateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, ['period', 'pay_date', 'country_code']);
+  return body;
+};
+
+const buildPayrollJournalEntryBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['debit_account', 'credit_account', 'deductions_account', 'notes']);
   return body;
 };
 
@@ -8609,6 +9332,107 @@ const buildOrderMutationSummary = (payload: Record<string, unknown>, action: 'cr
   return `Order ${action}: ${reference}.`;
 };
 
+const buildLifecycleMutationSummary = ({
+  entity,
+  action,
+  payload,
+}: {
+  entity: string;
+  action: string;
+  payload: Record<string, unknown>;
+}): string => {
+  const readReference = (value: unknown): string | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    return readString(value);
+  };
+  const reference =
+    readReference(payload['order_number']) ||
+    readReference(payload['id_inv']) ||
+    readString(payload['order_id']) ||
+    readString(payload['invoice_id']) ||
+    readString(payload['external_id']) ||
+    entity;
+  const usageStatus =
+    readString(payload['usage_status_label']) ||
+    readString(payload['usage_status']) ||
+    readString(payload['status']);
+  const statusText = usageStatus ? ` status=${usageStatus}` : '';
+  return appendGovernanceAdvisorySummary(`${entity} ${action}: ${reference}.${statusText}`, payload);
+};
+
+const buildLifecycleVerification = async ({
+  entity,
+  id,
+  params,
+  expectedStatus,
+  retrieve,
+}: {
+  entity: 'order' | 'invoice';
+  id: string;
+  params?: Record<string, unknown>;
+  expectedStatus: string;
+  retrieve: (id: string, params: Record<string, unknown>) => Promise<Record<string, unknown>>;
+}): Promise<Record<string, unknown>> => {
+  try {
+    const record = await retrieve(id, params ?? {});
+    const actualStatus =
+      readString(record['usage_status']) ||
+      readString(record['status_key']) ||
+      readString(record['status']) ||
+      null;
+    return {
+      entity,
+      expected_status: expectedStatus,
+      actual_status: actualStatus,
+      matched: actualStatus === expectedStatus,
+      record_id: readString(record['id']) || id,
+    };
+  } catch (error) {
+    return {
+      entity,
+      expected_status: expectedStatus,
+      actual_status: null,
+      matched: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
+const buildPermanentDeleteVerification = async ({
+  entity,
+  id,
+  retrieve,
+}: {
+  entity: 'order' | 'invoice';
+  id: string;
+  retrieve: (id: string) => Promise<Record<string, unknown>>;
+}): Promise<Record<string, unknown>> => {
+  try {
+    const record = await retrieve(id);
+    return {
+      entity,
+      expected_status: 'deleted',
+      actual_status:
+        readString(record['usage_status']) ||
+        readString(record['status_key']) ||
+        readString(record['status']) ||
+        'found',
+      matched: false,
+      record_id: readString(record['id']) || id,
+    };
+  } catch (error) {
+    return {
+      entity,
+      expected_status: 'deleted',
+      actual_status: 'not_found',
+      matched: true,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
 const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -8830,6 +9654,95 @@ const buildDisbursementRetrieveParams = (args: Record<string, unknown> | undefin
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+const buildDisbursementAllocationQueryParams = (args: Record<string, unknown> | undefined) => {
+  const disbursementID = readString(args?.['disbursement_id']);
+  const allocationID = readString(args?.['allocation_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    disbursementID,
+    allocationID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const readRecordIdentifier = (value: unknown) => {
+  const stringValue = readString(value);
+  if (stringValue) {
+    return stringValue;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const buildDisbursementAllocationBody = (
+  args: Record<string, unknown> | undefined,
+  options: { partial?: boolean } = {},
+) => {
+  const body: Record<string, unknown> = {};
+  for (const [sourceKey, targetKey] of [
+    ['payable_type', 'payable_type'],
+    ['payableType', 'payable_type'],
+    ['payable_id', 'payable_id'],
+    ['payableId', 'payable_id'],
+    ['bill_id', 'bill_id'],
+    ['billId', 'bill_id'],
+    ['expense_id', 'expense_id'],
+    ['expenseId', 'expense_id'],
+    ['id_bill', 'id_bill'],
+    ['idBill', 'id_bill'],
+    ['id_pm', 'id_pm'],
+    ['idPm', 'id_pm'],
+    ['currency', 'currency'],
+    ['source', 'source'],
+    ['notes', 'notes'],
+  ] as const) {
+    const value = readRecordIdentifier(args?.[sourceKey]);
+    if (value) {
+      body[targetKey] = value;
+    }
+  }
+  const amount = args?.['amount'];
+  if (typeof amount === 'number' && Number.isFinite(amount)) {
+    body['amount'] = amount;
+  } else if (!options.partial) {
+    body['amount'] = amount;
+  }
+  return body;
+};
+
+const buildDisbursementAllocationsSummary = (
+  payload: Record<string, unknown>,
+  disbursementID: string,
+  action: 'Loaded' | 'Created' | 'Updated' | 'Deleted',
+) => {
+  const disbursement = readRecord(payload['disbursement']);
+  const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
+  const resolvedDisbursementID =
+    readString(disbursement?.['id']) ??
+    readString(disbursement?.['disbursement_id']) ??
+    readRecordIdentifier(disbursement?.['id_dsb']) ??
+    disbursementID;
+  const allocatedAmount = disbursement?.['allocated_amount'];
+  const unallocatedAmount = disbursement?.['unallocated_amount'];
+  const totals =
+    typeof allocatedAmount === 'number' || typeof unallocatedAmount === 'number' ?
+      ` Allocated: ${typeof allocatedAmount === 'number' ? allocatedAmount : 0}; unallocated: ${
+        typeof unallocatedAmount === 'number' ? unallocatedAmount : 0
+      }.`
+    : '';
+
+  return `${action} ${allocations.length} disbursement payable allocation${
+    allocations.length === 1 ? '' : 's'
+  } for disbursement ${resolvedDisbursementID}.${totals}`;
 };
 
 const buildEstimateInvoiceListParams = (args: Record<string, unknown> | undefined) => {
@@ -9768,6 +10681,95 @@ const buildPaymentRetrieveParams = (args: Record<string, unknown> | undefined) =
   };
 };
 
+const buildPaymentAllocationsParams = (args: Record<string, unknown> | undefined) => {
+  const paymentID = readString(args?.['payment_id']);
+  const externalID = readString(args?.['external_id']);
+  const language = readString(args?.['language']);
+
+  return {
+    paymentID,
+    params: {
+      ...(externalID ? { external_id: externalID } : undefined),
+      ...(language ? { 'Accept-Language': language } : undefined),
+    },
+  };
+};
+
+const buildPaymentAllocationRows = (args: Record<string, unknown> | undefined) => {
+  const rows = Array.isArray(args?.['allocations']) ? args?.['allocations'] : [];
+  const readIdentifier = (value: unknown) => {
+    const stringValue = readString(value);
+    if (stringValue) {
+      return stringValue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    return undefined;
+  };
+  return rows
+    .map((row) => readRecord(row))
+    .filter((row): row is Record<string, unknown> => Boolean(row))
+    .map((row) => {
+      const allocation: Record<string, unknown> = {};
+      const invoiceID =
+        readIdentifier(row['invoice_id']) ??
+        readIdentifier(row['invoiceId']) ??
+        readIdentifier(row['id_inv']) ??
+        readIdentifier(row['idInv']);
+      if (invoiceID) {
+        allocation['invoice_id'] = invoiceID;
+      }
+      for (const [sourceKey, targetKey] of [
+        ['amount', 'amount'],
+        ['adjustment_amount', 'adjustment_amount'],
+        ['adjustmentAmount', 'adjustment_amount'],
+      ] as const) {
+        const value = row[sourceKey];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          allocation[targetKey] = value;
+        }
+      }
+      const adjustmentType = readString(row['adjustment_type']) ?? readString(row['adjustmentType']);
+      if (adjustmentType) {
+        allocation['adjustment_type'] = adjustmentType;
+      }
+      for (const key of ['currency', 'source', 'notes'] as const) {
+        const value = readString(row[key]);
+        if (value) {
+          allocation[key] = value;
+        }
+      }
+      return allocation;
+    });
+};
+
+const buildPaymentAllocationsSummary = (
+  payload: Record<string, unknown>,
+  paymentID: string,
+  action: 'Loaded' | 'Updated',
+) => {
+  const payment = readRecord(payload['payment']);
+  const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
+  const resolvedPaymentID =
+    readString(payment?.['id']) ??
+    readString(payment?.['payment_id']) ??
+    readString(payment?.['id_rcp']) ??
+    paymentID;
+  const allocatedAmount = payment?.['allocated_amount'];
+  const unallocatedAmount = payment?.['unallocated_amount'];
+  const totals =
+    typeof allocatedAmount === 'number' || typeof unallocatedAmount === 'number' ?
+      ` Allocated: ${typeof allocatedAmount === 'number' ? allocatedAmount : 0}; unallocated: ${
+        typeof unallocatedAmount === 'number' ? unallocatedAmount : 0
+      }.`
+    : '';
+
+  return `${action} ${allocations.length} invoice allocation${
+    allocations.length === 1 ? '' : 's'
+  } for payment ${resolvedPaymentID}.${totals}`;
+};
+
 const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
 
@@ -10674,7 +11676,7 @@ export const crmQueryRecordsTool: McpTool = {
     name: 'query_records',
     title: 'Query records',
     description:
-      'Query records with server-side filters and field projection. Default scope=sanka reads Sanka records. Use scope=integration with provider=salesforce for live Salesforce-side records; if unavailable_reason is returned, do not silently fall back to Sanka.',
+      'Query Sanka or live integration records with server-side filters and field projection. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side rows; use this instead of list_* when the user asks for filtered rows or only a few fields.',
     inputSchema: RECORD_QUERY_INPUT_SCHEMA,
     outputSchema: RECORD_QUERY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -10720,7 +11722,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Compute counts and grouped counts. Default scope=sanka counts Sanka records; scope=sanka with provider=salesforce counts records linked to Salesforce, while scope=integration with provider=salesforce counts live Salesforce-side records. Do not fall back to Sanka when integration reads return unavailable_reason.',
+      'Compute counts and grouped counts for Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -10905,6 +11907,163 @@ export const crmArchiveCustomObjectRecordTool: McpTool = {
       action: 'archived',
       payload,
     });
+  },
+};
+
+export const crmListAssociationsTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'read',
+    tags: ['crm', 'associations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.list',
+  },
+  tool: {
+    name: 'list_associations',
+    title: 'List associations',
+    description:
+      'Review associations between Sanka records. Provide source_object/source_id or target_object/target_id; optionally filter by label_id or label.',
+    inputSchema: ASSOCIATION_LIST_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List associations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List associations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const params = buildAssociationListParams(args);
+    if (!hasAssociationSourceRef(params) && !hasAssociationTargetRef(params)) {
+      return asErrorResult('`source_object`/`source_id` or `target_object`/`target_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.associations.list(
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildAssociationListResult(payload);
+  },
+};
+
+export const crmCreateAssociationTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'write',
+    tags: ['crm', 'associations'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.create',
+  },
+  tool: {
+    name: 'create_association',
+    title: 'Create association',
+    description:
+      'Create an association between two Sanka records using a workspace association label. Pass label_id when known; otherwise pass label.',
+    inputSchema: ASSOCIATION_CREATE_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create association',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create association',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildAssociationCreateBody(args);
+    if (!hasAssociationSourceRef(body) || !hasAssociationTargetRef(body)) {
+      return asErrorResult('`source_object`, `source_id`, `target_object`, and `target_id` are required.');
+    }
+    if (!hasAssociationLabelRef(body)) {
+      return asErrorResult('`label_id` or `label` is required.');
+    }
+
+    const payload = (await reqContext.client.public.associations.create(
+      body,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildAssociationMutationText(payload, 'created') }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmDeleteAssociationTool: McpTool = {
+  metadata: {
+    resource: 'associations',
+    operation: 'write',
+    tags: ['crm', 'associations'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/associations',
+    operationId: 'public.associations.delete',
+  },
+  tool: {
+    name: 'delete_association',
+    title: 'Delete association',
+    description:
+      'Delete an association between two Sanka records. Prefer association_id; otherwise pass source_object/source_id, target_object/target_id, and label_id or label.',
+    inputSchema: ASSOCIATION_DELETE_INPUT_SCHEMA,
+    outputSchema: ASSOCIATION_DELETE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete association',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete association',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const params = buildAssociationDeleteParams(args);
+    if (!readString(params['association_id'])) {
+      if (!hasAssociationSourceRef(params) || !hasAssociationTargetRef(params)) {
+        return asErrorResult(
+          '`association_id` is required unless source_object/source_id and target_object/target_id are provided.',
+        );
+      }
+      if (!hasAssociationLabelRef(params)) {
+        return asErrorResult('`label_id` or `label` is required when deleting without `association_id`.');
+      }
+    }
+
+    const payload = (await reqContext.client.public.associations.delete(
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildAssociationMutationText(payload, 'deleted') }],
+      structuredContent: payload,
+    };
   },
 };
 
@@ -11797,6 +12956,56 @@ export const crmDeleteExpenseTool: McpTool = {
   },
 };
 
+export const crmListEmployeesTool: McpTool = {
+  metadata: {
+    resource: 'employees',
+    operation: 'read',
+    tags: ['crm', 'hr', 'employees'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/employees',
+    operationId: 'public.employees.list',
+  },
+  tool: {
+    name: 'list_employees',
+    title: 'List employees',
+    description:
+      'Review the Sanka employee directory. Use this to resolve worker_id values before creating absences, attendance records, or payroll profiles.',
+    inputSchema: EMPLOYEE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List employees',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List employees' });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, page, params } = buildEmployeeListParams(args);
+    const payload = (await reqContext.client.get('/v1/public/employees', {
+      query: params,
+    })) as Record<string, unknown>;
+    const data = readDataArray(payload).slice(0, limit);
+    return buildListResult({
+      label: 'employees',
+      payload: {
+        count: data.length,
+        data,
+        message: readString(payload['message']) ?? `Returned ${data.length} employees.`,
+        page: readNumber(payload['page'], page),
+        total: readNumber(payload['total'], data.length),
+        permission: readString(payload['permission']) ?? null,
+      },
+      previewKeys: ['id_user', 'id_worker', 'worker_id', 'name', 'email', 'role', 'status'],
+    });
+  },
+};
+
 export const crmListAbsencesTool: McpTool = {
   metadata: {
     resource: 'absences',
@@ -12483,6 +13692,48 @@ export const crmGetPayrollRunTool: McpTool = {
   },
 };
 
+export const crmDownloadPayrollPayslipPDFTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'read',
+    tags: ['crm', 'hr', 'payroll'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    operationId: 'public.payroll.runs.payslips.downloadPDF',
+  },
+  tool: {
+    name: 'download_payroll_payslip_pdf',
+    title: 'Download payroll payslip PDF',
+    description:
+      'Download payroll payslips from Sanka as a PDF document. Pass result_id or employee_id for one employee, or omit both to download the full payroll run.',
+    inputSchema: PAYROLL_PAYSLIP_PDF_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download payroll payslip PDF',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Download payroll payslip PDF' });
+    if (authError) {
+      return authError;
+    }
+    const { runID, params } = buildPayrollPayslipDownloadParams(args);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = await reqContext.client
+      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+        query: params,
+      })
+      .asResponse();
+    return asStoredBinaryDownloadResult(reqContext, response, 'payroll-payslip.pdf');
+  },
+};
+
 export const crmCalculatePayrollRunTool: McpTool = {
   metadata: {
     resource: 'payroll_runs',
@@ -12524,6 +13775,61 @@ export const crmCalculatePayrollRunTool: McpTool = {
         {
           type: 'text',
           text: `Payroll run calculated: ${run['period'] ?? run['id'] ?? readString(args?.['period'])}.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreatePayrollJournalEntryTool: McpTool = {
+  metadata: {
+    resource: 'payroll_runs',
+    operation: 'write',
+    tags: ['crm', 'hr', 'payroll', 'journals'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/payroll/runs/{run_id}/journal-entry',
+    operationId: 'public.payroll.runs.journalEntry.create',
+  },
+  tool: {
+    name: 'create_payroll_journal_entry',
+    title: 'Create payroll journal entry',
+    description:
+      'Create or reuse one monthly Sanka Journal Entry from a payroll run. Use after calculate_payroll_run when the user wants payroll posted to accounting.',
+    inputSchema: PAYROLL_JOURNAL_ENTRY_INPUT_SCHEMA,
+    outputSchema: RECORD_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create payroll journal entry',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create payroll journal entry' });
+    if (authError) {
+      return authError;
+    }
+    const runID = readString(args?.['run_id']);
+    if (!runID) {
+      return asErrorResult('`run_id` is required.');
+    }
+    const response = (await reqContext.client.post(
+      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/journal-entry`,
+      {
+        query: buildWorkspaceQuery(args),
+        body: buildPayrollJournalEntryBody(args),
+      },
+    )) as Record<string, unknown>;
+    const data = readPayloadDataRecord(response);
+    const journalID = data['id_journal'] ?? data['id'] ?? runID;
+    const created = data['created'] === false ? 'already exists' : 'created';
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Payroll journal entry ${created}: ${journalID}.`,
         },
       ],
       structuredContent: response,
@@ -13032,7 +14338,7 @@ export const crmListDealsTool: McpTool = {
     name: 'list_deals',
     title: 'List deals',
     description:
-      'Review deals (sales pipeline records) in Sanka. Use this when the user wants to inspect their pipeline, find open deals, or review deal stages in the current workspace.',
+      'Review deals. By default this lists Sanka pipeline records; use scope="integration" with provider="hubspot" or provider="salesforce" to read live CRM-side deals/opportunities from the connected channel.',
     inputSchema: DEAL_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13649,6 +14955,72 @@ export const crmUpdateOrderTool: McpTool = {
   },
 };
 
+export const crmActivateOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/orders/{order_id}/activate',
+    operationId: 'public.orders.activate',
+  },
+  tool: {
+    name: 'activate_order',
+    title: 'Activate order',
+    description: 'Restore an archived order to active status in Sanka.',
+    inputSchema: ORDER_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Activate order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Activate order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/orders/${encodeURIComponent(orderID)}/activate`,
+      { query: params },
+    )) as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'order',
+      id: orderID,
+      params,
+      expectedStatus: 'active',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.orders.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'activated', payload }),
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmDeleteOrderTool: McpTool = {
   metadata: {
     resource: 'orders',
@@ -13660,13 +15032,14 @@ export const crmDeleteOrderTool: McpTool = {
   },
   tool: {
     name: 'delete_order',
-    title: 'Delete order',
-    description: 'Delete an order in Sanka by order id, numeric id, or external reference.',
+    title: 'Archive order',
+    description:
+      'Archive an order in Sanka by order id, numeric id, or external reference. This is a soft delete; use permanent_delete_order only after explicit confirmation.',
     inputSchema: ORDER_DELETE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete order',
+      title: 'Archive order',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
@@ -13691,20 +15064,95 @@ export const crmDeleteOrderTool: McpTool = {
       params,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'order',
+      id: orderID,
+      params,
+      expectedStatus: 'archived',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.orders.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Order',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['order_id'],
-          }),
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'archived', payload }),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmPermanentDeleteOrderTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/orders/{order_id}/permanent-delete',
+    operationId: 'public.orders.permanentDelete',
+  },
+  tool: {
+    name: 'permanent_delete_order',
+    title: 'Permanently delete order',
+    description:
+      'Permanently delete an already archived order in Sanka. Requires confirm=true and cannot be undone.',
+    inputSchema: ORDER_PERMANENT_DELETE_INPUT_SCHEMA,
+    outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Permanently delete order',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Permanently delete order',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { orderID, params } = buildOrderRetrieveParams(args);
+    if (!orderID) {
+      return asErrorResult('`order_id` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult('`confirm=true` is required for permanent delete.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/orders/${encodeURIComponent(orderID)}/permanent-delete`,
+      { query: { ...params, confirm: true } },
+    )) as Record<string, unknown>;
+    const verification = await buildPermanentDeleteVerification({
+      entity: 'order',
+      id: orderID,
+      retrieve: async (id) =>
+        (await reqContext.client.public.orders.retrieve(id, params, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Order', action: 'permanently deleted', payload }),
+        },
+      ],
+      structuredContent: payload,
     };
   },
 };
@@ -15941,6 +17389,72 @@ export const crmUpdateInvoiceTool: McpTool = {
   },
 };
 
+export const crmActivateInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/invoices/{invoice_id}/activate',
+    operationId: 'public.invoices.activate',
+  },
+  tool: {
+    name: 'activate_invoice',
+    title: 'Activate invoice',
+    description: 'Restore an archived invoice to active usage status in Sanka.',
+    inputSchema: INVOICE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Activate invoice',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Activate invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/activate`,
+      { query: params },
+    )) as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      params,
+      expectedStatus: 'active',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.invoices.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'activated', payload }),
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmDeleteInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -15952,13 +17466,14 @@ export const crmDeleteInvoiceTool: McpTool = {
   },
   tool: {
     name: 'delete_invoice',
-    title: 'Delete invoice',
-    description: 'Delete an invoice in Sanka by invoice id or external reference.',
+    title: 'Archive invoice',
+    description:
+      'Archive an invoice in Sanka by invoice id or external reference. This is a soft delete; use permanent_delete_invoice only after explicit confirmation.',
     inputSchema: INVOICE_DELETE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete invoice',
+      title: 'Archive invoice',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
@@ -15984,20 +17499,96 @@ export const crmDeleteInvoiceTool: McpTool = {
       externalID ? { external_id: externalID } : {},
       undefined,
     )) as unknown as Record<string, unknown>;
+    const params = externalID ? { external_id: externalID } : {};
+    const verification = await buildLifecycleVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      params,
+      expectedStatus: 'archived',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.invoices.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Invoice',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['invoice_id'],
-          }),
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'archived', payload }),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmPermanentDeleteInvoiceTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/invoices/{invoice_id}/permanent-delete',
+    operationId: 'public.invoices.permanentDelete',
+  },
+  tool: {
+    name: 'permanent_delete_invoice',
+    title: 'Permanently delete invoice',
+    description:
+      'Permanently delete an already archived invoice in Sanka. Requires confirm=true and cannot be undone.',
+    inputSchema: INVOICE_PERMANENT_DELETE_INPUT_SCHEMA,
+    outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Permanently delete invoice',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Permanently delete invoice',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult('`confirm=true` is required for permanent delete.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/permanent-delete`,
+      { query: { ...params, confirm: true } },
+    )) as Record<string, unknown>;
+    const verification = await buildPermanentDeleteVerification({
+      entity: 'invoice',
+      id: invoiceID,
+      retrieve: async (id) =>
+        (await reqContext.client.public.invoices.retrieve(id, params, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildLifecycleMutationSummary({ entity: 'Invoice', action: 'permanently deleted', payload }),
+        },
+      ],
+      structuredContent: payload,
     };
   },
 };
@@ -16933,6 +18524,239 @@ export const crmDeleteDisbursementTool: McpTool = {
             payload: response,
             idKeys: ['disbursement_id'],
           }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListDisbursementAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'read',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    operationId: 'public.disbursements.listAllocations',
+  },
+  tool: {
+    name: 'list_disbursement_allocations',
+    title: 'List disbursement allocations',
+    description: 'Review bill and expense payable allocation rows for one disbursement in Sanka.',
+    inputSchema: DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List disbursement allocations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List disbursement allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.get(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      { query: params },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Loaded'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreateDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    operationId: 'public.disbursements.createAllocation',
+  },
+  tool: {
+    name: 'create_disbursement_allocation',
+    title: 'Create disbursement allocation',
+    description:
+      'Add one bill or expense payable allocation row to a disbursement without replacing existing allocation rows.',
+    inputSchema: DISBURSEMENT_ALLOCATION_CREATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+
+    const response = (await reqContext.client.post(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      {
+        query: params,
+        body: buildDisbursementAllocationBody(args),
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Created'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'patch',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    operationId: 'public.disbursements.updateAllocation',
+  },
+  tool: {
+    name: 'update_disbursement_allocation',
+    title: 'Update disbursement allocation',
+    description: 'Update one bill or expense payable allocation row on a disbursement.',
+    inputSchema: DISBURSEMENT_ALLOCATION_UPDATE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, allocationID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+    if (!allocationID) {
+      return asErrorResult('`allocation_id` is required.');
+    }
+
+    const response = (await reqContext.client.patch(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+        allocationID,
+      )}`,
+      {
+        query: params,
+        body: buildDisbursementAllocationBody(args, { partial: true }),
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Updated'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteDisbursementAllocationTool: McpTool = {
+  metadata: {
+    resource: 'disbursements',
+    operation: 'write',
+    tags: ['crm', 'disbursements', 'allocations'],
+    httpMethod: 'delete',
+    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    operationId: 'public.disbursements.deleteAllocation',
+  },
+  tool: {
+    name: 'delete_disbursement_allocation',
+    title: 'Delete disbursement allocation',
+    description: 'Archive/delete one bill or expense payable allocation row from a disbursement.',
+    inputSchema: DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA,
+    outputSchema: DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete disbursement allocation',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete disbursement allocation',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { disbursementID, allocationID, params } = buildDisbursementAllocationQueryParams(args);
+    if (!disbursementID) {
+      return asErrorResult('`disbursement_id` is required.');
+    }
+    if (!allocationID) {
+      return asErrorResult('`allocation_id` is required.');
+    }
+
+    const response = (await reqContext.client.delete(
+      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+        allocationID,
+      )}`,
+      { query: params },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Deleted'),
         },
       ],
       structuredContent: response,
@@ -18760,6 +20584,128 @@ export const crmGetPaymentTool: McpTool = {
         },
       ],
       structuredContent: payment,
+    };
+  },
+};
+
+export const crmListPaymentAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'read',
+    tags: ['crm', 'payments', 'allocations'],
+    httpMethod: 'get',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    operationId: 'public.payments.listAllocations',
+  },
+  tool: {
+    name: 'list_payment_allocations',
+    title: 'List payment allocations',
+    description: 'Review invoice allocation rows for one payment in Sanka.',
+    inputSchema: PAYMENT_ALLOCATIONS_LIST_INPUT_SCHEMA,
+    outputSchema: PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List payment allocations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List payment allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentAllocationsParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.listAllocations(
+      paymentID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildPaymentAllocationsSummary(response, paymentID, 'Loaded'),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdatePaymentAllocationsTool: McpTool = {
+  metadata: {
+    resource: 'payments',
+    operation: 'write',
+    tags: ['crm', 'payments', 'allocations'],
+    httpMethod: 'put',
+    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    operationId: 'public.payments.updateAllocations',
+  },
+  tool: {
+    name: 'update_payment_allocations',
+    title: 'Update payment allocations',
+    description:
+      'Replace invoice allocation rows for one payment in Sanka. Use this to apply full or partial payments to invoices after creating or loading a payment.',
+    inputSchema: PAYMENT_ALLOCATIONS_UPDATE_INPUT_SCHEMA,
+    outputSchema: PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update payment allocations',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update payment allocations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { paymentID, params } = buildPaymentAllocationsParams(args);
+    if (!paymentID) {
+      return asErrorResult('`payment_id` is required.');
+    }
+
+    const response = (await reqContext.client.public.payments.updateAllocations(
+      paymentID,
+      {
+        ...params,
+        allocations: buildPaymentAllocationRows(args) as Array<{
+          invoice_id: string;
+          amount: number;
+          adjustment_amount?: number;
+          adjustment_type?: string;
+          currency?: string;
+          source?: string;
+          notes?: string;
+        }>,
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildPaymentAllocationsSummary(response, paymentID, 'Updated'),
+        },
+      ],
+      structuredContent: response,
     };
   },
 };

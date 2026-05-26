@@ -1,7 +1,9 @@
 import { File } from 'node:buffer';
 import {
-  crmArchivePrivateMessageThreadTool,
+  crmActivateInvoiceTool,
+  crmActivateOrderTool,
   crmArchiveCustomObjectRecordTool,
+  crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
   crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
@@ -10,6 +12,7 @@ import {
   crmCancelCalendarAttendanceTool,
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
+  crmCreateAssociationTool,
   crmCreateBillTool,
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
@@ -18,6 +21,7 @@ import {
   crmCreateDealTool,
   crmCreateAbsenceTool,
   crmCreateAttendanceRecordTool,
+  crmCreateDisbursementAllocationTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
   crmCreateExpenseTool,
@@ -30,17 +34,20 @@ import {
   crmCreateOrderTool,
   crmCreatePaymentTool,
   crmCreatePropertyTool,
+  crmCreatePayrollJournalEntryTool,
   crmCreatePurchaseOrderTool,
   crmCreateSlipTool,
   crmCreateSubscriptionTool,
   crmCreateTaskTool,
   crmCreateTicketTool,
   crmDeleteBillTool,
+  crmDeleteAssociationTool,
   crmDeleteCompanyTool,
   crmDeleteContactTool,
   crmDeleteDealTool,
   crmDeleteAbsenceTool,
   crmDeleteAttendanceRecordTool,
+  crmDeleteDisbursementAllocationTool,
   crmDeleteDisbursementTool,
   crmDeleteEstimateTool,
   crmDeleteExpenseTool,
@@ -50,6 +57,8 @@ import {
   crmDeleteItemTool,
   crmDeleteLocationTool,
   crmDeleteOrderTool,
+  crmPermanentDeleteInvoiceTool,
+  crmPermanentDeleteOrderTool,
   crmDeletePaymentTool,
   crmDeletePurchaseOrderTool,
   crmDeletePropertyTool,
@@ -60,6 +69,7 @@ import {
   crmDownloadEstimatePDFTool,
   crmDownloadInvoicePDFTool,
   crmDownloadPurchaseOrderPDFTool,
+  crmDownloadPayrollPayslipPDFTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
   crmGetBillTool,
@@ -90,13 +100,16 @@ import {
   crmGetTaskTool,
   crmGetTicketTool,
   crmListBillsTool,
+  crmListEmployeesTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
+  crmListAssociationsTool,
   crmListCompaniesTool,
   crmListContactsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
   crmListWorkspacesTool,
+  crmListDisbursementAllocationsTool,
   crmListDisbursementsTool,
   crmListEstimatesTool,
   crmListExpensesTool,
@@ -111,6 +124,7 @@ import {
   crmListObjectSchemasTool,
   crmListOrdersTool,
   crmListOverdueInvoicesTool,
+  crmListPaymentAllocationsTool,
   crmListPaymentsTool,
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
@@ -141,6 +155,7 @@ import {
   crmUpdateContactTool,
   crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
+  crmUpdateDisbursementAllocationTool,
   crmUpdateDisbursementTool,
   crmUpdateEstimateTool,
   crmUpdateExpenseTool,
@@ -150,6 +165,7 @@ import {
   crmUpdateItemTool,
   crmUpdateLocationTool,
   crmUpdateOrderTool,
+  crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateSlipTool,
@@ -326,6 +342,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteExpenseTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListEmployeesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListAbsencesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateAbsenceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -341,6 +358,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListPayrollRunsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCalculatePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreatePayrollJournalEntryTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmApprovePayrollRunTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListIncentivePlansTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -1093,6 +1111,165 @@ describe('ChatGPT CRM tools', () => {
         text: 'aggregate_records found 1 duplicate candidate groups for companies.',
       }),
     );
+  });
+
+  it('lists associations for a record', async () => {
+    const list = jest.fn().mockResolvedValue({
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [
+        {
+          id: 'association-1',
+          source: { object: 'companies', object_type: 'company', id: 'company-1' },
+          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+          label: { id: 'label-1', label: 'Primary contact' },
+          created_at: '2026-05-22T00:00:00Z',
+        },
+      ],
+      message: 'OK',
+      ctx_id: 'ctx-associations',
+    });
+
+    const result = await crmListAssociationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        source_object: 'companies',
+        source_id: 'company-1',
+        label: 'Primary contact',
+        workspace_id: 'workspace-1',
+        limit: 10,
+        page: 1,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        source_object: 'companies',
+        source_id: 'company-1',
+        label: 'Primary contact',
+        workspace_id: 'workspace-1',
+        page: 1,
+        limit: 10,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      total: 1,
+      page: 1,
+      message: 'OK',
+      ctx_id: 'ctx-associations',
+      results: [
+        {
+          id: 'association-1',
+          source: { object: 'companies', object_type: 'company', id: 'company-1' },
+          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+          label: { id: 'label-1', label: 'Primary contact' },
+        },
+      ],
+    });
+  });
+
+  it('creates an association with a label', async () => {
+    const create = jest.fn().mockResolvedValue({
+      association: {
+        id: 'association-1',
+        source: { object: 'companies', object_type: 'company', id: 'company-1' },
+        target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+        label: { id: 'label-1', label: 'Primary contact' },
+      },
+      created: true,
+      message: 'created',
+      ctx_id: 'ctx-association-create',
+    });
+
+    const result = await crmCreateAssociationTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        source_object: 'companies',
+        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
+        label_id: 'label-1',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        source_object: 'companies',
+        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
+        label_id: 'label-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      association: {
+        id: 'association-1',
+        source: { object: 'companies', object_type: 'company', id: 'company-1' },
+        target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+        label: { id: 'label-1', label: 'Primary contact' },
+      },
+      created: true,
+      message: 'created',
+      ctx_id: 'ctx-association-create',
+    });
+  });
+
+  it('deletes an association by association id', async () => {
+    const deleteAssociation = jest.fn().mockResolvedValue({
+      deleted: true,
+      message: 'deleted',
+      ctx_id: 'ctx-association-delete',
+    });
+
+    const result = await crmDeleteAssociationTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            associations: { delete: deleteAssociation },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        associationId: 'association-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(deleteAssociation).toHaveBeenCalledWith(
+      {
+        workspace_id: 'workspace-1',
+        association_id: 'association-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      deleted: true,
+      message: 'deleted',
+      ctx_id: 'ctx-association-delete',
+    });
   });
 
   it('returns reauth metadata when list companies is called without authentication', async () => {
@@ -2601,6 +2778,13 @@ describe('ChatGPT CRM tools', () => {
       status: 'updated',
       case_id: 'deal-1',
       external_id: 'DEAL-2',
+      record_preview: {
+        id: 'deal-1',
+        currency: 'JPY',
+      },
+      updated_fields: {
+        currency: 'JPY',
+      },
     });
 
     const result = await crmUpdateDealTool.handler({
@@ -2635,6 +2819,13 @@ describe('ChatGPT CRM tools', () => {
       status: 'updated',
       case_id: 'deal-1',
       external_id: 'DEAL-2',
+      record_preview: {
+        id: 'deal-1',
+        currency: 'JPY',
+      },
+      updated_fields: {
+        currency: 'JPY',
+      },
     });
   });
 
@@ -2961,18 +3152,78 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('deletes an order', async () => {
+  it('activates an order with read-after-write verification', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      order_id: 'order-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'order-1',
+      status: 'active',
+    });
+
+    const result = await crmActivateOrderTool.handler({
+      reqContext: {
+        client: {
+          post,
+          public: {
+            orders: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+        external_id: 'ORD-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/orders/order-1/activate', {
+      query: { external_id: 'ORD-1' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'order-1',
+      {
+        external_id: 'ORD-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'active',
+        actual_status: 'active',
+        matched: true,
+      },
+    });
+  });
+
+  it('archives an order with read-after-write verification', async () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
-      status: 'deleted',
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
       order_id: 'order-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'order-1',
+      status: 'archived',
     });
 
     const result = await crmDeleteOrderTool.handler({
       reqContext: {
         client: {
           public: {
-            orders: { delete: del },
+            orders: { delete: del, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -2993,9 +3244,79 @@ describe('ChatGPT CRM tools', () => {
     );
     expect(result.structuredContent).toEqual({
       ok: true,
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'archived',
+        actual_status: 'archived',
+        matched: true,
+        record_id: 'order-1',
+      },
+    });
+  });
+
+  it('permanently deletes an archived order only with explicit confirmation', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'permanent_delete',
       status: 'deleted',
+      permanently_deleted: true,
       order_id: 'order-1',
     });
+    const retrieve = jest.fn().mockRejectedValue(new Error('Not found'));
+
+    const result = await crmPermanentDeleteOrderTool.handler({
+      reqContext: {
+        client: {
+          delete: del,
+          public: {
+            orders: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+        external_id: 'ORD-1',
+        confirm: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/v1/public/orders/order-1/permanent-delete', {
+      query: { external_id: 'ORD-1', confirm: true },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'permanent_delete',
+      status: 'deleted',
+      permanently_deleted: true,
+      order_id: 'order-1',
+      verification: {
+        entity: 'order',
+        expected_status: 'deleted',
+        actual_status: 'not_found',
+        matched: true,
+      },
+    });
+
+    const blocked = await crmPermanentDeleteOrderTool.handler({
+      reqContext: {
+        client: {
+          delete: jest.fn(),
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+      },
+    });
+    expect(blocked.isError).toBe(true);
   });
 
   it('maps purchase order CRUD handlers to the SDK client', async () => {
@@ -4173,18 +4494,82 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('deletes an invoice', async () => {
+  it('activates an invoice with read-after-write verification', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      usage_status: 'active',
+      invoice_id: 'invoice-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'invoice-1',
+      usage_status: 'active',
+    });
+
+    const result = await crmActivateInvoiceTool.handler({
+      reqContext: {
+        client: {
+          post,
+          public: {
+            invoices: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/activate', {
+      query: { external_id: 'INV-1' },
+    });
+    expect(retrieve).toHaveBeenCalledWith(
+      'invoice-1',
+      {
+        external_id: 'INV-1',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'activate',
+      status: 'active',
+      usage_status: 'active',
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'active',
+        actual_status: 'active',
+        matched: true,
+      },
+    });
+  });
+
+  it('archives an invoice with read-after-write verification', async () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
-      status: 'deleted',
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
       invoice_id: 'invoice-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'invoice-1',
+      status: '下書き',
+      status_key: 'draft',
+      usage_status: 'archived',
     });
 
     const result = await crmDeleteInvoiceTool.handler({
       reqContext: {
         client: {
           public: {
-            invoices: { delete: del },
+            invoices: { delete: del, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -4205,9 +4590,79 @@ describe('ChatGPT CRM tools', () => {
     );
     expect(result.structuredContent).toEqual({
       ok: true,
+      operation: 'archive',
+      status: 'archived',
+      usage_status: 'archived',
+      permanently_deleted: false,
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'archived',
+        actual_status: 'archived',
+        matched: true,
+        record_id: 'invoice-1',
+      },
+    });
+  });
+
+  it('permanently deletes an archived invoice only with explicit confirmation', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      operation: 'permanent_delete',
       status: 'deleted',
+      permanently_deleted: true,
       invoice_id: 'invoice-1',
     });
+    const retrieve = jest.fn().mockRejectedValue(new Error('Not found'));
+
+    const result = await crmPermanentDeleteInvoiceTool.handler({
+      reqContext: {
+        client: {
+          delete: del,
+          public: {
+            invoices: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        external_id: 'INV-1',
+        confirm: true,
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/permanent-delete', {
+      query: { external_id: 'INV-1', confirm: true },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      operation: 'permanent_delete',
+      status: 'deleted',
+      permanently_deleted: true,
+      invoice_id: 'invoice-1',
+      verification: {
+        entity: 'invoice',
+        expected_status: 'deleted',
+        actual_status: 'not_found',
+        matched: true,
+      },
+    });
+
+    const blocked = await crmPermanentDeleteInvoiceTool.handler({
+      reqContext: {
+        client: {
+          delete: jest.fn(),
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+      },
+    });
+    expect(blocked.isError).toBe(true);
   });
 
   it('lists payments with a local result limit', async () => {
@@ -4318,6 +4773,112 @@ describe('ChatGPT CRM tools', () => {
         text: 'Loaded payment successfully: Payment No. 301.',
       },
     ]);
+  });
+
+  it('lists payment allocations', async () => {
+    const listAllocations = jest.fn().mockResolvedValue({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+
+    const result = await crmListPaymentAllocationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { listAllocations },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { payment_id: '301', external_id: 'PAY-301', language: 'ja' },
+    });
+
+    expect(listAllocations).toHaveBeenCalledWith(
+      '301',
+      {
+        external_id: 'PAY-301',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+  });
+
+  it('updates payment allocations', async () => {
+    const updateAllocations = jest.fn().mockResolvedValue({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
+
+    const result = await crmUpdatePaymentAllocationsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            payments: { updateAllocations },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        payment_id: '301',
+        external_id: 'PAY-301',
+        language: 'ja',
+        allocations: [
+          {
+            id_inv: 1147,
+            amount: 150,
+            source: 'mcp',
+            notes: 'CSV reconciliation',
+          },
+        ],
+      },
+    });
+
+    expect(updateAllocations).toHaveBeenCalledWith(
+      '301',
+      {
+        external_id: 'PAY-301',
+        'Accept-Language': 'ja',
+        allocations: [
+          {
+            invoice_id: '1147',
+            amount: 150,
+            source: 'mcp',
+            notes: 'CSV reconciliation',
+          },
+        ],
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      payment: {
+        id_rcp: 301,
+        allocated_amount: 150,
+        unallocated_amount: 0,
+      },
+      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
+      message: 'ok',
+    });
   });
 
   it('creates a payment', async () => {
@@ -4889,6 +5450,122 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       disbursement_id: 'disbursement-1',
+    });
+  });
+
+  it('maps disbursement allocation handlers to public allocation endpoints', async () => {
+    const allocationPayload = {
+      disbursement: {
+        id: 'disbursement-1',
+        id_dsb: 701,
+        allocated_amount: 125,
+        unallocated_amount: 375,
+      },
+      allocations: [
+        {
+          id: 'allocation-1',
+          payable_type: 'expense',
+          payable_id: 'expense-1',
+          amount: 125,
+        },
+      ],
+      available_payables: [],
+      message: 'OK',
+    };
+    const get = jest.fn().mockResolvedValue(allocationPayload);
+    const post = jest.fn().mockResolvedValue(allocationPayload);
+    const patch = jest.fn().mockResolvedValue({
+      ...allocationPayload,
+      allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
+    });
+    const del = jest.fn().mockResolvedValue({
+      ...allocationPayload,
+      allocations: [],
+      disbursement: {
+        ...allocationPayload.disbursement,
+        allocated_amount: 0,
+        unallocated_amount: 500,
+      },
+    });
+
+    const reqContext = {
+      client: { get, post, patch, delete: del } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListDisbursementAllocationsTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        external_id: 'DSB-1',
+        language: 'en',
+      },
+    });
+    expect(get).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+      query: {
+        external_id: 'DSB-1',
+        'Accept-Language': 'en',
+      },
+    });
+    expect(listResult.structuredContent).toEqual(allocationPayload);
+
+    const createResult = await crmCreateDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        payable_type: 'expense',
+        expense_id: 'expense-1',
+        amount: 125,
+        notes: 'Receipt allocation',
+      },
+    });
+    expect(post).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+      query: {},
+      body: {
+        payable_type: 'expense',
+        expense_id: 'expense-1',
+        amount: 125,
+        notes: 'Receipt allocation',
+      },
+    });
+    expect(createResult.structuredContent).toEqual(allocationPayload);
+
+    const updateResult = await crmUpdateDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        allocation_id: 'allocation-1',
+        amount: 150,
+      },
+    });
+    expect(patch).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
+      query: {},
+      body: { amount: 150 },
+    });
+    expect(updateResult.structuredContent).toEqual({
+      ...allocationPayload,
+      allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
+    });
+
+    const deleteResult = await crmDeleteDisbursementAllocationTool.handler({
+      reqContext,
+      args: {
+        disbursement_id: 'disbursement-1',
+        allocation_id: 'allocation-1',
+      },
+    });
+    expect(del).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
+      query: {},
+    });
+    expect(deleteResult.structuredContent).toEqual({
+      ...allocationPayload,
+      allocations: [],
+      disbursement: {
+        ...allocationPayload.disbursement,
+        allocated_amount: 0,
+        unallocated_amount: 500,
+      },
     });
   });
 
@@ -7011,20 +7688,38 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('calls dedicated HR and payroll public endpoints', async () => {
-    const get = jest.fn().mockResolvedValueOnce({
-      data: [
-        {
-          id: 'att-1',
-          track_id: 1,
-          name: 'Daily attendance',
-          status: 'stop',
-        },
-      ],
-      page: 1,
-      total: 1,
-      count: 1,
-      message: 'OK',
-    });
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'worker-1',
+            id_worker: 10,
+            worker_id: 'worker-1',
+            name: 'NM',
+            email: null,
+          },
+        ],
+        page: 1,
+        total: 1,
+        count: 1,
+        permission: 'read|edit|archive',
+        message: 'OK',
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'att-1',
+            track_id: 1,
+            name: 'Daily attendance',
+            status: 'stop',
+          },
+        ],
+        page: 1,
+        total: 1,
+        count: 1,
+        message: 'OK',
+      });
     const post = jest
       .fn()
       .mockResolvedValueOnce({
@@ -7046,6 +7741,16 @@ describe('ChatGPT CRM tools', () => {
           results: [],
         },
         message: 'OK',
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'journal-1',
+          id_journal: 12,
+          payroll_run_id: 'run-1',
+          period: '2026-04',
+          created: true,
+        },
+        message: 'OK',
       });
 
     const reqContext = {
@@ -7053,6 +7758,24 @@ describe('ChatGPT CRM tools', () => {
       auth: oauthContext(),
       toolProfile: 'full' as const,
     };
+
+    const employeeResult = await crmListEmployeesTool.handler({
+      reqContext,
+      args: { limit: 5, search: 'NM', language: 'ja' },
+    });
+    expect(get).toHaveBeenNthCalledWith(1, '/v1/public/employees', {
+      query: { limit: 5, page: 1, search: 'NM', language: 'ja' },
+    });
+    expect(employeeResult.structuredContent?.['results']).toEqual([
+      {
+        id: 'worker-1',
+        id_worker: 10,
+        worker_id: 'worker-1',
+        name: 'NM',
+        email: null,
+      },
+    ]);
+    expect(employeeResult.structuredContent?.['permission']).toBe('read|edit|archive');
 
     const absenceResult = await crmCreateAbsenceTool.handler({
       reqContext,
@@ -7079,7 +7802,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { limit: 5, search: 'Daily' },
     });
-    expect(get).toHaveBeenCalledWith('/v1/public/attendance-records', {
+    expect(get).toHaveBeenNthCalledWith(2, '/v1/public/attendance-records', {
       query: { limit: 5, page: 1, search: 'Daily' },
     });
     expect(attendanceResult.structuredContent?.['results']).toEqual([
@@ -7100,6 +7823,53 @@ describe('ChatGPT CRM tools', () => {
     });
     expect(payrollResult.structuredContent).toMatchObject({
       data: { run: { id: 'run-1', period: '2026-04' } },
+    });
+
+    const payrollJournalResult = await crmCreatePayrollJournalEntryTool.handler({
+      reqContext,
+      args: { run_id: 'run-1', notes: 'Monthly payroll journal' },
+    });
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/public/payroll/runs/run-1/journal-entry', {
+      query: {},
+      body: { notes: 'Monthly payroll journal' },
+    });
+    expect(payrollJournalResult.structuredContent).toMatchObject({
+      data: { id: 'journal-1', id_journal: 12, payroll_run_id: 'run-1' },
+    });
+
+    const pdfBytes = Buffer.from('%PDF-payroll');
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(pdfBytes, {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="payslip.pdf"; filename*=UTF-8\'\'payroll-payslip.pdf',
+        },
+      }),
+    );
+    get.mockReturnValueOnce({ asResponse });
+
+    const payslipResult = await crmDownloadPayrollPayslipPDFTool.handler({
+      reqContext,
+      args: {
+        run_id: 'run-1',
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+
+    expect(get).toHaveBeenLastCalledWith('/v1/public/payroll/runs/run-1/payslips/pdf', {
+      query: {
+        result_id: 'result-1',
+        language: 'ja',
+      },
+    });
+    expect(payslipResult.structuredContent).toMatchObject({
+      mime_type: 'application/pdf',
+      filename: 'payroll-payslip.pdf',
+      byte_length: pdfBytes.byteLength,
+      download_complete: true,
+      content_base64_available: true,
+      content_base64: pdfBytes.toString('base64'),
     });
   });
 
