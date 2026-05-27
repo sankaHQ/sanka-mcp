@@ -109,6 +109,8 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       candidates: [{ record_ref: { record_id: 'deal-1' } }],
     });
+    expect((result.content[0] as any).text).toContain('Structured workflow data');
+    expect((result.content[0] as any).text).toContain('deal-1');
   });
 
   it('starts deal_to_estimate workflows through the public endpoint', async () => {
@@ -347,6 +349,8 @@ describe('workflow run MCP tools', () => {
       workflow_type: 'order_to_subscription',
       can_start: true,
     });
+    expect((result.content[0] as any).text).toContain('Structured workflow data');
+    expect((result.content[0] as any).text).toContain('order_to_subscription');
   });
 
   it('starts estimate_to_invoice workflows through the public endpoint', async () => {
