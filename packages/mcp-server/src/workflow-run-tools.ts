@@ -459,6 +459,19 @@ const readObjectArray = (value: unknown): Array<Record<string, unknown>> => {
     .filter((entry): entry is Record<string, unknown> => Boolean(entry));
 };
 
+const STRUCTURED_TEXT_MAX_CHARS = 12000;
+
+const buildStructuredTextBlock = (label: string, value: unknown): string | undefined => {
+  const json = JSON.stringify(value, null, 2);
+  if (!json || json === '{}' || json === '[]') {
+    return undefined;
+  }
+
+  const truncated = json.length > STRUCTURED_TEXT_MAX_CHARS;
+  const body = truncated ? `${json.slice(0, STRUCTURED_TEXT_MAX_CHARS)}\n...truncated...` : json;
+  return `${label}:\n${body}`;
+};
+
 const invoiceDisplayLabel = (invoice: Record<string, unknown>): string => {
   return buildSafeRecordLabel({ entity: 'invoice', payload: invoice }) ?? 'invoice';
 };
@@ -511,11 +524,12 @@ const isSalesforceQuoteReadinessPreview = (workflowType: string): boolean =>
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']);
   const message = readString(payload['message']);
-  const text =
+  const summary =
     buildDealToInvoiceDuplicateSummary(data) ??
     (message ? `${fallbackSummary}: ${message}` : fallbackSummary);
+  const structuredText = data ? buildStructuredTextBlock('Structured workflow data', data) : undefined;
   return {
-    content: [{ type: 'text', text }],
+    content: [{ type: 'text', text: [summary, structuredText].filter(Boolean).join('\n\n') }],
     structuredContent: {
       ...payload,
       ...(data ? { data } : undefined),

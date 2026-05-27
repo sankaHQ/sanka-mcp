@@ -576,6 +576,8 @@ describe('ChatGPT CRM tools', () => {
       ],
       message: 'Returned 2 available Sanka workspaces.',
     });
+    expect((result.content[0] as any).text).toContain('workspace-uuid-1');
+    expect((result.content[0] as any).text).toContain('Workspace B');
   });
 
   it('switches the persistent MCP workspace binding when an MCP session id is available', async () => {
@@ -861,9 +863,10 @@ describe('ChatGPT CRM tools', () => {
     });
     expect(result.content[0]).toEqual(
       expect.objectContaining({
-        text: 'query_records found 1 duplicate candidate groups for companies.',
+        text: expect.stringContaining('query_records found 1 duplicate candidate groups for companies.'),
       }),
     );
+    expect((result.content[0] as any).text).toContain('company-1');
   });
 
   it('passes Sanka custom object row arguments through query_records', async () => {
@@ -907,9 +910,10 @@ describe('ChatGPT CRM tools', () => {
     });
     expect(result.content[0]).toEqual(
       expect.objectContaining({
-        text: 'query_records returned 1 of 1 custom_objects records.',
+        text: expect.stringContaining('query_records returned 1 of 1 custom_objects records.'),
       }),
     );
+    expect((result.content[0] as any).text).toContain('Kickoff meeting');
     expect(result.structuredContent).toEqual(
       expect.objectContaining({
         results: [{ id: 'row-1', row_id: 5, fields: { Subject: 'Kickoff meeting' } }],

@@ -7414,6 +7414,20 @@ const readRecord = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>;
 };
 
+const STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT = 10;
+const STRUCTURED_TEXT_PREVIEW_MAX_CHARS = 12000;
+
+const buildStructuredTextPreview = (label: string, value: unknown): string | undefined => {
+  const json = JSON.stringify(value, null, 2);
+  if (!json || json === '{}' || json === '[]') {
+    return undefined;
+  }
+
+  const truncated = json.length > STRUCTURED_TEXT_PREVIEW_MAX_CHARS;
+  const body = truncated ? `${json.slice(0, STRUCTURED_TEXT_PREVIEW_MAX_CHARS)}\n...truncated...` : json;
+  return `${label}:\n${body}`;
+};
+
 const DIRECT_CRM_SOURCE_LOCK_MESSAGE =
   'CRM deal/opportunity-sourced billing or procurement requests must go through workflow_type=deal_to_order first. Ask the user to confirm creating or reusing a Sanka Order, then use order_to_invoice, order_to_subscription, or order_to_purchase_order from that Order.';
 
@@ -7771,6 +7785,7 @@ const buildListResult = ({
   label,
   payload,
   previewKeys,
+  includeStructuredTextPreview = false,
 }: {
   label: string;
   payload: {
@@ -7792,7 +7807,17 @@ const buildListResult = ({
     permission?: string | null;
   };
   previewKeys?: string[];
+  includeStructuredTextPreview?: boolean;
 }): ToolCallResult => {
+  const structuredTextPreview =
+    includeStructuredTextPreview ?
+      buildStructuredTextPreview(`${label} results preview`, {
+        count: payload.count,
+        total: payload.total,
+        page: payload.page,
+        results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
+      })
+    : undefined;
   const summaryInput =
     previewKeys ?
       {
@@ -7811,10 +7836,14 @@ const buildListResult = ({
     content: [
       {
         type: 'text',
-        text:
+        text: [
           payload.unavailable_reason ?
             `${label} are unavailable: ${payload.unavailable_reason}. ${payload.message}`
           : buildListSummary(summaryInput),
+          structuredTextPreview,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
       },
     ],
     structuredContent: {
@@ -8057,12 +8086,23 @@ const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResul
   const rows = Array.isArray(payload['data']) ? payload['data'] : [];
   const metrics = readRecord(payload['metrics']);
   const candidateCount = metrics?.['candidate_count'];
+  const structuredTextPreview = buildStructuredTextPreview('query_records results preview', {
+    object_type: objectType,
+    count,
+    total,
+    results: rows.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
+  });
   if (typeof candidateCount === 'number') {
     return {
       content: [
         {
           type: 'text',
-          text: `query_records found ${candidateCount} duplicate candidate groups for ${objectType}.`,
+          text: [
+            `query_records found ${candidateCount} duplicate candidate groups for ${objectType}.`,
+            structuredTextPreview,
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
         },
       ],
       structuredContent: {
@@ -8076,7 +8116,9 @@ const buildRecordQueryResult = (payload: Record<string, unknown>): ToolCallResul
     content: [
       {
         type: 'text',
-        text: `query_records returned ${count} of ${total} ${objectType} records.`,
+        text: [`query_records returned ${count} of ${total} ${objectType} records.`, structuredTextPreview]
+          .filter(Boolean)
+          .join('\n\n'),
       },
     ],
     structuredContent: {
@@ -11563,9 +11605,14 @@ export const crmListWorkspacesTool: McpTool = {
       data as unknown as Record<string, unknown> | undefined,
     );
     const message = `Returned ${availableWorkspaces.length} available Sanka workspaces.`;
+    const workspacePreview = buildStructuredTextPreview('Available Sanka workspaces preview', {
+      current_workspace: currentWorkspace,
+      total: availableWorkspaces.length,
+      available_workspaces: availableWorkspaces.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
+    });
 
     return {
-      content: [{ type: 'text', text: message }],
+      content: [{ type: 'text', text: [message, workspacePreview].filter(Boolean).join('\n\n') }],
       structuredContent: {
         ...(currentWorkspace.workspace_id ?
           { current_workspace_id: currentWorkspace.workspace_id }
@@ -14373,6 +14420,7 @@ export const crmListDealsTool: McpTool = {
         label: 'deals',
         payload,
         previewKeys: ['name', 'case_status', 'stage_key', 'deal_id'],
+        includeStructuredTextPreview: true,
       });
     }
 
@@ -14390,6 +14438,7 @@ export const crmListDealsTool: McpTool = {
         total: deals.length,
       },
       previewKeys: ['name', 'stage_label', 'deal_id'],
+      includeStructuredTextPreview: true,
     });
   },
 };
