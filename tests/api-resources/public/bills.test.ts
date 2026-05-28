@@ -112,4 +112,18 @@ describe('resource bills', () => {
       ),
     ).rejects.toThrow(Sanka.NotFoundError);
   });
+
+  // Mock server tests are disabled
+  test.skip('uploadAttachment', async () => {
+    const responsePromise = client.public.bills.uploadAttachment({
+      file: new File(['bill'], 'bill.pdf', { type: 'application/pdf' }),
+    });
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).not.toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
 });

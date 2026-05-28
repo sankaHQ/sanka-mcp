@@ -95,6 +95,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_slip');
     expect(toolNames).toContain('list_bills');
     expect(toolNames).toContain('get_bill');
+    expect(toolNames).toContain('upload_bill_attachment');
     expect(toolNames).toContain('create_bill');
     expect(toolNames).toContain('update_bill');
     expect(toolNames).toContain('delete_bill');
@@ -302,6 +303,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('delete_slip');
     expect(toolNames).toContain('list_bills');
     expect(toolNames).toContain('get_bill');
+    expect(toolNames).toContain('upload_bill_attachment');
     expect(toolNames).toContain('create_bill');
     expect(toolNames).toContain('update_bill');
     expect(toolNames).toContain('delete_bill');
@@ -497,6 +499,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_slip');
     expect(instructions).toContain('list_bills');
     expect(instructions).toContain('get_bill');
+    expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('create_bill');
     expect(instructions).toContain('update_bill');
     expect(instructions).toContain('delete_bill');
@@ -534,6 +537,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_import_file');
     expect(instructions).toContain('import_records');
     expect(instructions).toContain('get_import_job');
@@ -676,6 +680,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('delete_slip');
     expect(instructions).toContain('list_bills');
     expect(instructions).toContain('get_bill');
+    expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('create_bill');
     expect(instructions).toContain('update_bill');
     expect(instructions).toContain('delete_bill');
@@ -713,6 +718,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_import_file');
     expect(instructions).toContain('import_records');
     expect(instructions).toContain('get_import_job');

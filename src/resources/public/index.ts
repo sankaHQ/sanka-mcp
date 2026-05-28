@@ -40,11 +40,13 @@ export {
   type PublicBillRequest,
   type PublicBillResponse,
   type BillListResponse,
+  type BillUploadAttachmentResponse,
   type BillCreateParams,
   type BillRetrieveParams,
   type BillUpdateParams,
   type BillListParams,
   type BillDeleteParams,
+  type BillUploadAttachmentParams,
 } from './bills';
 export {
   Calendar,

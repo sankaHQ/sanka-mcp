@@ -46,6 +46,8 @@ import {
   BillListParams,
   BillListResponse,
   BillRetrieveParams,
+  BillUploadAttachmentParams,
+  BillUploadAttachmentResponse,
   BillUpdateParams,
   Bills,
   PublicBillRequest,
@@ -790,11 +792,13 @@ export declare namespace Public {
     type PublicBillRequest as PublicBillRequest,
     type PublicBillResponse as PublicBillResponse,
     type BillListResponse as BillListResponse,
+    type BillUploadAttachmentResponse as BillUploadAttachmentResponse,
     type BillCreateParams as BillCreateParams,
     type BillRetrieveParams as BillRetrieveParams,
     type BillUpdateParams as BillUpdateParams,
     type BillListParams as BillListParams,
     type BillDeleteParams as BillDeleteParams,
+    type BillUploadAttachmentParams as BillUploadAttachmentParams,
   };
 
   export {

@@ -4944,6 +4944,13 @@ const BILL_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Bill amount before tax.',
   },
+  attachment_file_ids: {
+    type: 'array',
+    description: 'Optional uploaded bill attachment file IDs to bind to the bill.',
+    items: {
+      type: 'string',
+    },
+  },
   company_external_id: {
     type: 'string',
     description: 'External company reference.',
@@ -5451,6 +5458,8 @@ const BILL_MUTATION_OUTPUT_SCHEMA = {
   },
   required: ['ok', 'status'],
 };
+
+const BILL_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
 
 const DISBURSEMENT_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -9633,6 +9642,12 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
     }
   }
   assignPublicLineItems(body, args);
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  if (attachmentFileIDs.length > 0) {
+    body['attachment_file'] = {
+      files: attachmentFileIDs.map((fileID) => ({ file_id: fileID })),
+    };
+  }
 
   return body;
 };
@@ -18119,6 +18134,67 @@ export const crmGetBillTool: McpTool = {
   },
 };
 
+export const crmUploadBillAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'write',
+    tags: ['crm', 'bills'],
+    httpMethod: 'post',
+    httpPath: '/v1/public/bills/files',
+    operationId: 'public.bills.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_bill_attachment',
+    title: 'Upload bill attachment',
+    description:
+      'Upload a bill attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_bill or update_bill.',
+    inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
+    outputSchema: BILL_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload bill attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload bill attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const filename = readString(args?.['filename']);
+    const contentBase64 = readString(args?.['content_base64']);
+    const mimeType = readString(args?.['mime_type']);
+    if (!filename) {
+      return asErrorResult('`filename` is required.');
+    }
+    if (!contentBase64) {
+      return asErrorResult('`content_base64` is required.');
+    }
+
+    const parsed = parseBase64Content(contentBase64);
+    const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+      type: mimeType || parsed.mimeType || 'application/octet-stream',
+    });
+    const response = await reqContext.client.public.bills.uploadAttachment({ file }, undefined);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded bill attachment ${response.filename || filename}.`,
+        },
+      ],
+      structuredContent: response as unknown as Record<string, unknown>,
+    };
+  },
+};
+
 export const crmCreateBillTool: McpTool = {
   metadata: {
     resource: 'bills',
@@ -18131,7 +18207,7 @@ export const crmCreateBillTool: McpTool = {
   tool: {
     name: 'create_bill',
     title: 'Create bill',
-    description: 'Create a bill in Sanka.',
+    description: 'Create a bill in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: BILL_CREATE_INPUT_SCHEMA,
     outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18185,7 +18261,8 @@ export const crmUpdateBillTool: McpTool = {
   tool: {
     name: 'update_bill',
     title: 'Update bill',
-    description: 'Update an existing bill in Sanka.',
+    description:
+      'Update an existing bill in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: BILL_UPDATE_INPUT_SCHEMA,
     outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

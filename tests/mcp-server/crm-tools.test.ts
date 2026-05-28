@@ -174,6 +174,7 @@ import {
   crmUpdateTaskTool,
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
+  crmUploadBillAttachmentTool,
   crmUploadExpenseAttachmentTool,
   crmUpsertPayrollProfileTool,
   crmCalculatePayrollRunTool,
@@ -306,6 +307,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmDeleteSlipTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListBillsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadBillAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -5247,6 +5249,7 @@ describe('ChatGPT CRM tools', () => {
         currency: 'USD',
         due_date: '2026-04-20',
         tax_inclusive: false,
+        attachment_file_ids: ['file-1'],
         line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
     });
@@ -5256,6 +5259,9 @@ describe('ChatGPT CRM tools', () => {
         currency: 'USD',
         due_date: '2026-04-20',
         tax_inclusive: false,
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
         line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
       undefined,
@@ -5273,6 +5279,7 @@ describe('ChatGPT CRM tools', () => {
         bill_id: 'bill-1',
         status: 'paid',
         payment_date: '2026-04-15',
+        attachment_file_ids: ['file-2'],
       },
     });
     expect(update).toHaveBeenCalledWith(
@@ -5280,6 +5287,9 @@ describe('ChatGPT CRM tools', () => {
       {
         status: 'paid',
         payment_date: '2026-04-15',
+        attachment_file: {
+          files: [{ file_id: 'file-2' }],
+        },
       },
       undefined,
     );
@@ -5307,6 +5317,42 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       bill_id: 'bill-1',
+    });
+  });
+
+  it('uploads a bill attachment from base64 content', async () => {
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'bill.pdf',
+    });
+
+    const result = await crmUploadBillAttachmentTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            bills: { uploadAttachment },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'bill.pdf',
+        mime_type: 'application/pdf',
+        content_base64: Buffer.from('test bill').toString('base64'),
+      },
+    });
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('bill.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'bill.pdf',
     });
   });
 
