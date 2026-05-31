@@ -223,7 +223,7 @@ export class Companies extends APIResource {
     return this._client
       .v2Get<V2ObjectRecordList>('/companies', {
         query,
-        ...(limit != null ? { query: { ...query, page_size: limit } } : undefined),
+        ...(limit != null ? { query: { ...query, limit } } : undefined),
         ...options,
         headers: buildHeaders([
           { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },

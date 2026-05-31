@@ -30,7 +30,7 @@ describe('public company and contact resources on V2', () => {
         if (method === 'DELETE') {
           return envelope({ id: 'company-1', record_id: '111', status: 'archived' });
         }
-        if (requestURL.endsWith('/api/v2/companies?search=Sanka&page_size=10')) {
+        if (requestURL.endsWith('/api/v2/companies?search=Sanka&limit=10')) {
           return envelope({ items: [companyRecord], page: 1, page_size: 10, total: 1 });
         }
         return envelope(companyRecord);
@@ -61,7 +61,7 @@ describe('public company and contact resources on V2', () => {
 
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/companies/company-1?external_id=COMPANY-111',
-      'GET http://localhost:5000/api/v2/companies?search=Sanka&page_size=10',
+      'GET http://localhost:5000/api/v2/companies?search=Sanka&limit=10',
       'DELETE http://localhost:5000/api/v2/companies/company-1?external_id=COMPANY-111',
     ]);
   });
@@ -92,7 +92,7 @@ describe('public company and contact resources on V2', () => {
         if (method === 'DELETE') {
           return envelope({ id: 'contact-1', record_id: '222', status: 'archived' });
         }
-        if (requestURL.endsWith('/api/v2/contacts?search=Ada&page_size=10')) {
+        if (requestURL.endsWith('/api/v2/contacts?search=Ada&limit=10')) {
           return envelope({ items: [contactRecord], page: 1, page_size: 10, total: 1 });
         }
         return envelope(contactRecord);
@@ -123,7 +123,7 @@ describe('public company and contact resources on V2', () => {
 
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/contacts/contact-1?external_id=CONTACT-222',
-      'GET http://localhost:5000/api/v2/contacts?search=Ada&page_size=10',
+      'GET http://localhost:5000/api/v2/contacts?search=Ada&limit=10',
       'DELETE http://localhost:5000/api/v2/contacts/contact-1?external_id=CONTACT-222',
     ]);
   });

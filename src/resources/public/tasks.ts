@@ -173,7 +173,7 @@ export class Tasks extends APIResource {
       this._client.v2Get<V2ObjectRecordList>('/tasks', {
         query: {
           ...query,
-          ...(limit !== undefined && limit !== null ? { page_size: limit } : undefined),
+          ...(limit !== undefined && limit !== null ? { limit } : undefined),
         },
         ...options,
         headers: buildHeaders([

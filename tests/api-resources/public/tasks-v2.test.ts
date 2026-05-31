@@ -132,7 +132,7 @@ describe('public tasks resource on V2', () => {
       },
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/tasks?search=Acme&usage_status=active&project_id=project-1&page=2&page_size=20',
+        url: 'http://localhost:5000/api/v2/tasks?search=Acme&usage_status=active&project_id=project-1&page=2&limit=20',
         body: undefined,
       },
       {

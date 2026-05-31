@@ -212,7 +212,7 @@ export class Deals extends APIResource {
       this._client.v2Get<V2ObjectRecordList>('/deals', {
         query: {
           ...query,
-          ...(limit != null ? { page_size: limit } : undefined),
+          ...(limit != null ? { limit } : undefined),
         },
         ...options,
         headers: buildHeaders([
