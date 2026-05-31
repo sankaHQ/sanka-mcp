@@ -101,8 +101,18 @@ const usableExternalID = (value: string | null | undefined): string | undefined 
   return normalized || undefined;
 };
 
+const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
+  target != null && target !== 'sanka';
+
+const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
+  const properties = { ...body };
+  if (properties['target'] === 'sanka') {
+    delete properties['target'];
+  }
+  return compactProperties(properties);
+};
+
 const hasLegacyContactCreateArgs = (body: ContactCreateParams): boolean =>
-  usableExternalID(body.external_id) == null ||
   body.channel_id != null ||
   body.confirm != null ||
   body.custom_fields != null ||
@@ -110,7 +120,7 @@ const hasLegacyContactCreateArgs = (body: ContactCreateParams): boolean =>
   body.external_object_type != null ||
   body.operation != null ||
   body.provider != null ||
-  body.target != null;
+  hasRemoteMutationTarget(body.target);
 
 const hasLegacyContactListArgs = (params: ContactListParams | null | undefined): boolean => {
   if (!params) return false;
@@ -134,7 +144,7 @@ const hasLegacyContactDeleteArgs = (params: ContactDeleteParams | null | undefin
     params.external_object_type != null ||
     params.operation != null ||
     params.provider != null ||
-    params.target != null
+    hasRemoteMutationTarget(params.target)
   );
 };
 
@@ -147,7 +157,7 @@ const hasLegacyContactUpdateArgs = (body: ContactUpdateParams): boolean =>
   body.external_object_type != null ||
   body.operation != null ||
   body.provider != null ||
-  body.target != null;
+  hasRemoteMutationTarget(body.target);
 
 export class Contacts extends APIResource {
   /**
@@ -158,7 +168,7 @@ export class Contacts extends APIResource {
       const externalID = usableExternalID(body.external_id);
       return this._client
         .v2Post<V2ObjectRecord>('/contacts', {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope, externalID, 'created'));
@@ -190,7 +200,7 @@ export class Contacts extends APIResource {
     if (!hasLegacyContactUpdateArgs(body)) {
       return this._client
         .v2Patch<V2ObjectRecord>(path`/contacts/${contactID}`, {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope));

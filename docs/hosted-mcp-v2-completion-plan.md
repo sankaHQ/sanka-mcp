@@ -51,36 +51,63 @@ Regression checks:
 - `list_invoices({ limit: 1 })`
 - at least one matching `get_*` call from each list result
 
-### P1 - Add Write-Capable OAuth Scope And Re-Sign-In Path
+### P1 - Align Writes With Delegated User Auth
 
-Goal: enable real write smoke for hosted MCP without using out-of-band API keys.
+Goal: hosted MCP should use the connected Sanka user's normal workspace/object
+permissions for writes, without requesting broad `api-access` by default.
 
-Why this is P1: write tools currently reach V2 but return `PERMISSION_DENIED`
-because the OAuth principal has only `mcp:access`. This blocks upload attachment,
-workspace switch, workflow start, and any create/update/delete smoke.
+Decision: keep hosted MCP OAuth connects on `mcp:access`. Treat that scope as a
+delegated MCP session for the authenticated Sanka user. The API platform gate
+should allow the request to reach the service layer, and service-layer
+permissions remain authoritative:
 
-Required decisions:
+- workspace membership decides which workspace can be used.
+- object permissions decide whether create/update/archive is allowed.
+- tool-level governance still handles dangerous operations such as remote
+  deletes, dedupe apply, and broad syncs.
 
-- Decide whether hosted MCP should request `api-access`, a narrower write scope,
-  or object-specific write scopes.
-- Decide whether existing Codex/Claude read-only connections should remain valid
-  while write-capable clients perform explicit reauthorization.
-- Decide how the client should surface the reauthorization prompt when a write
-  tool is called with read-only scopes.
+Why this is P1: the first V2 smoke showed write calls blocked at the OAuth
+platform gate because `mcp:access` mapped to `GET` only. That is not the V1 user
+auth model. In V1, MCP write tools ran as the authenticated Sanka principal and
+the backend checked the user's workspace/object permissions. A separate
+`api-access` scope is appropriate for broad developer/API-token style access,
+not for the default hosted MCP user connection.
+
+Related routing issue: default Sanka-local create/update calls must stay on V2.
+If the client sends `target=sanka`, the SDK must not fall back to legacy
+`/v1/public/*` routes. Claude's `create_company` 404 reproduced this class of
+issue because `target=sanka` plus no `external_id` selected the legacy create
+path even though the tool metadata advertised `/api/v2/companies`.
+
+Reauthorization policy:
+
+- No Codex/Claude reconnect should be required for the default user-auth model.
+- Reauthorization is only needed if the hosted OAuth app itself changes scopes or
+  if a future connector offers explicit narrow scopes such as `companies:write`.
+- Future narrow scopes can be layered on later, but they should not block the V2
+  migration.
 
 Implementation tasks:
 
-- Update MCP OAuth scope request/config for write-capable mode.
-- Confirm Sanka API scope-to-method mapping allows intended write routes.
-- Add auth tests covering read-only scope vs write-capable scope behavior.
-- Document expected reconnect behavior for Codex and Claude.
+- API: map `mcp:access` to delegated read/write platform access, then rely on
+  workspace/object permissions for final authorization.
+- MCP SDK: route default Sanka-local company/contact/deal create/update/delete
+  through V2 even when `target=sanka` is present.
+- MCP docs/instructions: stop saying Sanka-local company/contact/deal creates
+  require `external_id`; external ids are for idempotent upsert, not simple
+  create.
+- Add tests for `mcp:access` delegated write permission mapping.
+- Add SDK tests for `target=sanka` V2 write routing and no accidental `target`
+  property leakage into V2 record properties.
 
 Write smoke checklist after deploy:
 
+- One safe create/update/archive flow in a disposable workspace using the
+  existing Codex/Claude connection, without reconnecting.
 - `upload_expense_attachment` with a tiny text file.
-- One safe create/update/delete or archive flow in a disposable workspace.
 - `start_workflow` with an explicitly scoped, idempotent request.
-- Confirm no write occurs when the principal has only `mcp:access`.
+- Confirm denied writes return user/workspace/object permission errors, not OAuth
+  platform-scope errors, when the user lacks the Sanka permission.
 
 ### P2 - Migrate Business Workflow Runtime To V2
 

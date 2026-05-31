@@ -128,7 +128,7 @@ describe('public company and contact resources on V2', () => {
     ]);
   });
 
-  test('uses V2 create routes for local company and contact external-id upserts', async () => {
+  test('uses V2 create routes for default local company and contact creates', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -142,7 +142,6 @@ describe('public company and contact resources on V2', () => {
         if (requestURL.endsWith('/api/v2/companies')) {
           expect(body).toEqual({
             properties: {
-              external_id: 'COMPANY-111',
               name: 'Sanka Inc.',
               email: 'hello@example.com',
             },
@@ -156,7 +155,6 @@ describe('public company and contact resources on V2', () => {
         }
         expect(body).toEqual({
           properties: {
-            external_id: 'CONTACT-222',
             name: 'Ada',
             last_name: 'Lovelace',
             email: 'ada@example.com',
@@ -173,7 +171,7 @@ describe('public company and contact resources on V2', () => {
 
     await expect(
       client.public.companies.create({
-        external_id: 'COMPANY-111',
+        target: 'sanka',
         name: 'Sanka Inc.',
         email: 'hello@example.com',
       }),
@@ -181,12 +179,12 @@ describe('public company and contact resources on V2', () => {
       ok: true,
       status: 'created',
       company_id: 'company-1',
-      external_id: 'COMPANY-111',
+      external_id: null,
       ctx_id: 'ctx-test',
     });
     await expect(
       client.public.contacts.create({
-        external_id: 'CONTACT-222',
+        target: 'sanka',
         name: 'Ada',
         last_name: 'Lovelace',
         email: 'ada@example.com',
@@ -195,7 +193,7 @@ describe('public company and contact resources on V2', () => {
       ok: true,
       status: 'created',
       contact_id: 'contact-1',
-      external_id: 'CONTACT-222',
+      external_id: null,
       ctx_id: 'ctx-test',
     });
 
@@ -249,6 +247,7 @@ describe('public company and contact resources on V2', () => {
 
     await expect(
       client.public.companies.update('company-1', {
+        target: 'sanka',
         name: 'Sanka Inc.',
         phone_number: '+1-555-0100',
         url: 'https://sanka.example',
@@ -262,6 +261,7 @@ describe('public company and contact resources on V2', () => {
     });
     await expect(
       client.public.contacts.update('contact-1', {
+        target: 'sanka',
         company: 'Sanka Inc.',
         email: 'ada@example.com',
         last_name: 'Lovelace',
