@@ -36,7 +36,7 @@ describe('public deal resource on V2', () => {
             status: 'archived',
           });
         }
-        if (requestURL.endsWith('/api/v2/deals?page_size=10')) {
+        if (requestURL.endsWith('/api/v2/deals?limit=10')) {
           return envelope({ items: [dealRecord], page: 1, page_size: 10, total: 1 });
         }
         return envelope(dealRecord);
@@ -69,7 +69,7 @@ describe('public deal resource on V2', () => {
 
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/deals/deal-1?external_id=DEAL-901',
-      'GET http://localhost:5000/api/v2/deals?page_size=10',
+      'GET http://localhost:5000/api/v2/deals?limit=10',
       'DELETE http://localhost:5000/api/v2/deals/deal-1?external_id=DEAL-901',
     ]);
   });

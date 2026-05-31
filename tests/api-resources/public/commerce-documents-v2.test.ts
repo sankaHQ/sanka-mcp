@@ -58,7 +58,7 @@ describe('public commerce document resources on V2', () => {
           const id = requestURL.split('/').pop()?.split('?')[0] ?? 'record-1';
           return envelope({ id, record_id: '7000', status: 'archived' });
         }
-        if (requestURL.endsWith('/api/v2/orders?q=Acme&page_size=5')) {
+        if (requestURL.endsWith('/api/v2/orders?q=Acme&limit=5')) {
           return envelope({ items: [records.order], page: 1, page_size: 5, total: 1 });
         }
         if (requestURL.endsWith('/api/v2/estimates')) {
@@ -169,7 +169,7 @@ describe('public commerce document resources on V2', () => {
 
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/orders/order-1?external_id=ORDER-EXT',
-      'GET http://localhost:5000/api/v2/orders?q=Acme&page_size=5',
+      'GET http://localhost:5000/api/v2/orders?q=Acme&limit=5',
       'DELETE http://localhost:5000/api/v2/orders/order-1?external_id=ORDER-EXT',
       'GET http://localhost:5000/api/v2/estimates/estimate-1',
       'GET http://localhost:5000/api/v2/estimates',

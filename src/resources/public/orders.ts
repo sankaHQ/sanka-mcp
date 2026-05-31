@@ -82,7 +82,7 @@ export class Orders extends APIResource {
         query: {
           ...query,
           ...(search != null ? { q: search } : undefined),
-          ...(limit != null ? { page_size: limit } : undefined),
+          ...(limit != null ? { limit } : undefined),
         },
         ...options,
         headers: buildHeaders([
