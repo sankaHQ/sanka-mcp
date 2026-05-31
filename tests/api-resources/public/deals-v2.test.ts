@@ -74,6 +74,40 @@ describe('public deal resource on V2', () => {
     ]);
   });
 
+  test('strips explicit local scope from V2 deal list routing', async () => {
+    const calls: string[] = [];
+    const dealRecord = {
+      id: 'deal-1',
+      record_id: '901',
+      object_type: 'deal',
+      properties: {
+        name: 'Expansion',
+        stage: 'opportunities',
+        stage_label: 'Opportunities',
+        status: 'active',
+      },
+    };
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        return envelope({ items: [dealRecord], page: 1, page_size: 10, total: 1 });
+      },
+    });
+
+    await expect(client.public.deals.list({ scope: 'sanka', limit: 10 })).resolves.toEqual([
+      expect.objectContaining({
+        id: 'deal-1',
+        deal_id: 901,
+        name: 'Expansion',
+      }),
+    ]);
+
+    expect(calls).toEqual(['GET http://localhost:5000/api/v2/deals?limit=10']);
+  });
+
   test('keeps legacy delete path for integration mutation controls', async () => {
     const calls: string[] = [];
     const client = new Sanka({
