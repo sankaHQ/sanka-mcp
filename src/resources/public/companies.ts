@@ -131,7 +131,7 @@ const hasLegacyCompanyListArgs = (params: CompanyListParams | null | undefined):
     params.external_object_type != null ||
     params.provider != null ||
     params.reference_id != null ||
-    params.scope != null ||
+    params.scope === 'integration' ||
     params.sort != null ||
     params.view != null
   );
@@ -219,10 +219,11 @@ export class Companies extends APIResource {
     params: CompanyListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CompanyListResponse> {
-    const { 'Accept-Language': acceptLanguage, limit, ...query } = params ?? {};
+    const { 'Accept-Language': acceptLanguage, limit, scope, ...query } = params ?? {};
+    void scope;
     if (hasLegacyCompanyListArgs(params)) {
       return this._client.get('/v1/public/companies', {
-        query: { limit, ...query },
+        query: { limit, scope, ...query },
         ...options,
         headers: buildHeaders([
           { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },

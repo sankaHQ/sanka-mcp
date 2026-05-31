@@ -129,7 +129,7 @@ const hasLegacyContactListArgs = (params: ContactListParams | null | undefined):
     params.external_object_type != null ||
     params.provider != null ||
     params.reference_id != null ||
-    params.scope != null ||
+    params.scope === 'integration' ||
     params.sort != null ||
     params.view != null
   );
@@ -215,10 +215,11 @@ export class Contacts extends APIResource {
     params: ContactListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ContactListResponse> {
-    const { 'Accept-Language': acceptLanguage, limit, ...query } = params ?? {};
+    const { 'Accept-Language': acceptLanguage, limit, scope, ...query } = params ?? {};
+    void scope;
     if (hasLegacyContactListArgs(params)) {
       return this._client.get('/v1/public/contacts', {
-        query: { limit, ...query },
+        query: { limit, scope, ...query },
         ...options,
         headers: buildHeaders([
           { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },

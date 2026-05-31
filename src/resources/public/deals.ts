@@ -214,9 +214,18 @@ export class Deals extends APIResource {
     params: DealListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<DealListResponse> {
-    const { 'Accept-Language': acceptLanguage, lang, language, limit, workspace_id, ...query } = params ?? {};
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      limit,
+      scope,
+      workspace_id,
+      ...query
+    } = params ?? {};
     void lang;
     void language;
+    void scope;
     void workspace_id;
     return unwrapV2DealList(
       this._client.v2Get<V2ObjectRecordList>('/deals', {

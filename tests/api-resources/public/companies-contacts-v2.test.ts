@@ -66,6 +66,63 @@ describe('public company and contact resources on V2', () => {
     ]);
   });
 
+  test('treats explicit local company and contact scope as V2 list routing', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        const requestURL = String(url);
+        const method = String(init?.method ?? 'GET').toUpperCase();
+        calls.push(`${method} ${requestURL}`);
+        if (requestURL.includes('/api/v2/contacts')) {
+          return envelope({
+            items: [
+              {
+                id: 'contact-1',
+                record_id: '222',
+                object_type: 'contact',
+                properties: { name: 'Ada' },
+              },
+            ],
+            page: 1,
+            page_size: 5,
+            total: 1,
+          });
+        }
+        return envelope({
+          items: [
+            {
+              id: 'company-1',
+              record_id: '111',
+              object_type: 'company',
+              properties: { name: 'Sanka Inc.' },
+            },
+          ],
+          page: 1,
+          page_size: 5,
+          total: 1,
+        });
+      },
+    });
+
+    await expect(client.public.companies.list({ scope: 'sanka', limit: 5 })).resolves.toMatchObject({
+      count: 1,
+      total: 1,
+      data: [expect.objectContaining({ id: 'company-1', company_id: 111 })],
+    });
+    await expect(client.public.contacts.list({ scope: 'sanka', limit: 5 })).resolves.toMatchObject({
+      count: 1,
+      total: 1,
+      data: [expect.objectContaining({ id: 'contact-1', contact_id: 222 })],
+    });
+
+    expect(calls).toEqual([
+      'GET http://localhost:5000/api/v2/companies?limit=5',
+      'GET http://localhost:5000/api/v2/contacts?limit=5',
+    ]);
+  });
+
   test('uses V2 contact read list and delete routes', async () => {
     const calls: string[] = [];
     const contactRecord = {
@@ -125,6 +182,40 @@ describe('public company and contact resources on V2', () => {
       'GET http://localhost:5000/api/v2/contacts/contact-1?external_id=CONTACT-222',
       'GET http://localhost:5000/api/v2/contacts?search=Ada&limit=10',
       'DELETE http://localhost:5000/api/v2/contacts/contact-1?external_id=CONTACT-222',
+    ]);
+  });
+
+  test('keeps integration company and contact list routing on legacy path', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        return new Response(
+          JSON.stringify({
+            count: 1,
+            data: [{ id: 'remote-1', name: 'Remote' }],
+            message: 'OK',
+            page: 1,
+            total: 1,
+            scope: 'integration',
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+      },
+    });
+
+    await expect(
+      client.public.companies.list({ scope: 'integration', provider: 'hubspot', limit: 5 }),
+    ).resolves.toMatchObject({ scope: 'integration', total: 1 });
+    await expect(
+      client.public.contacts.list({ scope: 'integration', provider: 'hubspot', limit: 5 }),
+    ).resolves.toMatchObject({ scope: 'integration', total: 1 });
+
+    expect(calls).toEqual([
+      'GET http://localhost:5000/v1/public/companies?limit=5&scope=integration&provider=hubspot',
+      'GET http://localhost:5000/v1/public/contacts?limit=5&scope=integration&provider=hubspot',
     ]);
   });
 
