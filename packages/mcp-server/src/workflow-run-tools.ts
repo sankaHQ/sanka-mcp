@@ -69,6 +69,14 @@ const DIRECT_CRM_INVOICE_WORKFLOW_TYPE = 'deal_to_invoice';
 const DIRECT_CRM_INVOICE_LOCK_MESSAGE =
   'Direct CRM deal_to_invoice is disabled. Tell the user Sanka must first create or reuse a Sanka Order so billing can be generated correctly, ask for confirmation, then use workflow_type=deal_to_order before creating invoices or subscriptions from the Order.';
 
+const WORKFLOW_LANGUAGE_SCHEMA = {
+  type: 'string' as const,
+  enum: ['en', 'ja'],
+  default: 'en',
+  description:
+    'Optional document and app URL language. Defaults to en for MCP/agent workflows; pass ja for Japanese output.',
+};
+
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -320,6 +328,7 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
         },
       },
     },
+    language: WORKFLOW_LANGUAGE_SCHEMA,
   },
   required: ['workflow_type', 'source_record'],
 };
@@ -412,6 +421,7 @@ const START_WORKFLOW_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional key for safely retrying the same workflow start request.',
     },
+    language: WORKFLOW_LANGUAGE_SCHEMA,
   },
   required: ['workflow_type', 'source_record'],
 };
@@ -521,6 +531,19 @@ const buildDealToInvoiceDuplicateSummary = (
 const isSalesforceQuoteReadinessPreview = (workflowType: string): boolean =>
   workflowType === 'quote_readiness';
 
+const readWorkflowLanguage = (
+  args: Record<string, unknown> | undefined,
+  options: Record<string, unknown>,
+): string => {
+  return (
+    readString(args?.['language']) ??
+    readString(args?.['lang']) ??
+    readString(options['document_language']) ??
+    readString(options['language']) ??
+    'en'
+  );
+};
+
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']);
   const message = readString(payload['message']);
@@ -567,7 +590,7 @@ export const resolveRecordTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'workflow-runs', 'deals', 'orders', 'estimates', 'invoices', 'salesforce'],
     httpMethod: 'post',
-    httpPath: '/v1/public/workflow-runs/resolve-record',
+    httpPath: '/api/v2/public/workflow-runs/resolve-record',
     operationId: 'public.workflowRuns.resolveRecord',
   },
   tool: {
@@ -592,7 +615,7 @@ export const resolveRecordTool: McpTool = {
     }
     return postWorkflowRunEndpoint({
       reqContext,
-      path: '/v1/public/workflow-runs/resolve-record',
+      path: '/api/v2/public/workflow-runs/resolve-record',
       body: {
         query,
         object_type: readString(args?.['object_type']) ?? 'deal',
@@ -610,7 +633,7 @@ export const previewWorkflowTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'invoices', 'orders', 'salesforce', 'incentives'],
     httpMethod: 'post',
-    httpPath: '/v1/public/workflow-runs/preview',
+    httpPath: '/api/v2/public/workflow-runs/preview',
     operationId: 'public.workflowRuns.preview',
   },
   tool: {
@@ -640,18 +663,23 @@ export const previewWorkflowTool: McpTool = {
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
     }
+    const options = readObject(args?.['options']) ?? {};
+    const language = readWorkflowLanguage(args, options);
     if (isSalesforceQuoteReadinessPreview(workflowType)) {
-      const options = readObject(args?.['options']) ?? {};
       const body: Record<string, unknown> = {
         source_record: sourceRecord,
       };
       const channelId = readString(options['channel_id']);
-      const language = readString(options['language']);
+      const quoteReadinessLanguage =
+        readString(args?.['language']) ??
+        readString(args?.['lang']) ??
+        readString(options['document_language']) ??
+        readString(options['language']);
       if (channelId) {
         body['channel_id'] = channelId;
       }
-      if (language) {
-        body['language'] = language;
+      if (quoteReadinessLanguage) {
+        body['language'] = quoteReadinessLanguage;
       }
       return postWorkflowRunEndpoint({
         reqContext,
@@ -662,11 +690,12 @@ export const previewWorkflowTool: McpTool = {
     }
     return postWorkflowRunEndpoint({
       reqContext,
-      path: '/v1/public/workflow-runs/preview',
+      path: '/api/v2/public/workflow-runs/preview',
       body: {
         workflow_type: workflowType,
         source_record: sourceRecord,
-        options: readObject(args?.['options']) ?? {},
+        options,
+        language,
       },
       summary: 'Previewed workflow',
     });
@@ -679,7 +708,7 @@ export const startWorkflowTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'workflow-runs', 'deals', 'estimates', 'invoices', 'orders', 'salesforce'],
     httpMethod: 'post',
-    httpPath: '/v1/public/workflow-runs/start',
+    httpPath: '/api/v2/public/workflow-runs/start',
     operationId: 'public.workflowRuns.start',
   },
   tool: {
@@ -709,14 +738,17 @@ export const startWorkflowTool: McpTool = {
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
     }
+    const options = readObject(args?.['options']) ?? {};
+    const language = readWorkflowLanguage(args, options);
     return postWorkflowRunEndpoint({
       reqContext,
-      path: '/v1/public/workflow-runs/start',
+      path: '/api/v2/public/workflow-runs/start',
       body: {
         workflow_type: workflowType,
         source_record: sourceRecord,
-        options: readObject(args?.['options']) ?? {},
+        options,
         idempotency_key: readString(args?.['idempotency_key']),
+        language,
       },
       summary: 'Started workflow',
     });
@@ -729,7 +761,7 @@ export const getWorkflowRunTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'workflow-runs'],
     httpMethod: 'get',
-    httpPath: '/v1/public/workflow-runs/{run_id}',
+    httpPath: '/api/v2/public/workflow-runs/{run_id}',
     operationId: 'public.workflowRuns.retrieve',
   },
   tool: {
@@ -760,7 +792,7 @@ export const getWorkflowRunTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = (await reqContext.client.get(
-      `/v1/public/workflow-runs/${encodeURIComponent(runID)}`,
+      `/api/v2/public/workflow-runs/${encodeURIComponent(runID)}`,
     )) as Record<string, unknown>;
     return workflowResult(response, 'Loaded workflow run');
   },

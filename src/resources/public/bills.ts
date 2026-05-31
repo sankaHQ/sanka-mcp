@@ -7,7 +7,72 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { unwrapV2DataPromise } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const billFromV2Record = (record: V2ObjectRecord): Bill => legacyObjectRecordFromV2<Bill>(record, 'id_bill');
+
+const billUpdateProperties = (params: BillUpdateParams): Record<string, unknown> => {
+  const {
+    amount,
+    amount_without_tax,
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    description,
+    due_date,
+    external_id: _externalID,
+    issued_date,
+    notes,
+    payment_date,
+    status,
+    tax_inclusive: _taxInclusive,
+    tax_option: _taxOption,
+    tax_rate,
+  } = params;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  void _taxInclusive;
+  void _taxOption;
+  return compactProperties({
+    amount,
+    amount_without_tax,
+    company_id,
+    contact_id,
+    currency,
+    description,
+    due_date,
+    issued_date,
+    notes,
+    payment_date,
+    status,
+    tax_rate,
+  });
+};
+
+const canUseV2BillUpdate = (params: BillUpdateParams, properties: Record<string, unknown>): boolean =>
+  params.attachment_file == null &&
+  params.company_external_id == null &&
+  params.contact_external_id == null &&
+  params.tax_inclusive == null &&
+  params.tax_option == null &&
+  Object.keys(properties).length > 0;
 
 export class Bills extends APIResource {
   /**
@@ -25,22 +90,44 @@ export class Bills extends APIResource {
     params: BillRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Bill> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/bills/${billID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/bills/${billID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      billFromV2Record,
+    );
   }
 
   /**
    * Update Bill
    */
-  update(billID: string, body: BillUpdateParams, options?: RequestOptions): APIPromise<PublicBillResponse> {
-    return this._client.put(path`/v1/public/bills/${billID}`, { body, ...options });
+  update(billID: string, params: BillUpdateParams, options?: RequestOptions): APIPromise<PublicBillResponse> {
+    const properties = billUpdateProperties(params);
+    if (canUseV2BillUpdate(params, properties)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/bills/${billID}`, {
+          query: { external_id: params.external_id },
+          body: { properties },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PublicBillResponse>(
+            envelope,
+            'bill_id',
+            'updated',
+            params.external_id,
+          ),
+        );
+    }
+    return this._client.put(path`/v1/public/bills/${billID}`, { body: params, ...options });
   }
 
   /**
@@ -50,15 +137,27 @@ export class Bills extends APIResource {
     params: BillListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<BillListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/bills', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/bills', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      billFromV2Record,
+    );
   }
 
   /**
@@ -70,7 +169,11 @@ export class Bills extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicBillResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/bills/${billID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/bills/${billID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PublicBillResponse>(envelope, 'bill_id', external_id),
+      );
   }
 
   /**
@@ -80,9 +183,11 @@ export class Bills extends APIResource {
     body: BillUploadAttachmentParams,
     options?: RequestOptions,
   ): APIPromise<BillUploadAttachmentResponse> {
-    return this._client.post(
-      '/v1/public/bills/files',
-      multipartFormRequestOptions({ body, ...options }, this._client),
+    return unwrapV2DataPromise(
+      this._client.v2Post<BillUploadAttachmentResponse>(
+        '/bills/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
     );
   }
 }
@@ -356,10 +461,10 @@ export interface BillUploadAttachmentParams {
 export declare namespace Bills {
   export {
     type Bill as Bill,
+    type BillUploadAttachmentResponse as BillUploadAttachmentResponse,
     type PublicBillRequest as PublicBillRequest,
     type PublicBillResponse as PublicBillResponse,
     type BillListResponse as BillListResponse,
-    type BillUploadAttachmentResponse as BillUploadAttachmentResponse,
     type BillCreateParams as BillCreateParams,
     type BillRetrieveParams as BillRetrieveParams,
     type BillUpdateParams as BillUpdateParams,

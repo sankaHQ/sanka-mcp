@@ -5,6 +5,63 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const disbursementFromV2Record = (record: V2ObjectRecord): Disbursement =>
+  legacyObjectRecordFromV2<Disbursement>(record, 'id_dsb');
+
+const canUseV2DisbursementUpdate = (body: DisbursementUpdateParams): boolean =>
+  body.company_external_id == null &&
+  body.contact_external_id == null &&
+  body.tax_inclusive == null &&
+  body.tax_option == null;
+
+const disbursementUpdateProperties = (body: DisbursementUpdateParams): Record<string, unknown> => {
+  const {
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    external_id: _externalID,
+    fee,
+    notes,
+    start_date,
+    status,
+    tax_inclusive: _taxInclusive,
+    tax_option: _taxOption,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  } = body;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  void _taxInclusive;
+  void _taxOption;
+  return compactProperties({
+    company_id,
+    contact_id,
+    currency,
+    fee,
+    notes,
+    start_date,
+    status,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  });
+};
 
 export class Disbursements extends APIResource {
   /**
@@ -22,15 +79,20 @@ export class Disbursements extends APIResource {
     params: DisbursementRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Disbursement> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/disbursements/${disbursementID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/disbursements/${disbursementID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      disbursementFromV2Record,
+    );
   }
 
   /**
@@ -41,6 +103,23 @@ export class Disbursements extends APIResource {
     body: DisbursementUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicDisbursementResponse> {
+    const { external_id } = body;
+    if (canUseV2DisbursementUpdate(body)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/disbursements/${disbursementID}`, {
+          query: { external_id },
+          body: { properties: disbursementUpdateProperties(body) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PublicDisbursementResponse>(
+            envelope,
+            'disbursement_id',
+            'updated',
+            external_id,
+          ),
+        );
+    }
     return this._client.put(path`/v1/public/disbursements/${disbursementID}`, { body, ...options });
   }
 
@@ -51,15 +130,27 @@ export class Disbursements extends APIResource {
     params: DisbursementListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<DisbursementListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/disbursements', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/disbursements', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      disbursementFromV2Record,
+    );
   }
 
   /**
@@ -71,10 +162,14 @@ export class Disbursements extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicDisbursementResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/disbursements/${disbursementID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/disbursements/${disbursementID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PublicDisbursementResponse>(envelope, 'disbursement_id', external_id),
+      );
   }
 }
 

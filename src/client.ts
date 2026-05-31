@@ -17,6 +17,7 @@ import * as Errors from './core/error';
 import * as Uploads from './core/uploads';
 import * as API from './resources/index';
 import { APIPromise } from './core/api-promise';
+import type { V2Envelope } from './internal/v2';
 import { Demo, DemoGenerateParams, DemoGenerateResponse } from './resources/demo';
 import { Enrich, EnrichCreateParams, EnrichCreateResponse } from './resources/enrich';
 import {
@@ -44,6 +45,14 @@ import {
 } from './internal/utils/log';
 import { isEmptyObj } from './internal/utils/values';
 
+export type APIVersionMode = 'any' | 'v1' | 'v2';
+
+const normalizeAPIVersion = (value: string | null | undefined): APIVersionMode => {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'v1' || normalized === 'v2') return normalized;
+  return 'any';
+};
+
 export interface ClientOptions {
   /**
    * Defaults to process.env['SANKA_API_KEY'].
@@ -56,6 +65,22 @@ export interface ClientOptions {
    * Defaults to process.env['SANKA_BASE_URL'].
    */
   baseURL?: string | null | undefined;
+
+  /**
+   * Workspace code to send with every request.
+   *
+   * Defaults to process.env['SANKA_WORKSPACE_CODE'].
+   */
+  workspaceCode?: string | null | undefined;
+
+  /**
+   * Restrict SDK requests to a specific API generation.
+   *
+   * Set to "v2" during migration/staging to fail fast if a V1 path is still used.
+   *
+   * Defaults to process.env['SANKA_API_VERSION'].
+   */
+  apiVersion?: APIVersionMode | null | undefined;
 
   /**
    * The maximum amount of time (in milliseconds) that the client should wait for a response
@@ -126,6 +151,8 @@ export class Sanka {
   apiKey: string | null;
 
   baseURL: string;
+  workspaceCode: string | null;
+  apiVersion: APIVersionMode;
   maxRetries: number;
   timeout: number;
   logger: Logger;
@@ -152,10 +179,14 @@ export class Sanka {
   constructor({
     baseURL = readEnv('SANKA_BASE_URL'),
     apiKey = readEnv('SANKA_API_KEY') ?? null,
+    workspaceCode = readEnv('SANKA_WORKSPACE_CODE') ?? null,
+    apiVersion,
     ...opts
   }: ClientOptions = {}) {
     const options: ClientOptions = {
       apiKey,
+      workspaceCode: workspaceCode || null,
+      apiVersion: normalizeAPIVersion(apiVersion ?? readEnv('SANKA_API_VERSION') ?? null),
       ...opts,
       baseURL: baseURL || `https://api.sanka.com`,
     };
@@ -178,6 +209,8 @@ export class Sanka {
     this._options = options;
 
     this.apiKey = apiKey;
+    this.workspaceCode = options.workspaceCode ?? null;
+    this.apiVersion = options.apiVersion ?? 'any';
   }
 
   /**
@@ -194,6 +227,8 @@ export class Sanka {
       fetch: this.fetch,
       fetchOptions: this.fetchOptions,
       apiKey: this.apiKey,
+      workspaceCode: this.workspaceCode,
+      apiVersion: this.apiVersion,
       ...options,
     });
     return client;
@@ -312,6 +347,33 @@ export class Sanka {
 
   delete<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<Rsp> {
     return this.methodRequest('delete', path, opts);
+  }
+
+  v2Path(path: string): string {
+    if (isAbsoluteURL(path)) return path;
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    if (normalized === '/api/v2' || normalized.startsWith('/api/v2/')) return normalized;
+    return `/api/v2${normalized}`;
+  }
+
+  v2Get<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<V2Envelope<Rsp>> {
+    return this.get(this.v2Path(path), opts);
+  }
+
+  v2Post<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<V2Envelope<Rsp>> {
+    return this.post(this.v2Path(path), opts);
+  }
+
+  v2Patch<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<V2Envelope<Rsp>> {
+    return this.patch(this.v2Path(path), opts);
+  }
+
+  v2Put<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<V2Envelope<Rsp>> {
+    return this.put(this.v2Path(path), opts);
+  }
+
+  v2Delete<Rsp>(path: string, opts?: PromiseOrValue<RequestOptions>): APIPromise<V2Envelope<Rsp>> {
+    return this.delete(this.v2Path(path), opts);
   }
 
   private methodRequest<Rsp>(
@@ -610,6 +672,8 @@ export class Sanka {
     const options = { ...inputOptions };
     const { method, path, query, defaultBaseURL } = options;
 
+    this.validateAPIVersionPath(path!);
+
     const url = this.buildURL(path!, query as Record<string, unknown>, defaultBaseURL);
     if ('timeout' in options) validatePositiveInteger('timeout', options.timeout);
     options.timeout = options.timeout ?? this.timeout;
@@ -657,6 +721,7 @@ export class Sanka {
         ...getPlatformHeaders(),
       },
       await this.authHeaders(options),
+      this.workspaceCode ? { 'X-Workspace-Code': this.workspaceCode } : undefined,
       this._options.defaultHeaders,
       bodyHeaders,
       options.headers,
@@ -671,6 +736,15 @@ export class Sanka {
     // note: we can't just inline this method inside `fetchWithTimeout()` because then the closure
     //       would capture all request options, and cause a memory leak.
     return () => controller.abort();
+  }
+
+  private validateAPIVersionPath(path: string): void {
+    if (this.apiVersion !== 'v2') return;
+
+    const pathname = isAbsoluteURL(path) ? new URL(path).pathname : path;
+    if (pathname === '/v1' || pathname.startsWith('/v1/')) {
+      throw new Error(`Sanka client is configured for V2-only requests, but received V1 path: ${path}`);
+    }
   }
 
   private buildBody({ options: { body, headers: rawHeaders } }: { options: FinalRequestOptions }): {

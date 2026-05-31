@@ -4,13 +4,91 @@ import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+
+type V2WorkflowListData = {
+  items?: Array<Record<string, unknown>>;
+  total?: number;
+  page?: number;
+  page_size?: number;
+};
+
+type V2WorkflowDetailData = {
+  workflow?: Record<string, unknown>;
+};
+
+type V2WorkflowActionsData = {
+  actions?: Array<Record<string, unknown>>;
+  count?: number;
+};
+
+const workflowFromV2 = (workflow: Record<string, unknown>): WorkflowRetrieveResponse => {
+  const workflowID = String(workflow['workflow_id'] ?? workflow['id'] ?? '');
+  return {
+    ...workflow,
+    external_id: String(workflow['external_id'] ?? workflow['id'] ?? workflowID),
+    workflow_id: workflowID,
+    is_trigger_active: workflow['is_trigger_active'] === true,
+    valid_to_run: workflow['valid_to_run'] === true,
+  } as WorkflowRetrieveResponse;
+};
+
+const unwrapV2WorkflowList = (
+  promise: APIPromise<V2Envelope<V2WorkflowListData>>,
+): APIPromise<WorkflowListResponse> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    const items = Array.isArray(data.items) ? data.items : [];
+    return {
+      count: data.total ?? items.length,
+      data: items.map(workflowFromV2) as WorkflowListResponse.Data[],
+      limit: data.page_size ?? items.length,
+      page: data.page ?? 1,
+      ctx_id: envelope.meta.ctx_id ?? null,
+    };
+  });
+};
+
+const unwrapV2WorkflowDetail = (
+  promise: APIPromise<V2Envelope<V2WorkflowDetailData>>,
+): APIPromise<WorkflowRetrieveResponse> => {
+  return promise._thenUnwrap((envelope) => workflowFromV2(unwrapV2Data(envelope).workflow ?? {}));
+};
+
+const unwrapV2WorkflowActions = (
+  promise: APIPromise<V2Envelope<V2WorkflowActionsData>>,
+): APIPromise<WorkflowListActionsResponse> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    const actions = Array.isArray(data.actions) ? data.actions : [];
+    return {
+      count: data.count ?? actions.length,
+      data: actions as unknown as WorkflowListActionsResponse.Data[],
+      ctx_id: envelope.meta.ctx_id ?? null,
+    };
+  });
+};
+
+const unwrapV2WorkflowRun = (
+  promise: APIPromise<V2Envelope<WorkflowRunResponse.Data>>,
+): APIPromise<WorkflowRunResponse> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    const message = (data as unknown as Record<string, unknown>)['message'];
+    return {
+      data,
+      message: typeof message === 'string' ? message : 'ok',
+      ctx_id: envelope.meta.ctx_id ?? null,
+    };
+  });
+};
 
 export class Workflows extends APIResource {
   /**
    * Get Workflow
    */
   retrieve(workflowRef: string, options?: RequestOptions): APIPromise<WorkflowRetrieveResponse> {
-    return this._client.get(path`/v1/public/workflows/${workflowRef}`, options);
+    return unwrapV2WorkflowDetail(this._client.get(path`/api/v2/public/workflows/${workflowRef}`, options));
   }
 
   /**
@@ -20,7 +98,7 @@ export class Workflows extends APIResource {
     query: WorkflowListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<WorkflowListResponse> {
-    return this._client.get('/v1/public/workflows', { query, ...options });
+    return unwrapV2WorkflowList(this._client.get('/api/v2/public/workflows', { query, ...options }));
   }
 
   /**
@@ -37,14 +115,14 @@ export class Workflows extends APIResource {
    * List Public Workflow Actions
    */
   listActions(options?: RequestOptions): APIPromise<WorkflowListActionsResponse> {
-    return this._client.get('/v1/public/workflows/actions', options);
+    return unwrapV2WorkflowActions(this._client.get('/api/v2/public/workflows/actions', options));
   }
 
   /**
    * Get Workflow Run
    */
   retrieveRun(runID: string, options?: RequestOptions): APIPromise<WorkflowRunResponse> {
-    return this._client.get(path`/v1/public/workflows/runs/${runID}`, options);
+    return unwrapV2WorkflowRun(this._client.get(path`/api/v2/public/workflow-runs/${runID}`, options));
   }
 
   /**

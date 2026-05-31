@@ -31,12 +31,16 @@ describe('saved view and report tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/views', {
+    expect(post).toHaveBeenCalledWith('/api/v2/views', {
       body: {
         object: 'orders',
+        object_type: 'orders',
         name: 'Orders Needing Invoice',
+        title: 'Orders Needing Invoice',
         view_type: 'list',
+        mode: 'table',
         columns: ['order_id', 'status'],
+        column_field_ids: ['order_id', 'status'],
         pagination: 50,
         filters: [{ field: 'status', operator: 'equals', value: 'draft' }],
       },
@@ -67,7 +71,7 @@ describe('saved view and report tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/views', {
+    expect(get).toHaveBeenCalledWith('/api/v2/views', {
       query: {
         object: 'orders',
         workspace_id: 'workspace-1',
@@ -80,13 +84,13 @@ describe('saved view and report tools', () => {
   });
 
   it('create_report posts a report metadata payload to the public reports endpoint', async () => {
-    const post = jest.fn().mockResolvedValue({
+    const create = jest.fn().mockResolvedValue({
       ok: true,
       status: 'created',
       report_id: 'report-1',
     });
     const reqContext = {
-      client: { post },
+      client: { public: { reports: { create } } },
     } as unknown as McpRequestContext;
 
     const result = await crmCreateReportTool.handler({
@@ -99,8 +103,8 @@ describe('saved view and report tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/reports', {
-      body: {
+    expect(create).toHaveBeenCalledWith(
+      {
         reportMetadata: {
           name: 'Invoice Aging',
           description: 'Open invoices by customer',
@@ -109,7 +113,8 @@ describe('saved view and report tools', () => {
         },
         createDefaultPanel: true,
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toMatchObject({
       ok: true,
       report_id: 'report-1',
@@ -117,13 +122,13 @@ describe('saved view and report tools', () => {
   });
 
   it('update_report does not request a default panel unless asked', async () => {
-    const put = jest.fn().mockResolvedValue({
+    const update = jest.fn().mockResolvedValue({
       ok: true,
       status: 'updated',
       report_id: 'report-1',
     });
     const reqContext = {
-      client: { put },
+      client: { public: { reports: { update } } },
     } as unknown as McpRequestContext;
 
     await crmUpdateReportTool.handler({
@@ -135,22 +140,22 @@ describe('saved view and report tools', () => {
       },
     });
 
-    expect(put).toHaveBeenCalledWith('/v1/public/reports/report-1', {
-      body: {
+    expect(update).toHaveBeenCalledWith(
+      'report-1',
+      {
         reportMetadata: {
           name: 'Invoice Aging Updated',
         },
-      },
-      query: {
         workspace_id: 'workspace-1',
       },
-    });
+      undefined,
+    );
   });
 
   it('list_reports requests the public reports endpoint', async () => {
-    const get = jest.fn().mockResolvedValue([{ id: 'report-1', name: 'Invoice Aging' }]);
+    const list = jest.fn().mockResolvedValue([{ id: 'report-1', name: 'Invoice Aging' }]);
     const reqContext = {
-      client: { get },
+      client: { public: { reports: { list } } },
     } as unknown as McpRequestContext;
 
     const result = await crmListReportsTool.handler({
@@ -162,13 +167,14 @@ describe('saved view and report tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/reports', {
-      query: {
+    expect(list).toHaveBeenCalledWith(
+      {
         page: 2,
         limit: 5,
         workspace_id: 'workspace-1',
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toMatchObject({
       page: 2,
       count: 1,

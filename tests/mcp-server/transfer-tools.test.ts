@@ -40,6 +40,19 @@ describe('public transfer MCP tools', () => {
     }
   });
 
+  it('advertises the V2 transfer endpoints in tool metadata', () => {
+    expect(uploadImportFileTool.metadata.httpPath).toBe('/api/v2/files');
+    expect(importRecordsTool.metadata.httpPath).toBe('/api/v2/imports');
+    expect(getImportJobTool.metadata.httpPath).toBe('/api/v2/imports/{job_id}');
+    expect(listImportJobsTool.metadata.httpPath).toBe('/api/v2/imports');
+    expect(cancelImportJobTool.metadata.httpPath).toBe('/api/v2/imports/{job_id}/cancel');
+    expect(listIntegrationChannelsTool.metadata.httpPath).toBe('/api/v2/integrations/channels');
+    expect(exportRecordsTool.metadata.httpPath).toBe('/api/v2/exports');
+    expect(getExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}');
+    expect(listExportJobsTool.metadata.httpPath).toBe('/api/v2/exports');
+    expect(cancelExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}/cancel');
+  });
+
   it('returns a reauth challenge for upload_import_file without authentication', async () => {
     const uploadFile = jest.fn();
 

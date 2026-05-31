@@ -5,13 +5,53 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const itemFromV2Record = (record: V2ObjectRecord): ShopTurboItem =>
+  legacyObjectRecordFromV2<ShopTurboItem>(record, 'item_id');
+
+const itemMutationProperties = (
+  body: ItemCreateParams | ItemUpdateParams,
+): { externalID: string | null; properties: Record<string, unknown> } => {
+  const { externalId, purchasePrice, ...rest } = body;
+  return {
+    externalID: externalId ?? null,
+    properties: compactProperties({
+      ...rest,
+      ...(purchasePrice !== undefined ? { purchase_price: purchasePrice } : undefined),
+    }),
+  };
+};
 
 export class Items extends APIResource {
   /**
    * Create Item
    */
   create(body: ItemCreateParams, options?: RequestOptions): APIPromise<ItemResponse> {
-    return this._client.post('/v1/public/items', { body, ...options });
+    const { externalID, properties } = itemMutationProperties(body);
+    return this._client
+      .v2Post<V2ObjectRecord>('/items', {
+        body: {
+          properties: {
+            ...(externalID != null ? { external_id: externalID } : undefined),
+            ...properties,
+          },
+        },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<ItemResponse>(envelope, 'item_id', 'created', externalID),
+      );
   }
 
   /**
@@ -22,14 +62,26 @@ export class Items extends APIResource {
     query: ItemRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ShopTurboItem> {
-    return this._client.get(path`/v1/public/items/${itemID}`, { query, ...options });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/items/${itemID}`, { query, ...options }),
+      itemFromV2Record,
+    );
   }
 
   /**
    * Update Item
    */
   update(itemID: string, body: ItemUpdateParams, options?: RequestOptions): APIPromise<ItemResponse> {
-    return this._client.put(path`/v1/public/items/${itemID}`, { body, ...options });
+    const { externalID, properties } = itemMutationProperties(body);
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/items/${itemID}`, {
+        query: { external_id: externalID },
+        body: { properties },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<ItemResponse>(envelope, 'item_id', 'updated', externalID),
+      );
   }
 
   /**
@@ -39,15 +91,27 @@ export class Items extends APIResource {
     params: ItemListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ItemListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/items', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/items', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      itemFromV2Record,
+    );
   }
 
   /**
@@ -59,7 +123,9 @@ export class Items extends APIResource {
     options?: RequestOptions,
   ): APIPromise<ItemResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/items/${itemID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/items/${itemID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<ItemResponse>(envelope, 'item_id', external_id));
   }
 }
 

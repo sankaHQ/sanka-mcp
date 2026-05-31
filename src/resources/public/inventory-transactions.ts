@@ -5,6 +5,21 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const transactionFromV2Record = (record: V2ObjectRecord): TransactionSchema => {
+  const properties = record.properties ?? {};
+  return legacyObjectRecordFromV2<TransactionSchema>(record, 'transaction_id', {
+    inventory_id: properties['formatted_inventory_id'] ?? properties['inventory_id'] ?? null,
+    inventory_uuid: properties['inventory_id'] ?? null,
+  });
+};
 
 export class InventoryTransactions extends APIResource {
   /**
@@ -23,13 +38,16 @@ export class InventoryTransactions extends APIResource {
     options?: RequestOptions,
   ): APIPromise<TransactionSchema> {
     const { 'Accept-Language': acceptLanguage } = params ?? {};
-    return this._client.get(path`/v1/public/inventory-transactions/${transactionID}`, {
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/inventory-transactions/${transactionID}`, {
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      transactionFromV2Record,
+    );
   }
 
   /**
@@ -50,15 +68,27 @@ export class InventoryTransactions extends APIResource {
     params: InventoryTransactionListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InventoryTransactionListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/inventory-transactions', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/inventory-transactions', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      transactionFromV2Record,
+    );
   }
 
   /**

@@ -3,13 +3,24 @@
 import { APIResource } from '../core/resource';
 import { APIPromise } from '../core/api-promise';
 import { RequestOptions } from '../internal/request-options';
+import { V2Envelope, unwrapV2Data } from '../internal/v2';
+
+const wrapV2ScoreEnvelope = (
+  promise: APIPromise<V2Envelope<ScoreCreateResponse.Data>>,
+): APIPromise<ScoreCreateResponse> => {
+  return promise._thenUnwrap((envelope) => ({
+    data: unwrapV2Data(envelope),
+    message: 'Score calculated',
+    ctx_id: envelope.meta.ctx_id ?? null,
+  }));
+};
 
 export class Score extends APIResource {
   /**
    * Score Company or Deal Data
    */
   create(body: ScoreCreateParams, options?: RequestOptions): APIPromise<ScoreCreateResponse> {
-    return this._client.post('/v1/score', { body, ...options });
+    return wrapV2ScoreEnvelope(this._client.post('/api/v2/score', { body, ...options }));
   }
 }
 

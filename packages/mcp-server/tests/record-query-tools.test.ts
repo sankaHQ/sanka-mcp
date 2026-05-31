@@ -21,7 +21,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'companies',
         filters: [{ field: 'address', operator: 'is_empty' }],
@@ -64,7 +64,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -108,7 +108,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         select: ['id', 'name', 'address'],
@@ -121,6 +121,37 @@ describe('record query tools', () => {
       count: 1,
       total: 1,
       results: [{ id: 'company-1', name: 'Acme', address: '' }],
+    });
+  });
+
+  it('query_records normalizes the V2 envelope into the MCP result shape', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: [{ record_id: 'company-1', label: 'Acme', values: { 'standard:name': 'Acme' } }],
+      meta: { ctx_id: 'ctx-query', pagination: { page: 2, page_size: 5, total: 7 } },
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext,
+      args: {
+        object_type: 'companies',
+        page: 2,
+        limit: 5,
+      },
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      object_type: 'companies',
+      scope: 'sanka',
+      count: 1,
+      total: 7,
+      page: 2,
+      limit: 5,
+      ctx_id: 'ctx-query',
+      results: [{ record_id: 'company-1', label: 'Acme' }],
     });
   });
 
@@ -154,7 +185,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -169,6 +200,36 @@ describe('record query tools', () => {
       scope: 'integration',
       provider: 'hubspot',
       results: [{ id: 'hs-1', name: 'Acme' }],
+    });
+  });
+
+  it('aggregate_records normalizes the V2 envelope into the MCP result shape', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        metrics: { count: 17 },
+        groups: [],
+        message: 'OK',
+      },
+      meta: { ctx_id: 'ctx-aggregate' },
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext,
+      args: { object_type: 'companies' },
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      object_type: 'companies',
+      scope: 'sanka',
+      metrics: { count: 17 },
+      ctx_id: 'ctx-aggregate',
+    });
+    expect(result.content[0]).toMatchObject({
+      text: 'aggregate_records count for companies: 17',
     });
   });
 });

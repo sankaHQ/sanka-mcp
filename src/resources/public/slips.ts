@@ -5,7 +5,65 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2PdfData, buildV2PdfRequest, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const slipFromV2Record = (record: V2ObjectRecord): Slip => legacyObjectRecordFromV2<Slip>(record, 'id_slip');
+
+const canUseV2SlipUpdate = (body: SlipUpdateParams): boolean =>
+  body.company_external_id == null &&
+  body.contact_external_id == null &&
+  body.tax_inclusive == null &&
+  body.tax_option == null &&
+  body.tax_rate == null;
+
+const slipUpdateProperties = (body: SlipUpdateParams): Record<string, unknown> => {
+  const {
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    external_id: _externalID,
+    notes,
+    slip_type,
+    start_date,
+    status,
+    tax_inclusive: _taxInclusive,
+    tax_option: _taxOption,
+    tax_rate: _taxRate,
+    total_price,
+    total_price_without_tax,
+  } = body;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  void _taxInclusive;
+  void _taxOption;
+  void _taxRate;
+  return compactProperties({
+    company_id,
+    contact_id,
+    currency,
+    notes,
+    revenue_mode: slip_type,
+    start_date,
+    status,
+    total_price,
+    total_price_without_tax,
+  });
+};
 
 export class Slips extends APIResource {
   /**
@@ -23,21 +81,38 @@ export class Slips extends APIResource {
     params: SlipRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Slip> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/slips/${slipID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/revenues/${slipID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      slipFromV2Record,
+    );
   }
 
   /**
    * Update Slip
    */
   update(slipID: string, body: SlipUpdateParams, options?: RequestOptions): APIPromise<SlipResponse> {
+    const { external_id } = body;
+    if (canUseV2SlipUpdate(body)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/revenues/${slipID}`, {
+          query: { external_id },
+          body: { properties: slipUpdateProperties(body) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<SlipResponse>(envelope, 'slip_id', 'updated', external_id),
+        );
+    }
     return this._client.put(path`/v1/public/slips/${slipID}`, { body, ...options });
   }
 
@@ -48,15 +123,27 @@ export class Slips extends APIResource {
     params: SlipListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<SlipListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/slips', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/revenues', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      slipFromV2Record,
+    );
   }
 
   /**
@@ -68,7 +155,9 @@ export class Slips extends APIResource {
     options?: RequestOptions,
   ): APIPromise<SlipResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/slips/${slipID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/revenues/${slipID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<SlipResponse>(envelope, 'slip_id', external_id));
   }
 
   /**
@@ -79,16 +168,29 @@ export class Slips extends APIResource {
     params: SlipDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/slips/${slipID}/pdf`, {
-      query,
-      ...options,
-      __binaryResponse: true,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    }) as APIPromise<Response>;
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/slips/${slipID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/revenues/${slipID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 }
 

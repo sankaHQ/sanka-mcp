@@ -5,12 +5,168 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+import { compactProperties } from '../../internal/v2-object-records';
+
+type V2ObjectRecord = {
+  id: string;
+  record_id?: string | null;
+  object_type?: string | null;
+  properties?: Record<string, unknown>;
+};
+
+type V2ObjectRecordList = {
+  items?: Array<V2ObjectRecord>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+type V2LifecycleData = {
+  id?: string | null;
+  record_id?: string | null;
+  status?: string | null;
+  usage_status?: string | null;
+};
+
+const numericRecordID = (recordID: string | null | undefined): number | undefined => {
+  if (typeof recordID !== 'string' || !recordID.trim()) return undefined;
+  const value = Number(recordID);
+  return Number.isFinite(value) ? value : undefined;
+};
+
+const companyFromV2Record = (record: V2ObjectRecord): CompanyRetrieveResponse => {
+  const properties = record.properties ?? {};
+  return {
+    ...properties,
+    id: record.id,
+    company_id: numericRecordID(record.record_id) ?? (record.record_id as never) ?? null,
+  } as CompanyRetrieveResponse;
+};
+
+const unwrapV2Company = (
+  promise: APIPromise<V2Envelope<V2ObjectRecord>>,
+): APIPromise<CompanyRetrieveResponse> =>
+  promise._thenUnwrap((envelope) => companyFromV2Record(unwrapV2Data(envelope)));
+
+const companyListFromV2Envelope = (envelope: V2Envelope<V2ObjectRecordList>): CompanyListResponse => {
+  const data = unwrapV2Data(envelope);
+  const rows = (data.items ?? []).map(companyFromV2Record) as unknown as Array<{
+    [key: string]: unknown;
+  }>;
+  const total = data.total ?? rows.length;
+  const page = data.page ?? 1;
+  return {
+    count: rows.length,
+    data: rows,
+    message: `Returned ${rows.length} of ${total} companies.`,
+    page,
+    total,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const companyDeleteResponseFromV2Lifecycle = (
+  envelope: V2Envelope<V2LifecycleData>,
+  externalID?: string | null,
+): PublicCompanyResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status: 'deleted',
+    company_id: data.id ?? null,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const companyMutationResponseFromV2Record = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  externalID?: string | null,
+  status = 'updated',
+): PublicCompanyResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status,
+    company_id: data.id,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const usableExternalID = (value: string | null | undefined): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+};
+
+const hasLegacyCompanyCreateArgs = (body: CompanyCreateParams): boolean =>
+  usableExternalID(body.external_id) == null ||
+  body.channel_id != null ||
+  body.confirm != null ||
+  body.custom_fields != null ||
+  body.dry_run != null ||
+  body.external_object_type != null ||
+  body.operation != null ||
+  body.primary_external_id != null ||
+  body.provider != null ||
+  body.secondary_external_ids != null ||
+  body.target != null;
+
+const hasLegacyCompanyListArgs = (params: CompanyListParams | null | undefined): boolean => {
+  if (!params) return false;
+  return (
+    params.channel_id != null ||
+    params.external_object_type != null ||
+    params.provider != null ||
+    params.reference_id != null ||
+    params.scope != null ||
+    params.sort != null ||
+    params.view != null
+  );
+};
+
+const hasLegacyCompanyDeleteArgs = (params: CompanyDeleteParams | null | undefined): boolean => {
+  if (!params) return false;
+  return (
+    params.channel_id != null ||
+    params.confirm != null ||
+    params.dry_run != null ||
+    params.external_object_type != null ||
+    params.operation != null ||
+    params.provider != null ||
+    params.target != null
+  );
+};
+
+const hasLegacyCompanyUpdateArgs = (body: CompanyUpdateParams): boolean =>
+  body.channel_id != null ||
+  body.confirm != null ||
+  body.custom_fields != null ||
+  body.dry_run != null ||
+  body.external_id != null ||
+  body.external_object_type != null ||
+  body.operation != null ||
+  body.primary_external_id != null ||
+  body.provider != null ||
+  body.secondary_external_ids != null ||
+  body.target != null;
 
 export class Companies extends APIResource {
   /**
    * Create Company
    */
   create(body: CompanyCreateParams, options?: RequestOptions): APIPromise<PublicCompanyResponse> {
+    if (!hasLegacyCompanyCreateArgs(body)) {
+      const externalID = usableExternalID(body.external_id);
+      return this._client
+        .v2Post<V2ObjectRecord>('/companies', {
+          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => companyMutationResponseFromV2Record(envelope, externalID, 'created'));
+    }
     return this._client.post('/v1/public/companies', { body, ...options });
   }
 
@@ -22,7 +178,9 @@ export class Companies extends APIResource {
     query: CompanyRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CompanyRetrieveResponse> {
-    return this._client.get(path`/v1/public/companies/${companyID}`, { query, ...options });
+    return unwrapV2Company(
+      this._client.v2Get<V2ObjectRecord>(path`/companies/${companyID}`, { query, ...options }),
+    );
   }
 
   /**
@@ -33,6 +191,14 @@ export class Companies extends APIResource {
     body: CompanyUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicCompanyResponse> {
+    if (!hasLegacyCompanyUpdateArgs(body)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/companies/${companyID}`, {
+          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => companyMutationResponseFromV2Record(envelope));
+    }
     return this._client.put(path`/v1/public/companies/${companyID}`, { body, ...options });
   }
 
@@ -43,15 +209,28 @@ export class Companies extends APIResource {
     params: CompanyListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CompanyListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/companies', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, limit, ...query } = params ?? {};
+    if (hasLegacyCompanyListArgs(params)) {
+      return this._client.get('/v1/public/companies', {
+        query: { limit, ...query },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      });
+    }
+    return this._client
+      .v2Get<V2ObjectRecordList>('/companies', {
+        query,
+        ...(limit != null ? { query: { ...query, page_size: limit } } : undefined),
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap(companyListFromV2Envelope);
   }
 
   /**
@@ -64,19 +243,27 @@ export class Companies extends APIResource {
   ): APIPromise<PublicCompanyResponse> {
     const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
-    return this._client.delete(path`/v1/public/companies/${companyID}`, {
-      query: {
-        channel_id,
-        confirm,
-        dry_run,
-        external_id,
-        external_object_type,
-        operation,
-        provider,
-        target,
-      },
-      ...options,
-    });
+    if (hasLegacyCompanyDeleteArgs(params)) {
+      return this._client.delete(path`/v1/public/companies/${companyID}`, {
+        query: {
+          channel_id,
+          confirm,
+          dry_run,
+          external_id,
+          external_object_type,
+          operation,
+          provider,
+          target,
+        },
+        ...options,
+      });
+    }
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/companies/${companyID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => companyDeleteResponseFromV2Lifecycle(envelope, external_id));
   }
 
   /**
@@ -87,10 +274,12 @@ export class Companies extends APIResource {
     query: CompanyPriceTableQueryParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CompanyPriceTableResponse> {
-    return this._client.get(path`/v1/public/companies/${companyID}/price-table`, {
-      query,
-      ...options,
-    });
+    return this._client
+      .v2Get<CompanyPriceTableResponse>(path`/companies/${companyID}/price-table`, {
+        query,
+        ...options,
+      })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope));
   }
 
   /**
@@ -101,10 +290,12 @@ export class Companies extends APIResource {
     body: CompanyPriceTableCompanyUpdateParams,
     options?: RequestOptions,
   ): APIPromise<CompanyPriceTableMutationResponse> {
-    return this._client.patch(path`/v1/public/companies/${companyID}/price-table/company`, {
-      body,
-      ...options,
-    });
+    return this._client
+      .v2Patch<CompanyPriceTableMutationResponse>(path`/companies/${companyID}/price-table/company`, {
+        body,
+        ...options,
+      })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope));
   }
 
   /**
@@ -115,10 +306,12 @@ export class Companies extends APIResource {
     body: CompanyPriceTableApplyAllParams,
     options?: RequestOptions,
   ): APIPromise<CompanyPriceTableMutationResponse> {
-    return this._client.post(path`/v1/public/companies/${companyID}/price-table/items/apply-all`, {
-      body,
-      ...options,
-    });
+    return this._client
+      .v2Post<CompanyPriceTableMutationResponse>(path`/companies/${companyID}/price-table/items/apply-all`, {
+        body,
+        ...options,
+      })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope));
   }
 
   /**
@@ -130,10 +323,12 @@ export class Companies extends APIResource {
     body: CompanyPriceTableItemUpdateParams,
     options?: RequestOptions,
   ): APIPromise<CompanyPriceTableMutationResponse> {
-    return this._client.patch(path`/v1/public/companies/${companyID}/price-table/items/${itemID}`, {
-      body,
-      ...options,
-    });
+    return this._client
+      .v2Patch<CompanyPriceTableMutationResponse>(path`/companies/${companyID}/price-table/items/${itemID}`, {
+        body,
+        ...options,
+      })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope));
   }
 }
 
@@ -521,6 +716,8 @@ export interface CompanyPriceTableCompanyUpdateParams {
 }
 
 export interface CompanyPriceTableItemUpdateParams {
+  discount_price?: number | null;
+
   field_ref?: string | null;
 
   price_percentage?: number | null;
