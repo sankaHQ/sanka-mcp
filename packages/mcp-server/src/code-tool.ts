@@ -197,13 +197,7 @@ const localDenoHandler = async ({
         reject(new Error(`Worker exited with code ${exitCode}`));
       });
 
-      const opts = {
-        ...(client.baseURL != null ? { baseURL: client.baseURL } : undefined),
-        ...(client.apiKey != null ? { apiKey: client.apiKey } : undefined),
-        defaultHeaders: {
-          'X-Sanka-MCP': 'true',
-        },
-      } satisfies Partial<ClientOptions> as ClientOptions;
+      const opts = clientOptionsForCodeWorker(client);
 
       const req = worker.request(
         'http://localhost',
@@ -304,3 +298,16 @@ const localDenoHandler = async ({
     worker.terminate();
   }
 };
+
+export const clientOptionsForCodeWorker = (
+  client: Pick<import('sanka-sdk').Sanka, 'apiKey' | 'apiVersion' | 'baseURL' | 'workspaceCode'>,
+): ClientOptions =>
+  ({
+    ...(client.baseURL != null ? { baseURL: client.baseURL } : undefined),
+    ...(client.apiKey != null ? { apiKey: client.apiKey } : undefined),
+    ...(client.workspaceCode != null ? { workspaceCode: client.workspaceCode } : undefined),
+    ...(client.apiVersion != null ? { apiVersion: client.apiVersion } : undefined),
+    defaultHeaders: {
+      'X-Sanka-MCP': 'true',
+    },
+  }) satisfies Partial<ClientOptions> as ClientOptions;

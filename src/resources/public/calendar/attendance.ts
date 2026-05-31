@@ -5,20 +5,37 @@ import * as CalendarAPI from './calendar';
 import { APIPromise } from '../../../core/api-promise';
 import { RequestOptions } from '../../../internal/request-options';
 import { path } from '../../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../../internal/v2';
+
+const unwrapV2CalendarEnvelope = <T extends { ctx_id?: string | null }>(
+  promise: APIPromise<V2Envelope<Omit<T, 'ctx_id'>>>,
+): APIPromise<T> => {
+  return promise._thenUnwrap(
+    (envelope) =>
+      ({
+        ...unwrapV2Data(envelope),
+        ctx_id: envelope.meta.ctx_id ?? null,
+      }) as T,
+  );
+};
 
 export class Attendance extends APIResource {
   /**
    * Public Calendar Create Attendance
    */
   create(body: AttendanceCreateParams, options?: RequestOptions): APIPromise<PublicCalendarMutation> {
-    return this._client.post('/v1/public/calendar/attendance', { body, ...options });
+    return unwrapV2CalendarEnvelope(
+      this._client.post('/api/v2/public/calendar/attendance', { body, ...options }),
+    );
   }
 
   /**
    * Public Calendar Cancel Attendance
    */
   cancel(attendanceID: string, options?: RequestOptions): APIPromise<PublicCalendarMutation> {
-    return this._client.post(path`/v1/public/calendar/attendance/${attendanceID}/cancel`, options);
+    return unwrapV2CalendarEnvelope(
+      this._client.post(path`/api/v2/public/calendar/attendance/${attendanceID}/cancel`, options),
+    );
   }
 
   /**
@@ -29,10 +46,12 @@ export class Attendance extends APIResource {
     body: AttendanceRescheduleParams,
     options?: RequestOptions,
   ): APIPromise<PublicCalendarMutation> {
-    return this._client.post(path`/v1/public/calendar/attendance/${attendanceID}/reschedule`, {
-      body,
-      ...options,
-    });
+    return unwrapV2CalendarEnvelope(
+      this._client.post(path`/api/v2/public/calendar/attendance/${attendanceID}/reschedule`, {
+        body,
+        ...options,
+      }),
+    );
   }
 }
 

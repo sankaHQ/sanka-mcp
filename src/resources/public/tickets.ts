@@ -5,6 +5,100 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
+import { compactProperties } from '../../internal/v2-object-records';
+
+type V2ObjectRecord = {
+  id: string;
+  record_id?: string | null;
+  object_type?: string | null;
+  properties?: Record<string, unknown>;
+};
+
+type V2ObjectRecordList = {
+  items?: Array<V2ObjectRecord>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+type V2LifecycleData = {
+  id?: string | null;
+  record_id?: string | null;
+  status?: string | null;
+  usage_status?: string | null;
+};
+
+const ticketFromV2Record = (record: V2ObjectRecord): Ticket => {
+  const properties = record.properties ?? {};
+  const numericRecordID =
+    (
+      typeof record.record_id === 'string' &&
+      record.record_id.trim() &&
+      Number.isFinite(Number(record.record_id))
+    ) ?
+      Number(record.record_id)
+    : undefined;
+  return {
+    ...properties,
+    id: record.id,
+    ticket_id: numericRecordID ?? (record.record_id as never) ?? null,
+  } as Ticket;
+};
+
+const unwrapV2Ticket = (promise: APIPromise<V2Envelope<V2ObjectRecord>>): APIPromise<Ticket> =>
+  promise._thenUnwrap((envelope) => ticketFromV2Record(unwrapV2Data(envelope)));
+
+const unwrapV2TicketList = (
+  promise: APIPromise<V2Envelope<V2ObjectRecordList>>,
+): APIPromise<TicketListResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return (data.items ?? []).map(ticketFromV2Record);
+  });
+
+const ticketMutationFromV2Record = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  fallbackStatus: string,
+  externalID?: string | null,
+): TicketResponse => {
+  const data = unwrapV2Data(envelope);
+  const properties = data.properties ?? {};
+  return {
+    ok: true,
+    status: String(properties['status'] ?? fallbackStatus),
+    ticket_id: data.id,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const ticketMutationFromV2Lifecycle = (
+  envelope: V2Envelope<V2LifecycleData>,
+  fallbackStatus: string,
+  externalID?: string | null,
+): TicketResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status: data.status ?? data.usage_status ?? fallbackStatus,
+    ticket_id: data.id ?? null,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const hasLegacyTicketUpdateArgs = (params: TicketUpdateParams): boolean =>
+  params.external_id != null || params.body_external_id != null || params.deal_ids != null;
+
+const usableExternalID = (value: string | null | undefined): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+};
+
+const hasLegacyTicketCreateArgs = (params: TicketCreateParams): boolean =>
+  usableExternalID(params.body_external_id) == null || params.deal_ids != null;
 
 export class Tickets extends APIResource {
   /**
@@ -12,6 +106,15 @@ export class Tickets extends APIResource {
    */
   create(params: TicketCreateParams, options?: RequestOptions): APIPromise<TicketResponse> {
     const { body_external_id, ...body } = params;
+    if (!hasLegacyTicketCreateArgs(params)) {
+      const externalID = usableExternalID(body_external_id);
+      return this._client
+        .v2Post<V2ObjectRecord>('/tickets', {
+          body: { properties: compactProperties({ external_id: externalID, ...body }) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'created', externalID));
+    }
     return this._client.post('/v1/public/tickets', {
       body: { external_id: body_external_id, ...body },
       ...options,
@@ -26,7 +129,14 @@ export class Tickets extends APIResource {
     query: TicketRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Ticket> {
-    return this._client.get(path`/v1/public/tickets/${ticketID}`, { query, ...options });
+    const { workspace_id: _workspaceID, ...v2Query } = query ?? {};
+    void _workspaceID;
+    return unwrapV2Ticket(
+      this._client.v2Get<V2ObjectRecord>(path`/tickets/${ticketID}`, {
+        query: v2Query,
+        ...options,
+      }),
+    );
   }
 
   /**
@@ -34,6 +144,14 @@ export class Tickets extends APIResource {
    */
   update(ticketID: string, params: TicketUpdateParams, options?: RequestOptions): APIPromise<TicketResponse> {
     const { external_id, body_external_id, ...body } = params;
+    if (!hasLegacyTicketUpdateArgs(params)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/tickets/${ticketID}`, {
+          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'updated'));
+    }
     return this._client.put(path`/v1/public/tickets/${ticketID}`, {
       query: { external_id },
       body: { external_id: body_external_id, ...body },
@@ -48,7 +166,14 @@ export class Tickets extends APIResource {
     query: TicketListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<TicketListResponse> {
-    return this._client.get('/v1/public/tickets', { query, ...options });
+    const { workspace_id: _workspaceID, ...v2Query } = query ?? {};
+    void _workspaceID;
+    return unwrapV2TicketList(
+      this._client.v2Get<V2ObjectRecordList>('/tickets', {
+        query: v2Query,
+        ...options,
+      }),
+    );
   }
 
   /**
@@ -60,7 +185,12 @@ export class Tickets extends APIResource {
     options?: RequestOptions,
   ): APIPromise<TicketResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/tickets/${ticketID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/tickets/${ticketID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => ticketMutationFromV2Lifecycle(envelope, 'archived', external_id));
   }
 
   /**
@@ -70,7 +200,10 @@ export class Tickets extends APIResource {
     query: TicketListPipelinesParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<TicketListPipelinesResponse> {
-    return this._client.get('/v1/public/tickets/pipelines', { query, ...options });
+    void query;
+    return unwrapV2DataPromise(
+      this._client.v2Get<TicketListPipelinesResponse>('/tickets/pipelines', options),
+    );
   }
 
   /**
@@ -82,14 +215,16 @@ export class Tickets extends APIResource {
     options?: RequestOptions,
   ): APIPromise<TicketResponse> {
     const { external_id, stage_key, status, 'Accept-Language': acceptLanguage } = params ?? {};
-    return this._client.patch(path`/v1/public/tickets/${ticketID}/status`, {
-      query: { external_id, stage_key, status },
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/tickets/${ticketID}/status`, {
+        query: { external_id, stage_key, status },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'updated', external_id));
   }
 }
 

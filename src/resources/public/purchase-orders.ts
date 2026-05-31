@@ -2,10 +2,71 @@
 
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
+import { type Uploadable } from '../../core/uploads';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
+import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { V2PdfData, buildV2PdfRequest, unwrapV2DataPromise, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const purchaseOrderFromV2Record = (record: V2ObjectRecord): PurchaseOrder =>
+  legacyObjectRecordFromV2<PurchaseOrder>(record, 'id_po');
+
+const purchaseOrderUpdateProperties = (params: PurchaseOrderUpdateParams): Record<string, unknown> => {
+  const {
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    date,
+    external_id: _externalID,
+    notes,
+    status,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  } = params;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  return compactProperties({
+    company_id,
+    contact_id,
+    currency,
+    date,
+    notes,
+    status,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  });
+};
+
+const canUseV2PurchaseOrderUpdate = (
+  params: PurchaseOrderUpdateParams,
+  properties: Record<string, unknown>,
+): boolean =>
+  params.attachment_file == null &&
+  params.company_external_id == null &&
+  params.contact_external_id == null &&
+  Object.keys(properties).length > 0;
 
 export class PurchaseOrders extends APIResource {
   /**
@@ -23,15 +84,20 @@ export class PurchaseOrders extends APIResource {
     params: PurchaseOrderRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PurchaseOrder> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/purchase-orders/${purchaseOrderID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/purchase-orders/${purchaseOrderID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      purchaseOrderFromV2Record,
+    );
   }
 
   /**
@@ -39,10 +105,30 @@ export class PurchaseOrders extends APIResource {
    */
   update(
     purchaseOrderID: string,
-    body: PurchaseOrderUpdateParams,
+    params: PurchaseOrderUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PurchaseOrderResponse> {
-    return this._client.put(path`/v1/public/purchase-orders/${purchaseOrderID}`, { body, ...options });
+    const properties = purchaseOrderUpdateProperties(params);
+    if (canUseV2PurchaseOrderUpdate(params, properties)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/purchase-orders/${purchaseOrderID}`, {
+          query: { external_id: params.external_id },
+          body: { properties },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PurchaseOrderResponse>(
+            envelope,
+            'purchase_order_id',
+            'updated',
+            params.external_id,
+          ),
+        );
+    }
+    return this._client.put(path`/v1/public/purchase-orders/${purchaseOrderID}`, {
+      body: params,
+      ...options,
+    });
   }
 
   /**
@@ -52,15 +138,27 @@ export class PurchaseOrders extends APIResource {
     params: PurchaseOrderListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PurchaseOrderListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/purchase-orders', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/purchase-orders', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      purchaseOrderFromV2Record,
+    );
   }
 
   /**
@@ -72,10 +170,62 @@ export class PurchaseOrders extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PurchaseOrderResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/purchase-orders/${purchaseOrderID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/purchase-orders/${purchaseOrderID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PurchaseOrderResponse>(envelope, 'purchase_order_id', external_id),
+      );
+  }
+
+  /**
+   * Download Purchase Order PDF
+   */
+  downloadPDF(
+    purchaseOrderID: string,
+    params: PurchaseOrderDownloadPDFParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Response> {
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/purchase-orders/${purchaseOrderID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/purchase-orders/${purchaseOrderID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
+  }
+
+  /**
+   * Upload Purchase Order Attachment File
+   */
+  uploadAttachment(
+    body: PurchaseOrderUploadAttachmentParams,
+    options?: RequestOptions,
+  ): APIPromise<PurchaseOrderUploadAttachmentResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<PurchaseOrderUploadAttachmentResponse>(
+        '/purchase-orders/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
+    );
   }
 }
 
@@ -104,6 +254,8 @@ export interface PurchaseOrder {
 }
 
 export interface PurchaseOrderRequest {
+  attachment_file?: PurchaseOrderRequest.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -129,6 +281,22 @@ export interface PurchaseOrderRequest {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace PurchaseOrderRequest {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface PurchaseOrderResponse {
@@ -145,7 +313,19 @@ export interface PurchaseOrderResponse {
 
 export type PurchaseOrderListResponse = Array<PurchaseOrder>;
 
+export interface PurchaseOrderUploadAttachmentResponse {
+  file_id: string;
+
+  ok: boolean;
+
+  ctx_id?: string | null;
+
+  filename?: string | null;
+}
+
 export interface PurchaseOrderCreateParams {
+  attachment_file?: PurchaseOrderCreateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -171,6 +351,22 @@ export interface PurchaseOrderCreateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace PurchaseOrderCreateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface PurchaseOrderRetrieveParams {
@@ -196,6 +392,8 @@ export interface PurchaseOrderRetrieveParams {
 }
 
 export interface PurchaseOrderUpdateParams {
+  attachment_file?: PurchaseOrderUpdateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -221,6 +419,22 @@ export interface PurchaseOrderUpdateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace PurchaseOrderUpdateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface PurchaseOrderListParams {
@@ -249,16 +463,50 @@ export interface PurchaseOrderDeleteParams {
   external_id?: string | null;
 }
 
+export interface PurchaseOrderDownloadPDFParams {
+  /**
+   * Query param
+   */
+  external_id?: string | null;
+
+  /**
+   * Query param
+   */
+  template_select?: string | null;
+
+  /**
+   * Query param
+   */
+  lang?: string | null;
+
+  /**
+   * Query param
+   */
+  language?: string | null;
+
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string;
+}
+
+export interface PurchaseOrderUploadAttachmentParams {
+  file: Uploadable;
+}
+
 export declare namespace PurchaseOrders {
   export {
     type PurchaseOrder as PurchaseOrder,
     type PurchaseOrderRequest as PurchaseOrderRequest,
     type PurchaseOrderResponse as PurchaseOrderResponse,
     type PurchaseOrderListResponse as PurchaseOrderListResponse,
+    type PurchaseOrderUploadAttachmentResponse as PurchaseOrderUploadAttachmentResponse,
     type PurchaseOrderCreateParams as PurchaseOrderCreateParams,
     type PurchaseOrderRetrieveParams as PurchaseOrderRetrieveParams,
     type PurchaseOrderUpdateParams as PurchaseOrderUpdateParams,
     type PurchaseOrderListParams as PurchaseOrderListParams,
     type PurchaseOrderDeleteParams as PurchaseOrderDeleteParams,
+    type PurchaseOrderDownloadPDFParams as PurchaseOrderDownloadPDFParams,
+    type PurchaseOrderUploadAttachmentParams as PurchaseOrderUploadAttachmentParams,
   };
 }

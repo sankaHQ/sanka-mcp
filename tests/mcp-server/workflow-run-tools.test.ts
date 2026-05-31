@@ -39,6 +39,13 @@ describe('workflow run MCP tools', () => {
     expect(previewWorkflowTool.tool.annotations?.destructiveHint).toBe(false);
   });
 
+  it('advertises the V2 workflow-run endpoints in tool metadata', () => {
+    expect(resolveRecordTool.metadata.httpPath).toBe('/api/v2/public/workflow-runs/resolve-record');
+    expect(previewWorkflowTool.metadata.httpPath).toBe('/api/v2/public/workflow-runs/preview');
+    expect(startWorkflowTool.metadata.httpPath).toBe('/api/v2/public/workflow-runs/start');
+    expect(getWorkflowRunTool.metadata.httpPath).toBe('/api/v2/public/workflow-runs/{run_id}');
+  });
+
   it('keeps order-first, handoff, freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
@@ -56,6 +63,8 @@ describe('workflow run MCP tools', () => {
     expect(workflowTypes).toContain('revenue_control_summary');
     expect(workflowTypes).toContain('sales_incentive_commission');
     expect(workflowTypes).not.toContain('deal_to_invoice');
+    expect((startWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
+    expect((previewWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
     expect(toolNames).not.toContain('create_order_from_hubspot_deal');
     expect(toolNames).not.toContain('hubspot_deal_to_order');
     expect(toolNames).not.toContain('create_hubspot_order_draft');
@@ -98,7 +107,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/resolve-record', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/resolve-record', {
       body: {
         query: 'A Company',
         object_type: 'deal',
@@ -138,7 +147,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'deal_to_estimate',
         source_record: {
@@ -148,6 +157,7 @@ describe('workflow run MCP tools', () => {
         },
         options: {},
         idempotency_key: 'key-1',
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -182,7 +192,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'deal_to_order',
         source_record: {
@@ -192,6 +202,7 @@ describe('workflow run MCP tools', () => {
         },
         options: {},
         idempotency_key: 'order-key-1',
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -228,10 +239,11 @@ describe('workflow run MCP tools', () => {
           subscription_flag_value: 'true',
         },
         idempotency_key: 'subscription-batch-key-1',
+        language: 'en',
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'deal_to_subscription',
         source_record: {
@@ -244,6 +256,7 @@ describe('workflow run MCP tools', () => {
           subscription_flag_value: 'true',
         },
         idempotency_key: 'subscription-batch-key-1',
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -258,7 +271,13 @@ describe('workflow run MCP tools', () => {
       data: {
         run_id: 'invoice-run-1',
         status: 'completed',
-        result: { invoice: { id: 'invoice-1' } },
+        result: {
+          invoice: {
+            id: 'invoice-1',
+            workspace_code: '99112888',
+            app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+          },
+        },
       },
       message: 'started',
     });
@@ -279,7 +298,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'order_to_invoice',
         source_record: {
@@ -289,12 +308,56 @@ describe('workflow run MCP tools', () => {
         },
         options: { status: 'draft' },
         idempotency_key: undefined,
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
       run_id: 'invoice-run-1',
       status: 'completed',
-      result: { invoice: { id: 'invoice-1' } },
+      result: {
+        invoice: {
+          id: 'invoice-1',
+          workspace_code: '99112888',
+          app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+        },
+      },
+    });
+  });
+
+  it('forwards explicit workflow language overrides', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: { run_id: 'invoice-run-ja', status: 'completed' },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'order_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        language: 'ja',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'order_to_invoice',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'order',
+          record_id: 'order-1',
+        },
+        options: {},
+        idempotency_key: undefined,
+        language: 'ja',
+      },
     });
     expect(result.structuredContent?.['display_guidance']).toMatchObject({
       object_labels_ja: {
@@ -334,7 +397,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'order_to_subscription',
         source_record: {
@@ -343,6 +406,7 @@ describe('workflow run MCP tools', () => {
           record_id: 'order-1',
         },
         options: {},
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -379,7 +443,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'estimate_to_invoice',
         source_record: {
@@ -389,6 +453,7 @@ describe('workflow run MCP tools', () => {
         },
         options: { status: 'draft' },
         idempotency_key: undefined,
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -428,7 +493,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'subscription_to_invoice',
         source_record: {
@@ -442,6 +507,7 @@ describe('workflow run MCP tools', () => {
           status: 'draft',
         },
         idempotency_key: undefined,
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -480,7 +546,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'order_to_purchase_order',
         source_record: {
@@ -493,6 +559,7 @@ describe('workflow run MCP tools', () => {
           make_association: true,
         },
         idempotency_key: undefined,
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -550,7 +617,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'deal_to_estimate',
         source_record: {
@@ -559,6 +626,7 @@ describe('workflow run MCP tools', () => {
           url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
         },
         options: {},
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -628,6 +696,7 @@ describe('workflow run MCP tools', () => {
           requested_delivery_date: '2026-06-01',
           handoff_target: 'ops-team',
         },
+        language: 'en',
       },
     });
 
@@ -636,7 +705,7 @@ describe('workflow run MCP tools', () => {
     expect(previewOptions).toHaveProperty('include_lead_time_check');
     expect(previewOptions).toHaveProperty('handoff_target');
     expect(previewOptions).toHaveProperty('allow_duplicate_order');
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'deal_to_order_handoff',
         source_record: {
@@ -651,6 +720,7 @@ describe('workflow run MCP tools', () => {
           requested_delivery_date: '2026-06-01',
           handoff_target: 'ops-team',
         },
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -703,13 +773,14 @@ describe('workflow run MCP tools', () => {
           handoff_target: 'ops-team',
         },
         idempotency_key: 'deal-to-order-handoff:46558049080',
+        language: 'en',
       },
     });
 
     expect(startWorkflowTool.tool.annotations?.readOnlyHint).toBe(false);
     expect(startOptions).toHaveProperty('include_hubspot_writeback');
     expect(startOptions).toHaveProperty('allow_duplicate_order');
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'deal_to_order_handoff',
         source_record: {
@@ -728,6 +799,7 @@ describe('workflow run MCP tools', () => {
           handoff_target: 'ops-team',
         },
         idempotency_key: 'deal-to-order-handoff:46558049080',
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -769,10 +841,11 @@ describe('workflow run MCP tools', () => {
           invoice_ids: ['invoice-1'],
           freee_channel_id: 'freee-channel-1',
         },
+        language: 'en',
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -785,6 +858,7 @@ describe('workflow run MCP tools', () => {
           invoice_ids: ['invoice-1'],
           freee_channel_id: 'freee-channel-1',
         },
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -825,10 +899,11 @@ describe('workflow run MCP tools', () => {
           freee_channel_id: 'freee-channel-1',
         },
         idempotency_key: 'invoice-export:hubspot-invoice-run-1',
+        language: 'en',
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -842,6 +917,7 @@ describe('workflow run MCP tools', () => {
           freee_channel_id: 'freee-channel-1',
         },
         idempotency_key: 'invoice-export:hubspot-invoice-run-1',
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -902,10 +978,11 @@ describe('workflow run MCP tools', () => {
           aging_as_of: '2026-05-12',
           limit_per_bucket: 10,
         },
+        language: 'en',
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'revenue_control_summary',
         source_record: {
@@ -921,6 +998,7 @@ describe('workflow run MCP tools', () => {
           aging_as_of: '2026-05-12',
           limit_per_bucket: 10,
         },
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -1011,10 +1089,11 @@ describe('workflow run MCP tools', () => {
           customer_ids: ['customer-1'],
           min_gross_margin_percent: 20,
         },
+        language: 'en',
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'sales_incentive_commission',
         source_record: {
@@ -1035,6 +1114,7 @@ describe('workflow run MCP tools', () => {
           customer_ids: ['customer-1'],
           min_gross_margin_percent: 20,
         },
+        language: 'en',
       },
     });
     expect(result.structuredContent?.['data']).toEqual({
@@ -1225,7 +1305,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/workflow-runs/run%2F1');
+    expect(get).toHaveBeenCalledWith('/api/v2/public/workflow-runs/run%2F1');
     expect(result.structuredContent?.['data']).toEqual({
       run_id: 'run/1',
       status: 'completed',

@@ -5,6 +5,73 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+
+type V2PropertyListData = {
+  data?: Array<Record<string, unknown>>;
+};
+
+type V2PropertyMutationData = {
+  property_id?: string | null;
+  page_group_type?: string | null;
+  custom_object_id?: string | null;
+  [key: string]: unknown;
+};
+
+const propertyFromV2 = (value: unknown, objectName?: string): Property => {
+  const row =
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    ...row,
+    id: String(row['id'] ?? row['property_id'] ?? row['internal_name'] ?? ''),
+    immutable: Boolean(row['immutable'] ?? false),
+    is_custom: Boolean(row['is_custom'] ?? true),
+    object: String(row['object'] ?? objectName ?? ''),
+  } as Property;
+};
+
+const normalizePropertyMutationBody = (
+  params: PropertyCreateParams | Omit<PropertyUpdateParams, 'object_name'>,
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = { ...params };
+  const choiceValues = body['choice_values'];
+  if (choiceValues && typeof choiceValues === 'object' && !Array.isArray(choiceValues)) {
+    const entries = Object.entries(choiceValues as Record<string, string>);
+    body['choice_values'] = entries.map(([value]) => value);
+    body['choice_labels'] = entries.map(([, label]) => label);
+  }
+  return body;
+};
+
+const unwrapV2PropertyList = (
+  promise: APIPromise<V2Envelope<V2PropertyListData>>,
+  objectName: string,
+): APIPromise<PropertyListResponse> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return (data.data ?? []).map((row) => propertyFromV2(row, objectName));
+  });
+};
+
+const unwrapV2PropertyMutation = (
+  promise: APIPromise<V2Envelope<V2PropertyMutationData>>,
+  objectName: string,
+  fallbackStatus: string,
+): APIPromise<PropertyMutation> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return {
+      ctx_id: envelope.meta.ctx_id ?? '',
+      object: String(data.page_group_type ?? objectName),
+      ok: true,
+      property_id: String(data.property_id ?? ''),
+      status: String(data['status'] ?? fallbackStatus),
+      custom_object_id: data.custom_object_id ?? undefined,
+      message: String(data['message'] ?? 'OK'),
+      target: 'sanka',
+    } as PropertyMutation;
+  });
+};
 
 export class Properties extends APIResource {
   /**
@@ -15,7 +82,14 @@ export class Properties extends APIResource {
     body: PropertyCreateParams,
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
-    return this._client.post(path`/v1/public/properties/${objectName}`, { body, ...options });
+    return unwrapV2PropertyMutation(
+      this._client.v2Post<V2PropertyMutationData>(path`/properties/${objectName}`, {
+        body: normalizePropertyMutationBody(body),
+        ...options,
+      }),
+      objectName,
+      'created',
+    );
   }
 
   /**
@@ -27,14 +101,16 @@ export class Properties extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Property> {
     const { object_name, 'Accept-Language': acceptLanguage, ...query } = params;
-    return this._client.get(path`/v1/public/properties/${object_name}/${propertyRef}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return this._client
+      .v2Get<Record<string, unknown>>(path`/properties/${object_name}/${propertyRef}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap((envelope) => propertyFromV2(unwrapV2Data(envelope), object_name));
   }
 
   /**
@@ -46,7 +122,14 @@ export class Properties extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
     const { object_name, ...body } = params;
-    return this._client.put(path`/v1/public/properties/${object_name}/${propertyRef}`, { body, ...options });
+    return unwrapV2PropertyMutation(
+      this._client.v2Put<V2PropertyMutationData>(path`/properties/${object_name}/${propertyRef}`, {
+        body: normalizePropertyMutationBody(body),
+        ...options,
+      }),
+      object_name,
+      'updated',
+    );
   }
 
   /**
@@ -58,14 +141,17 @@ export class Properties extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PropertyListResponse> {
     const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/properties/${objectName}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return unwrapV2PropertyList(
+      this._client.v2Get<V2PropertyListData>(path`/properties/${objectName}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      objectName,
+    );
   }
 
   /**
@@ -77,10 +163,14 @@ export class Properties extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
     const { object_name, ...query } = params;
-    return this._client.delete(path`/v1/public/properties/${object_name}/${propertyRef}`, {
-      query,
-      ...options,
-    });
+    return unwrapV2PropertyMutation(
+      this._client.v2Delete<V2PropertyMutationData>(path`/properties/${object_name}/${propertyRef}`, {
+        query,
+        ...options,
+      }),
+      object_name,
+      'deleted',
+    );
   }
 }
 
@@ -482,6 +572,11 @@ export interface PropertyListParams {
    * Query param
    */
   language?: string | null;
+
+  /**
+   * Query param
+   */
+  limit?: number | null;
 
   /**
    * Query param

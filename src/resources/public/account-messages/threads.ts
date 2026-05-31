@@ -4,6 +4,17 @@ import { APIPromise } from '../../../core/api-promise';
 import { buildHeaders } from '../../../internal/headers';
 import { RequestOptions } from '../../../internal/request-options';
 import { path } from '../../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../../internal/v2';
+
+const wrapV2AccountMessageEnvelope = <T>(
+  promise: APIPromise<V2Envelope<T>>,
+): APIPromise<{ data: T; message: string; ctx_id?: string | null }> => {
+  return promise._thenUnwrap((envelope) => ({
+    data: unwrapV2Data(envelope),
+    message: 'ok',
+    ctx_id: envelope.meta.ctx_id ?? null,
+  }));
+};
 
 export class Threads extends APIResource {
   /**
@@ -15,13 +26,15 @@ export class Threads extends APIResource {
     options?: RequestOptions,
   ): APIPromise<AccountMessageThreadDetailResponse> {
     const { 'Accept-Language': acceptLanguage } = params ?? {};
-    return this._client.get(path`/v1/public/account-messages/threads/${threadID}`, {
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return wrapV2AccountMessageEnvelope(
+      this._client.get(path`/api/v2/me/messages/threads/${threadID}`, {
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -33,13 +46,15 @@ export class Threads extends APIResource {
     options?: RequestOptions,
   ): APIPromise<AccountMessagesAPI.AccountMessagesResponse> {
     const { 'Accept-Language': acceptLanguage } = params ?? {};
-    return this._client.post(path`/v1/public/account-messages/threads/${threadID}/archive`, {
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return wrapV2AccountMessageEnvelope(
+      this._client.post(path`/api/v2/me/messages/threads/${threadID}/archive`, {
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -51,14 +66,16 @@ export class Threads extends APIResource {
     options?: RequestOptions,
   ): APIPromise<AccountMessageThreadReplyResponse> {
     const { 'Accept-Language': acceptLanguage, ...body } = params;
-    return this._client.post(path`/v1/public/account-messages/threads/${threadID}/reply`, {
-      body,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return wrapV2AccountMessageEnvelope(
+      this._client.post(path`/api/v2/me/messages/threads/${threadID}/reply`, {
+        body,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 }
 

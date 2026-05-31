@@ -5,6 +5,32 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const subscriptionFromV2Record = (record: V2ObjectRecord): SubscriptionDetail =>
+  legacyObjectRecordFromV2<SubscriptionDetail>(record);
+
+const subscriptionUpdateProperties = (params: SubscriptionUpdateParams): Record<string, unknown> => {
+  const { contact: _contact, external_id: _externalID, items: _items, status } = params;
+  void _contact;
+  void _externalID;
+  void _items;
+  return compactProperties({ status });
+};
+
+const canUseV2SubscriptionUpdate = (
+  params: SubscriptionUpdateParams,
+  properties: Record<string, unknown>,
+): boolean => params.contact == null && params.items == null && Object.keys(properties).length > 0;
 
 export class Subscriptions extends APIResource {
   /**
@@ -22,7 +48,10 @@ export class Subscriptions extends APIResource {
     query: SubscriptionRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<SubscriptionDetail> {
-    return this._client.get(path`/v1/public/subscriptions/${subscriptionID}`, { query, ...options });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/subscriptions/${subscriptionID}`, { query, ...options }),
+      subscriptionFromV2Record,
+    );
   }
 
   /**
@@ -34,6 +63,17 @@ export class Subscriptions extends APIResource {
     options?: RequestOptions,
   ): APIPromise<SubscriptionDetail> {
     const { external_id, ...body } = params;
+    const properties = subscriptionUpdateProperties(params);
+    if (canUseV2SubscriptionUpdate(params, properties)) {
+      return unwrapV2ObjectRecord(
+        this._client.v2Patch<V2ObjectRecord>(path`/subscriptions/${subscriptionID}`, {
+          query: { external_id },
+          body: { properties },
+          ...options,
+        }),
+        subscriptionFromV2Record,
+      );
+    }
     return this._client.put(path`/v1/public/subscriptions/${subscriptionID}`, {
       query: { external_id },
       body,
@@ -48,15 +88,19 @@ export class Subscriptions extends APIResource {
     params: SubscriptionListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<SubscriptionListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/subscriptions', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, workspace_id: _workspaceID, ...query } = params ?? {};
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/subscriptions', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      subscriptionFromV2Record,
+    );
   }
 
   /**
@@ -68,10 +112,14 @@ export class Subscriptions extends APIResource {
     options?: RequestOptions,
   ): APIPromise<SubscriptionDeleteResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/subscriptions/${subscriptionID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/subscriptions/${subscriptionID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<SubscriptionDeleteResponse>(envelope, 'subscription_id', external_id),
+      );
   }
 }
 

@@ -5,13 +5,111 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+
+type V2ObjectRecord = {
+  id: string;
+  record_id?: string | null;
+  object_type?: string | null;
+  properties?: Record<string, unknown>;
+};
+
+type V2ObjectRecordList = {
+  items?: Array<V2ObjectRecord>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+type V2LifecycleData = {
+  id?: string | null;
+  record_id?: string | null;
+  status?: string | null;
+  usage_status?: string | null;
+};
+
+const compactProperties = (value: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
+
+const taskFromV2Record = (record: V2ObjectRecord): PublicTaskSchema => {
+  const properties = record.properties ?? {};
+  const numericRecordID =
+    (
+      typeof record.record_id === 'string' &&
+      record.record_id.trim() &&
+      Number.isFinite(Number(record.record_id))
+    ) ?
+      Number(record.record_id)
+    : undefined;
+  return {
+    ...properties,
+    id: record.id,
+    task_id: numericRecordID ?? (record.record_id as never) ?? null,
+  } as PublicTaskSchema;
+};
+
+const unwrapV2Task = (promise: APIPromise<V2Envelope<V2ObjectRecord>>): APIPromise<PublicTaskSchema> =>
+  promise._thenUnwrap((envelope) => taskFromV2Record(unwrapV2Data(envelope)));
+
+const unwrapV2TaskList = (
+  promise: APIPromise<V2Envelope<V2ObjectRecordList>>,
+): APIPromise<PublicTasksListResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    const items = Array.isArray(data.items) ? data.items : [];
+    const page = data.page ?? 1;
+    const pageSize = data.page_size ?? items.length;
+    const total = data.total ?? items.length;
+    return {
+      data: items.map(taskFromV2Record),
+      page,
+      count: items.length,
+      total,
+      has_next: total > page * pageSize,
+      message: 'OK',
+      ctx_id: envelope.meta.ctx_id ?? null,
+    };
+  });
+
+const taskMutationFromV2Record = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  fallbackStatus: string,
+): PublicTaskResponse => {
+  const data = unwrapV2Data(envelope);
+  const properties = data.properties ?? {};
+  return {
+    ok: true,
+    status: String(properties['status'] ?? properties['usage_status'] ?? fallbackStatus),
+    external_id: (properties['external_id'] as string | null | undefined) ?? null,
+    task_id: data.id,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const taskMutationFromV2Lifecycle = (
+  envelope: V2Envelope<V2LifecycleData>,
+  fallbackStatus: string,
+): PublicTaskResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status: data.status ?? data.usage_status ?? fallbackStatus,
+    task_id: data.id ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
 
 export class Tasks extends APIResource {
   /**
    * Create Task
    */
   create(body: TaskCreateParams, options?: RequestOptions): APIPromise<PublicTaskResponse> {
-    return this._client.post('/v1/public/tasks', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/tasks', {
+        body: { properties: compactProperties(body as never) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => taskMutationFromV2Record(envelope, 'created'));
   }
 
   /**
@@ -23,14 +121,16 @@ export class Tasks extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicTaskSchema> {
     const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/tasks/${taskID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    void query;
+    return unwrapV2Task(
+      this._client.v2Get<V2ObjectRecord>(path`/tasks/${taskID}`, {
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -38,16 +138,19 @@ export class Tasks extends APIResource {
    */
   update(taskID: string, params: TaskUpdateParams, options?: RequestOptions): APIPromise<PublicTaskResponse> {
     const { external_id, body_external_id, ...body } = params;
-    return this._client.put(path`/v1/public/tasks/${taskID}`, {
-      query: { external_id },
-      body: {
-        ...(body_external_id !== undefined ? { external_id: body_external_id } : undefined),
-        ...body,
-      },
-      ...options,
-    });
+    void external_id;
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/tasks/${taskID}`, {
+        body: {
+          properties: compactProperties({
+            ...body,
+            ...(body_external_id !== undefined ? { external_id: body_external_id } : undefined),
+          } as never),
+        },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => taskMutationFromV2Record(envelope, 'updated'));
   }
-
   /**
    * List Tasks
    */
@@ -55,15 +158,30 @@ export class Tasks extends APIResource {
     params: TaskListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PublicTasksListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/tasks', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      workspace_id: _workspaceID,
+      lang: _lang,
+      language: _language,
+      limit,
+      ...query
+    } = params ?? {};
+    void _workspaceID;
+    void _lang;
+    void _language;
+    return unwrapV2TaskList(
+      this._client.v2Get<V2ObjectRecordList>('/tasks', {
+        query: {
+          ...query,
+          ...(limit !== undefined && limit !== null ? { page_size: limit } : undefined),
+        },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -75,7 +193,10 @@ export class Tasks extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicTaskResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/tasks/${taskID}`, { query: { external_id }, ...options });
+    void external_id;
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/tasks/${taskID}`, options)
+      ._thenUnwrap((envelope) => taskMutationFromV2Lifecycle(envelope, 'archived'));
   }
 }
 

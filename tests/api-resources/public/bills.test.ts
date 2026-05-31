@@ -1,6 +1,6 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-import Sanka from 'sanka-sdk';
+import Sanka, { toFile } from 'sanka-sdk';
 
 const client = new Sanka({
   apiKey: 'My API Key',
@@ -114,9 +114,9 @@ describe('resource bills', () => {
   });
 
   // Mock server tests are disabled
-  test.skip('uploadAttachment', async () => {
+  test.skip('uploadAttachment: only required params', async () => {
     const responsePromise = client.public.bills.uploadAttachment({
-      file: new File(['bill'], 'bill.pdf', { type: 'application/pdf' }),
+      file: await toFile(Buffer.from('Example data'), 'README.md'),
     });
     const rawResponse = await responsePromise.asResponse();
     expect(rawResponse).toBeInstanceOf(Response);
@@ -125,5 +125,12 @@ describe('resource bills', () => {
     const dataAndResponse = await responsePromise.withResponse();
     expect(dataAndResponse.data).toBe(response);
     expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
+  test.skip('uploadAttachment: required and optional params', async () => {
+    const response = await client.public.bills.uploadAttachment({
+      file: await toFile(Buffer.from('Example data'), 'README.md'),
+    });
   });
 });

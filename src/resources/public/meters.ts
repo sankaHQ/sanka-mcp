@@ -5,6 +5,61 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const meterFromV2Record = (record: V2ObjectRecord): CommerceMeter =>
+  legacyObjectRecordFromV2<CommerceMeter>(record, 'meter_id');
+
+const canUseV2MeterUpdate = (params: MeterUpdateParams): boolean =>
+  params.external_id == null &&
+  params.externalId == null &&
+  params.companyExternalId == null &&
+  params.contactExternalId == null &&
+  params.itemExternalId == null &&
+  params.subscriptionExternalId == null;
+
+const meterUpdateProperties = (params: MeterUpdateParams): Record<string, unknown> => {
+  const {
+    external_id: _externalID,
+    externalId: _bodyExternalID,
+    companyExternalId: _companyExternalID,
+    companyId,
+    contactExternalId: _contactExternalID,
+    contactId,
+    itemExternalId: _itemExternalID,
+    itemId,
+    subscriptionExternalId: _subscriptionExternalID,
+    subscriptionId,
+    usage,
+    usageAt,
+    usageStatus,
+  } = params;
+  void _externalID;
+  void _bodyExternalID;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _itemExternalID;
+  void _subscriptionExternalID;
+  return compactProperties({
+    company_id: companyId,
+    contact_id: contactId,
+    item_id: itemId,
+    subscription_id: subscriptionId,
+    usage,
+    usage_at: usageAt,
+    usage_status: usageStatus,
+  });
+};
 
 export class Meters extends APIResource {
   /**
@@ -22,15 +77,20 @@ export class Meters extends APIResource {
     params: MeterRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CommerceMeter> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/meters/${meterID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/meters/${meterID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      meterFromV2Record,
+    );
   }
 
   /**
@@ -38,6 +98,14 @@ export class Meters extends APIResource {
    */
   update(meterID: string, params: MeterUpdateParams, options?: RequestOptions): APIPromise<Meter> {
     const { external_id, ...body } = params;
+    if (canUseV2MeterUpdate(params)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/meters/${meterID}`, {
+          body: { properties: meterUpdateProperties(params) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => legacyMutationResponseFromV2<Meter>(envelope, 'meter_id', 'updated'));
+    }
     return this._client.put(path`/v1/public/meters/${meterID}`, { query: { external_id }, body, ...options });
   }
 
@@ -48,15 +116,27 @@ export class Meters extends APIResource {
     params: MeterListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<MeterListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/meters', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/meters', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      meterFromV2Record,
+    );
   }
 
   /**
@@ -68,7 +148,9 @@ export class Meters extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Meter> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/meters/${meterID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/meters/${meterID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<Meter>(envelope, 'meter_id', external_id));
   }
 }
 

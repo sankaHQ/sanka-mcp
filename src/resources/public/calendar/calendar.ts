@@ -10,6 +10,19 @@ import {
 } from './attendance';
 import { APIPromise } from '../../../core/api-promise';
 import { RequestOptions } from '../../../internal/request-options';
+import { V2Envelope, unwrapV2Data } from '../../../internal/v2';
+
+const unwrapV2CalendarEnvelope = <T extends { ctx_id?: string | null }>(
+  promise: APIPromise<V2Envelope<Omit<T, 'ctx_id'>>>,
+): APIPromise<T> => {
+  return promise._thenUnwrap(
+    (envelope) =>
+      ({
+        ...unwrapV2Data(envelope),
+        ctx_id: envelope.meta.ctx_id ?? null,
+      }) as T,
+  );
+};
 
 export class Calendar extends APIResource {
   attendance: AttendanceAPI.Attendance = new AttendanceAPI.Attendance(this._client);
@@ -21,7 +34,9 @@ export class Calendar extends APIResource {
     query: CalendarBootstrapParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<CalendarBootstrapResponse> {
-    return this._client.get('/v1/public/calendar/bootstrap', { query, ...options });
+    return unwrapV2CalendarEnvelope(
+      this._client.get('/api/v2/public/calendar/bootstrap', { query, ...options }),
+    );
   }
 
   /**
@@ -31,7 +46,9 @@ export class Calendar extends APIResource {
     query: CalendarCheckAvailabilityParams,
     options?: RequestOptions,
   ): APIPromise<CalendarCheckAvailabilityResponse> {
-    return this._client.get('/v1/public/calendar/availability', { query, ...options });
+    return unwrapV2CalendarEnvelope(
+      this._client.get('/api/v2/public/calendar/availability', { query, ...options }),
+    );
   }
 }
 

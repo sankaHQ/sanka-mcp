@@ -5,7 +5,58 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2PdfData, buildV2PdfRequest, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const paymentFromV2Record = (record: V2ObjectRecord): Receipt =>
+  legacyObjectRecordFromV2<Receipt>(record, 'id_rcp');
+
+const canUseV2PaymentUpdate = (params: PaymentUpdateParams): boolean =>
+  params.externalId == null && params.companyExternalId == null && params.contactExternalId == null;
+
+const paymentUpdateProperties = (params: PaymentUpdateParams): Record<string, unknown> => {
+  const {
+    external_id: _externalID,
+    companyExternalId: _companyExternalID,
+    companyId,
+    contactExternalId: _contactExternalID,
+    contactId,
+    currency,
+    entryType,
+    externalId: _bodyExternalID,
+    notes,
+    startDate,
+    status,
+    totalPrice,
+    totalPriceWithoutTax,
+  } = params;
+  void _externalID;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _bodyExternalID;
+  return compactProperties({
+    company_id: companyId,
+    contact_id: contactId,
+    currency,
+    entry_type: entryType,
+    notes,
+    start_date: startDate,
+    status,
+    total_price: totalPrice,
+    total_price_without_tax: totalPriceWithoutTax,
+  });
+};
 
 export class Payments extends APIResource {
   /**
@@ -23,15 +74,20 @@ export class Payments extends APIResource {
     params: PaymentRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Receipt> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/payments/${paymentID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/payments/${paymentID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      paymentFromV2Record,
+    );
   }
 
   /**
@@ -82,6 +138,17 @@ export class Payments extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PaymentResponse> {
     const { external_id, ...body } = params;
+    if (canUseV2PaymentUpdate(params)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/payments/${paymentID}`, {
+          query: { external_id },
+          body: { properties: paymentUpdateProperties(params) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PaymentResponse>(envelope, 'payment_id', 'updated', external_id),
+        );
+    }
     return this._client.put(path`/v1/public/payments/${paymentID}`, {
       query: { external_id },
       body,
@@ -96,15 +163,27 @@ export class Payments extends APIResource {
     params: PaymentListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<PaymentListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/payments', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/payments', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      paymentFromV2Record,
+    );
   }
 
   /**
@@ -116,10 +195,11 @@ export class Payments extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PaymentResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/payments/${paymentID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/payments/${paymentID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PaymentResponse>(envelope, 'payment_id', external_id),
+      );
   }
 
   /**
@@ -130,16 +210,29 @@ export class Payments extends APIResource {
     params: PaymentDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/payments/${paymentID}/pdf`, {
-      query,
-      ...options,
-      __binaryResponse: true,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    }) as APIPromise<Response>;
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/payments/${paymentID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/payments/${paymentID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 }
 

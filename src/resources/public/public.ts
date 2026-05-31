@@ -254,6 +254,15 @@ import {
   OrderUpdateParams,
   Orders,
 } from './orders';
+import * as ObjectSchemasAPI from './object-schemas';
+import {
+  ObjectSchema,
+  ObjectSchemaListParams,
+  ObjectSchemaListResponse,
+  ObjectSchemaMutationParams,
+  ObjectSchemaMutationResponse,
+  ObjectSchemas,
+} from './object-schemas';
 import * as TasksAPI from './tasks';
 import {
   PublicTaskRequest,
@@ -413,6 +422,7 @@ export class Public extends APIResource {
     new InventoryTransactionsAPI.InventoryTransactions(this._client);
   meters: MetersAPI.Meters = new MetersAPI.Meters(this._client);
   properties: PropertiesAPI.Properties = new PropertiesAPI.Properties(this._client);
+  objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
   slips: SlipsAPI.Slips = new SlipsAPI.Slips(this._client);
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
@@ -445,6 +455,7 @@ Public.Locations = Locations;
 Public.InventoryTransactions = InventoryTransactions;
 Public.Meters = Meters;
 Public.Properties = Properties;
+Public.ObjectSchemas = ObjectSchemas;
 Public.PurchaseOrders = PurchaseOrders;
 Public.Slips = Slips;
 Public.Bills = Bills;
@@ -758,6 +769,15 @@ export declare namespace Public {
     type PropertyUpdateParams as PropertyUpdateParams,
     type PropertyListParams as PropertyListParams,
     type PropertyDeleteParams as PropertyDeleteParams,
+  };
+
+  export {
+    ObjectSchemas as ObjectSchemas,
+    type ObjectSchema as ObjectSchema,
+    type ObjectSchemaListResponse as ObjectSchemaListResponse,
+    type ObjectSchemaMutationResponse as ObjectSchemaMutationResponse,
+    type ObjectSchemaListParams as ObjectSchemaListParams,
+    type ObjectSchemaMutationParams as ObjectSchemaMutationParams,
   };
 
   export {

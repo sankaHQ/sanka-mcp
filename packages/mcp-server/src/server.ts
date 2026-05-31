@@ -93,11 +93,15 @@ import {
   crmGetContactTool,
   crmGetDealTool,
   crmDownloadEstimatePDFTool,
+  crmUploadEstimateAttachmentTool,
   crmDownloadInvoicePDFTool,
+  crmUploadInvoiceAttachmentTool,
   crmDownloadOrderPDFTool,
+  crmUploadOrderAttachmentTool,
   crmDownloadPaymentPDFTool,
   crmDownloadPayrollPayslipPDFTool,
   crmDownloadPurchaseOrderPDFTool,
+  crmUploadPurchaseOrderAttachmentTool,
   crmDownloadSlipPDFTool,
   crmGetEstimateTool,
   crmGetExpenseTool,
@@ -175,6 +179,7 @@ import {
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
+  crmUploadBillAttachmentTool,
   crmUpdateContactTool,
   crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
@@ -192,7 +197,6 @@ import {
   crmUpdatePurchaseOrderTool,
   crmUpdateReportTool,
   crmUpdateBillTool,
-  crmUploadBillAttachmentTool,
   crmUpdateAbsenceTool,
   crmUpdateAttendanceRecordTool,
   crmUpdateDisbursementTool,
@@ -301,7 +305,7 @@ export async function recordMcpToolCall({
 
   const error = summarizeToolError(result);
   try {
-    await (client as unknown as ToolCallLogClient).post('/v1/public/auth/mcp-session/tool-call-log', {
+    await (client as unknown as ToolCallLogClient).post('/api/v2/mcp/tool-call-log', {
       body: {
         tool_name: mcpTool.tool.name,
         tool_title: mcpTool.tool.title ?? mcpTool.tool.name,
@@ -601,6 +605,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmListOrdersTool,
     crmGetOrderTool,
     crmDownloadOrderPDFTool,
+    crmUploadOrderAttachmentTool,
     crmCreateOrderTool,
     crmUpdateOrderTool,
     crmActivateOrderTool,
@@ -609,6 +614,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmListPurchaseOrdersTool,
     crmGetPurchaseOrderTool,
     crmDownloadPurchaseOrderPDFTool,
+    crmUploadPurchaseOrderAttachmentTool,
     crmCreatePurchaseOrderTool,
     crmUpdatePurchaseOrderTool,
     crmDeletePurchaseOrderTool,
@@ -620,6 +626,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmListEstimatesTool,
     crmGetEstimateTool,
     crmDownloadEstimatePDFTool,
+    crmUploadEstimateAttachmentTool,
     crmCreateEstimateTool,
     crmUpdateEstimateTool,
     crmDeleteEstimateTool,
@@ -641,6 +648,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmGetInvoiceTool,
     crmDownloadInvoicePDFTool,
     crmSendInvoiceEmailTool,
+    crmUploadInvoiceAttachmentTool,
     crmCreateInvoiceTool,
     crmUpdateInvoiceTool,
     crmActivateInvoiceTool,

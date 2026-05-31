@@ -6,20 +6,21 @@ import { type Uploadable } from '../../core/uploads';
 import { RequestOptions } from '../../internal/request-options';
 import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
 
 export class Imports extends APIResource {
   /**
    * Create Import Job
    */
   create(body: ImportCreateParams, options?: RequestOptions): APIPromise<TransferJob> {
-    return this._client.post('/v1/public/imports', { body, ...options });
+    return unwrapV2DataPromise(this._client.v2Post<TransferJob>('/imports', { body, ...options }));
   }
 
   /**
    * Get Import Job
    */
   retrieve(jobID: string, options?: RequestOptions): APIPromise<TransferJob> {
-    return this._client.get(path`/v1/public/imports/${jobID}`, options);
+    return unwrapV2DataPromise(this._client.v2Get<TransferJob>(path`/imports/${jobID}`, options));
   }
 
   /**
@@ -29,14 +30,18 @@ export class Imports extends APIResource {
     params: ImportListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ImportListResponse> {
-    return this._client.get('/v1/public/imports', { query: params ?? {}, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Get<ImportListResponse>('/imports', { query: params ?? {}, ...options }),
+    );
   }
 
   /**
    * Cancel Import Job
    */
   cancel(jobID: string, options?: RequestOptions): APIPromise<TransferJob> {
-    return this._client.post(path`/v1/public/imports/${jobID}/cancel`, { ...options });
+    return this._client
+      .v2Post<TransferJobCancelResponse>(path`/imports/${jobID}/cancel`, { ...options })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope).job);
   }
 
   /**
@@ -44,17 +49,27 @@ export class Imports extends APIResource {
    */
   uploadFile(body: ImportUploadFileParams, options?: RequestOptions): APIPromise<TransferUploadFileResponse> {
     const { object_type, file } = body;
-    return this._client.post(
-      '/v1/public/files',
-      multipartFormRequestOptions(
-        {
-          body: { file },
-          query: { object_type },
-          ...options,
-        },
-        this._client,
-      ),
-    );
+    return this._client
+      .v2Post<V2FileUploadResponse>(
+        '/files',
+        multipartFormRequestOptions(
+          {
+            body: { file },
+            query: { object_type },
+            ...options,
+          },
+          this._client,
+        ),
+      )
+      ._thenUnwrap((envelope) => {
+        const data = unwrapV2Data(envelope);
+        return {
+          ...data,
+          file_id: data.id,
+          ok: true,
+          object_type,
+        };
+      });
   }
 }
 
@@ -99,12 +114,28 @@ export interface TransferJob {
   ended_at?: string | null;
 }
 
+export interface TransferJobCancelResponse {
+  job: TransferJob;
+  canceled?: boolean | null;
+  message?: string | null;
+}
+
+export interface V2FileUploadResponse {
+  id: string;
+  filename: string;
+  url: string;
+  relative_path: string;
+}
+
 export interface TransferUploadFileResponse {
   file_id: string;
   ok: boolean;
   object_type: string;
   filename?: string | null;
   ctx_id?: string | null;
+  id?: string | null;
+  url?: string | null;
+  relative_path?: string | null;
 }
 
 export interface ImportListResponse {

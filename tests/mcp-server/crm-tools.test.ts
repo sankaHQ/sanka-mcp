@@ -175,7 +175,11 @@ import {
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
   crmUploadBillAttachmentTool,
+  crmUploadEstimateAttachmentTool,
   crmUploadExpenseAttachmentTool,
+  crmUploadInvoiceAttachmentTool,
+  crmUploadOrderAttachmentTool,
+  crmUploadPurchaseOrderAttachmentTool,
   crmUpsertPayrollProfileTool,
   crmCalculatePayrollRunTool,
 } from '../../packages/mcp-server/src/crm-tools';
@@ -265,11 +269,13 @@ describe('ChatGPT CRM tools', () => {
     expect(crmDeleteItemTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListOrdersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadOrderAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPurchaseOrdersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadPurchaseOrderAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeletePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -280,11 +286,13 @@ describe('ChatGPT CRM tools', () => {
     expect(crmDeleteTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListEstimatesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadEstimateAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListInvoicesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadInvoiceAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -383,6 +391,46 @@ describe('ChatGPT CRM tools', () => {
     expect(crmRescheduleCalendarAttendanceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmProspectCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmScoreRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+  });
+
+  it('advertises V2 private-message endpoints where the backend is ready', () => {
+    expect(crmCurrentWorkspaceTool.metadata.httpPath).toBe('/api/v2/auth/session');
+    expect(crmListWorkspacesTool.metadata.httpPath).toBe('/api/v2/auth/session');
+    expect(crmListPrivateMessagesTool.metadata.httpPath).toBe('/api/v2/me/messages');
+    expect(crmGetPrivateMessageThreadTool.metadata.httpPath).toBe('/api/v2/me/messages/threads/{thread_id}');
+    expect(crmReplyPrivateMessageThreadTool.metadata.httpPath).toBe(
+      '/api/v2/me/messages/threads/{thread_id}/reply',
+    );
+    expect(crmArchivePrivateMessageThreadTool.metadata.httpPath).toBe(
+      '/api/v2/me/messages/threads/{thread_id}/archive',
+    );
+    expect(crmSyncPrivateMessagesTool.metadata.httpPath).toBe('/api/v2/me/messages/sync');
+    expect(crmGetCalendarBootstrapTool.metadata.httpPath).toBe('/api/v2/public/calendar/bootstrap');
+    expect(crmCheckCalendarAvailabilityTool.metadata.httpPath).toBe('/api/v2/public/calendar/availability');
+    expect(crmCreateCalendarAttendanceTool.metadata.httpPath).toBe('/api/v2/public/calendar/attendance');
+    expect(crmCancelCalendarAttendanceTool.metadata.httpPath).toBe(
+      '/api/v2/public/calendar/attendance/{attendance_id}/cancel',
+    );
+    expect(crmRescheduleCalendarAttendanceTool.metadata.httpPath).toBe(
+      '/api/v2/public/calendar/attendance/{attendance_id}/reschedule',
+    );
+    expect(crmListCompaniesTool.metadata.httpPath).toBe('/api/v2/companies');
+    expect(crmCreateCompanyTool.metadata.httpPath).toBe('/api/v2/companies');
+    expect(crmGetCompanyTool.metadata.httpPath).toBe('/api/v2/companies/{company_id}');
+    expect(crmDeleteCompanyTool.metadata.httpPath).toBe('/api/v2/companies/{company_id}');
+    expect(crmListContactsTool.metadata.httpPath).toBe('/api/v2/contacts');
+    expect(crmCreateContactTool.metadata.httpPath).toBe('/api/v2/contacts');
+    expect(crmGetContactTool.metadata.httpPath).toBe('/api/v2/contacts/{contact_id}');
+    expect(crmDeleteContactTool.metadata.httpPath).toBe('/api/v2/contacts/{contact_id}');
+    expect(crmListDealsTool.metadata.httpPath).toBe('/api/v2/deals');
+    expect(crmCreateDealTool.metadata.httpPath).toBe('/api/v2/deals');
+    expect(crmGetDealTool.metadata.httpPath).toBe('/api/v2/deals/{case_id}');
+    expect(crmDeleteDealTool.metadata.httpPath).toBe('/api/v2/deals/{case_id}');
+    expect(crmListTicketsTool.metadata.httpPath).toBe('/api/v2/tickets');
+    expect(crmCreateTicketTool.metadata.httpPath).toBe('/api/v2/tickets');
+    expect(crmGetTicketTool.metadata.httpPath).toBe('/api/v2/tickets/{ticket_id}');
+    expect(crmDeleteTicketTool.metadata.httpPath).toBe('/api/v2/tickets/{ticket_id}');
+    expect(crmUpdateTicketStatusTool.metadata.httpPath).toBe('/api/v2/tickets/{ticket_id}/status');
   });
 
   it('returns a reauth challenge when auth status is checked without authentication', async () => {
@@ -547,15 +595,18 @@ describe('ChatGPT CRM tools', () => {
   it('lists available workspaces for the current OAuth session', async () => {
     const get = jest.fn().mockResolvedValue({
       data: {
-        workspace_id: 'workspace-uuid-1',
-        workspace_code: '39467777',
-        workspace_name: 'Workspace A',
-        available_workspaces: [
-          { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: true },
-          { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: false },
+        current_workspace: {
+          id: 'workspace-uuid-1',
+          code: '39467777',
+          name: 'Workspace A',
+        },
+        workspaces: [
+          { id: 'workspace-uuid-1', name: 'Workspace A', code: '39467777' },
+          { id: 'workspace-uuid-2', name: 'Workspace B', code: '48803074' },
         ],
       },
-      message: 'ok',
+      meta: { ctx_id: 'ctx-1' },
+      success: true,
     });
 
     const result = await crmListWorkspacesTool.handler({
@@ -567,7 +618,7 @@ describe('ChatGPT CRM tools', () => {
       args: {},
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/auth/session', undefined);
+    expect(get).toHaveBeenCalledWith('/api/v2/auth/session', undefined);
     expect(result.structuredContent).toEqual({
       current_workspace_id: 'workspace-uuid-1',
       current_workspace_code: '39467777',
@@ -585,20 +636,28 @@ describe('ChatGPT CRM tools', () => {
   it('switches the persistent MCP workspace binding when an MCP session id is available', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
+        workspace: { id: 'workspace-uuid-2', name: 'Workspace B', code: '48803074' },
         workspace_id: 'workspace-uuid-2',
         workspace_code: '48803074',
-        workspace_name: 'Workspace B',
-        available_workspaces: [
-          { id: 'workspace-uuid-1', name: 'Workspace A', workspace_code: '39467777', selected: false },
-          { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: true },
+      },
+      meta: { ctx_id: 'ctx-switch' },
+      success: true,
+    });
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        current_workspace: { id: 'workspace-uuid-2', name: 'Workspace B', code: '48803074' },
+        workspaces: [
+          { id: 'workspace-uuid-1', name: 'Workspace A', code: '39467777' },
+          { id: 'workspace-uuid-2', name: 'Workspace B', code: '48803074' },
         ],
       },
-      message: 'updated',
+      meta: { ctx_id: 'ctx-session' },
+      success: true,
     });
 
     const result = await crmSwitchWorkspaceTool.handler({
       reqContext: {
-        client: { post } as any,
+        client: { get, post } as any,
         auth: oauthContext(),
         mcpSessionId: 'mcp-session-1',
         toolProfile: 'hosted',
@@ -606,12 +665,13 @@ describe('ChatGPT CRM tools', () => {
       args: { workspace_id: 'workspace-uuid-2' },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/auth/mcp-session/switch-workspace', {
-      body: { workspace_id: 'workspace-uuid-2' },
+    expect(post).toHaveBeenCalledWith('/api/v2/workspaces/switch', {
+      body: { target_workspace_id: 'workspace-uuid-2' },
       headers: {
         'X-Sanka-MCP-Session-ID': 'mcp-session-1',
       },
     });
+    expect(get).toHaveBeenCalledWith('/api/v2/auth/session', undefined);
     expect(result.structuredContent).toEqual({
       current_workspace_id: 'workspace-uuid-2',
       current_workspace_code: '48803074',
@@ -851,7 +911,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         mode: 'dedupe_candidates',
@@ -900,7 +960,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -948,7 +1008,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -1100,7 +1160,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -2599,7 +2659,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'deals',
         scope: 'integration',
@@ -3085,6 +3145,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         create_missing_items: true,
+        attachment_file_ids: ['file-1'],
         order: {
           external_id: 'ORD-1',
           company_external_id: 'COMP-1',
@@ -3101,6 +3162,9 @@ describe('ChatGPT CRM tools', () => {
           externalId: 'ORD-1',
           companyExternalId: 'COMP-1',
           orderAt: '2026-04-09T09:00:00Z',
+          attachment_file: {
+            files: [{ file_id: 'file-1' }],
+          },
           line_items: [{ item_external_id: 'ITEM-1', quantity: 2, unit_price: 50, tax_rate: 10 }],
         },
       },
@@ -3405,7 +3469,7 @@ describe('ChatGPT CRM tools', () => {
     });
 
     const pdfBytes = Buffer.from('%PDF-purchase-order');
-    const asResponse = jest.fn().mockResolvedValue(
+    const downloadPDF = jest.fn().mockResolvedValue(
       new Response(pdfBytes, {
         headers: {
           'content-type': 'application/pdf',
@@ -3414,11 +3478,12 @@ describe('ChatGPT CRM tools', () => {
         },
       }),
     );
-    const get = jest.fn().mockReturnValue({ asResponse });
     const downloadResult = await crmDownloadPurchaseOrderPDFTool.handler({
       reqContext: {
         client: {
-          get,
+          public: {
+            purchaseOrders: { downloadPDF },
+          },
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -3429,12 +3494,14 @@ describe('ChatGPT CRM tools', () => {
         language: 'ja',
       },
     });
-    expect(get).toHaveBeenCalledWith('/v1/public/purchase-orders/purchase-order-1/pdf', {
-      query: {
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'purchase-order-1',
+      {
         template_select: 'template-1',
         language: 'ja',
       },
-    });
+      undefined,
+    );
     expect(downloadResult.structuredContent).toEqual({
       content_disposition:
         'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
@@ -3456,6 +3523,7 @@ describe('ChatGPT CRM tools', () => {
         currency: 'USD',
         date: '2026-04-09',
         tax_rate: 10,
+        attachment_file_ids: ['file-1'],
         line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
     });
@@ -3466,6 +3534,9 @@ describe('ChatGPT CRM tools', () => {
         currency: 'USD',
         date: '2026-04-09',
         tax_rate: 10,
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
         line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
       undefined,
@@ -3913,6 +3984,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 100,
         currency: 'USD',
+        attachment_file_ids: ['file-1'],
         line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
     });
@@ -3922,6 +3994,9 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 100,
         currency: 'USD',
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
         line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
       undefined,
@@ -4012,7 +4087,12 @@ describe('ChatGPT CRM tools', () => {
 
   it('lists invoices with a local result limit', async () => {
     const list = jest.fn().mockResolvedValue([
-      { id_inv: 1, company_name: 'Acme', total_price: 100 },
+      {
+        id_inv: 1,
+        company_name: 'Acme',
+        total_price: 100,
+        app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+      },
       { id_inv: 2, company_name: 'Globex', total_price: 200 },
       { id_inv: 3, company_name: 'Initech', total_price: 300 },
     ]);
@@ -4044,7 +4124,12 @@ describe('ChatGPT CRM tools', () => {
       message: 'Returned 2 of 3 invoices.',
       permission: undefined,
       results: [
-        { id_inv: 1, company_name: 'Acme', total_price: 100 },
+        {
+          id_inv: 1,
+          company_name: 'Acme',
+          total_price: 100,
+          app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+        },
         { id_inv: 2, company_name: 'Globex', total_price: 200 },
       ],
     });
@@ -4105,7 +4190,10 @@ describe('ChatGPT CRM tools', () => {
 
   it('gets one invoice when authentication is present', async () => {
     const retrieve = jest.fn().mockResolvedValue({
+      id: 'invoice-1',
       id_inv: 1,
+      app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+      workspace_code: '99112888',
       company_name: 'Acme',
       line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
       created_at: '2026-04-08T00:00:00Z',
@@ -4134,18 +4222,21 @@ describe('ChatGPT CRM tools', () => {
       undefined,
     );
     expect(result.structuredContent).toEqual({
+      id: 'invoice-1',
       id_inv: 1,
+      app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
+      workspace_code: '99112888',
       company_name: 'Acme',
       line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
-    expect(result.content).toEqual([
-      {
-        type: 'text',
-        text: 'Loaded invoice successfully: Invoice No. 1.',
-      },
-    ]);
+    const firstContent = result.content?.[0];
+    expect(firstContent?.type).toBe('text');
+    if (firstContent?.type === 'text') {
+      expect(firstContent.text).toContain('Loaded invoice successfully: Invoice No. 1.');
+      expect(firstContent.text).toContain('app_url');
+    }
   });
 
   it('downloads invoice PDFs with structured base64 content', async () => {
@@ -4386,6 +4477,7 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 120,
         currency: 'USD',
+        attachment_file_ids: ['file-1'],
         line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
       },
     });
@@ -4395,6 +4487,9 @@ describe('ChatGPT CRM tools', () => {
         company_id: 'company-1',
         total_price: 120,
         currency: 'USD',
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
         line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
       },
       undefined,
@@ -5186,6 +5281,11 @@ describe('ChatGPT CRM tools', () => {
       status: 'updated',
       bill_id: 'bill-1',
     });
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'supplier-invoice.pdf',
+    });
     const del = jest.fn().mockResolvedValue({
       ok: true,
       status: 'deleted',
@@ -5195,7 +5295,7 @@ describe('ChatGPT CRM tools', () => {
     const reqContext = {
       client: {
         public: {
-          bills: { list, retrieve, create, update, delete: del },
+          bills: { list, retrieve, create, update, uploadAttachment, delete: del },
         },
       } as any,
       auth: oauthContext(),
@@ -5240,6 +5340,25 @@ describe('ChatGPT CRM tools', () => {
       line_items: [{ item_name: 'Bill row', quantity: 2, unit_price: 500 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
+    });
+
+    const uploadResult = await crmUploadBillAttachmentTool.handler({
+      reqContext,
+      args: {
+        filename: 'supplier-invoice.pdf',
+        mime_type: 'application/pdf',
+        content_base64: Buffer.from('bill attachment').toString('base64'),
+      },
+    });
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('supplier-invoice.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(uploadResult.structuredContent).toEqual({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'supplier-invoice.pdf',
     });
 
     const createResult = await crmCreateBillTool.handler({
@@ -6133,6 +6252,61 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it.each([
+    [
+      'order',
+      crmUploadOrderAttachmentTool,
+      (uploadAttachment: jest.Mock) => ({ orders: { uploadAttachment } }),
+    ],
+    [
+      'purchase order',
+      crmUploadPurchaseOrderAttachmentTool,
+      (uploadAttachment: jest.Mock) => ({ purchaseOrders: { uploadAttachment } }),
+    ],
+    [
+      'estimate',
+      crmUploadEstimateAttachmentTool,
+      (uploadAttachment: jest.Mock) => ({ estimates: { uploadAttachment } }),
+    ],
+    [
+      'invoice',
+      crmUploadInvoiceAttachmentTool,
+      (uploadAttachment: jest.Mock) => ({ invoices: { uploadAttachment } }),
+    ],
+  ])('uploads a %s attachment from base64 content', async (_label, tool, publicClientFactory) => {
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'document.pdf',
+    });
+
+    const result = await tool.handler({
+      reqContext: {
+        client: {
+          public: publicClientFactory(uploadAttachment),
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'document.pdf',
+        mime_type: 'application/pdf',
+        content_base64: Buffer.from('test document').toString('base64'),
+      },
+    });
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('document.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'document.pdf',
+    });
+  });
+
   it('creates an expense with uploaded attachment ids', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,
@@ -6737,7 +6911,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/object-schemas', {
+    expect(get).toHaveBeenCalledWith('/api/v2/object-schemas', {
       query: {
         scope: 'integration',
         provider: 'hubspot',
@@ -6796,7 +6970,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/object-schemas', {
+    expect(post).toHaveBeenCalledWith('/api/v2/object-schemas', {
       body: {
         operation: 'create',
         target: 'integration',
@@ -7146,6 +7320,54 @@ describe('ChatGPT CRM tools', () => {
           price: 300,
         },
       ],
+    });
+  });
+
+  it('updates items through the SDK V2 item update method', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      item_id: 'item-1',
+      external_id: 'ITEM-EXT',
+    });
+
+    const result = await crmUpdateItemTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            items: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        item_id: 'item-1',
+        external_id: 'ITEM-EXT',
+        name: 'Updated starter kit',
+        price: 1400,
+        purchase_price: 900,
+        status: 'active',
+      },
+    });
+
+    expect(crmUpdateItemTool.metadata.httpPath).toBe('/api/v2/items/{item_id}');
+    expect(update).toHaveBeenCalledWith(
+      'item-1',
+      {
+        externalId: 'ITEM-EXT',
+        name: 'Updated starter kit',
+        price: 1400,
+        purchasePrice: 900,
+        status: 'active',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      item_id: 'item-1',
+      external_id: 'ITEM-EXT',
     });
   });
 

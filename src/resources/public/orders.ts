@@ -2,10 +2,25 @@
 
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
+import { type Uploadable } from '../../core/uploads';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
+import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { V2PdfData, buildV2PdfRequest, unwrapV2DataPromise, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  legacyDeleteResponseFromV2,
+  legacyListEnvelopeFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const orderFromV2Record = (record: V2ObjectRecord): OrderRetrieveResponse =>
+  legacyObjectRecordFromV2<OrderRetrieveResponse>(record, 'order_id');
 
 export class Orders extends APIResource {
   /**
@@ -23,7 +38,10 @@ export class Orders extends APIResource {
     query: OrderRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<OrderRetrieveResponse> {
-    return this._client.get(path`/v1/public/orders/${orderID}`, { query, ...options });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/orders/${orderID}`, { query, ...options }),
+      orderFromV2Record,
+    );
   }
 
   /**
@@ -40,15 +58,42 @@ export class Orders extends APIResource {
     params: OrderListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<OrderListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/orders', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      limit,
+      reference_id,
+      search,
+      sort,
+      view,
+      ...query
+    } = params ?? {};
+    if (reference_id != null || sort != null || view != null) {
+      return this._client.get('/v1/public/orders', {
+        query: { limit, reference_id, search, sort, view, ...query },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      });
+    }
+    return this._client
+      .v2Get<V2ObjectRecordList>('/orders', {
+        query: {
+          ...query,
+          ...(search != null ? { q: search } : undefined),
+          ...(limit != null ? { page_size: limit } : undefined),
+        },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap(
+        (envelope) =>
+          legacyListEnvelopeFromV2(envelope, orderFromV2Record, 'orders') as unknown as OrderListResponse,
+      );
   }
 
   /**
@@ -60,7 +105,11 @@ export class Orders extends APIResource {
     options?: RequestOptions,
   ): APIPromise<OrderDeleteResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/orders/${orderID}`, { query: { external_id }, ...options });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/orders/${orderID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<OrderDeleteResponse>(envelope, 'order_id', external_id),
+      );
   }
 
   /**
@@ -71,16 +120,29 @@ export class Orders extends APIResource {
     params: OrderDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/orders/${orderID}/pdf`, {
-      query,
-      ...options,
-      __binaryResponse: true,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    }) as APIPromise<Response>;
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/orders/${orderID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/orders/${orderID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -88,6 +150,21 @@ export class Orders extends APIResource {
    */
   bulkCreate(body: OrderBulkCreateParams, options?: RequestOptions): APIPromise<BulkOrders> {
     return this._client.post('/v1/public/orders/bulk', { body, ...options });
+  }
+
+  /**
+   * Upload Order Attachment File
+   */
+  uploadAttachment(
+    body: OrderUploadAttachmentParams,
+    options?: RequestOptions,
+  ): APIPromise<OrderUploadAttachmentResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<OrderUploadAttachmentResponse>(
+        '/orders/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
+    );
   }
 }
 
@@ -121,6 +198,26 @@ export namespace BulkOrder {
   }
 }
 
+export interface PublicOrder extends BulkOrder {
+  attachment_file?: PublicOrder.AttachmentFile | null;
+}
+
+export namespace PublicOrder {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
+}
+
 export interface BulkOrders {
   ok: boolean;
 
@@ -144,7 +241,7 @@ export namespace BulkOrders {
 }
 
 export interface Order {
-  order: BulkOrder;
+  order: PublicOrder;
 
   createMissingItems?: boolean;
 
@@ -207,8 +304,18 @@ export interface OrderDeleteResponse {
   order_id?: string | null;
 }
 
+export interface OrderUploadAttachmentResponse {
+  file_id: string;
+
+  ok: boolean;
+
+  ctx_id?: string | null;
+
+  filename?: string | null;
+}
+
 export interface OrderCreateParams {
-  order: BulkOrder;
+  order: PublicOrder;
 
   createMissingItems?: boolean;
 
@@ -247,7 +354,7 @@ export interface OrderDownloadPDFParams {
 }
 
 export interface OrderUpdateParams {
-  order: BulkOrder;
+  order: PublicOrder;
 
   createMissingItems?: boolean;
 
@@ -303,19 +410,26 @@ export interface OrderBulkCreateParams {
   triggerWorkflows?: boolean;
 }
 
+export interface OrderUploadAttachmentParams {
+  file: Uploadable;
+}
+
 export declare namespace Orders {
   export {
     type BulkOrder as BulkOrder,
+    type PublicOrder as PublicOrder,
     type BulkOrders as BulkOrders,
     type Order as Order,
     type OrderRetrieveResponse as OrderRetrieveResponse,
     type OrderListResponse as OrderListResponse,
     type OrderDeleteResponse as OrderDeleteResponse,
+    type OrderUploadAttachmentResponse as OrderUploadAttachmentResponse,
     type OrderCreateParams as OrderCreateParams,
     type OrderRetrieveParams as OrderRetrieveParams,
     type OrderUpdateParams as OrderUpdateParams,
     type OrderListParams as OrderListParams,
     type OrderDeleteParams as OrderDeleteParams,
     type OrderBulkCreateParams as OrderBulkCreateParams,
+    type OrderUploadAttachmentParams as OrderUploadAttachmentParams,
   };
 }

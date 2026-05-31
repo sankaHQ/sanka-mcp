@@ -5,13 +5,53 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const locationFromV2Record = (record: V2ObjectRecord): Warehouse =>
+  legacyObjectRecordFromV2<Warehouse>(record, 'id_iw');
+
+const locationUpdateProperties = (params: LocationUpdateParams): Record<string, unknown> => {
+  const { external_id: _externalID, externalId: _bodyExternalID, usageStatus, ...rest } = params;
+  void _externalID;
+  void _bodyExternalID;
+  return compactProperties({
+    ...rest,
+    ...(usageStatus !== undefined ? { usage_status: usageStatus } : undefined),
+  });
+};
+
+const locationCreateProperties = (params: LocationCreateParams): Record<string, unknown> => {
+  const { externalId, usageStatus, ...rest } = params;
+  return compactProperties({
+    ...(externalId !== undefined ? { external_id: externalId } : undefined),
+    ...rest,
+    ...(usageStatus !== undefined ? { usage_status: usageStatus } : undefined),
+  });
+};
 
 export class Locations extends APIResource {
   /**
    * Create Location
    */
   create(body: LocationCreateParams, options?: RequestOptions): APIPromise<Location> {
-    return this._client.post('/v1/public/locations', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/locations', {
+        body: { properties: locationCreateProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Location>(envelope, 'location_id', 'created', body.externalId),
+      );
   }
 
   /**
@@ -22,19 +62,26 @@ export class Locations extends APIResource {
     query: LocationRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Warehouse> {
-    return this._client.get(path`/v1/public/locations/${locationID}`, { query, ...options });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/locations/${locationID}`, { query, ...options }),
+      locationFromV2Record,
+    );
   }
 
   /**
    * Update Location
    */
   update(locationID: string, params: LocationUpdateParams, options?: RequestOptions): APIPromise<Location> {
-    const { external_id, ...body } = params;
-    return this._client.put(path`/v1/public/locations/${locationID}`, {
-      query: { external_id },
-      body,
-      ...options,
-    });
+    const externalID = params.external_id ?? params.externalId;
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/locations/${locationID}`, {
+        query: { external_id: externalID },
+        body: { properties: locationUpdateProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Location>(envelope, 'location_id', 'updated', externalID),
+      );
   }
 
   /**
@@ -44,15 +91,27 @@ export class Locations extends APIResource {
     params: LocationListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<LocationListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/locations', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/locations', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      locationFromV2Record,
+    );
   }
 
   /**
@@ -64,10 +123,9 @@ export class Locations extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Location> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/locations/${locationID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/locations/${locationID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<Location>(envelope, 'location_id', external_id));
   }
 }
 

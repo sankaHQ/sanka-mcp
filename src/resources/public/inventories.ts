@@ -5,6 +5,18 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  legacyDeleteResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const inventoryFromV2Record = (record: V2ObjectRecord): ShopTurboInventory =>
+  legacyObjectRecordFromV2<ShopTurboInventory>(record, 'inventory_id');
 
 export class Inventories extends APIResource {
   /**
@@ -23,14 +35,17 @@ export class Inventories extends APIResource {
     options?: RequestOptions,
   ): APIPromise<ShopTurboInventory> {
     const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/inventories/${inventoryID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/inventories/${inventoryID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      inventoryFromV2Record,
+    );
   }
 
   /**
@@ -51,15 +66,27 @@ export class Inventories extends APIResource {
     params: InventoryListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InventoryListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/inventories', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/inventories', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      inventoryFromV2Record,
+    );
   }
 
   /**
@@ -71,10 +98,11 @@ export class Inventories extends APIResource {
     options?: RequestOptions,
   ): APIPromise<InventoryResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/inventories/${inventoryID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/inventories/${inventoryID}`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<InventoryResponse>(envelope, 'inventory_id', external_id),
+      );
   }
 }
 
