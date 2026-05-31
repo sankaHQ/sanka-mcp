@@ -95,8 +95,18 @@ const usableExternalID = (value: string | null | undefined): string | undefined 
   return normalized || undefined;
 };
 
+const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
+  target != null && target !== 'sanka';
+
+const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
+  const properties = { ...body };
+  if (properties['target'] === 'sanka') {
+    delete properties['target'];
+  }
+  return compactProperties(properties);
+};
+
 const hasLegacyDealCreateArgs = (params: DealCreateParams): boolean =>
-  usableExternalID(params.externalId) == null ||
   params.caseStatus != null ||
   params.channel_id != null ||
   params.companyExternalId != null ||
@@ -109,7 +119,7 @@ const hasLegacyDealCreateArgs = (params: DealCreateParams): boolean =>
   params.external_object_type != null ||
   params.operation != null ||
   params.provider != null ||
-  params.target != null;
+  hasRemoteMutationTarget(params.target);
 
 const hasLegacyDealDeleteArgs = (params: DealDeleteParams | null | undefined): boolean => {
   if (!params) return false;
@@ -120,7 +130,7 @@ const hasLegacyDealDeleteArgs = (params: DealDeleteParams | null | undefined): b
     params.external_object_type != null ||
     params.operation != null ||
     params.provider != null ||
-    params.target != null
+    hasRemoteMutationTarget(params.target)
   );
 };
 
@@ -139,7 +149,7 @@ const hasLegacyDealUpdateArgs = (params: DealUpdateParams): boolean =>
   params.external_object_type != null ||
   params.operation != null ||
   params.provider != null ||
-  params.target != null;
+  hasRemoteMutationTarget(params.target);
 
 export class Deals extends APIResource {
   /**
@@ -150,7 +160,7 @@ export class Deals extends APIResource {
       const externalID = usableExternalID(body.externalId);
       return this._client
         .v2Post<V2ObjectRecord>('/deals', {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope, externalID, 'created'));
@@ -189,7 +199,7 @@ export class Deals extends APIResource {
     if (!hasLegacyDealUpdateArgs(params)) {
       return this._client
         .v2Patch<V2ObjectRecord>(path`/deals/${caseID}`, {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope));

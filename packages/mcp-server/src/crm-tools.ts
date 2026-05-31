@@ -12585,7 +12585,7 @@ export const crmCreateCompanyTool: McpTool = {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create or upsert a company. Default target=sanka mutates Sanka only and requires external_id. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -12863,7 +12863,7 @@ export const crmCreateContactTool: McpTool = {
     name: 'create_contact',
     title: 'Create contact',
     description:
-      'Create a contact in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
+      'Create a contact in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: CONTACT_CREATE_INPUT_SCHEMA,
     outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14905,7 +14905,7 @@ export const crmCreateDealTool: McpTool = {
     name: 'create_deal',
     title: 'Create deal',
     description:
-      'Create a deal in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
+      'Create a deal in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: DEAL_CREATE_INPUT_SCHEMA,
     outputSchema: DEAL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

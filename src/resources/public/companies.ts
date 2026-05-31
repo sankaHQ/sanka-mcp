@@ -101,8 +101,18 @@ const usableExternalID = (value: string | null | undefined): string | undefined 
   return normalized || undefined;
 };
 
+const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
+  target != null && target !== 'sanka';
+
+const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
+  const properties = { ...body };
+  if (properties['target'] === 'sanka') {
+    delete properties['target'];
+  }
+  return compactProperties(properties);
+};
+
 const hasLegacyCompanyCreateArgs = (body: CompanyCreateParams): boolean =>
-  usableExternalID(body.external_id) == null ||
   body.channel_id != null ||
   body.confirm != null ||
   body.custom_fields != null ||
@@ -112,7 +122,7 @@ const hasLegacyCompanyCreateArgs = (body: CompanyCreateParams): boolean =>
   body.primary_external_id != null ||
   body.provider != null ||
   body.secondary_external_ids != null ||
-  body.target != null;
+  hasRemoteMutationTarget(body.target);
 
 const hasLegacyCompanyListArgs = (params: CompanyListParams | null | undefined): boolean => {
   if (!params) return false;
@@ -136,7 +146,7 @@ const hasLegacyCompanyDeleteArgs = (params: CompanyDeleteParams | null | undefin
     params.external_object_type != null ||
     params.operation != null ||
     params.provider != null ||
-    params.target != null
+    hasRemoteMutationTarget(params.target)
   );
 };
 
@@ -151,7 +161,7 @@ const hasLegacyCompanyUpdateArgs = (body: CompanyUpdateParams): boolean =>
   body.primary_external_id != null ||
   body.provider != null ||
   body.secondary_external_ids != null ||
-  body.target != null;
+  hasRemoteMutationTarget(body.target);
 
 export class Companies extends APIResource {
   /**
@@ -162,7 +172,7 @@ export class Companies extends APIResource {
       const externalID = usableExternalID(body.external_id);
       return this._client
         .v2Post<V2ObjectRecord>('/companies', {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => companyMutationResponseFromV2Record(envelope, externalID, 'created'));
@@ -194,7 +204,7 @@ export class Companies extends APIResource {
     if (!hasLegacyCompanyUpdateArgs(body)) {
       return this._client
         .v2Patch<V2ObjectRecord>(path`/companies/${companyID}`, {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
           ...options,
         })
         ._thenUnwrap((envelope) => companyMutationResponseFromV2Record(envelope));

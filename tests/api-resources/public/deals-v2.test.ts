@@ -111,7 +111,7 @@ describe('public deal resource on V2', () => {
     ]);
   });
 
-  test('uses V2 create route for local deal external-id upserts', async () => {
+  test('uses V2 create route for default local deal creates', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -121,7 +121,6 @@ describe('public deal resource on V2', () => {
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
         expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
           properties: {
-            externalId: 'DEAL-901',
             name: 'Expansion',
             status: 'active',
           },
@@ -137,7 +136,7 @@ describe('public deal resource on V2', () => {
 
     await expect(
       client.public.deals.create({
-        externalId: 'DEAL-901',
+        target: 'sanka',
         name: 'Expansion',
         status: 'active',
       }),
@@ -145,7 +144,7 @@ describe('public deal resource on V2', () => {
       ok: true,
       status: 'created',
       case_id: 'deal-1',
-      external_id: 'DEAL-901',
+      external_id: null,
       ctx_id: 'ctx-test',
     });
 
@@ -178,6 +177,7 @@ describe('public deal resource on V2', () => {
 
     await expect(
       client.public.deals.update('deal-1', {
+        target: 'sanka',
         currency: 'JPY',
         name: 'Expansion',
         status: 'active',
