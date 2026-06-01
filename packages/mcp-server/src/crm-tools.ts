@@ -7485,6 +7485,52 @@ const unwrapV2EnvelopeRecord = (
   };
 };
 
+const normalizeV2ObjectRecord = (
+  record: Record<string, unknown>,
+  formattedIDKey?: string,
+): Record<string, unknown> => {
+  const properties = readRecord(record['properties']) ?? {};
+  const recordID = readString(record['record_id']);
+  const numericRecordID = recordID === undefined ? undefined : Number(recordID);
+  const formattedID =
+    formattedIDKey === undefined ?
+      {}
+    : {
+        [formattedIDKey]:
+          Number.isFinite(numericRecordID) ? numericRecordID
+          : recordID !== undefined ? recordID
+          : null,
+      };
+  return {
+    ...properties,
+    id: readString(record['id']) ?? String(record['id'] ?? ''),
+    ...formattedID,
+  };
+};
+
+const normalizeV2ObjectRecordListPayload = (
+  payload: Record<string, unknown>,
+  formattedIDKey?: string,
+): {
+  rows: Array<Record<string, unknown>>;
+  page: number;
+  total: number;
+} => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  const data = readRecord(envelope?.data) ?? readRecord(payload['data']) ?? payload;
+  const rawItems = Array.isArray(data['items']) ? data['items'] : [];
+  const rows = rawItems
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((entry) => normalizeV2ObjectRecord(entry, formattedIDKey));
+  const pagination = readRecord(envelope?.meta?.['pagination']);
+  return {
+    rows,
+    page: readNumber(data['page'], readNumber(pagination?.['page'], 1)),
+    total: readNumber(data['total'], readNumber(pagination?.['total'], rows.length)),
+  };
+};
+
 const DIRECT_CRM_SOURCE_LOCK_MESSAGE =
   'CRM deal/opportunity-sourced billing or procurement requests must go through workflow_type=deal_to_order first. Ask the user to confirm creating or reusing a Sanka Order, then use order_to_invoice, order_to_subscription, or order_to_purchase_order from that Order.';
 
@@ -8670,8 +8716,8 @@ const buildExpenseListParams = (args: Record<string, unknown> | undefined) => {
       limit,
       page,
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
     },
+    headers: language ? { 'Accept-Language': language } : undefined,
   };
 };
 
@@ -13059,15 +13105,15 @@ export const crmListExpensesTool: McpTool = {
       return authError;
     }
 
-    const { limit, params } = buildExpenseListParams(args);
-    const { data: expenses, response } = await reqContext.client
-      .get<Array<Record<string, unknown>>>('/v1/public/expenses', {
+    const { limit, params, headers } = buildExpenseListParams(args);
+    const { data: payload } = await reqContext.client
+      .v2Get<Record<string, unknown>>('/expenses', {
         query: params,
+        ...(headers ? { headers } : undefined),
       })
       .withResponse();
-    const results = expenses.slice(0, limit).map((expense) => expense as unknown as Record<string, unknown>);
-    const total = readHeaderNumber(response.headers, 'x-sanka-total') ?? expenses.length;
-    const page = readHeaderNumber(response.headers, 'x-sanka-page') ?? params.page;
+    const { rows, total, page } = normalizeV2ObjectRecordListPayload(payload, 'id_pm');
+    const results = rows.slice(0, limit);
 
     return buildListResult({
       label: 'expenses',

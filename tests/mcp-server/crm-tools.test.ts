@@ -6094,29 +6094,40 @@ describe('ChatGPT CRM tools', () => {
 
   it('lists expenses with a server-reported total', async () => {
     const withResponse = jest.fn().mockResolvedValue({
-      data: [
-        {
-          id: 'expense-1',
-          description: 'Google Workspace',
-          company_name: 'Google',
-          amount: 20,
-          currency: 'USD',
+      data: {
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'expense-1',
+              record_id: '101',
+              properties: {
+                description: 'Google Workspace',
+                company_name: 'Google',
+                amount: 20,
+                currency: 'USD',
+              },
+            },
+            {
+              id: 'expense-2',
+              record_id: '102',
+              properties: { description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
+            },
+          ],
+          page: 1,
+          page_size: 2,
+          total: 2288,
         },
-        { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
-      ],
-      response: new Response('[]', {
-        headers: {
-          'X-Sanka-Page': '1',
-          'X-Sanka-Total': '2288',
-        },
-      }),
+        meta: { pagination: { page: 1, page_size: 2, total: 2288 } },
+      },
+      response: new Response('{}'),
     });
-    const get = jest.fn().mockReturnValue({ withResponse });
+    const v2Get = jest.fn().mockReturnValue({ withResponse });
 
     const result = await crmListExpensesTool.handler({
       reqContext: {
         client: {
-          get,
+          v2Get,
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -6124,13 +6135,13 @@ describe('ChatGPT CRM tools', () => {
       args: { limit: 2, language: 'en', workspace_id: 'workspace-1' },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/expenses', {
+    expect(v2Get).toHaveBeenCalledWith('/expenses', {
       query: {
         limit: 2,
         page: 1,
         workspace_id: 'workspace-1',
-        'Accept-Language': 'en',
       },
+      headers: { 'Accept-Language': 'en' },
     });
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toEqual({
@@ -6142,12 +6153,20 @@ describe('ChatGPT CRM tools', () => {
       results: [
         {
           id: 'expense-1',
+          id_pm: 101,
           description: 'Google Workspace',
           company_name: 'Google',
           amount: 20,
           currency: 'USD',
         },
-        { id: 'expense-2', description: 'Zoom', company_name: 'Zoom', amount: 10, currency: 'USD' },
+        {
+          id: 'expense-2',
+          id_pm: 102,
+          description: 'Zoom',
+          company_name: 'Zoom',
+          amount: 10,
+          currency: 'USD',
+        },
       ],
     });
   });
