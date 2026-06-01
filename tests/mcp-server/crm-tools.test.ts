@@ -988,7 +988,7 @@ describe('ChatGPT CRM tools', () => {
     );
   });
 
-  it('routes provider-only record queries through the legacy integration route', async () => {
+  it('routes provider-only record queries through the V2 integration route', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'deals',
       provider: 'hubspot',
@@ -1014,7 +1014,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'deals',
         provider: 'hubspot',
@@ -2705,7 +2705,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'deals',
         scope: 'integration',
@@ -6627,24 +6627,26 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('lists integration properties with provider routing', async () => {
-    const get = jest.fn().mockResolvedValue({
-      data: [
-        {
-          id: 'hs/lifecycle_stage',
-          name: 'Lifecycle stage',
-          internal_name: 'lifecycle_stage',
-          object: 'companies',
-          scope: 'integration',
-          provider: 'hubspot',
-          is_custom: false,
-          immutable: false,
-        },
-      ],
-    });
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'hs/lifecycle_stage',
+        name: 'Lifecycle stage',
+        internal_name: 'lifecycle_stage',
+        object: 'companies',
+        scope: 'integration',
+        provider: 'hubspot',
+        is_custom: false,
+        immutable: false,
+      },
+    ]);
 
     const result = await crmListPropertiesTool.handler({
       reqContext: {
-        client: { get } as any,
+        client: {
+          public: {
+            properties: { list },
+          },
+        } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -6659,15 +6661,17 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/companies', {
-      query: {
+    expect(list).toHaveBeenCalledWith(
+      'companies',
+      {
         scope: 'integration',
         provider: 'hubspot',
         channel_id: 'channel-1',
         external_object_type: 'companies',
         search: 'lifecycle',
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       count: 1,
       page: 1,
@@ -6922,8 +6926,8 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('creates an integration property with mutation routing', async () => {
-    const post = jest.fn().mockResolvedValue({
+  it('creates an integration property with V2 mutation routing', async () => {
+    const create = jest.fn().mockResolvedValue({
       ok: true,
       status: 'dry_run',
       object: 'deals',
@@ -6936,7 +6940,11 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmCreatePropertyTool.handler({
       reqContext: {
-        client: { post } as any,
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -6952,8 +6960,9 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/deals', {
-      body: {
+    expect(create).toHaveBeenCalledWith(
+      'deals',
+      {
         external_id: 'CodexSmokeField__c',
         external_object_type: 'Opportunity',
         name: 'Codex Smoke Field',
@@ -6962,7 +6971,8 @@ describe('ChatGPT CRM tools', () => {
         type: 'text',
         dry_run: true,
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'dry_run',
@@ -6976,7 +6986,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('treats property mutation scope=integration as target=integration', async () => {
-    const post = jest.fn().mockResolvedValue({
+    const create = jest.fn().mockResolvedValue({
       ok: true,
       status: 'dry_run',
       object: 'contacts',
@@ -6987,7 +6997,11 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmCreatePropertyTool.handler({
       reqContext: {
-        client: { post } as any,
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -7003,8 +7017,9 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/contacts', {
-      body: {
+    expect(create).toHaveBeenCalledWith(
+      'contacts',
+      {
         dry_run: true,
         external_id: 'test_property',
         group_name: 'contactinformation',
@@ -7014,19 +7029,24 @@ describe('ChatGPT CRM tools', () => {
         target: 'integration',
         type: 'text',
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toMatchObject({
       target: 'integration',
       provider: 'hubspot',
     });
   });
 
-  it('routes staging integration properties to the staging legacy public API host', async () => {
-    const get = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Stage Field' }]);
+  it('routes integration property listing through the V2 public SDK', async () => {
+    const list = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Stage Field' }]);
 
     const result = await crmListPropertiesTool.handler({
       reqContext: {
-        client: { get } as any,
+        client: {
+          public: {
+            properties: { list },
+          },
+        } as any,
         auth: oauthContext({ authorizationServerUrl: 'https://app.sankastaging.com' }),
         toolProfile: 'full',
       },
@@ -7038,12 +7058,14 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('https://api.sankastaging.com/v1/public/properties/contacts', {
-      query: {
+    expect(list).toHaveBeenCalledWith(
+      'contacts',
+      {
         scope: 'integration',
         provider: 'hubspot',
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent?.['count']).toBe(1);
   });
 
@@ -7146,7 +7168,11 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmDeletePropertyTool.handler({
       reqContext: {
-        client: { delete: del } as any,
+        client: {
+          public: {
+            properties: { delete: del },
+          },
+        } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -7159,14 +7185,16 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(del).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/deals/codex_smoke_field', {
-      query: {
+    expect(del).toHaveBeenCalledWith(
+      'codex_smoke_field',
+      {
         object_name: 'deals',
         target: 'integration',
         provider: 'hubspot',
         confirm: true,
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'deleted',

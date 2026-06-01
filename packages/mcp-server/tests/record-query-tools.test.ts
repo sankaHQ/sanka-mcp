@@ -64,7 +64,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -185,7 +185,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         scope: 'integration',
