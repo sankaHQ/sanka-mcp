@@ -594,6 +594,7 @@ describe('workflow run MCP tools', () => {
   });
 
   it('previews deal_to_estimate workflows from HubSpot deal URLs', async () => {
+    const previewOptions = (previewWorkflowTool.tool.inputSchema as any).properties.options.properties;
     const post = jest.fn().mockResolvedValue({
       data: {
         source_status: 'external_only',
@@ -614,9 +615,13 @@ describe('workflow run MCP tools', () => {
           object_type: 'deal',
           url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
         },
+        options: {
+          allow_missing_customer_create: true,
+        },
       },
     });
 
+    expect(previewOptions).toHaveProperty('allow_missing_customer_create');
     expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'deal_to_estimate',
@@ -625,7 +630,9 @@ describe('workflow run MCP tools', () => {
           object_type: 'deal',
           url: 'https://app.hubspot.com/contacts/49714315/record/0-3/46558049080',
         },
-        options: {},
+        options: {
+          allow_missing_customer_create: true,
+        },
         language: 'en',
       },
     });
@@ -705,6 +712,7 @@ describe('workflow run MCP tools', () => {
     expect(previewOptions).toHaveProperty('include_lead_time_check');
     expect(previewOptions).toHaveProperty('handoff_target');
     expect(previewOptions).toHaveProperty('allow_duplicate_order');
+    expect(previewOptions).toHaveProperty('allow_missing_customer_create');
     expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'deal_to_order_handoff',
@@ -771,6 +779,7 @@ describe('workflow run MCP tools', () => {
           include_lead_time_check: true,
           include_hubspot_writeback: true,
           handoff_target: 'ops-team',
+          confirm_create_missing_customer: true,
         },
         idempotency_key: 'deal-to-order-handoff:46558049080',
         language: 'en',
@@ -780,6 +789,7 @@ describe('workflow run MCP tools', () => {
     expect(startWorkflowTool.tool.annotations?.readOnlyHint).toBe(false);
     expect(startOptions).toHaveProperty('include_hubspot_writeback');
     expect(startOptions).toHaveProperty('allow_duplicate_order');
+    expect(startOptions).toHaveProperty('confirm_create_missing_customer');
     expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'deal_to_order_handoff',
@@ -797,6 +807,7 @@ describe('workflow run MCP tools', () => {
           include_lead_time_check: true,
           include_hubspot_writeback: true,
           handoff_target: 'ops-team',
+          confirm_create_missing_customer: true,
         },
         idempotency_key: 'deal-to-order-handoff:46558049080',
         language: 'en',
