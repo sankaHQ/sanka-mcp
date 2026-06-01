@@ -18,6 +18,11 @@ type V2PropertyMutationData = {
   [key: string]: unknown;
 };
 
+const optionalString = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) return undefined;
+  return String(value);
+};
+
 const propertyFromV2 = (value: unknown, objectName?: string): Property => {
   const row =
     value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -57,18 +62,43 @@ const unwrapV2PropertyMutation = (
   promise: APIPromise<V2Envelope<V2PropertyMutationData>>,
   objectName: string,
   fallbackStatus: string,
+  route: Record<string, unknown> = {},
 ): APIPromise<PropertyMutation> => {
   return promise._thenUnwrap((envelope) => {
     const data = unwrapV2Data(envelope);
+    const fallbackProvider = optionalString(route['provider']);
+    const fallbackTarget = optionalString(route['target']) ?? (fallbackProvider ? 'integration' : 'sanka');
+    const provider = optionalString(data['provider']) ?? fallbackProvider;
+    const channelID = optionalString(data['channel_id']) ?? optionalString(route['channel_id']);
+    const channelName = optionalString(data['channel_name']);
+    const externalID = optionalString(data['external_id']) ?? optionalString(route['external_id']);
+    const externalObjectType =
+      optionalString(data['external_object_type']) ?? optionalString(route['external_object_type']);
+    const dryRun =
+      typeof data['dry_run'] === 'boolean' ? data['dry_run']
+      : typeof route['dry_run'] === 'boolean' ? route['dry_run']
+      : undefined;
+    const remote =
+      data['remote'] && typeof data['remote'] === 'object' && !Array.isArray(data['remote']) ?
+        (data['remote'] as Record<string, unknown>)
+      : undefined;
     return {
+      ...data,
       ctx_id: envelope.meta.ctx_id ?? '',
-      object: String(data.page_group_type ?? objectName),
-      ok: true,
-      property_id: String(data.property_id ?? ''),
+      object: String(data['object'] ?? data.page_group_type ?? objectName),
+      ok: Boolean(data['ok'] ?? true),
+      property_id: String(data.property_id ?? data['id'] ?? data['external_id'] ?? ''),
       status: String(data['status'] ?? fallbackStatus),
       custom_object_id: data.custom_object_id ?? undefined,
       message: String(data['message'] ?? 'OK'),
-      target: 'sanka',
+      target: optionalString(data['target']) ?? fallbackTarget,
+      ...(provider !== undefined ? { provider } : undefined),
+      ...(channelID !== undefined ? { channel_id: channelID } : undefined),
+      ...(channelName !== undefined ? { channel_name: channelName } : undefined),
+      ...(externalID !== undefined ? { external_id: externalID } : undefined),
+      ...(externalObjectType !== undefined ? { external_object_type: externalObjectType } : undefined),
+      ...(dryRun !== undefined ? { dry_run: dryRun } : undefined),
+      ...(remote !== undefined ? { remote } : undefined),
     } as PropertyMutation;
   });
 };
@@ -82,13 +112,15 @@ export class Properties extends APIResource {
     body: PropertyCreateParams,
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
+    const v2Body = normalizePropertyMutationBody(body);
     return unwrapV2PropertyMutation(
       this._client.v2Post<V2PropertyMutationData>(path`/properties/${objectName}`, {
-        body: normalizePropertyMutationBody(body),
+        body: v2Body,
         ...options,
       }),
       objectName,
       'created',
+      v2Body,
     );
   }
 
@@ -122,13 +154,15 @@ export class Properties extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PropertyMutation> {
     const { object_name, ...body } = params;
+    const v2Body = normalizePropertyMutationBody(body);
     return unwrapV2PropertyMutation(
       this._client.v2Put<V2PropertyMutationData>(path`/properties/${object_name}/${propertyRef}`, {
-        body: normalizePropertyMutationBody(body),
+        body: v2Body,
         ...options,
       }),
       object_name,
       'updated',
+      v2Body,
     );
   }
 
@@ -170,6 +204,7 @@ export class Properties extends APIResource {
       }),
       object_name,
       'deleted',
+      query,
     );
   }
 }

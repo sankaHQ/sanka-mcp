@@ -42,7 +42,7 @@ const invoiceFromV2Record = (record: V2ObjectRecord): InvoiceSchema => {
   });
 };
 
-const invoiceUpdateProperties = (params: InvoiceUpdateParams): Record<string, unknown> => {
+const invoiceMutationProperties = (params: InvoiceCreateParams | InvoiceUpdateParams): Record<string, unknown> => {
   const {
     attachment_file: _attachmentFile,
     company_external_id: _companyExternalID,
@@ -81,18 +81,16 @@ const invoiceUpdateProperties = (params: InvoiceUpdateParams): Record<string, un
   });
 };
 
-const canUseV2InvoiceUpdate = (params: InvoiceUpdateParams, properties: Record<string, unknown>): boolean =>
-  params.attachment_file == null &&
-  params.company_external_id == null &&
-  params.contact_external_id == null &&
-  Object.keys(properties).length > 0;
-
 export class Invoices extends APIResource {
   /**
    * Create Invoice
    */
   create(body: InvoiceCreateParams, options?: RequestOptions): APIPromise<Invoice> {
-    return this._client.post('/v1/public/invoices', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/invoices', { body: { properties: invoiceMutationProperties(body) }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Invoice>(envelope, 'invoice_id', 'created', body.external_id),
+      );
   }
 
   /**
@@ -123,19 +121,15 @@ export class Invoices extends APIResource {
    * Update Invoice
    */
   update(invoiceID: string, params: InvoiceUpdateParams, options?: RequestOptions): APIPromise<Invoice> {
-    const properties = invoiceUpdateProperties(params);
-    if (canUseV2InvoiceUpdate(params, properties)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/invoices/${invoiceID}`, {
-          query: { external_id: params.external_id },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<Invoice>(envelope, 'invoice_id', 'updated', params.external_id),
-        );
-    }
-    return this._client.put(path`/v1/public/invoices/${invoiceID}`, { body: params, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/invoices/${invoiceID}`, {
+        query: { external_id: params.external_id },
+        body: { properties: invoiceMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Invoice>(envelope, 'invoice_id', 'updated', params.external_id),
+      );
   }
 
   /**
@@ -222,19 +216,7 @@ export class Invoices extends APIResource {
     params: InvoiceDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/invoices/${invoiceID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
     return unwrapV2PdfResponse(
       this._client.v2Get<V2PdfData>(path`/invoices/${invoiceID}/pdf`, {
         query,

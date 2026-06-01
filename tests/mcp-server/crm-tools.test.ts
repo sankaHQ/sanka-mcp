@@ -2392,7 +2392,23 @@ describe('ChatGPT CRM tools', () => {
       status: 'dry_run',
       target: 'integration',
       provider: 'hubspot',
+      channel_id: 'channel-1',
+      channel_name: 'HubSpot Mr.Search JA Demo',
+      external_object_type: 'contacts',
+      operation: 'create',
       dry_run: true,
+      external_id: null,
+      remote: {
+        properties: {
+          email: 'jane@example.com',
+          firstname: 'Jane',
+        },
+        object_type: 'contacts',
+      },
+      sync_state: {
+        is_enabled: true,
+        rollout_stage: 'live',
+      },
     });
 
     const result = await crmCreateContactTool.handler({
@@ -2437,7 +2453,15 @@ describe('ChatGPT CRM tools', () => {
       status: 'dry_run',
       target: 'integration',
       provider: 'hubspot',
+      external_id: null,
+      remote: {
+        object_type: 'contacts',
+      },
     });
+    expect((crmCreateContactTool.tool.outputSchema as any).properties.external_id.type).toEqual([
+      'string',
+      'null',
+    ]);
   });
 
   it('updates a contact', async () => {
@@ -3410,19 +3434,22 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('permanently deletes an archived order only with explicit confirmation', async () => {
-    const del = jest.fn().mockResolvedValue({
-      ok: true,
-      operation: 'permanent_delete',
-      status: 'deleted',
-      permanently_deleted: true,
-      order_id: 'order-1',
+    const v2Delete = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        status: 'permanently_deleted',
+        order_id: 'order-1',
+        updated_count: 1,
+        meta: { operation: 'permanent_delete' },
+      },
+      meta: { ctx_id: 'ctx-test' },
     });
     const retrieve = jest.fn().mockRejectedValue(new Error('Not found'));
 
     const result = await crmPermanentDeleteOrderTool.handler({
       reqContext: {
         client: {
-          delete: del,
+          v2Delete,
           public: {
             orders: { retrieve },
           },
@@ -3437,15 +3464,17 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(del).toHaveBeenCalledWith('/v1/public/orders/order-1/permanent-delete', {
+    expect(v2Delete).toHaveBeenCalledWith('/orders/order-1/permanent-delete', {
       query: { external_id: 'ORD-1', confirm: true },
     });
     expect(result.structuredContent).toMatchObject({
       ok: true,
       operation: 'permanent_delete',
-      status: 'deleted',
+      status: 'permanently_deleted',
       permanently_deleted: true,
       order_id: 'order-1',
+      updated_count: 1,
+      ctx_id: 'ctx-test',
       verification: {
         entity: 'order',
         expected_status: 'deleted',
@@ -3457,7 +3486,7 @@ describe('ChatGPT CRM tools', () => {
     const blocked = await crmPermanentDeleteOrderTool.handler({
       reqContext: {
         client: {
-          delete: jest.fn(),
+          v2Delete: jest.fn(),
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -4676,12 +4705,18 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('activates an invoice with read-after-write verification', async () => {
-    const post = jest.fn().mockResolvedValue({
-      ok: true,
-      operation: 'activate',
-      status: 'active',
-      usage_status: 'active',
-      invoice_id: 'invoice-1',
+    const v2Post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'invoice-1',
+        record_id: '7003',
+        object_type: 'invoice',
+        status: 'active',
+        usage_status: 'active',
+        updated_count: 1,
+        meta: { operation: 'activate' },
+      },
+      meta: { ctx_id: 'ctx-test' },
     });
     const retrieve = jest.fn().mockResolvedValue({
       id: 'invoice-1',
@@ -4691,7 +4726,7 @@ describe('ChatGPT CRM tools', () => {
     const result = await crmActivateInvoiceTool.handler({
       reqContext: {
         client: {
-          post,
+          v2Post,
           public: {
             invoices: { retrieve },
           },
@@ -4705,7 +4740,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/activate', {
+    expect(v2Post).toHaveBeenCalledWith('/invoices/invoice-1/activate', {
       query: { external_id: 'INV-1' },
     });
     expect(retrieve).toHaveBeenCalledWith(
@@ -4721,6 +4756,7 @@ describe('ChatGPT CRM tools', () => {
       status: 'active',
       usage_status: 'active',
       invoice_id: 'invoice-1',
+      ctx_id: 'ctx-test',
       verification: {
         entity: 'invoice',
         expected_status: 'active',
@@ -7037,6 +7073,58 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('routes provider-only property creation to the integration target', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      object: 'contacts',
+      property_id: 'test',
+      ctx_id: 'ctx-hubspot',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'contacts',
+        external_id: 'test',
+        name: 'Test',
+        type: 'text',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      'contacts',
+      {
+        channel_id: 'channel-1',
+        external_id: 'test',
+        external_object_type: 'contacts',
+        name: 'Test',
+        provider: 'hubspot',
+        target: 'integration',
+        type: 'text',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      target: 'integration',
+      provider: 'hubspot',
+      property_id: 'test',
+    });
+  });
+
   it('routes integration property listing through the V2 public SDK', async () => {
     const list = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Stage Field' }]);
 
@@ -7067,6 +7155,40 @@ describe('ChatGPT CRM tools', () => {
       undefined,
     );
     expect(result.structuredContent?.['count']).toBe(1);
+  });
+
+  it('rejects provider with explicit Sanka property creation', async () => {
+    const create = jest.fn();
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        target: 'sanka',
+        provider: 'hubspot',
+        name: 'Test',
+        type: 'text',
+      },
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      isError: true,
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('provider'),
+        },
+      ],
+    });
   });
 
   it('updates a property', async () => {

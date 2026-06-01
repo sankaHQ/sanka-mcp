@@ -208,7 +208,7 @@ const RECORD_QUERY_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
+        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. This does not fetch HubSpot deal line items or deal associations; use preview_workflow for HubSpot Deal line items. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
       enum: [
         'companies',
         'company',
@@ -2444,7 +2444,7 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   target: {
     type: 'string',
     description:
-      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka. If provider is supplied and target is omitted, the MCP routes to "integration"; provider with target="sanka" is rejected.',
     enum: ['sanka', 'integration', 'both'],
     default: 'sanka',
   },
@@ -2461,7 +2461,7 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+      'Connected integration provider for target="integration" or target="both". Supplying provider prevents a Sanka-only property mutation. Supports HubSpot and Salesforce property definitions.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
@@ -2914,7 +2914,7 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     target: {
       type: 'string',
       description:
-        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
+        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka. If provider is supplied and target is omitted, the MCP routes to "integration"; provider with target="sanka" is rejected.',
       enum: ['sanka', 'integration', 'both'],
       default: 'sanka',
     },
@@ -2931,7 +2931,7 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     provider: {
       type: 'string',
       description:
-        'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+        'Connected integration provider for target="integration" or target="both". Supplying provider prevents a Sanka-only property mutation. Supports HubSpot and Salesforce property definitions.',
       enum: ['hubspot', 'salesforce'],
     },
     channel_id: {
@@ -3294,22 +3294,22 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    company_id: { type: 'string' },
-    external_id: { type: 'string' },
-    target: { type: 'string' },
-    provider: { type: 'string' },
-    channel_id: { type: 'string' },
-    channel_name: { type: 'string' },
-    external_object_type: { type: 'string' },
-    operation: { type: 'string' },
-    dry_run: { type: 'boolean' },
-    sync_state: { type: 'object' },
-    remote: { type: 'object' },
-    data_origin: { type: 'string' },
-    source_of_truth: { type: 'string' },
-    unavailable_reason: { type: 'string' },
-    message: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    company_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    data_origin: { type: ['string', 'null'] as any },
+    source_of_truth: { type: ['string', 'null'] as any },
+    unavailable_reason: { type: ['string', 'null'] as any },
+    message: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3334,9 +3334,25 @@ const CONTACT_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    contact_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    contact_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    warnings: {
+      type: ['array', 'null'] as any,
+      items: { type: 'string' },
+    },
+    message: { type: ['string', 'null'] as any },
+    data_origin: { type: ['string', 'null'] as any },
+    source_of_truth: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3346,9 +3362,9 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    case_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    case_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
     record_preview: {
       type: ['object', 'null'] as any,
       additionalProperties: true,
@@ -3357,6 +3373,20 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
       type: ['object', 'null'] as any,
       additionalProperties: true,
     },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    warnings: {
+      type: ['array', 'null'] as any,
+      items: { type: 'string' },
+    },
+    message: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3402,6 +3432,14 @@ const PROPERTY_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     object: { type: 'string' },
     property_id: { type: 'string' },
+    target: { type: 'string' },
+    provider: { type: 'string' },
+    channel_id: { type: 'string' },
+    channel_name: { type: 'string' },
+    external_id: { type: 'string' },
+    external_object_type: { type: 'string' },
+    dry_run: { type: 'boolean' },
+    remote: { type: 'object', additionalProperties: true },
   },
   required: ['ok', 'status', 'ctx_id', 'object', 'property_id'],
 };
@@ -10986,6 +11024,33 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   return body;
 };
 
+const validateAndNormalizePropertyMutationRouting = (params: Record<string, unknown>): string | undefined => {
+  const target = readString(params['target']);
+  const providerRaw = readString(params['provider']);
+  const provider = readIntegrationProvider(providerRaw);
+
+  if (target && target !== 'sanka' && target !== 'integration' && target !== 'both') {
+    return '`target` must be "sanka", "integration", or "both".';
+  }
+  if (providerRaw && !provider) {
+    return '`provider` must be "hubspot" or "salesforce".';
+  }
+  if (provider) {
+    params['provider'] = provider;
+    if (!target) {
+      params['target'] = 'integration';
+      return undefined;
+    }
+    if (target === 'sanka') {
+      return '`provider` cannot be used with target="sanka"; omit `provider` for Sanka custom properties or use target="integration"/"both".';
+    }
+  }
+  if (!provider && (target === 'integration' || target === 'both')) {
+    return '`provider` is required when target is "integration" or "both".';
+  }
+  return undefined;
+};
+
 const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const objectName = readString(args?.['object_name']);
   const propertyRef = readString(args?.['property_ref']);
@@ -11550,6 +11615,18 @@ const normalizeObjectSchemaListPayload = (payload: unknown): Array<Record<string
 };
 
 const normalizeObjectSchemaMutationPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const normalizeV2MutationEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown> => {
   const envelope = unwrapV2EnvelopeRecord(payload);
   if (!envelope) {
     return payload;
@@ -13047,7 +13124,7 @@ export const crmListAssociationsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'associations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.list',
   },
   tool: {
@@ -13094,7 +13171,7 @@ export const crmCreateAssociationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'associations'],
     httpMethod: 'post',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.create',
   },
   tool: {
@@ -13147,7 +13224,7 @@ export const crmDeleteAssociationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'associations'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.delete',
   },
   tool: {
@@ -13943,7 +14020,7 @@ export const crmCreateExpenseTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'expenses'],
     httpMethod: 'post',
-    httpPath: '/v1/public/expenses',
+    httpPath: '/api/v2/expenses',
     operationId: 'public.expenses.create',
   },
   tool: {
@@ -16278,7 +16355,7 @@ export const crmPermanentDeleteOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'orders'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/orders/{order_id}/permanent-delete',
+    httpPath: '/api/v2/orders/{order_id}/permanent-delete',
     operationId: 'public.orders.permanentDelete',
   },
   tool: {
@@ -16313,10 +16390,20 @@ export const crmPermanentDeleteOrderTool: McpTool = {
       return asErrorResult('`confirm=true` is required for permanent delete.');
     }
 
-    const response = (await reqContext.client.delete(
-      `/v1/public/orders/${encodeURIComponent(orderID)}/permanent-delete`,
-      { query: { ...params, confirm: true } },
-    )) as Record<string, unknown>;
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Delete<Record<string, unknown>>(
+        `/orders/${encodeURIComponent(orderID)}/permanent-delete`,
+        { query: { ...params, confirm: true } },
+      )) as unknown as Record<string, unknown>,
+    );
+    const responseMeta = readRecord(response['meta']);
+    const operation = readString(response['operation']) ?? readString(responseMeta?.['operation']);
+    const deletionPayload = {
+      ok: true,
+      permanently_deleted: true,
+      ...(operation ? { operation } : undefined),
+      ...response,
+    };
     const verification = await buildPermanentDeleteVerification({
       entity: 'order',
       id: orderID,
@@ -16326,7 +16413,7 @@ export const crmPermanentDeleteOrderTool: McpTool = {
           unknown
         >,
     });
-    const payload = { ...response, verification };
+    const payload = { ...deletionPayload, verification };
 
     return {
       content: [
@@ -16546,7 +16633,7 @@ export const crmCreatePurchaseOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'post',
-    httpPath: '/v1/public/purchase-orders',
+    httpPath: '/api/v2/purchase-orders',
     operationId: 'public.purchaseOrders.create',
   },
   tool: {
@@ -17220,7 +17307,7 @@ export const crmCreateEstimateTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'estimates'],
     httpMethod: 'post',
-    httpPath: '/v1/public/estimates',
+    httpPath: '/api/v2/estimates',
     operationId: 'public.estimates.create',
   },
   tool: {
@@ -18615,7 +18702,7 @@ export const crmCreateInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices',
+    httpPath: '/api/v2/invoices',
     operationId: 'public.invoices.create',
   },
   tool: {
@@ -18734,7 +18821,7 @@ export const crmActivateInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices/{invoice_id}/activate',
+    httpPath: '/api/v2/invoices/{invoice_id}/activate',
     operationId: 'public.invoices.activate',
   },
   tool: {
@@ -18765,10 +18852,20 @@ export const crmActivateInvoiceTool: McpTool = {
       return asErrorResult('`invoice_id` is required.');
     }
 
-    const response = (await reqContext.client.post(
-      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/activate`,
-      { query: params },
-    )) as Record<string, unknown>;
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/invoices/${encodeURIComponent(invoiceID)}/activate`,
+        { query: params },
+      )) as unknown as Record<string, unknown>,
+    );
+    const responseMeta = readRecord(response['meta']);
+    const operation = readString(response['operation']) ?? readString(responseMeta?.['operation']);
+    const activationPayload = {
+      ok: true,
+      ...(operation ? { operation } : { operation: 'activate' }),
+      invoice_id: readString(response['invoice_id']) ?? readString(response['id']) ?? invoiceID,
+      ...response,
+    };
     const verification = await buildLifecycleVerification({
       entity: 'invoice',
       id: invoiceID,
@@ -18780,7 +18877,7 @@ export const crmActivateInvoiceTool: McpTool = {
           unknown
         >,
     });
-    const payload = { ...response, verification };
+    const payload = { ...activationPayload, verification };
 
     return {
       content: [
@@ -19089,7 +19186,7 @@ export const crmCreateSlipTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'slips'],
     httpMethod: 'post',
-    httpPath: '/v1/public/slips',
+    httpPath: '/api/v2/revenues',
     operationId: 'public.slips.create',
   },
   tool: {
@@ -19476,7 +19573,7 @@ export const crmCreateBillTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'bills'],
     httpMethod: 'post',
-    httpPath: '/v1/public/bills',
+    httpPath: '/api/v2/bills',
     operationId: 'public.bills.create',
   },
   tool: {
@@ -19763,7 +19860,7 @@ export const crmCreateDisbursementTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements'],
     httpMethod: 'post',
-    httpPath: '/v1/public/disbursements',
+    httpPath: '/api/v2/disbursements',
     operationId: 'public.disbursements.create',
   },
   tool: {
@@ -20807,7 +20904,7 @@ export const crmCreatePropertyTool: McpTool = {
     name: 'create_property',
     title: 'Create property',
     description:
-      'Create a custom property for a Sanka object family such as orders, companies, or deals. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
+      'Create a custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20833,6 +20930,11 @@ export const crmCreatePropertyTool: McpTool = {
     }
 
     const body = buildPropertyMutationBody(args);
+    const routingError = validateAndNormalizePropertyMutationRouting(body);
+    if (routingError) {
+      return asErrorResult(routingError);
+    }
+
     const response = (await reqContext.client.public.properties.create(
       objectName,
       body,
@@ -20868,7 +20970,8 @@ export const crmUpdatePropertyTool: McpTool = {
   tool: {
     name: 'update_property',
     title: 'Update property',
-    description: 'Update an existing custom property in Sanka.',
+    description:
+      'Update an existing custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
     inputSchema: PROPERTY_UPDATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20898,6 +21001,11 @@ export const crmUpdatePropertyTool: McpTool = {
     }
 
     const body = buildPropertyMutationBody(args);
+    const routingError = validateAndNormalizePropertyMutationRouting(body);
+    if (routingError) {
+      return asErrorResult(routingError);
+    }
+
     const response = (await reqContext.client.public.properties.update(
       propertyRef,
       {
@@ -20936,7 +21044,8 @@ export const crmDeletePropertyTool: McpTool = {
   tool: {
     name: 'delete_property',
     title: 'Delete property',
-    description: 'Delete a custom property in Sanka for the specified object family.',
+    description:
+      'Delete a custom property in Sanka or a connected CRM for the specified object family. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
     inputSchema: PROPERTY_DELETE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20962,6 +21071,11 @@ export const crmDeletePropertyTool: McpTool = {
     }
     if (!propertyRef) {
       return asErrorResult('`property_ref` is required.');
+    }
+
+    const routingError = validateAndNormalizePropertyMutationRouting(params);
+    if (routingError) {
+      return asErrorResult(routingError);
     }
 
     const response = (await reqContext.client.public.properties.delete(
@@ -21794,7 +21908,7 @@ export const crmCreateSubscriptionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'subscriptions'],
     httpMethod: 'post',
-    httpPath: '/v1/public/subscriptions',
+    httpPath: '/api/v2/subscriptions',
     operationId: 'public.subscriptions.create',
   },
   tool: {
@@ -22251,7 +22365,7 @@ export const crmCreatePaymentTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'payments'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payments',
+    httpPath: '/api/v2/payments',
     operationId: 'public.payments.create',
   },
   tool: {

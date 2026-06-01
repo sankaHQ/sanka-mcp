@@ -20,13 +20,9 @@ import {
 const disbursementFromV2Record = (record: V2ObjectRecord): Disbursement =>
   legacyObjectRecordFromV2<Disbursement>(record, 'id_dsb');
 
-const canUseV2DisbursementUpdate = (body: DisbursementUpdateParams): boolean =>
-  body.company_external_id == null &&
-  body.contact_external_id == null &&
-  body.tax_inclusive == null &&
-  body.tax_option == null;
-
-const disbursementUpdateProperties = (body: DisbursementUpdateParams): Record<string, unknown> => {
+const disbursementMutationProperties = (
+  body: DisbursementCreateParams | DisbursementUpdateParams,
+): Record<string, unknown> => {
   const {
     company_external_id: _companyExternalID,
     company_id,
@@ -68,7 +64,19 @@ export class Disbursements extends APIResource {
    * Create Disbursement
    */
   create(body: DisbursementCreateParams, options?: RequestOptions): APIPromise<PublicDisbursementResponse> {
-    return this._client.post('/v1/public/disbursements', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/disbursements', {
+        body: { properties: disbursementMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicDisbursementResponse>(
+          envelope,
+          'disbursement_id',
+          'created',
+          body.external_id,
+        ),
+      );
   }
 
   /**
@@ -104,23 +112,20 @@ export class Disbursements extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicDisbursementResponse> {
     const { external_id } = body;
-    if (canUseV2DisbursementUpdate(body)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/disbursements/${disbursementID}`, {
-          query: { external_id },
-          body: { properties: disbursementUpdateProperties(body) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PublicDisbursementResponse>(
-            envelope,
-            'disbursement_id',
-            'updated',
-            external_id,
-          ),
-        );
-    }
-    return this._client.put(path`/v1/public/disbursements/${disbursementID}`, { body, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/disbursements/${disbursementID}`, {
+        query: { external_id },
+        body: { properties: disbursementMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicDisbursementResponse>(
+          envelope,
+          'disbursement_id',
+          'updated',
+          external_id,
+        ),
+      );
   }
 
   /**

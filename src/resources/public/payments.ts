@@ -22,12 +22,8 @@ import { PublicLineItem } from './line-items';
 const paymentFromV2Record = (record: V2ObjectRecord): Receipt =>
   legacyObjectRecordFromV2<Receipt>(record, 'id_rcp');
 
-const canUseV2PaymentUpdate = (params: PaymentUpdateParams): boolean =>
-  params.externalId == null && params.companyExternalId == null && params.contactExternalId == null;
-
-const paymentUpdateProperties = (params: PaymentUpdateParams): Record<string, unknown> => {
+const paymentMutationProperties = (params: PaymentCreateParams | PaymentUpdateParams): Record<string, unknown> => {
   const {
-    external_id: _externalID,
     companyExternalId: _companyExternalID,
     companyId,
     contactExternalId: _contactExternalID,
@@ -41,6 +37,7 @@ const paymentUpdateProperties = (params: PaymentUpdateParams): Record<string, un
     totalPrice,
     totalPriceWithoutTax,
   } = params;
+  const _externalID = 'external_id' in params ? params.external_id : undefined;
   void _externalID;
   void _companyExternalID;
   void _contactExternalID;
@@ -63,7 +60,11 @@ export class Payments extends APIResource {
    * Create Payment
    */
   create(body: PaymentCreateParams, options?: RequestOptions): APIPromise<PaymentResponse> {
-    return this._client.post('/v1/public/payments', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/payments', { body: { properties: paymentMutationProperties(body) }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PaymentResponse>(envelope, 'payment_id', 'created', body.externalId),
+      );
   }
 
   /**
@@ -137,23 +138,16 @@ export class Payments extends APIResource {
     params: PaymentUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PaymentResponse> {
-    const { external_id, ...body } = params;
-    if (canUseV2PaymentUpdate(params)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/payments/${paymentID}`, {
-          query: { external_id },
-          body: { properties: paymentUpdateProperties(params) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PaymentResponse>(envelope, 'payment_id', 'updated', external_id),
-        );
-    }
-    return this._client.put(path`/v1/public/payments/${paymentID}`, {
-      query: { external_id },
-      body,
-      ...options,
-    });
+    const { external_id } = params;
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/payments/${paymentID}`, {
+        query: { external_id },
+        body: { properties: paymentMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PaymentResponse>(envelope, 'payment_id', 'updated', external_id),
+      );
   }
 
   /**
@@ -210,19 +204,7 @@ export class Payments extends APIResource {
     params: PaymentDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/payments/${paymentID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
     return unwrapV2PdfResponse(
       this._client.v2Get<V2PdfData>(path`/payments/${paymentID}/pdf`, {
         query,
