@@ -3142,12 +3142,10 @@ describe('ChatGPT CRM tools', () => {
       permission: undefined,
       results: [{ id: 'order-1', order_id: 501 }],
     });
-    expect(result.content).toEqual([
-      {
-        type: 'text',
-        text: 'Found 8 orders. Examples: Order No. 501.',
-      },
-    ]);
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 8 orders. Examples: Order No. 501.');
+    expect(text).toContain('orders model context:');
+    expect(text).toContain('"order_id": 501');
   });
 
   it('gets one order when authentication is present', async () => {
@@ -4290,12 +4288,10 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', total_price: 200 },
       ],
     });
-    expect(result.content).toEqual([
-      {
-        type: 'text',
-        text: 'Found 3 invoices. Examples: Invoice No. 1, Invoice No. 2.',
-      },
-    ]);
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 3 invoices. Examples: Invoice No. 1, Invoice No. 2.');
+    expect(text).toContain('invoices model context:');
+    expect(text).toContain('"company_name": "Acme"');
   });
 
   it('lists overdue invoices with a local result limit', async () => {
@@ -4337,12 +4333,10 @@ describe('ChatGPT CRM tools', () => {
         { id_inv: 2, company_name: 'Globex', outstanding_balance: 80, days_overdue: 3 },
       ],
     });
-    expect(result.content).toEqual([
-      {
-        type: 'text',
-        text: 'Found 3 overdue invoices. Examples: Invoice No. 1, Invoice No. 2.',
-      },
-    ]);
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 3 overdue invoices. Examples: Invoice No. 1, Invoice No. 2.');
+    expect(text).toContain('overdue invoices model context:');
+    expect(text).toContain('"outstanding_balance": 100');
   });
 
   it('gets one invoice when authentication is present', async () => {
@@ -6206,6 +6200,10 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 1 ticket pipelines. Examples: Support.');
+    expect(text).toContain('ticket pipelines model context:');
+    expect(text).toContain('"internal_name": "support"');
   });
 
   it('updates only the ticket status or stage', async () => {
@@ -6330,6 +6328,10 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 2288 expenses. Examples: Google Workspace, Zoom.');
+    expect(text).toContain('expenses model context:');
+    expect(text).toContain('"description": "Google Workspace"');
   });
 
   it('returns reauth metadata when list expenses is called without authentication', async () => {
@@ -6705,6 +6707,10 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 3 properties. Examples: Priority, Region.');
+    expect(text).toContain('properties model context:');
+    expect(text).toContain('"internal_name": "priority"');
   });
 
   it('lists integration properties with provider routing', async () => {
@@ -6772,6 +6778,10 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 1 properties. Examples: Lifecycle stage.');
+    expect(text).toContain('properties model context:');
+    expect(text).toContain('"provider": "hubspot"');
   });
 
   it('lists approval rules through the public rule settings API', async () => {
@@ -7810,6 +7820,10 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 1 items. Examples: Widget.');
+    expect(text).toContain('items model context:');
+    expect(text).toContain('"name": "Widget"');
   });
 
   it('updates items through the SDK V2 item update method', async () => {

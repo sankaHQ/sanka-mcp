@@ -7590,6 +7590,16 @@ const readRecord = (value: unknown): Record<string, unknown> | undefined => {
 
 const STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT = 10;
 const STRUCTURED_TEXT_PREVIEW_MAX_CHARS = 12000;
+const LIST_SUMMARY_PRIMARY_DISPLAY_KEYS = new Set([
+  'name',
+  'title',
+  'label',
+  'display_name',
+  'display_label',
+  'internal_name',
+  'description',
+  'subject',
+]);
 
 const buildStructuredTextPreview = (label: string, value: unknown): string | undefined => {
   const json = JSON.stringify(value, null, 2);
@@ -7601,6 +7611,69 @@ const buildStructuredTextPreview = (label: string, value: unknown): string | und
   const body = truncated ? `${json.slice(0, STRUCTURED_TEXT_PREVIEW_MAX_CHARS)}\n...truncated...` : json;
   return `${label}:\n${body}`;
 };
+
+const readListPreviewValue = (
+  row: Record<string, unknown>,
+  keys: string[],
+  predicate: (key: string) => boolean = () => true,
+): string | undefined => {
+  for (const key of keys) {
+    if (!predicate(key)) {
+      continue;
+    }
+    const value = row[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return undefined;
+};
+
+const buildListModelContextPreview = ({
+  label,
+  payload,
+}: {
+  label: string;
+  payload: {
+    scope?: string | null;
+    provider?: string | null;
+    channel_id?: string | null;
+    channel_name?: string | null;
+    external_object_type?: string | null;
+    data_origin?: string | null;
+    source_of_truth?: string | null;
+    sync_state?: Record<string, unknown> | null;
+    unavailable_reason?: string | null;
+    next_cursor?: string | null;
+    count: number;
+    data: Array<Record<string, unknown>>;
+    message: string;
+    page: number;
+    total: number;
+    permission?: string | null;
+  };
+}): string | undefined =>
+  buildStructuredTextPreview(`${label} model context`, {
+    ...(payload.scope ? { scope: payload.scope } : undefined),
+    ...(payload.provider ? { provider: payload.provider } : undefined),
+    ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
+    ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
+    ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
+    ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
+    ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
+    ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
+    ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
+    ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
+    ...(payload.permission ? { permission: payload.permission } : undefined),
+    count: payload.count,
+    total: payload.total,
+    page: payload.page,
+    message: payload.message,
+    results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
+  });
 
 const unwrapV2EnvelopeRecord = (
   payload: Record<string, unknown>,
@@ -7960,21 +8033,19 @@ const buildListSummary = ({
   const preview = rows
     .slice(0, 3)
     .map((row) => {
+      const primaryDisplayValue = readListPreviewValue(row, previewKeys, (key) =>
+        LIST_SUMMARY_PRIMARY_DISPLAY_KEYS.has(key),
+      );
+      if (primaryDisplayValue) {
+        return primaryDisplayValue;
+      }
+
       const safeRecordLabel = buildSafeRecordLabel({ entity: label, payload: row });
       if (safeRecordLabel) {
         return safeRecordLabel;
       }
 
-      for (const key of previewKeys) {
-        const value = row[key];
-        if (typeof value === 'string' && value.trim().length > 0) {
-          return value.trim();
-        }
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          return String(value);
-        }
-      }
-      return null;
+      return readListPreviewValue(row, previewKeys) ?? null;
     })
     .filter((value): value is string => Boolean(value));
 
@@ -8052,7 +8123,7 @@ const buildListResult = ({
   label,
   payload,
   previewKeys,
-  includeStructuredTextPreview = false,
+  includeStructuredTextPreview = true,
 }: {
   label: string;
   payload: {
@@ -8077,14 +8148,7 @@ const buildListResult = ({
   includeStructuredTextPreview?: boolean;
 }): ToolCallResult => {
   const structuredTextPreview =
-    includeStructuredTextPreview ?
-      buildStructuredTextPreview(`${label} results preview`, {
-        count: payload.count,
-        total: payload.total,
-        page: payload.page,
-        results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
-      })
-    : undefined;
+    includeStructuredTextPreview ? buildListModelContextPreview({ label, payload }) : undefined;
   const summaryInput =
     previewKeys ?
       {
