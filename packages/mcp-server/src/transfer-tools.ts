@@ -840,10 +840,14 @@ export const exportRecordsTool: McpTool = {
     const objectType = readString(args?.['object_type']) || 'deal';
     const destinationKind =
       readString(args?.['destination_kind']) || (objectType === 'invoice' ? 'accounting' : 'integration');
-    const provider =
-      readString(args?.['provider']) ||
-      readString(args?.['target_system']) ||
-      (objectType === 'invoice' ? 'freee' : 'hubspot');
+    const targetSystem = readString(args?.['target_system']);
+    if (targetSystem && objectType !== 'invoice') {
+      return asErrorResult('`target_system` is only supported when `object_type="invoice"`.');
+    }
+    let provider = readString(args?.['provider']) || (objectType === 'invoice' ? 'freee' : 'hubspot');
+    if (objectType === 'invoice' && targetSystem) {
+      provider = targetSystem;
+    }
     const body: ExportCreateParams = {
       object_type: objectType,
       destination_kind: destinationKind,
@@ -851,7 +855,6 @@ export const exportRecordsTool: McpTool = {
       channel_id: channelId,
       operation: readString(args?.['operation']) || (objectType === 'invoice' ? 'create' : 'update'),
     };
-    const targetSystem = readString(args?.['target_system']);
     if (targetSystem) {
       body.target_system = targetSystem;
     }
