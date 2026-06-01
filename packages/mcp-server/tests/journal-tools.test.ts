@@ -26,11 +26,11 @@ describe('journal tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/journals', {
+    expect(get).toHaveBeenCalledWith('/api/v2/journals', {
       query: {
-        view: 'view-1',
+        view_id: 'view-1',
         page: 1,
-        limit: 10,
+        page_size: 10,
         'Accept-Language': 'en',
       },
     });
@@ -70,7 +70,7 @@ describe('journal tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/journals/views', {
+    expect(post).toHaveBeenCalledWith('/api/v2/journals/views', {
       body: {
         name: 'BS確認用',
         view_type: 'balance_sheet',
@@ -89,6 +89,54 @@ describe('journal tools', () => {
     });
     expect(result.structuredContent).toMatchObject({
       data: { view_id: 'view-1', view_type: 'balance_sheet' },
+      message: 'OK',
+    });
+  });
+
+  it('create_journal_statement_view unwraps v2 envelopes', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: { view_id: 'view-1', view_type: 'profit_and_loss' },
+        statement: {
+          view_type: 'profit_and_loss',
+          total: 1,
+          data: [{ account: 'Sales', amount: 1000 }],
+        },
+        message: 'OK',
+      },
+      meta: { ctx_id: 'ctx-v2' },
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmCreateJournalStatementViewTool.handler({
+      reqContext,
+      args: {
+        name: 'PL',
+        view_type: 'profit_and_loss',
+        include_preview: true,
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/journals/views', {
+      body: {
+        name: 'PL',
+        view_type: 'profit_and_loss',
+        include_preview: true,
+        limit: 10,
+      },
+      query: {},
+    });
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: 'Created profit_and_loss view view-1 with 1 preview rows.',
+    });
+    expect(result.structuredContent).toMatchObject({
+      data: { view_id: 'view-1', view_type: 'profit_and_loss' },
+      ctx_id: 'ctx-v2',
       message: 'OK',
     });
   });

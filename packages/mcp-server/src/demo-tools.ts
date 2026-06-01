@@ -1,5 +1,5 @@
-// Hand-written Phase 5 tools for the /v1/demo/generate and
-// /v1/integration-sync/push endpoints. Kept separate from the Stainless-
+// Hand-written Phase 5 tools for /v1/demo/generate and
+// /api/v2/integration-sync/push. Kept separate from the Stainless-
 // generated code so they survive the next regeneration pass.
 
 import type Sanka from 'sanka-sdk';
@@ -459,7 +459,7 @@ export const integrationSyncPushTool: McpTool = {
     operation: 'write',
     tags: ['integration-sync', 'outbound'],
     httpMethod: 'post',
-    httpPath: '/v1/integration-sync/push',
+    httpPath: '/api/v2/integration-sync/push',
     operationId: 'integration_sync.push.create',
   },
   tool: {

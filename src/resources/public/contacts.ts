@@ -5,12 +5,174 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+import { compactProperties } from '../../internal/v2-object-records';
+
+type V2ObjectRecord = {
+  id: string;
+  record_id?: string | null;
+  object_type?: string | null;
+  properties?: Record<string, unknown>;
+};
+
+type V2ObjectRecordList = {
+  items?: Array<V2ObjectRecord>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+type V2LifecycleData = {
+  id?: string | null;
+  record_id?: string | null;
+  status?: string | null;
+  usage_status?: string | null;
+};
+
+const numericRecordID = (recordID: string | null | undefined): number | undefined => {
+  if (typeof recordID !== 'string' || !recordID.trim()) return undefined;
+  const value = Number(recordID);
+  return Number.isFinite(value) ? value : undefined;
+};
+
+const contactFromV2Record = (record: V2ObjectRecord): ContactRetrieveResponse => {
+  const properties = record.properties ?? {};
+  return {
+    ...properties,
+    id: record.id,
+    contact_id: numericRecordID(record.record_id) ?? (record.record_id as never) ?? null,
+  } as ContactRetrieveResponse;
+};
+
+const unwrapV2Contact = (
+  promise: APIPromise<V2Envelope<V2ObjectRecord>>,
+): APIPromise<ContactRetrieveResponse> =>
+  promise._thenUnwrap((envelope) => contactFromV2Record(unwrapV2Data(envelope)));
+
+const contactListFromV2Envelope = (envelope: V2Envelope<V2ObjectRecordList>): ContactListResponse => {
+  const data = unwrapV2Data(envelope);
+  const rows = (data.items ?? []).map(contactFromV2Record) as unknown as Array<{
+    [key: string]: unknown;
+  }>;
+  const total = data.total ?? rows.length;
+  const page = data.page ?? 1;
+  return {
+    count: rows.length,
+    data: rows,
+    message: `Returned ${rows.length} of ${total} contacts.`,
+    page,
+    total,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const contactDeleteResponseFromV2Lifecycle = (
+  envelope: V2Envelope<V2LifecycleData>,
+  externalID?: string | null,
+): PublicContactResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status: 'deleted',
+    contact_id: data.id ?? null,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const contactMutationResponseFromV2Record = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  externalID?: string | null,
+  status = 'updated',
+): PublicContactResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status,
+    contact_id: data.id,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const usableExternalID = (value: string | null | undefined): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+};
+
+const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
+  target != null && target !== 'sanka';
+
+const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
+  const properties = { ...body };
+  if (properties['target'] === 'sanka') {
+    delete properties['target'];
+  }
+  return compactProperties(properties);
+};
+
+const hasLegacyContactCreateArgs = (body: ContactCreateParams): boolean =>
+  body.channel_id != null ||
+  body.confirm != null ||
+  body.custom_fields != null ||
+  body.dry_run != null ||
+  body.external_object_type != null ||
+  body.operation != null ||
+  body.provider != null ||
+  hasRemoteMutationTarget(body.target);
+
+const hasLegacyContactListArgs = (params: ContactListParams | null | undefined): boolean => {
+  if (!params) return false;
+  return (
+    params.channel_id != null ||
+    params.external_object_type != null ||
+    params.provider != null ||
+    params.reference_id != null ||
+    params.scope === 'integration' ||
+    params.sort != null ||
+    params.view != null
+  );
+};
+
+const hasLegacyContactDeleteArgs = (params: ContactDeleteParams | null | undefined): boolean => {
+  if (!params) return false;
+  return (
+    params.channel_id != null ||
+    params.confirm != null ||
+    params.dry_run != null ||
+    params.external_object_type != null ||
+    params.operation != null ||
+    params.provider != null ||
+    hasRemoteMutationTarget(params.target)
+  );
+};
+
+const hasLegacyContactUpdateArgs = (body: ContactUpdateParams): boolean =>
+  body.channel_id != null ||
+  body.confirm != null ||
+  body.custom_fields != null ||
+  body.dry_run != null ||
+  body.external_id != null ||
+  body.external_object_type != null ||
+  body.operation != null ||
+  body.provider != null ||
+  hasRemoteMutationTarget(body.target);
 
 export class Contacts extends APIResource {
   /**
    * Create Contact
    */
   create(body: ContactCreateParams, options?: RequestOptions): APIPromise<PublicContactResponse> {
+    if (!hasLegacyContactCreateArgs(body)) {
+      const externalID = usableExternalID(body.external_id);
+      return this._client
+        .v2Post<V2ObjectRecord>('/contacts', {
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope, externalID, 'created'));
+    }
     return this._client.post('/v1/public/contacts', { body, ...options });
   }
 
@@ -22,7 +184,9 @@ export class Contacts extends APIResource {
     query: ContactRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ContactRetrieveResponse> {
-    return this._client.get(path`/v1/public/contacts/${contactID}`, { query, ...options });
+    return unwrapV2Contact(
+      this._client.v2Get<V2ObjectRecord>(path`/contacts/${contactID}`, { query, ...options }),
+    );
   }
 
   /**
@@ -33,6 +197,14 @@ export class Contacts extends APIResource {
     body: ContactUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicContactResponse> {
+    if (!hasLegacyContactUpdateArgs(body)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/contacts/${contactID}`, {
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope));
+    }
     return this._client.put(path`/v1/public/contacts/${contactID}`, { body, ...options });
   }
 
@@ -43,15 +215,29 @@ export class Contacts extends APIResource {
     params: ContactListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ContactListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/contacts', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, limit, scope, ...query } = params ?? {};
+    void scope;
+    if (hasLegacyContactListArgs(params)) {
+      return this._client.get('/v1/public/contacts', {
+        query: { limit, scope, ...query },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      });
+    }
+    return this._client
+      .v2Get<V2ObjectRecordList>('/contacts', {
+        query,
+        ...(limit != null ? { query: { ...query, limit } } : undefined),
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap(contactListFromV2Envelope);
   }
 
   /**
@@ -64,10 +250,27 @@ export class Contacts extends APIResource {
   ): APIPromise<PublicContactResponse> {
     const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
-    return this._client.delete(path`/v1/public/contacts/${contactID}`, {
-      query: { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target },
-      ...options,
-    });
+    if (hasLegacyContactDeleteArgs(params)) {
+      return this._client.delete(path`/v1/public/contacts/${contactID}`, {
+        query: {
+          channel_id,
+          confirm,
+          dry_run,
+          external_id,
+          external_object_type,
+          operation,
+          provider,
+          target,
+        },
+        ...options,
+      });
+    }
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/contacts/${contactID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => contactDeleteResponseFromV2Lifecycle(envelope, external_id));
   }
 }
 

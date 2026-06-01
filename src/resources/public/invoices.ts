@@ -2,10 +2,90 @@
 
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
+import { type Uploadable } from '../../core/uploads';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
+import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import {
+  V2Envelope,
+  V2PdfData,
+  buildV2PdfRequest,
+  unwrapV2Data,
+  unwrapV2DataPromise,
+  unwrapV2PdfResponse,
+} from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+type V2InvoiceOverdueListData = {
+  items?: Array<InvoiceSchema>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+const invoiceFromV2Record = (record: V2ObjectRecord): InvoiceSchema => {
+  const properties = record.properties ?? {};
+  return legacyObjectRecordFromV2<InvoiceSchema>(record, 'id_inv', {
+    start_date: properties['start_date'] ?? properties['invoice_date'],
+  });
+};
+
+const invoiceUpdateProperties = (params: InvoiceUpdateParams): Record<string, unknown> => {
+  const {
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    due_date,
+    external_id: _externalID,
+    notes,
+    start_date,
+    status,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  } = params;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  return compactProperties({
+    company_id,
+    contact_id,
+    currency,
+    due_date,
+    invoice_date: start_date,
+    notes,
+    status,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  });
+};
+
+const canUseV2InvoiceUpdate = (params: InvoiceUpdateParams, properties: Record<string, unknown>): boolean =>
+  params.attachment_file == null &&
+  params.company_external_id == null &&
+  params.contact_external_id == null &&
+  Object.keys(properties).length > 0;
 
 export class Invoices extends APIResource {
   /**
@@ -23,22 +103,39 @@ export class Invoices extends APIResource {
     params: InvoiceRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InvoiceSchema> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/invoices/${invoiceID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/invoices/${invoiceID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      invoiceFromV2Record,
+    );
   }
 
   /**
    * Update Invoice
    */
-  update(invoiceID: string, body: InvoiceUpdateParams, options?: RequestOptions): APIPromise<Invoice> {
-    return this._client.put(path`/v1/public/invoices/${invoiceID}`, { body, ...options });
+  update(invoiceID: string, params: InvoiceUpdateParams, options?: RequestOptions): APIPromise<Invoice> {
+    const properties = invoiceUpdateProperties(params);
+    if (canUseV2InvoiceUpdate(params, properties)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/invoices/${invoiceID}`, {
+          query: { external_id: params.external_id },
+          body: { properties },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<Invoice>(envelope, 'invoice_id', 'updated', params.external_id),
+        );
+    }
+    return this._client.put(path`/v1/public/invoices/${invoiceID}`, { body: params, ...options });
   }
 
   /**
@@ -48,15 +145,27 @@ export class Invoices extends APIResource {
     params: InvoiceListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InvoiceListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/invoices', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/invoices', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      invoiceFromV2Record,
+    );
   }
 
   /**
@@ -66,15 +175,26 @@ export class Invoices extends APIResource {
     params: InvoiceListOverdueParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InvoiceListOverdueResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/invoices/overdue', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      workspace_id: _workspaceID,
+      lang: _lang,
+      language: _language,
+      ...query
+    } = params ?? {};
+    void _workspaceID;
+    void _lang;
+    void _language;
+    return this._client
+      .v2Get<V2InvoiceOverdueListData>('/invoices/overdue', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      })
+      ._thenUnwrap((envelope: V2Envelope<V2InvoiceOverdueListData>) => unwrapV2Data(envelope).items ?? []);
   }
 
   /**
@@ -86,10 +206,12 @@ export class Invoices extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Invoice> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/invoices/${invoiceID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/invoices/${invoiceID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<Invoice>(envelope, 'invoice_id', external_id));
   }
 
   /**
@@ -100,16 +222,44 @@ export class Invoices extends APIResource {
     params: InvoiceDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/invoices/${invoiceID}/pdf`, {
-      query,
-      ...options,
-      __binaryResponse: true,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    }) as APIPromise<Response>;
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/invoices/${invoiceID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/invoices/${invoiceID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
+  }
+
+  /**
+   * Upload Invoice Attachment File
+   */
+  uploadAttachment(
+    body: InvoiceUploadAttachmentParams,
+    options?: RequestOptions,
+  ): APIPromise<InvoiceUploadAttachmentResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<InvoiceUploadAttachmentResponse>(
+        '/invoices/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
+    );
   }
 }
 
@@ -126,6 +276,8 @@ export interface Invoice {
 }
 
 export interface InvoiceRequest {
+  attachment_file?: InvoiceRequest.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -155,6 +307,22 @@ export interface InvoiceRequest {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace InvoiceRequest {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface InvoiceSchema {
@@ -195,7 +363,19 @@ export type InvoiceListResponse = Array<InvoiceSchema>;
 
 export type InvoiceListOverdueResponse = Array<InvoiceSchema>;
 
+export interface InvoiceUploadAttachmentResponse {
+  file_id: string;
+
+  ok: boolean;
+
+  ctx_id?: string | null;
+
+  filename?: string | null;
+}
+
 export interface InvoiceCreateParams {
+  attachment_file?: InvoiceCreateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -225,6 +405,22 @@ export interface InvoiceCreateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace InvoiceCreateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface InvoiceRetrieveParams {
@@ -277,6 +473,8 @@ export interface InvoiceDownloadPDFParams {
 }
 
 export interface InvoiceUpdateParams {
+  attachment_file?: InvoiceUpdateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -306,6 +504,22 @@ export interface InvoiceUpdateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace InvoiceUpdateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface InvoiceListParams {
@@ -361,6 +575,10 @@ export interface InvoiceDeleteParams {
   external_id?: string | null;
 }
 
+export interface InvoiceUploadAttachmentParams {
+  file: Uploadable;
+}
+
 export declare namespace Invoices {
   export {
     type Invoice as Invoice,
@@ -368,11 +586,13 @@ export declare namespace Invoices {
     type InvoiceSchema as InvoiceSchema,
     type InvoiceListResponse as InvoiceListResponse,
     type InvoiceListOverdueResponse as InvoiceListOverdueResponse,
+    type InvoiceUploadAttachmentResponse as InvoiceUploadAttachmentResponse,
     type InvoiceCreateParams as InvoiceCreateParams,
     type InvoiceRetrieveParams as InvoiceRetrieveParams,
     type InvoiceUpdateParams as InvoiceUpdateParams,
     type InvoiceListParams as InvoiceListParams,
     type InvoiceListOverdueParams as InvoiceListOverdueParams,
     type InvoiceDeleteParams as InvoiceDeleteParams,
+    type InvoiceUploadAttachmentParams as InvoiceUploadAttachmentParams,
   };
 }

@@ -40,11 +40,13 @@ export {
   type PublicBillRequest,
   type PublicBillResponse,
   type BillListResponse,
+  type BillUploadAttachmentResponse,
   type BillCreateParams,
   type BillRetrieveParams,
   type BillUpdateParams,
   type BillListParams,
   type BillDeleteParams,
+  type BillUploadAttachmentParams,
 } from './bills';
 export {
   Calendar,
@@ -118,11 +120,13 @@ export {
   type PublicEstimateRequest,
   type PublicEstimateResponse,
   type EstimateListResponse,
+  type EstimateUploadAttachmentResponse,
   type EstimateCreateParams,
   type EstimateRetrieveParams,
   type EstimateUpdateParams,
   type EstimateListParams,
   type EstimateDeleteParams,
+  type EstimateUploadAttachmentParams,
 } from './estimates';
 export {
   Expenses,
@@ -185,12 +189,14 @@ export {
   type InvoiceSchema,
   type InvoiceListResponse,
   type InvoiceListOverdueResponse,
+  type InvoiceUploadAttachmentResponse,
   type InvoiceCreateParams,
   type InvoiceRetrieveParams,
   type InvoiceUpdateParams,
   type InvoiceListParams,
   type InvoiceListOverdueParams,
   type InvoiceDeleteParams,
+  type InvoiceUploadAttachmentParams,
 } from './invoices';
 export {
   Items,
@@ -231,17 +237,20 @@ export {
 export {
   Orders,
   type BulkOrder,
+  type PublicOrder,
   type BulkOrders,
   type Order,
   type OrderRetrieveResponse,
   type OrderListResponse,
   type OrderDeleteResponse,
+  type OrderUploadAttachmentResponse,
   type OrderCreateParams,
   type OrderRetrieveParams,
   type OrderUpdateParams,
   type OrderListParams,
   type OrderDeleteParams,
   type OrderBulkCreateParams,
+  type OrderUploadAttachmentParams,
 } from './orders';
 export {
   Tasks,
@@ -290,11 +299,13 @@ export {
   type PurchaseOrderRequest,
   type PurchaseOrderResponse,
   type PurchaseOrderListResponse,
+  type PurchaseOrderUploadAttachmentResponse,
   type PurchaseOrderCreateParams,
   type PurchaseOrderRetrieveParams,
   type PurchaseOrderUpdateParams,
   type PurchaseOrderListParams,
   type PurchaseOrderDeleteParams,
+  type PurchaseOrderUploadAttachmentParams,
 } from './purchase-orders';
 export {
   Reports,

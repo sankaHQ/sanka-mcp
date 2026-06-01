@@ -2,10 +2,76 @@
 
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
+import { type Uploadable } from '../../core/uploads';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
+import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { V2PdfData, buildV2PdfRequest, unwrapV2DataPromise, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+const estimateFromV2Record = (record: V2ObjectRecord): Estimate => {
+  const properties = record.properties ?? {};
+  return legacyObjectRecordFromV2<Estimate>(record, 'id_est', {
+    start_date: properties['start_date'] ?? properties['estimate_date'],
+  });
+};
+
+const estimateUpdateProperties = (params: EstimateUpdateParams): Record<string, unknown> => {
+  const {
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    due_date,
+    external_id: _externalID,
+    notes,
+    start_date,
+    status,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  } = params;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  return compactProperties({
+    company_id,
+    contact_id,
+    currency,
+    due_date,
+    estimate_date: start_date,
+    notes,
+    status,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
+    total_price,
+    total_price_without_tax,
+  });
+};
+
+const canUseV2EstimateUpdate = (params: EstimateUpdateParams, properties: Record<string, unknown>): boolean =>
+  params.attachment_file == null &&
+  params.company_external_id == null &&
+  params.contact_external_id == null &&
+  Object.keys(properties).length > 0;
 
 export class Estimates extends APIResource {
   /**
@@ -23,15 +89,20 @@ export class Estimates extends APIResource {
     params: EstimateRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Estimate> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/estimates/${estimateID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/estimates/${estimateID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      estimateFromV2Record,
+    );
   }
 
   /**
@@ -39,10 +110,27 @@ export class Estimates extends APIResource {
    */
   update(
     estimateID: string,
-    body: EstimateUpdateParams,
+    params: EstimateUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicEstimateResponse> {
-    return this._client.put(path`/v1/public/estimates/${estimateID}`, { body, ...options });
+    const properties = estimateUpdateProperties(params);
+    if (canUseV2EstimateUpdate(params, properties)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/estimates/${estimateID}`, {
+          query: { external_id: params.external_id },
+          body: { properties },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PublicEstimateResponse>(
+            envelope,
+            'estimate_id',
+            'updated',
+            params.external_id,
+          ),
+        );
+    }
+    return this._client.put(path`/v1/public/estimates/${estimateID}`, { body: params, ...options });
   }
 
   /**
@@ -52,15 +140,27 @@ export class Estimates extends APIResource {
     params: EstimateListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<EstimateListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/estimates', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/estimates', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      estimateFromV2Record,
+    );
   }
 
   /**
@@ -72,10 +172,14 @@ export class Estimates extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicEstimateResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/estimates/${estimateID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/estimates/${estimateID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PublicEstimateResponse>(envelope, 'estimate_id', external_id),
+      );
   }
 
   /**
@@ -86,16 +190,44 @@ export class Estimates extends APIResource {
     params: EstimateDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/estimates/${estimateID}/pdf`, {
-      query,
-      ...options,
-      __binaryResponse: true,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    }) as APIPromise<Response>;
+    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
+    if (externalID != null) {
+      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
+      return this._client.get(path`/v1/public/estimates/${estimateID}/pdf`, {
+        query: v1Query,
+        ...options,
+        __binaryResponse: true,
+        headers: buildHeaders([
+          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }) as APIPromise<Response>;
+    }
+    return unwrapV2PdfResponse(
+      this._client.v2Get<V2PdfData>(path`/estimates/${estimateID}/pdf`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
+  }
+
+  /**
+   * Upload Estimate Attachment File
+   */
+  uploadAttachment(
+    body: EstimateUploadAttachmentParams,
+    options?: RequestOptions,
+  ): APIPromise<EstimateUploadAttachmentResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<EstimateUploadAttachmentResponse>(
+        '/estimates/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
+    );
   }
 }
 
@@ -126,6 +258,8 @@ export interface Estimate {
 }
 
 export interface PublicEstimateRequest {
+  attachment_file?: PublicEstimateRequest.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -155,6 +289,22 @@ export interface PublicEstimateRequest {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace PublicEstimateRequest {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface PublicEstimateResponse {
@@ -171,7 +321,19 @@ export interface PublicEstimateResponse {
 
 export type EstimateListResponse = Array<Estimate>;
 
+export interface EstimateUploadAttachmentResponse {
+  file_id: string;
+
+  ok: boolean;
+
+  ctx_id?: string | null;
+
+  filename?: string | null;
+}
+
 export interface EstimateCreateParams {
+  attachment_file?: EstimateCreateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -201,6 +363,22 @@ export interface EstimateCreateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace EstimateCreateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface EstimateRetrieveParams {
@@ -226,6 +404,8 @@ export interface EstimateRetrieveParams {
 }
 
 export interface EstimateUpdateParams {
+  attachment_file?: EstimateUpdateParams.AttachmentFile | null;
+
   company_external_id?: string | null;
 
   company_id?: string | null;
@@ -255,6 +435,22 @@ export interface EstimateUpdateParams {
   total_price?: number | null;
 
   total_price_without_tax?: number | null;
+}
+
+export namespace EstimateUpdateParams {
+  export interface AttachmentFile {
+    files?: Array<AttachmentFile.File>;
+  }
+
+  export namespace AttachmentFile {
+    export interface File {
+      id?: string | null;
+
+      file_id?: string | null;
+
+      name?: string | null;
+    }
+  }
 }
 
 export interface EstimateListParams {
@@ -310,16 +506,22 @@ export interface EstimateDownloadPDFParams {
   'Accept-Language'?: string;
 }
 
+export interface EstimateUploadAttachmentParams {
+  file: Uploadable;
+}
+
 export declare namespace Estimates {
   export {
     type Estimate as Estimate,
     type PublicEstimateRequest as PublicEstimateRequest,
     type PublicEstimateResponse as PublicEstimateResponse,
     type EstimateListResponse as EstimateListResponse,
+    type EstimateUploadAttachmentResponse as EstimateUploadAttachmentResponse,
     type EstimateCreateParams as EstimateCreateParams,
     type EstimateRetrieveParams as EstimateRetrieveParams,
     type EstimateUpdateParams as EstimateUpdateParams,
     type EstimateListParams as EstimateListParams,
     type EstimateDeleteParams as EstimateDeleteParams,
+    type EstimateUploadAttachmentParams as EstimateUploadAttachmentParams,
   };
 }

@@ -36,6 +36,20 @@ export class APIPromise<T> extends Promise<T> {
     );
   }
 
+  _thenUnwrapResponse(
+    transform: (data: T, props: APIResponseProps) => PromiseOrValue<Response>,
+  ): APIPromise<Response> {
+    const responsePromise = this.responsePromise.then(async (props) => {
+      const response = await transform(await this.parseResponse(this.#client, props), props);
+      return {
+        ...props,
+        response,
+        options: { ...props.options, __binaryResponse: true },
+      };
+    });
+    return new APIPromise(this.#client, responsePromise);
+  }
+
   /**
    * Gets the raw `Response` instance instead of parsing the response
    * data.

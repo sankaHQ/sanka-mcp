@@ -23,7 +23,7 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
     expect(demoGenerateTool.metadata.httpMethod).toBe('post');
 
     expect(integrationSyncPushTool.metadata.operationId).toBe('integration_sync.push.create');
-    expect(integrationSyncPushTool.metadata.httpPath).toBe('/v1/integration-sync/push');
+    expect(integrationSyncPushTool.metadata.httpPath).toBe('/api/v2/integration-sync/push');
     expect(integrationSyncPushTool.metadata.httpMethod).toBe('post');
   });
 

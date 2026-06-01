@@ -5,13 +5,214 @@ import * as ReportsAPI from './reports';
 import { APIPromise } from '../../core/api-promise';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+
+type V2ReportListData = {
+  items?: Array<Record<string, unknown>>;
+  total?: number;
+  page?: number;
+  page_size?: number;
+  has_next_page?: boolean;
+  message?: string;
+};
+
+type V2ReportDetailData = {
+  report?: Record<string, unknown>;
+  message?: string;
+};
+
+type V2ReportMutationData = {
+  report_id?: string | null;
+  report_number?: string | null;
+  message?: string;
+};
+
+type V2ReportBulkMutationData = {
+  ids?: Array<string>;
+  count?: number;
+  message?: string;
+};
+
+type V2ReportMutationBody = {
+  name?: string;
+  description?: string | null;
+  panel_type?: string;
+  data_source_type?: string | null;
+  object_sources?: Array<string>;
+  breakdown?: string | null;
+  x_axis?: string | null;
+  ratio?: number | null;
+  filter?: Record<string, unknown> | null;
+  meta_data?: Record<string, unknown> | null;
+  metrics?: Array<Record<string, unknown>>;
+};
+
+const readRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+};
+
+const readString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const readNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
+};
+
+const appendSource = (sources: Array<string>, value: unknown): void => {
+  if (Array.isArray(value)) {
+    for (const item of value) appendSource(sources, item);
+    return;
+  }
+  const source = readString(value);
+  if (!source) return;
+  for (const token of source.split(',')) {
+    const normalized = token.trim();
+    if (normalized && !sources.includes(normalized)) sources.push(normalized);
+  }
+};
+
+const v2ReportMutationBody = (
+  body: ReportCreateParams | ReportUpdateParams,
+  mode: 'create' | 'update',
+): V2ReportMutationBody => {
+  const payload = body as Record<string, unknown>;
+  const metadata = readRecord(payload['reportMetadata'] ?? payload['report_metadata']) ?? {};
+  const panels = Array.isArray(payload['panels']) ? payload['panels'] : [];
+  const panel = readRecord(panels[0]) ?? {};
+  const reportType = readRecord(metadata['reportType'] ?? metadata['report_type']);
+  const sources: Array<string> = [];
+  appendSource(sources, reportType?.['type']);
+  appendSource(sources, panel['dataSources'] ?? panel['data_sources']);
+  appendSource(sources, panel['dataSource'] ?? panel['data_source']);
+  appendSource(sources, panel['typeObjects'] ?? panel['type_objects']);
+
+  const metrics =
+    Array.isArray(panel['metrics']) ?
+      (panel['metrics'] as Array<unknown>)
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+        .map((metric) => ({
+          ...(readString(metric['role']) ? { role: readString(metric['role']) } : undefined),
+          ...(readString(metric['name']) ? { name: readString(metric['name']) } : undefined),
+          metric: readString(metric['metric']) ?? 'number_orders',
+          ...(readString(metric['metricType'] ?? metric['metric_type']) ?
+            { metric_type: readString(metric['metricType'] ?? metric['metric_type']) }
+          : undefined),
+          ...(readNumber(metric['order']) !== undefined ? { order: readNumber(metric['order']) } : undefined),
+          ...(readRecord(metric['filter']) ? { filter: readRecord(metric['filter']) } : undefined),
+          ...(readString(metric['dataSource'] ?? metric['data_source']) ?
+            { data_source: readString(metric['dataSource'] ?? metric['data_source']) }
+          : undefined),
+          ...(readString(metric['sort']) ? { sort: readString(metric['sort']) } : undefined),
+          ...(readRecord(metric['metaData'] ?? metric['meta_data']) ?
+            { meta_data: readRecord(metric['metaData'] ?? metric['meta_data']) }
+          : undefined),
+          ...(readString(metric['rawSql'] ?? metric['raw_sql']) ?
+            { raw_sql: readString(metric['rawSql'] ?? metric['raw_sql']) }
+          : undefined),
+          ...(readString(metric['displayResult'] ?? metric['display_result']) ?
+            { display_result: readString(metric['displayResult'] ?? metric['display_result']) }
+          : undefined),
+        }))
+    : undefined;
+
+  const result: V2ReportMutationBody = {};
+  const name = readString(metadata['name']) ?? readString(panel['name']);
+  if (name) {
+    result.name = name;
+  } else if (mode === 'create') {
+    throw new Error('V2 public report creation requires reportMetadata.name or panel.name.');
+  }
+  const description = readString(metadata['description']) ?? readString(panel['description']);
+  if (description) result.description = description;
+  const panelType =
+    readString(panel['panelType'] ?? panel['panel_type']) ?? readString(metadata['reportFormat']);
+  if (panelType) {
+    result.panel_type = panelType;
+  } else if (mode === 'create') {
+    result.panel_type = 'chart';
+  }
+  const dataSourceType = readString(panel['dataSourceType'] ?? panel['data_source_type']);
+  if (dataSourceType) {
+    result.data_source_type = dataSourceType;
+  } else if (mode === 'create') {
+    result.data_source_type = 'app';
+  }
+  if (sources.length > 0) result.object_sources = sources;
+  const breakdown = readString(panel['breakdown']);
+  if (breakdown) result.breakdown = breakdown;
+  const xAxis = readString(panel['xAxis'] ?? panel['x_axis']);
+  if (xAxis) result.x_axis = xAxis;
+  const ratio = readNumber(panel['ratio']);
+  if (ratio !== undefined) result.ratio = ratio;
+  const filter =
+    readRecord(panel['filter']) ?? readRecord(metadata['reportFilters'] ?? metadata['report_filters']);
+  if (filter) result.filter = filter;
+  const metaData = readRecord(panel['metaData'] ?? panel['meta_data']);
+  if (metaData) result.meta_data = metaData;
+  if (metrics) result.metrics = metrics;
+  return result;
+};
+
+const unwrapV2ReportMutation = (
+  promise: APIPromise<V2Envelope<V2ReportMutationData>>,
+): APIPromise<CreateReport> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return {
+      ok: true,
+      status: data.message ?? 'OK',
+      ctx_id: envelope.meta.ctx_id ?? null,
+      report_id: data.report_id ?? null,
+      report_extended_metadata: data.report_number ? { report_number: data.report_number } : null,
+      report_metadata: null,
+    };
+  });
+
+const unwrapV2ReportDelete = (
+  promise: APIPromise<V2Envelope<V2ReportBulkMutationData>>,
+): APIPromise<ReportDeleteResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return {
+      ok: true,
+      status: data.message ?? 'OK',
+      ctx_id: envelope.meta.ctx_id ?? null,
+      report_id: data.ids?.[0] ?? null,
+    };
+  });
+
+const unwrapV2ReportList = (
+  promise: APIPromise<V2Envelope<V2ReportListData>>,
+): APIPromise<ReportListResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return (Array.isArray(data.items) ? data.items : []) as unknown as ReportListResponse;
+  });
+
+const unwrapV2ReportDetail = (
+  promise: APIPromise<V2Envelope<V2ReportDetailData>>,
+): APIPromise<ReportRetrieveResponse> =>
+  promise._thenUnwrap(
+    (envelope) => (unwrapV2Data(envelope).report ?? {}) as unknown as ReportRetrieveResponse,
+  );
 
 export class Reports extends APIResource {
   /**
    * Create Report
    */
   create(body: ReportCreateParams, options?: RequestOptions): APIPromise<CreateReport> {
-    return this._client.post('/v1/public/reports', { body, ...options });
+    return unwrapV2ReportMutation(
+      this._client.v2Post<V2ReportMutationData>('/public/reports', {
+        body: v2ReportMutationBody(body, 'create'),
+        ...options,
+      }),
+    );
   }
 
   /**
@@ -22,19 +223,24 @@ export class Reports extends APIResource {
     query: ReportRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ReportRetrieveResponse> {
-    return this._client.get(path`/v1/public/reports/${reportID}`, { query, ...options });
+    void query;
+    return unwrapV2ReportDetail(
+      this._client.v2Get<V2ReportDetailData>(path`/public/reports/${reportID}`, options),
+    );
   }
 
   /**
    * Update Report
    */
   update(reportID: string, params: ReportUpdateParams, options?: RequestOptions): APIPromise<CreateReport> {
-    const { workspace_id, ...body } = params;
-    return this._client.put(path`/v1/public/reports/${reportID}`, {
-      query: { workspace_id },
-      body,
-      ...options,
-    });
+    const { workspace_id: _workspaceID, ...body } = params;
+    void _workspaceID;
+    return unwrapV2ReportMutation(
+      this._client.v2Put<V2ReportMutationData>(path`/public/reports/${reportID}`, {
+        body: v2ReportMutationBody(body, 'update'),
+        ...options,
+      }),
+    );
   }
 
   /**
@@ -44,7 +250,11 @@ export class Reports extends APIResource {
     query: ReportListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ReportListResponse> {
-    return this._client.get('/v1/public/reports', { query, ...options });
+    const { workspace_id: _workspaceID, ...v2Query } = query ?? {};
+    void _workspaceID;
+    return unwrapV2ReportList(
+      this._client.v2Get<V2ReportListData>('/public/reports', { query: v2Query, ...options }),
+    );
   }
 
   /**
@@ -55,8 +265,10 @@ export class Reports extends APIResource {
     params: ReportDeleteParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ReportDeleteResponse> {
-    const { workspace_id } = params ?? {};
-    return this._client.delete(path`/v1/public/reports/${reportID}`, { query: { workspace_id }, ...options });
+    void params;
+    return unwrapV2ReportDelete(
+      this._client.v2Delete<V2ReportBulkMutationData>(path`/public/reports/${reportID}`, options),
+    );
   }
 }
 
@@ -345,6 +557,10 @@ export namespace ReportUpdateParams {
 }
 
 export interface ReportListParams {
+  page?: number | null;
+
+  limit?: number | null;
+
   workspace_id?: string | null;
 }
 

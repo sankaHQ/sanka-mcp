@@ -49,6 +49,98 @@ describe('instantiate client', () => {
       expect(req.headers.has('x-my-default-header')).toBe(false);
     });
   });
+
+  describe('workspaceCode', () => {
+    test('is sent as a default header', async () => {
+      const client = new Sanka({
+        baseURL: 'http://localhost:5000/',
+        workspaceCode: '9983932',
+        apiKey: 'My API Key',
+      });
+
+      const { req } = await client.buildRequest({ path: '/foo', method: 'get' });
+      expect(req.headers.get('x-workspace-code')).toEqual('9983932');
+    });
+
+    test('uses SANKA_WORKSPACE_CODE from the environment', async () => {
+      process.env['SANKA_WORKSPACE_CODE'] = '12345';
+      const client = new Sanka({ baseURL: 'http://localhost:5000/', apiKey: 'My API Key' });
+
+      const { req } = await client.buildRequest({ path: '/foo', method: 'get' });
+      expect(req.headers.get('x-workspace-code')).toEqual('12345');
+    });
+
+    test('can be overridden per request', async () => {
+      const client = new Sanka({
+        baseURL: 'http://localhost:5000/',
+        workspaceCode: '9983932',
+        apiKey: 'My API Key',
+      });
+
+      const { req } = await client.buildRequest({
+        path: '/foo',
+        method: 'get',
+        headers: { 'X-Workspace-Code': '45678' },
+      });
+      expect(req.headers.get('x-workspace-code')).toEqual('45678');
+    });
+  });
+
+  describe('apiVersion', () => {
+    test('rejects V1 requests before fetch when configured for V2 only', async () => {
+      const testFetch = jest.fn();
+      const client = new Sanka({
+        baseURL: 'http://localhost:5000/',
+        apiVersion: 'v2',
+        apiKey: 'My API Key',
+        fetch: testFetch,
+      });
+
+      await expect(client.get('/v1/foo')).rejects.toThrow(/V2-only requests/);
+      expect(testFetch).not.toHaveBeenCalled();
+    });
+
+    test('uses SANKA_API_VERSION from the environment', async () => {
+      process.env['SANKA_API_VERSION'] = 'v2';
+      const client = new Sanka({ baseURL: 'http://localhost:5000/', apiKey: 'My API Key' });
+
+      await expect(client.buildRequest({ path: '/v1/foo', method: 'get' })).rejects.toThrow(
+        /V2-only requests/,
+      );
+    });
+  });
+
+  describe('v2 request helpers', () => {
+    test('prefixes relative paths with /api/v2', async () => {
+      let capturedURL: string | URL | Request | undefined;
+      const client = new Sanka({
+        baseURL: 'http://localhost:5000/',
+        apiKey: 'My API Key',
+        fetch: async (url) => {
+          capturedURL = url;
+          return new Response(
+            JSON.stringify({ success: true, data: { ok: true }, meta: { ctx_id: 'ctx' } }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+            },
+          );
+        },
+      });
+
+      await expect(client.v2Get<{ ok: boolean }>('/orders')).resolves.toEqual({
+        success: true,
+        data: { ok: true },
+        meta: { ctx_id: 'ctx' },
+      });
+      expect(capturedURL).toEqual('http://localhost:5000/api/v2/orders');
+    });
+
+    test('does not double-prefix /api/v2 paths', () => {
+      const client = new Sanka({ baseURL: 'http://localhost:5000/', apiKey: 'My API Key' });
+      expect(client.v2Path('/api/v2/orders')).toEqual('/api/v2/orders');
+    });
+  });
+
   describe('logging', () => {
     const env = process.env;
 

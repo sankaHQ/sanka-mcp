@@ -7,6 +7,58 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
+import { unwrapV2DataPromise } from '../../internal/v2';
+import {
+  V2LifecycleData,
+  V2ObjectRecord,
+  V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
+  legacyObjectRecordFromV2,
+  unwrapV2ObjectRecord,
+  unwrapV2ObjectRecordArray,
+} from '../../internal/v2-object-records';
+
+const expenseFromV2Record = (record: V2ObjectRecord): Expense =>
+  legacyObjectRecordFromV2<Expense>(record, 'id_pm');
+
+const expenseUpdateProperties = (params: ExpenseUpdateParams): Record<string, unknown> => {
+  const {
+    amount,
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    company_id,
+    contact_external_id: _contactExternalID,
+    contact_id,
+    currency,
+    description,
+    due_date,
+    external_id: _externalID,
+    reimburse_date,
+    status,
+  } = params;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  return compactProperties({
+    amount,
+    company_id,
+    contact_id,
+    currency,
+    description,
+    due_date,
+    reimburse_date,
+    status,
+  });
+};
+
+const canUseV2ExpenseUpdate = (params: ExpenseUpdateParams, properties: Record<string, unknown>): boolean =>
+  params.attachment_file == null &&
+  params.company_external_id == null &&
+  params.contact_external_id == null &&
+  Object.keys(properties).length > 0;
 
 export class Expenses extends APIResource {
   /**
@@ -24,15 +76,20 @@ export class Expenses extends APIResource {
     params: ExpenseRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Expense> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/expenses/${expenseID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2ObjectRecord(
+      this._client.v2Get<V2ObjectRecord>(path`/expenses/${expenseID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      expenseFromV2Record,
+    );
   }
 
   /**
@@ -40,10 +97,27 @@ export class Expenses extends APIResource {
    */
   update(
     expenseID: string,
-    body: ExpenseUpdateParams,
+    params: ExpenseUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicExpenseResponse> {
-    return this._client.put(path`/v1/public/expenses/${expenseID}`, { body, ...options });
+    const properties = expenseUpdateProperties(params);
+    if (canUseV2ExpenseUpdate(params, properties)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/expenses/${expenseID}`, {
+          query: { external_id: params.external_id },
+          body: { properties },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<PublicExpenseResponse>(
+            envelope,
+            'expense_id',
+            'updated',
+            params.external_id,
+          ),
+        );
+    }
+    return this._client.put(path`/v1/public/expenses/${expenseID}`, { body: params, ...options });
   }
 
   /**
@@ -53,15 +127,27 @@ export class Expenses extends APIResource {
     params: ExpenseListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ExpenseListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/expenses', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      workspace_id: _workspaceID,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void _workspaceID;
+    return unwrapV2ObjectRecordArray(
+      this._client.v2Get<V2ObjectRecordList>('/expenses', {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+      expenseFromV2Record,
+    );
   }
 
   /**
@@ -73,10 +159,14 @@ export class Expenses extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicExpenseResponse> {
     const { external_id } = params ?? {};
-    return this._client.delete(path`/v1/public/expenses/${expenseID}`, {
-      query: { external_id },
-      ...options,
-    });
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/expenses/${expenseID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyDeleteResponseFromV2<PublicExpenseResponse>(envelope, 'expense_id', external_id),
+      );
   }
 
   /**
@@ -86,9 +176,11 @@ export class Expenses extends APIResource {
     body: ExpenseUploadAttachmentParams,
     options?: RequestOptions,
   ): APIPromise<ExpenseUploadAttachmentResponse> {
-    return this._client.post(
-      '/v1/public/expenses/files',
-      multipartFormRequestOptions({ body, ...options }, this._client),
+    return unwrapV2DataPromise(
+      this._client.v2Post<ExpenseUploadAttachmentResponse>(
+        '/expenses/files',
+        multipartFormRequestOptions({ body, ...options }, this._client),
+      ),
     );
   }
 }

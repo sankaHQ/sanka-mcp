@@ -674,10 +674,15 @@ type OrderLineItem = {
 
 type PublicLineItem = Record<string, unknown>;
 
+type AttachmentFilePayload = {
+  files: Array<{ file_id: string }>;
+};
+
 type OrderPayload = {
   externalId: string;
   items?: OrderLineItem[];
   line_items?: PublicLineItem[];
+  attachment_file?: AttachmentFilePayload;
   companyExternalId?: string;
   companyId?: string;
   deliveryStatus?: string;
@@ -687,6 +692,7 @@ type OrderPayload = {
 type OrderPayloadDraft = Partial<OrderPayload> & {
   items?: OrderLineItem[];
   line_items?: PublicLineItem[];
+  attachment_file?: AttachmentFilePayload;
 };
 
 type OrderMutationPayload = {
@@ -2142,6 +2148,25 @@ const EXPENSE_UPLOAD_OUTPUT_SCHEMA = {
   required: ['file_id', 'ok'],
 };
 
+const BILL_UPLOAD_INPUT_SCHEMA = EXPENSE_UPLOAD_INPUT_SCHEMA;
+const BILL_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
+const ORDER_UPLOAD_INPUT_SCHEMA = EXPENSE_UPLOAD_INPUT_SCHEMA;
+const ORDER_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
+const ESTIMATE_UPLOAD_INPUT_SCHEMA = EXPENSE_UPLOAD_INPUT_SCHEMA;
+const ESTIMATE_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
+const INVOICE_UPLOAD_INPUT_SCHEMA = EXPENSE_UPLOAD_INPUT_SCHEMA;
+const INVOICE_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
+const PURCHASE_ORDER_UPLOAD_INPUT_SCHEMA = EXPENSE_UPLOAD_INPUT_SCHEMA;
+const PURCHASE_ORDER_UPLOAD_OUTPUT_SCHEMA = EXPENSE_UPLOAD_OUTPUT_SCHEMA;
+
+const DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY = {
+  type: 'array',
+  description: 'Optional uploaded attachment file IDs to bind to the record.',
+  items: {
+    type: 'string',
+  },
+};
+
 const DEAL_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -2594,6 +2619,196 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     },
   },
   required: ['object_name'],
+};
+
+const RULE_SETTINGS_OBJECT_PROPERTY = {
+  type: 'string',
+  description:
+    'Sanka object family the rule applies to, for example invoices, companies, contacts, deals, payments, estimates, orders, or purchase-orders. Delivery rules currently support invoices only.',
+};
+
+const RULE_SETTINGS_COMMON_INPUT_PROPERTIES = {
+  object: RULE_SETTINGS_OBJECT_PROPERTY,
+  object_name: {
+    ...RULE_SETTINGS_OBJECT_PROPERTY,
+    description: 'Alias for object. Prefer object.',
+  },
+  workspace_id: {
+    type: 'string',
+    description: WORKSPACE_ID_DESCRIPTION,
+  },
+  language: {
+    type: 'string',
+    description: 'Optional language override.',
+  },
+};
+
+const RULE_CONDITIONS_PROPERTY = {
+  type: 'object',
+  description:
+    'Rule condition DSL. Use {"all":[{"field":"status","op":"==","value":"sent"}]} for simple AND conditions.',
+  additionalProperties: true,
+};
+
+const APPROVAL_RULE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of rules to show in the MCP response.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object'],
+};
+
+const APPROVAL_RULE_OPTIONS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID to load. Omit to get a blank rule template and available options.',
+    },
+  },
+  required: ['object'],
+};
+
+const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID. Omit to create a new approval rule.',
+    },
+    name: { type: 'string', description: 'Approval rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    block_save: {
+      type: 'boolean',
+      description: 'Legacy shortcut for block_targets=["save"]. Prefer block_targets.',
+    },
+    block_targets: {
+      type: 'array',
+      description:
+        'Actions to block until approved, such as save, status_sent, status_scheduled, document_download, delivery_send, delivery_schedule, crud_create, crud_update, crud_delete, bulk_update, export, or convert.',
+      items: { type: 'string' },
+    },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    approver_user_ids: {
+      type: 'array',
+      description: 'Sanka UserManagement ids that can approve this rule.',
+      items: { type: 'string' },
+    },
+    worker_scope_type: {
+      type: 'string',
+      description: 'Employee scope for expense approval rules. Usually omit or use all.',
+      enum: ['all', 'selected_workers'],
+      default: 'all',
+    },
+    worker_ids: {
+      type: 'array',
+      description: 'Employee worker UUIDs for selected_workers expense rules.',
+      items: { type: 'string' },
+    },
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const RULE_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: { type: 'string', description: 'Rule UUID to delete.' },
+  },
+  required: ['object', 'rule_id'],
+};
+
+const LOCK_RULE_LIST_INPUT_SCHEMA = APPROVAL_RULE_LIST_INPUT_SCHEMA;
+const LOCK_RULE_OPTIONS_INPUT_SCHEMA = APPROVAL_RULE_OPTIONS_INPUT_SCHEMA;
+const LOCK_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID. Omit to create a new lock rule.',
+    },
+    name: { type: 'string', description: 'Lock rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    lock_scope: {
+      type: 'string',
+      description:
+        'What to lock while conditions match. invoices support full_record, financial_fields, and selected_fields; other objects use full_record.',
+      enum: ['full_record', 'financial_fields', 'selected_fields'],
+      default: 'full_record',
+    },
+    lock_config: {
+      type: 'object',
+      description:
+        'Lock configuration. For invoices selected_fields, pass {"locked_field_keys":["status","issue_date"]}.',
+      additionalProperties: true,
+    },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const DELIVERY_RULE_LIST_INPUT_SCHEMA = APPROVAL_RULE_LIST_INPUT_SCHEMA;
+const DELIVERY_RULE_OPTIONS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing delivery rule UUID to load.',
+    },
+    action: {
+      type: 'string',
+      description: 'Delivery action to inspect when rule_id is omitted.',
+      enum: ['send', 'schedule'],
+    },
+  },
+  required: ['object'],
+};
+const DELIVERY_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing delivery rule UUID. Omit to create a new delivery rule.',
+    },
+    action: {
+      type: 'string',
+      description: 'Invoice delivery action controlled by this rule.',
+      enum: ['send', 'schedule'],
+      default: 'send',
+    },
+    name: { type: 'string', description: 'Delivery rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    required_fields: {
+      type: 'array',
+      description: 'Invoice fields that must be present before the delivery action can run.',
+      items: { type: 'string' },
+    },
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const RULE_SETTINGS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
 };
 
 const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
@@ -3244,6 +3459,7 @@ const ORDER_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     order: ORDER_BODY_INPUT_SCHEMA,
+    attachment_file_ids: DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY,
     create_missing_items: {
       type: 'boolean',
       description: 'When true, create referenced items that do not exist yet.',
@@ -3264,6 +3480,7 @@ const ORDER_UPDATE_INPUT_SCHEMA = {
       description: 'Order identifier to update.',
     },
     order: ORDER_BODY_INPUT_SCHEMA,
+    attachment_file_ids: DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY,
     create_missing_items: {
       type: 'boolean',
       description: 'When true, create referenced items that do not exist yet.',
@@ -3555,6 +3772,7 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
 };
 
 const PURCHASE_ORDER_MUTATION_INPUT_PROPERTIES = {
+  attachment_file_ids: DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY,
   company_external_id: {
     type: 'string',
     description: 'External company reference.',
@@ -3782,6 +4000,7 @@ const TASK_MUTATION_OUTPUT_SCHEMA = {
 const FINANCIAL_DOCUMENT_LINE_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
 
 const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
+  attachment_file_ids: DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY,
   company_external_id: {
     type: 'string',
     description: 'External company reference.',
@@ -4944,6 +5163,13 @@ const BILL_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Bill amount before tax.',
   },
+  attachment_file_ids: {
+    type: 'array',
+    description: 'Optional uploaded bill attachment file IDs to bind to the bill.',
+    items: {
+      type: 'string',
+    },
+  },
   company_external_id: {
     type: 'string',
     description: 'External company reference.',
@@ -5327,6 +5553,8 @@ const DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA = {
 const INVOICE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    id: { type: 'string' },
+    app_url: { type: 'string' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
     days_overdue: { type: 'integer' },
@@ -5342,6 +5570,11 @@ const INVOICE_OUTPUT_SCHEMA = {
     status_key: { type: 'string' },
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
+    workspace_code: { type: 'string' },
+    line_items: {
+      type: 'array',
+      items: { type: 'object' },
+    },
   },
   required: ['created_at', 'updated_at'],
 };
@@ -5360,6 +5593,8 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
     invoice_id: { type: 'string' },
     id_inv: { type: 'integer' },
     verification: { type: 'object' },
+    app_url: { type: 'string' },
+    workspace_code: { type: 'string' },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -7428,6 +7663,18 @@ const buildStructuredTextPreview = (label: string, value: unknown): string | und
   return `${label}:\n${body}`;
 };
 
+const unwrapV2EnvelopeRecord = (
+  payload: Record<string, unknown>,
+): { data: unknown; meta: Record<string, unknown> | undefined } | undefined => {
+  if (typeof payload['success'] !== 'boolean' || !Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return undefined;
+  }
+  return {
+    data: payload['data'],
+    meta: readRecord(payload['meta']),
+  };
+};
+
 const DIRECT_CRM_SOURCE_LOCK_MESSAGE =
   'CRM deal/opportunity-sourced billing or procurement requests must go through workflow_type=deal_to_order first. Ask the user to confirm creating or reusing a Sanka Order, then use order_to_invoice, order_to_subscription, or order_to_purchase_order from that Order.';
 
@@ -7536,14 +7783,22 @@ type PublicAuthSessionResponse = {
 };
 
 const workspaceIdentityFromRecord = (record: Record<string, unknown> | undefined): WorkspaceIdentity => {
-  const workspaceID = readString(record?.['workspace_id']);
-  const workspaceCode = readString(record?.['workspace_code']);
-  const workspaceName = readString(record?.['workspace_name']);
+  const workspaceID = readString(record?.['workspace_id']) ?? readString(record?.['id']);
+  const workspaceCode = readString(record?.['workspace_code']) ?? readString(record?.['code']);
+  const workspaceName = readString(record?.['workspace_name']) ?? readString(record?.['name']);
   return {
     ...(workspaceID ? { workspace_id: workspaceID } : undefined),
     ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
     ...(workspaceName ? { workspace_name: workspaceName } : undefined),
   };
+};
+
+const workspaceIdentityFromSessionRecord = (
+  record: Record<string, unknown> | undefined,
+): WorkspaceIdentity => {
+  return workspaceIdentityFromRecord(
+    readRecord(record?.['current_workspace']) ?? readRecord(record?.['workspace']) ?? record,
+  );
 };
 
 const workspaceIdentityFromOauth = (reqContext: McpRequestContext): WorkspaceIdentity =>
@@ -7583,6 +7838,33 @@ const normalizeWorkspaceOptions = (
       selected: workspace.selected === true,
     };
   });
+
+const normalizeSessionWorkspaceOptions = (
+  data: Record<string, unknown> | undefined,
+): Record<string, unknown>[] => {
+  const legacyOptions = data?.['available_workspaces'];
+  if (Array.isArray(legacyOptions)) {
+    return normalizeWorkspaceOptions(legacyOptions as PublicAuthWorkspaceOption[]);
+  }
+
+  const workspaces = data?.['workspaces'];
+  if (!Array.isArray(workspaces)) {
+    return [];
+  }
+  const currentWorkspaceID = workspaceIdentityFromSessionRecord(data).workspace_id;
+  return workspaces
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((workspace) => {
+      const identity = workspaceIdentityFromRecord(workspace);
+      return {
+        id: identity.workspace_id ?? '',
+        ...(identity.workspace_name ? { name: identity.workspace_name } : undefined),
+        ...(identity.workspace_code ? { workspace_code: identity.workspace_code } : undefined),
+        selected: Boolean(identity.workspace_id && identity.workspace_id === currentWorkspaceID),
+      };
+    });
+};
 
 const assignStringFields = (
   body: Record<string, unknown>,
@@ -8076,6 +8358,62 @@ const buildCustomObjectRecordMutationResult = ({
   return {
     content: [{ type: 'text', text: message }],
     structuredContent: payload,
+  };
+};
+
+const normalizeRecordQueryPayload = (
+  payload: Record<string, unknown>,
+  body: Record<string, unknown>,
+): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+
+  const pagination = readRecord(envelope.meta?.['pagination']);
+  const rows =
+    Array.isArray(envelope.data) ? envelope.data
+    : Array.isArray(readRecord(envelope.data)?.['data']) ? (readRecord(envelope.data)?.['data'] as unknown[])
+    : [];
+  const page = readNumber(pagination?.['page'], readNumber(body['page'], 1));
+  const limit = readNumber(pagination?.['page_size'], readNumber(body['limit'], rows.length || 25));
+  const total = readNumber(pagination?.['total'], rows.length);
+
+  return {
+    object_type: body['object_type'] ?? 'records',
+    scope: body['scope'] ?? 'sanka',
+    ...(body['provider'] ? { provider: body['provider'] } : undefined),
+    ...(body['channel_id'] ? { channel_id: body['channel_id'] } : undefined),
+    ...(body['external_object_type'] ? { external_object_type: body['external_object_type'] } : undefined),
+    count: rows.length,
+    total,
+    page,
+    limit,
+    has_next: page * limit < total,
+    data: rows,
+    message: 'OK',
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const normalizeRecordAggregatePayload = (
+  payload: Record<string, unknown>,
+  body: Record<string, unknown>,
+): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    object_type: data['object_type'] ?? body['object_type'] ?? 'records',
+    scope: data['scope'] ?? body['scope'] ?? 'sanka',
+    ...(body['provider'] && !data['provider'] ? { provider: body['provider'] } : undefined),
+    ...(body['channel_id'] && !data['channel_id'] ? { channel_id: body['channel_id'] } : undefined),
+    message: data['message'] ?? 'OK',
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
   };
 };
 
@@ -8982,6 +9320,58 @@ const parseBase64Content = (raw: string): { data: string; mimeType?: string } =>
   };
 };
 
+const buildAttachmentFilePayload = (
+  args: Record<string, unknown> | undefined,
+): AttachmentFilePayload | undefined => {
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  if (attachmentFileIDs.length === 0) {
+    return undefined;
+  }
+
+  return {
+    files: attachmentFileIDs.map((fileID) => ({ file_id: fileID })),
+  };
+};
+
+const uploadAttachmentFileFromArgs = async ({
+  args,
+  entityName,
+  uploadAttachment,
+}: {
+  args: Record<string, unknown> | undefined;
+  entityName: string;
+  uploadAttachment: (file: File) => Promise<unknown>;
+}): Promise<ToolCallResult> => {
+  const filename = readString(args?.['filename']);
+  const contentBase64 = readString(args?.['content_base64']);
+  const mimeType = readString(args?.['mime_type']);
+  if (!filename) {
+    return asErrorResult('`filename` is required.');
+  }
+  if (!contentBase64) {
+    return asErrorResult('`content_base64` is required.');
+  }
+
+  const parsed = parseBase64Content(contentBase64);
+  const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+    type: mimeType || parsed.mimeType || 'application/octet-stream',
+  });
+  const response = (await uploadAttachment(file)) as {
+    filename?: string | null;
+    [key: string]: unknown;
+  };
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Uploaded ${entityName} attachment ${response.filename || filename}.`,
+      },
+    ],
+    structuredContent: response as Record<string, unknown>,
+  };
+};
+
 const buildExpenseMutationSummary = ({
   action,
   payload,
@@ -9321,6 +9711,12 @@ const buildOrderMutationBody = (args: Record<string, unknown> | undefined): Orde
     body.order = order;
   }
 
+  const attachmentFilePayload = buildAttachmentFilePayload(args);
+  if (attachmentFilePayload) {
+    body.order = body.order || {};
+    body.order.attachment_file = attachmentFilePayload;
+  }
+
   const createMissingItems = readBoolean(args?.['create_missing_items']);
   const triggerWorkflows = readBoolean(args?.['trigger_workflows']);
 
@@ -9499,6 +9895,11 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
     }
   }
   assignPublicLineItems(body, args);
+  const attachmentFilePayload = buildAttachmentFilePayload(args);
+  if (attachmentFilePayload) {
+    body['attachment_file'] = attachmentFilePayload;
+  }
+  assignPublicLineItems(body, args);
 
   return body;
 };
@@ -9523,6 +9924,11 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
     if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
       body[key] = numericValue;
     }
+  }
+  assignPublicLineItems(body, args);
+  const attachmentFilePayload = buildAttachmentFilePayload(args);
+  if (attachmentFilePayload) {
+    body['attachment_file'] = attachmentFilePayload;
   }
   assignPublicLineItems(body, args);
 
@@ -9633,6 +10039,12 @@ const buildBillMutationBody = (args: Record<string, unknown> | undefined) => {
     }
   }
   assignPublicLineItems(body, args);
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  if (attachmentFileIDs.length > 0) {
+    body['attachment_file'] = {
+      files: attachmentFileIDs.map((fileID) => ({ file_id: fileID })),
+    };
+  }
 
   return body;
 };
@@ -9833,11 +10245,11 @@ const buildJournalListParams = (args: Record<string, unknown> | undefined) => {
   return {
     limit,
     params: {
-      ...(viewID ? { view: viewID } : undefined),
+      ...(viewID ? { view_id: viewID } : undefined),
       ...(search ? { search } : undefined),
       ...(status ? { status } : undefined),
       page,
-      limit,
+      page_size: limit,
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -9929,13 +10341,28 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
   const formData = readRecord(args?.['form_data'] ?? args?.['formData']);
   const pagination = args?.['pagination'];
 
-  if (object) body['object'] = object;
+  if (object) {
+    body['object'] = object;
+    body['object_type'] = object;
+  }
   if (customObjectID) body['custom_object_id'] = customObjectID;
-  if (name) body['name'] = name;
-  if (viewType) body['view_type'] = viewType;
-  if (columns.length > 0) body['columns'] = columns;
+  if (name) {
+    body['name'] = name;
+    body['title'] = name;
+  }
+  if (viewType) {
+    body['view_type'] = viewType;
+    body['mode'] = viewType === 'list' ? 'table' : viewType;
+  }
+  if (columns.length > 0) {
+    body['columns'] = columns;
+    body['column_field_ids'] = columns;
+  }
   if (typeof pagination === 'number' && Number.isInteger(pagination)) body['pagination'] = pagination;
-  if (isPrivate !== undefined) body['is_private'] = isPrivate;
+  if (isPrivate !== undefined) {
+    body['is_private'] = isPrivate;
+    body['visibility'] = isPrivate ? 'private' : 'workspace';
+  }
   if (sortOrderBy) body['sort_order_by'] = sortOrderBy;
   if (sortOrderMethod) body['sort_order_method'] = sortOrderMethod;
   if (filters.length > 0) body['filters'] = filters;
@@ -10470,6 +10897,401 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
   };
 };
 
+const readRuleObjectName = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['object']) ?? readString(args?.['object_name']) ?? readString(args?.['object_type']);
+
+const buildRuleSettingsQuery = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const params: Record<string, unknown> = {};
+  if (objectName) {
+    params['object'] = objectName;
+  }
+  assignStringFields(params, args, ['workspace_id', 'language']);
+  return { objectName, params };
+};
+
+const buildRuleSettingsOptionsQuery = (
+  args: Record<string, unknown> | undefined,
+  extraKeys: readonly string[] = [],
+) => {
+  const { objectName, params } = buildRuleSettingsQuery(args);
+  assignStringFields(params, args, ['rule_id', ...extraKeys]);
+  return { objectName, params };
+};
+
+const buildApprovalRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'name', 'description', 'language', 'worker_scope_type']);
+  assignBooleanFields(body, args, ['is_active', 'block_save']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const blockTargets = readStringArray(args?.['block_targets']);
+  if (blockTargets.length > 0) {
+    body['block_targets'] = blockTargets;
+  }
+  const approverUserIDs = readStringArray(args?.['approver_user_ids']);
+  if (approverUserIDs.length > 0) {
+    body['approver_user_ids'] = approverUserIDs;
+  }
+  const workerIDs = readStringArray(args?.['worker_ids']);
+  if (workerIDs.length > 0) {
+    body['worker_ids'] = workerIDs;
+  }
+  return { objectName, body };
+};
+
+const buildLockRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'name', 'description', 'language', 'lock_scope']);
+  assignBooleanFields(body, args, ['is_active']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const lockConfig = readRecord(args?.['lock_config']);
+  if (lockConfig) {
+    body['lock_config'] = lockConfig;
+  }
+  return { objectName, body };
+};
+
+const buildDeliveryRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'action', 'name', 'description', 'language']);
+  assignBooleanFields(body, args, ['is_active']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const requiredFields = readStringArray(args?.['required_fields']);
+  if (requiredFields.length > 0) {
+    body['required_fields'] = requiredFields;
+  }
+  return { objectName, body };
+};
+
+const unwrapRuleSettingsEnvelope = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['data']) ?? payload;
+
+const ruleRowsFromPayload = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  const rules = data['rules'];
+  return Array.isArray(rules) ? rules.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const buildRuleSettingsListResult = ({
+  label,
+  payload,
+  limit,
+}: {
+  label: string;
+  payload: Record<string, unknown>;
+  limit: number;
+}): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  const rows = ruleRowsFromPayload(payload).slice(0, limit);
+  return buildListResult({
+    label,
+    payload: {
+      count: rows.length,
+      data: rows,
+      message: readString(data['message']) ?? `Returned ${rows.length} ${label}.`,
+      page: 1,
+      total: ruleRowsFromPayload(payload).length,
+    },
+    previewKeys: ['name', 'action', 'summary', 'id'],
+  });
+};
+
+const buildRuleSettingsDetailResult = (label: string, payload: Record<string, unknown>): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Loaded ${label}.`,
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const buildRuleSettingsMutationResult = (
+  label: string,
+  action: 'created' | 'updated' | 'deleted',
+  payload: Record<string, unknown>,
+): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  return {
+    content: [
+      {
+        type: 'text',
+        text: buildEntityMutationSummary({
+          entity: label,
+          action,
+          payload: readRecord(data['rule']) ?? data,
+          idKeys: ['id'],
+        }),
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const createRuleSettingsListTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'read',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'get',
+    httpPath: path,
+    operationId: `public.${resource}.list`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, params } = buildRuleSettingsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
+    const payload = (await reqContext.client.get(path, { query: params })) as Record<string, unknown>;
+    return buildRuleSettingsListResult({ label, payload, limit });
+  },
+});
+
+const createRuleSettingsOptionsTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+  extraQueryKeys = [],
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+  extraQueryKeys?: readonly string[];
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'read',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'get',
+    httpPath: `${path}/options`,
+    operationId: `public.${resource}.options`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, params } = buildRuleSettingsOptionsQuery(args, extraQueryKeys);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const payload = (await reqContext.client.get(`${path}/options`, { query: params })) as Record<
+      string,
+      unknown
+    >;
+    return buildRuleSettingsDetailResult(label, payload);
+  },
+});
+
+const createRuleSettingsUpsertTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+  buildBody,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+  buildBody: (args: Record<string, unknown> | undefined) => {
+    objectName: string | undefined;
+    body: Record<string, unknown>;
+  };
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'write',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'post',
+    httpPath: path,
+    operationId: `public.${resource}.upsert`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, body } = buildBody(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!readString(body['name'])) {
+      return asErrorResult('`name` is required.');
+    }
+    const response = (await reqContext.client.post(path, { body })) as Record<string, unknown>;
+    return buildRuleSettingsMutationResult(
+      label,
+      readString(body['rule_id']) ? 'updated' : 'created',
+      response,
+    );
+  },
+});
+
+const createRuleSettingsDeleteTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  label,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  label: string;
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'write',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'delete',
+    httpPath: `${path}/{rule_id}`,
+    operationId: `public.${resource}.delete`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema: RULE_DELETE_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const ruleID = readString(args?.['rule_id']);
+    if (!ruleID) {
+      return asErrorResult('`rule_id` is required.');
+    }
+    const { objectName, params } = buildRuleSettingsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const response = (await reqContext.client.delete(`${path}/${encodeURIComponent(ruleID)}`, {
+      query: params,
+    })) as Record<string, unknown>;
+    return buildRuleSettingsMutationResult(label, 'deleted', response);
+  },
+});
+
 const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undefined => {
   if (!Array.isArray(value)) {
     return undefined;
@@ -10549,6 +11371,100 @@ const buildObjectSchemaMutationBody = (args: Record<string, unknown> | undefined
     body['associations'] = associations;
   }
   return body;
+};
+
+const normalizeObjectSchemaListPayload = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((entry) => readRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  }
+  const record = readRecord(payload);
+  if (!record) {
+    return [];
+  }
+  const envelope = unwrapV2EnvelopeRecord(record);
+  if (envelope) {
+    return normalizeObjectSchemaListPayload(envelope.data);
+  }
+  const rows = record['data'] ?? record['items'] ?? record['results'];
+  return normalizeObjectSchemaListPayload(rows);
+};
+
+const normalizeObjectSchemaMutationPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const normalizeV2ListEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown>[] => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  const value = envelope ? envelope.data : payload['data'];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+};
+
+const normalizeViewDetailPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  const view = readRecord(data['view']);
+  return {
+    ...data,
+    ...(view ? { data: view } : { data }),
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const normalizeJournalListPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  const pagination = readRecord(envelope.meta?.['pagination']);
+  const rows =
+    Array.isArray(data['items']) ? data['items']
+    : Array.isArray(data['data']) ? data['data']
+    : [];
+  return {
+    ...data,
+    data: rows,
+    count: rows.length,
+    total: readNumber(pagination?.['total'], rows.length),
+    page: readNumber(pagination?.['page'], 1),
+    message: data['message'] ?? 'OK',
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const normalizeJournalStatementViewCreatePayload = (
+  payload: Record<string, unknown>,
+): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  const nestedData = readRecord(data['data']) ?? readRecord(data['view']) ?? data;
+  return {
+    data: nestedData,
+    statement: data['statement'] ?? null,
+    message: data['message'] ?? 'OK',
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
 };
 
 const objectSchemaMutationAction = (
@@ -11514,7 +12430,7 @@ export const crmCurrentWorkspaceTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'auth'],
     httpMethod: 'get',
-    httpPath: '/v1/public/auth/whoami',
+    httpPath: '/api/v2/auth/session',
     operationId: 'current_workspace',
   },
   tool: {
@@ -11568,7 +12484,7 @@ export const crmListWorkspacesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'auth'],
     httpMethod: 'get',
-    httpPath: '/v1/public/auth/session',
+    httpPath: '/api/v2/auth/session',
     operationId: 'list_workspaces',
   },
   tool: {
@@ -11596,14 +12512,12 @@ export const crmListWorkspacesTool: McpTool = {
     }
 
     const response = await reqContext.client.get<PublicAuthSessionResponse>(
-      '/v1/public/auth/session',
+      '/api/v2/auth/session',
       undefined,
     );
-    const data = response.data;
-    const availableWorkspaces = normalizeWorkspaceOptions(data?.available_workspaces);
-    const currentWorkspace = workspaceIdentityFromRecord(
-      data as unknown as Record<string, unknown> | undefined,
-    );
+    const data = readRecord((response as unknown as Record<string, unknown>)['data']);
+    const availableWorkspaces = normalizeSessionWorkspaceOptions(data);
+    const currentWorkspace = workspaceIdentityFromSessionRecord(data);
     const message = `Returned ${availableWorkspaces.length} available Sanka workspaces.`;
     const workspacePreview = buildStructuredTextPreview('Available Sanka workspaces preview', {
       current_workspace: currentWorkspace,
@@ -11636,7 +12550,7 @@ export const crmSwitchWorkspaceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'auth'],
     httpMethod: 'post',
-    httpPath: '/v1/public/auth/mcp-session/switch-workspace',
+    httpPath: '/api/v2/workspaces/switch',
     operationId: 'switch_workspace',
   },
   tool: {
@@ -11670,25 +12584,37 @@ export const crmSwitchWorkspaceTool: McpTool = {
       );
     }
 
-    const path =
-      reqContext.mcpSessionId ?
-        '/v1/public/auth/mcp-session/switch-workspace'
-      : '/v1/public/auth/session/switch-workspace';
-    const response = await reqContext.client.post<PublicAuthSessionResponse>(path, {
-      body: { workspace_id: workspaceID },
-      ...(reqContext.mcpSessionId ?
-        {
-          headers: {
-            'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId,
-          },
-        }
-      : undefined),
-    });
-    const data = response.data;
-    const availableWorkspaces = normalizeWorkspaceOptions(data?.available_workspaces);
-    const currentWorkspace = workspaceIdentityFromRecord(
-      data as unknown as Record<string, unknown> | undefined,
+    const switchResponse = await reqContext.client.post<Record<string, unknown>>(
+      '/api/v2/workspaces/switch',
+      {
+        body: { target_workspace_id: workspaceID },
+        ...(reqContext.mcpSessionId ?
+          {
+            headers: {
+              'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId,
+            },
+          }
+        : undefined),
+      },
     );
+
+    const switchEnvelope = unwrapV2EnvelopeRecord(switchResponse);
+    const switchData =
+      readRecord(switchEnvelope?.data) ??
+      readRecord((switchResponse as Record<string, unknown>)['data']) ??
+      readRecord(switchResponse);
+    const sessionResponse = await reqContext.client.get<Record<string, unknown>>(
+      '/api/v2/auth/session',
+      undefined,
+    );
+    const sessionEnvelope = unwrapV2EnvelopeRecord(sessionResponse);
+    const sessionData =
+      readRecord(sessionEnvelope?.data) ?? readRecord((sessionResponse as Record<string, unknown>)['data']);
+    const availableWorkspaces = normalizeSessionWorkspaceOptions(sessionData);
+    const currentWorkspace = {
+      ...workspaceIdentityFromSessionRecord(switchData),
+      ...workspaceIdentityFromSessionRecord(sessionData),
+    };
     const message = `Switched Sanka workspace to ${currentWorkspaceLabel(currentWorkspace)}.`;
 
     return {
@@ -11716,7 +12642,7 @@ export const crmQueryRecordsTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/records/query',
+    httpPath: '/api/v2/records/query',
     operationId: 'public.records.query',
   },
   tool: {
@@ -11748,11 +12674,11 @@ export const crmQueryRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/v1/public/records/query', {
+    const payload = (await reqContext.client.post('/api/v2/records/query', {
       body,
     })) as Record<string, unknown>;
 
-    return buildRecordQueryResult(payload);
+    return buildRecordQueryResult(normalizeRecordQueryPayload(payload, body));
   },
 };
 
@@ -11762,7 +12688,7 @@ export const crmAggregateRecordsTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/records/aggregate',
+    httpPath: '/api/v2/records/aggregate',
     operationId: 'public.records.aggregate',
   },
   tool: {
@@ -11794,11 +12720,11 @@ export const crmAggregateRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/v1/public/records/aggregate', {
+    const payload = (await reqContext.client.post('/api/v2/records/aggregate', {
       body,
     })) as Record<string, unknown>;
 
-    return buildRecordAggregateResult(payload);
+    return buildRecordAggregateResult(normalizeRecordAggregatePayload(payload, body));
   },
 };
 
@@ -12120,7 +13046,7 @@ export const crmListCompaniesTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'get',
-    httpPath: '/v1/public/companies',
+    httpPath: '/api/v2/companies',
     operationId: 'public.companies.list',
   },
   tool: {
@@ -12147,19 +13073,23 @@ export const crmListCompaniesTool: McpTool = {
       return authError;
     }
 
-    const payload =
-      hasCompanyRecordRoutingArgs(args) ?
-        ((await reqContext.client.post('/v1/public/records/query', {
-          body: buildCompanyRecordQueryBody(args),
-        })) as {
-          count: number;
-          data: Array<Record<string, unknown>>;
-          message: string;
-          page: number;
-          total: number;
-          permission?: string | null;
-        })
-      : await reqContext.client.public.companies.list(buildListParams(args), undefined);
+    let payload: {
+      count: number;
+      data: Array<Record<string, unknown>>;
+      message: string;
+      page: number;
+      total: number;
+      permission?: string | null;
+    };
+    if (hasCompanyRecordRoutingArgs(args)) {
+      const body = buildCompanyRecordQueryBody(args);
+      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+        body,
+      })) as Record<string, unknown>;
+      payload = normalizeRecordQueryPayload(rawPayload, body) as typeof payload;
+    } else {
+      payload = await reqContext.client.public.companies.list(buildListParams(args), undefined);
+    }
 
     return buildListResult({
       label: 'companies',
@@ -12174,7 +13104,7 @@ export const crmGetCompanyTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'get',
-    httpPath: '/v1/public/companies/{company_id}',
+    httpPath: '/api/v2/companies/{company_id}',
     operationId: 'public.companies.retrieve',
   },
   tool: {
@@ -12233,14 +13163,14 @@ export const crmCreateCompanyTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/companies',
+    httpPath: '/api/v2/companies',
     operationId: 'public.companies.create',
   },
   tool: {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create or upsert a company. Default target=sanka mutates Sanka only and requires external_id. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -12287,8 +13217,8 @@ export const crmUpdateCompanyTool: McpTool = {
     resource: 'companies',
     operation: 'write',
     tags: ['crm'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/companies/{company_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/companies/{company_id}',
     operationId: 'public.companies.update',
   },
   tool: {
@@ -12349,7 +13279,7 @@ export const crmDeleteCompanyTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/companies/{company_id}',
+    httpPath: '/api/v2/companies/{company_id}',
     operationId: 'public.companies.delete',
   },
   tool: {
@@ -12410,7 +13340,7 @@ export const crmListContactsTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'get',
-    httpPath: '/v1/public/contacts',
+    httpPath: '/api/v2/contacts',
     operationId: 'public.contacts.list',
   },
   tool: {
@@ -12452,7 +13382,7 @@ export const crmGetContactTool: McpTool = {
     operation: 'read',
     tags: ['crm'],
     httpMethod: 'get',
-    httpPath: '/v1/public/contacts/{contact_id}',
+    httpPath: '/api/v2/contacts/{contact_id}',
     operationId: 'public.contacts.retrieve',
   },
   tool: {
@@ -12511,14 +13441,14 @@ export const crmCreateContactTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/contacts',
+    httpPath: '/api/v2/contacts',
     operationId: 'public.contacts.create',
   },
   tool: {
     name: 'create_contact',
     title: 'Create contact',
     description:
-      'Create a contact in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
+      'Create a contact in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: CONTACT_CREATE_INPUT_SCHEMA,
     outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -12565,8 +13495,8 @@ export const crmUpdateContactTool: McpTool = {
     resource: 'contacts',
     operation: 'write',
     tags: ['crm'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/contacts/{contact_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/contacts/{contact_id}',
     operationId: 'public.contacts.update',
   },
   tool: {
@@ -12626,7 +13556,7 @@ export const crmDeleteContactTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/contacts/{contact_id}',
+    httpPath: '/api/v2/contacts/{contact_id}',
     operationId: 'public.contacts.delete',
   },
   tool: {
@@ -12687,7 +13617,7 @@ export const crmListExpensesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'expenses'],
     httpMethod: 'get',
-    httpPath: '/v1/public/expenses',
+    httpPath: '/api/v2/expenses',
     operationId: 'public.expenses.list',
   },
   tool: {
@@ -12744,7 +13674,7 @@ export const crmGetExpenseTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'expenses'],
     httpMethod: 'get',
-    httpPath: '/v1/public/expenses/{expense_id}',
+    httpPath: '/api/v2/expenses/{expense_id}',
     operationId: 'public.expenses.retrieve',
   },
   tool: {
@@ -12794,7 +13724,7 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'expenses'],
     httpMethod: 'post',
-    httpPath: '/v1/public/expenses/files',
+    httpPath: '/api/v2/expenses/files',
     operationId: 'public.expenses.uploadAttachment',
   },
   tool: {
@@ -12901,8 +13831,8 @@ export const crmUpdateExpenseTool: McpTool = {
     resource: 'expenses',
     operation: 'write',
     tags: ['crm', 'expenses'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/expenses/{expense_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/expenses/{expense_id}',
     operationId: 'public.expenses.update',
   },
   tool: {
@@ -12954,7 +13884,7 @@ export const crmDeleteExpenseTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'expenses'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/expenses/{expense_id}',
+    httpPath: '/api/v2/expenses/{expense_id}',
     operationId: 'public.expenses.delete',
   },
   tool: {
@@ -14378,7 +15308,7 @@ export const crmListDealsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'deals'],
     httpMethod: 'get',
-    httpPath: '/v1/public/deals',
+    httpPath: '/api/v2/deals',
     operationId: 'public.deals.list',
   },
   tool: {
@@ -14406,9 +15336,11 @@ export const crmListDealsTool: McpTool = {
     }
 
     if (hasDealRecordRoutingArgs(args)) {
-      const payload = (await reqContext.client.post('/v1/public/records/query', {
-        body: buildDealRecordQueryBody(args),
-      })) as {
+      const body = buildDealRecordQueryBody(args);
+      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+        body,
+      })) as Record<string, unknown>;
+      const payload = normalizeRecordQueryPayload(rawPayload, body) as {
         count: number;
         data: Array<Record<string, unknown>>;
         message: string;
@@ -14449,7 +15381,7 @@ export const crmGetDealTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'deals'],
     httpMethod: 'get',
-    httpPath: '/v1/public/deals/{case_id}',
+    httpPath: '/api/v2/deals/{case_id}',
     operationId: 'public.deals.retrieve',
   },
   tool: {
@@ -14499,7 +15431,7 @@ export const crmListDealPipelinesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'deals'],
     httpMethod: 'get',
-    httpPath: '/v1/public/deals/pipelines',
+    httpPath: '/api/v2/deals/pipelines',
     operationId: 'public.deals.listPipelines',
   },
   tool: {
@@ -14551,14 +15483,14 @@ export const crmCreateDealTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'deals'],
     httpMethod: 'post',
-    httpPath: '/v1/public/deals',
+    httpPath: '/api/v2/deals',
     operationId: 'public.deals.create',
   },
   tool: {
     name: 'create_deal',
     title: 'Create deal',
     description:
-      'Create a deal in Sanka or a connected CRM. `external_id` is required for Sanka-local upserts; integration-only creates can omit it and use the returned provider id.',
+      'Create a deal in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
     inputSchema: DEAL_CREATE_INPUT_SCHEMA,
     outputSchema: DEAL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14605,8 +15537,8 @@ export const crmUpdateDealTool: McpTool = {
     resource: 'deals',
     operation: 'write',
     tags: ['crm', 'deals'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/deals/{case_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/deals/{case_id}',
     operationId: 'public.deals.update',
   },
   tool: {
@@ -14667,7 +15599,7 @@ export const crmDeleteDealTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'deals'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/deals/{case_id}',
+    httpPath: '/api/v2/deals/{case_id}',
     operationId: 'public.deals.delete',
   },
   tool: {
@@ -14728,7 +15660,7 @@ export const crmListOrdersTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/orders',
+    httpPath: '/api/v2/orders',
     operationId: 'public.orders.list',
   },
   tool: {
@@ -14770,7 +15702,7 @@ export const crmGetOrderTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/orders/{order_id}',
+    httpPath: '/api/v2/orders/{order_id}',
     operationId: 'public.orders.retrieve',
   },
   tool: {
@@ -14829,7 +15761,7 @@ export const crmDownloadOrderPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/orders/{order_id}/pdf',
+    httpPath: '/api/v2/orders/{order_id}/pdf',
     operationId: 'public.orders.downloadPDF',
   },
   tool: {
@@ -14865,6 +15797,47 @@ export const crmDownloadOrderPDFTool: McpTool = {
   },
 };
 
+export const crmUploadOrderAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'orders',
+    operation: 'write',
+    tags: ['crm', 'orders'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/orders/files',
+    operationId: 'public.orders.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_order_attachment',
+    title: 'Upload order attachment',
+    description:
+      'Upload an order attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_order or update_order.',
+    inputSchema: ORDER_UPLOAD_INPUT_SCHEMA,
+    outputSchema: ORDER_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload order attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload order attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    return uploadAttachmentFileFromArgs({
+      args,
+      entityName: 'order',
+      uploadAttachment: (file) => reqContext.client.public.orders.uploadAttachment({ file }, undefined),
+    });
+  },
+};
+
 export const crmCreateOrderTool: McpTool = {
   metadata: {
     resource: 'orders',
@@ -14878,7 +15851,7 @@ export const crmCreateOrderTool: McpTool = {
     name: 'create_order',
     title: 'Create order',
     description:
-      'Create an order in Sanka. Provide the nested `order` payload with line items and optional workflow flags.',
+      'Create an order in Sanka. Provide the nested `order` payload with line items and optional workflow flags. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ORDER_CREATE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14911,6 +15884,7 @@ export const crmCreateOrderTool: McpTool = {
         externalId: body.order.externalId,
         ...(body.order.items !== undefined ? { items: body.order.items } : {}),
         ...(body.order.line_items !== undefined ? { line_items: body.order.line_items } : {}),
+        ...(body.order.attachment_file !== undefined ? { attachment_file: body.order.attachment_file } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
@@ -14944,7 +15918,8 @@ export const crmUpdateOrderTool: McpTool = {
   tool: {
     name: 'update_order',
     title: 'Update order',
-    description: 'Update an existing order in Sanka.',
+    description:
+      'Update an existing order in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ORDER_UPDATE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14982,6 +15957,7 @@ export const crmUpdateOrderTool: McpTool = {
         externalId: body.order.externalId,
         ...(body.order.items !== undefined ? { items: body.order.items } : {}),
         ...(body.order.line_items !== undefined ? { line_items: body.order.line_items } : {}),
+        ...(body.order.attachment_file !== undefined ? { attachment_file: body.order.attachment_file } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
@@ -15076,7 +16052,7 @@ export const crmDeleteOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'orders'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/orders/{order_id}',
+    httpPath: '/api/v2/orders/{order_id}',
     operationId: 'public.orders.delete',
   },
   tool: {
@@ -15212,7 +16188,7 @@ export const crmListPurchaseOrdersTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/purchase-orders',
+    httpPath: '/api/v2/purchase-orders',
     operationId: 'public.purchaseOrders.list',
   },
   tool: {
@@ -15264,7 +16240,7 @@ export const crmGetPurchaseOrderTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    httpPath: '/api/v2/purchase-orders/{purchase_order_id}',
     operationId: 'public.purchaseOrders.retrieve',
   },
   tool: {
@@ -15324,7 +16300,7 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'get',
-    httpPath: '/v1/public/purchase-orders/{purchase_order_id}/pdf',
+    httpPath: '/api/v2/purchase-orders/{purchase_order_id}/pdf',
     operationId: 'public.purchaseOrders.downloadPDF',
   },
   tool: {
@@ -15355,12 +16331,54 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
       return asErrorResult('`purchase_order_id` is required.');
     }
 
-    const response = await reqContext.client
-      .get(`/v1/public/purchase-orders/${encodeURIComponent(purchaseOrderID)}/pdf`, {
-        query: params,
-      })
-      .asResponse();
+    const response = await reqContext.client.public.purchaseOrders.downloadPDF(
+      purchaseOrderID,
+      params,
+      undefined,
+    );
     return asStoredBinaryDownloadResult(reqContext, response, 'purchase-order.pdf');
+  },
+};
+
+export const crmUploadPurchaseOrderAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'purchaseOrders',
+    operation: 'write',
+    tags: ['crm', 'purchase-orders'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/purchase-orders/files',
+    operationId: 'public.purchaseOrders.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_purchase_order_attachment',
+    title: 'Upload purchase order attachment',
+    description:
+      'Upload a purchase order attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_purchase_order or update_purchase_order.',
+    inputSchema: PURCHASE_ORDER_UPLOAD_INPUT_SCHEMA,
+    outputSchema: PURCHASE_ORDER_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload purchase order attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload purchase order attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    return uploadAttachmentFileFromArgs({
+      args,
+      entityName: 'purchase order',
+      uploadAttachment: (file) =>
+        reqContext.client.public.purchaseOrders.uploadAttachment({ file }, undefined),
+    });
   },
 };
 
@@ -15377,7 +16395,7 @@ export const crmCreatePurchaseOrderTool: McpTool = {
     name: 'create_purchase_order',
     title: 'Create purchase order',
     description:
-      'Create a purchase order in Sanka from explicit supplier and line item data. For CRM deal/opportunity-sourced procurement, use deal_to_order first and create purchase orders from the Sanka Order context.',
+      'Create a purchase order in Sanka from explicit supplier and line item data. Attach uploaded file ids with `attachment_file_ids` when needed. For CRM deal/opportunity-sourced procurement, use deal_to_order first and create purchase orders from the Sanka Order context.',
     inputSchema: PURCHASE_ORDER_CREATE_INPUT_SCHEMA,
     outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15427,14 +16445,15 @@ export const crmUpdatePurchaseOrderTool: McpTool = {
     resource: 'purchaseOrders',
     operation: 'write',
     tags: ['crm', 'purchase-orders'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/purchase-orders/{purchase_order_id}',
     operationId: 'public.purchaseOrders.update',
   },
   tool: {
     name: 'update_purchase_order',
     title: 'Update purchase order',
-    description: 'Update an existing purchase order in Sanka.',
+    description:
+      'Update an existing purchase order in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: PURCHASE_ORDER_UPDATE_INPUT_SCHEMA,
     outputSchema: PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15488,7 +16507,7 @@ export const crmDeletePurchaseOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/purchase-orders/{purchase_order_id}',
+    httpPath: '/api/v2/purchase-orders/{purchase_order_id}',
     operationId: 'public.purchaseOrders.delete',
   },
   tool: {
@@ -15549,7 +16568,7 @@ export const crmListTasksTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'tasks'],
     httpMethod: 'get',
-    httpPath: '/v1/public/tasks',
+    httpPath: '/api/v2/tasks',
     operationId: 'public.tasks.list',
   },
   tool: {
@@ -15597,7 +16616,7 @@ export const crmGetTaskTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'tasks'],
     httpMethod: 'get',
-    httpPath: '/v1/public/tasks/{task_id}',
+    httpPath: '/api/v2/tasks/{task_id}',
     operationId: 'public.tasks.retrieve',
   },
   tool: {
@@ -15656,7 +16675,7 @@ export const crmCreateTaskTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'tasks'],
     httpMethod: 'post',
-    httpPath: '/v1/public/tasks',
+    httpPath: '/api/v2/tasks',
     operationId: 'public.tasks.create',
   },
   tool: {
@@ -15714,8 +16733,8 @@ export const crmUpdateTaskTool: McpTool = {
     resource: 'tasks',
     operation: 'write',
     tags: ['crm', 'tasks'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/tasks/{task_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/tasks/{task_id}',
     operationId: 'public.tasks.update',
   },
   tool: {
@@ -15789,7 +16808,7 @@ export const crmDeleteTaskTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'tasks'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/tasks/{task_id}',
+    httpPath: '/api/v2/tasks/{task_id}',
     operationId: 'public.tasks.delete',
   },
   tool: {
@@ -15849,7 +16868,7 @@ export const crmListEstimatesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'estimates'],
     httpMethod: 'get',
-    httpPath: '/v1/public/estimates',
+    httpPath: '/api/v2/estimates',
     operationId: 'public.estimates.list',
   },
   tool: {
@@ -15901,7 +16920,7 @@ export const crmGetEstimateTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'estimates'],
     httpMethod: 'get',
-    httpPath: '/v1/public/estimates/{estimate_id}',
+    httpPath: '/api/v2/estimates/{estimate_id}',
     operationId: 'public.estimates.retrieve',
   },
   tool: {
@@ -15960,7 +16979,7 @@ export const crmDownloadEstimatePDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'estimates'],
     httpMethod: 'get',
-    httpPath: '/v1/public/estimates/{estimate_id}/pdf',
+    httpPath: '/api/v2/estimates/{estimate_id}/pdf',
     operationId: 'public.estimates.downloadPDF',
   },
   tool: {
@@ -15996,6 +17015,47 @@ export const crmDownloadEstimatePDFTool: McpTool = {
   },
 };
 
+export const crmUploadEstimateAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'estimates',
+    operation: 'write',
+    tags: ['crm', 'estimates'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/estimates/files',
+    operationId: 'public.estimates.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_estimate_attachment',
+    title: 'Upload estimate attachment',
+    description:
+      'Upload an estimate attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_estimate or update_estimate.',
+    inputSchema: ESTIMATE_UPLOAD_INPUT_SCHEMA,
+    outputSchema: ESTIMATE_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload estimate attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload estimate attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    return uploadAttachmentFileFromArgs({
+      args,
+      entityName: 'estimate',
+      uploadAttachment: (file) => reqContext.client.public.estimates.uploadAttachment({ file }, undefined),
+    });
+  },
+};
+
 export const crmCreateEstimateTool: McpTool = {
   metadata: {
     resource: 'estimates',
@@ -16008,7 +17068,8 @@ export const crmCreateEstimateTool: McpTool = {
   tool: {
     name: 'create_estimate',
     title: 'Create estimate',
-    description: 'Create an estimate in Sanka.',
+    description:
+      'Create an estimate in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ESTIMATE_CREATE_INPUT_SCHEMA,
     outputSchema: ESTIMATE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16055,14 +17116,15 @@ export const crmUpdateEstimateTool: McpTool = {
     resource: 'estimates',
     operation: 'write',
     tags: ['crm', 'estimates'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/estimates/{estimate_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/estimates/{estimate_id}',
     operationId: 'public.estimates.update',
   },
   tool: {
     name: 'update_estimate',
     title: 'Update estimate',
-    description: 'Update an existing estimate in Sanka.',
+    description:
+      'Update an existing estimate in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ESTIMATE_UPDATE_INPUT_SCHEMA,
     outputSchema: ESTIMATE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16116,7 +17178,7 @@ export const crmDeleteEstimateTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'estimates'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/estimates/{estimate_id}',
+    httpPath: '/api/v2/estimates/{estimate_id}',
     operationId: 'public.estimates.delete',
   },
   tool: {
@@ -16177,7 +17239,7 @@ export const crmListPrivateMessagesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'messages'],
     httpMethod: 'get',
-    httpPath: '/v1/public/account-messages',
+    httpPath: '/api/v2/me/messages',
     operationId: 'public.accountMessages.list',
   },
   tool: {
@@ -16222,7 +17284,7 @@ export const crmSyncPrivateMessagesTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'messages'],
     httpMethod: 'post',
-    httpPath: '/v1/public/account-messages/sync',
+    httpPath: '/api/v2/me/messages/sync',
     operationId: 'public.accountMessages.sync',
   },
   tool: {
@@ -16267,7 +17329,7 @@ export const crmGetPrivateMessageThreadTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'messages'],
     httpMethod: 'get',
-    httpPath: '/v1/public/account-messages/threads/{thread_id}',
+    httpPath: '/api/v2/me/messages/threads/{thread_id}',
     operationId: 'public.accountMessages.threads.retrieve',
   },
   tool: {
@@ -16315,7 +17377,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'messages'],
     httpMethod: 'post',
-    httpPath: '/v1/public/account-messages/threads/{thread_id}/reply',
+    httpPath: '/api/v2/me/messages/threads/{thread_id}/reply',
     operationId: 'public.accountMessages.threads.reply',
   },
   tool: {
@@ -16368,7 +17430,7 @@ export const crmArchivePrivateMessageThreadTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'messages'],
     httpMethod: 'post',
-    httpPath: '/v1/public/account-messages/threads/{thread_id}/archive',
+    httpPath: '/api/v2/me/messages/threads/{thread_id}/archive',
     operationId: 'public.accountMessages.threads.archive',
   },
   tool: {
@@ -16417,7 +17479,7 @@ export const crmListInvoicesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'invoices'],
     httpMethod: 'get',
-    httpPath: '/v1/public/invoices',
+    httpPath: '/api/v2/invoices',
     operationId: 'public.invoices.list',
   },
   tool: {
@@ -16456,7 +17518,7 @@ export const crmListInvoicesTool: McpTool = {
         page: 1,
         total: invoices.length,
       },
-      previewKeys: ['id_inv', 'company_name', 'contact_name'],
+      previewKeys: ['id_inv', 'company_name', 'contact_name', 'app_url'],
     });
   },
 };
@@ -16467,7 +17529,7 @@ export const crmListOverdueInvoicesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'invoices'],
     httpMethod: 'get',
-    httpPath: '/v1/public/invoices/overdue',
+    httpPath: '/api/v2/invoices/overdue',
     operationId: 'public.invoices.listOverdue',
   },
   tool: {
@@ -16506,7 +17568,14 @@ export const crmListOverdueInvoicesTool: McpTool = {
         page: 1,
         total: invoices.length,
       },
-      previewKeys: ['id_inv', 'company_name', 'contact_name', 'outstanding_balance', 'days_overdue'],
+      previewKeys: [
+        'id_inv',
+        'company_name',
+        'contact_name',
+        'outstanding_balance',
+        'days_overdue',
+        'app_url',
+      ],
     });
   },
 };
@@ -16517,7 +17586,7 @@ export const crmListJournalEntriesTool: McpTool = {
     operation: 'read',
     tags: ['finance', 'journals'],
     httpMethod: 'get',
-    httpPath: '/v1/public/journals',
+    httpPath: '/api/v2/journals',
     operationId: 'public.journals.list',
   },
   tool: {
@@ -16545,9 +17614,11 @@ export const crmListJournalEntriesTool: McpTool = {
     }
 
     const { limit, params } = buildJournalListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/journals', {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = normalizeJournalListPayload(
+      (await reqContext.client.get('/api/v2/journals', {
+        query: params,
+      })) as Record<string, unknown>,
+    );
     const rows = Array.isArray(payload['data']) ? payload['data'] : [];
     const results = rows.slice(0, limit).map((row) => row as Record<string, unknown>);
     const count = readNumber(payload['count'], results.length);
@@ -16586,7 +17657,7 @@ export const crmCreateJournalStatementViewTool: McpTool = {
     operation: 'write',
     tags: ['finance', 'journals', 'views'],
     httpMethod: 'post',
-    httpPath: '/v1/public/journals/views',
+    httpPath: '/api/v2/journals/views',
     operationId: 'public.journals.views.create',
   },
   tool: {
@@ -16614,10 +17685,12 @@ export const crmCreateJournalStatementViewTool: McpTool = {
     }
 
     const { body, query } = buildJournalStatementViewCreateBody(args);
-    const payload = (await reqContext.client.post('/v1/public/journals/views', {
-      body,
-      query,
-    })) as Record<string, unknown>;
+    const payload = normalizeJournalStatementViewCreatePayload(
+      (await reqContext.client.post('/api/v2/journals/views', {
+        body,
+        query,
+      })) as Record<string, unknown>,
+    );
     const data = readRecord(payload['data']) ?? {};
     const statement = readRecord(payload['statement']);
     const viewID = readString(data['view_id']);
@@ -16645,7 +17718,7 @@ export const crmListViewsTool: McpTool = {
     operation: 'read',
     tags: ['views'],
     httpMethod: 'get',
-    httpPath: '/v1/public/views',
+    httpPath: '/api/v2/views',
     operationId: 'public.views.list',
   },
   tool: {
@@ -16672,11 +17745,10 @@ export const crmListViewsTool: McpTool = {
     }
 
     const { object, params } = buildViewListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/views', {
+    const payload = (await reqContext.client.get('/api/v2/views', {
       query: params,
     })) as Record<string, unknown>;
-    const rows = Array.isArray(payload['data']) ? payload['data'] : [];
-    const results = rows.map((row) => row as Record<string, unknown>);
+    const results = normalizeV2ListEnvelopePayload(payload);
     return buildListResult({
       label: `${object ?? 'object'} views`,
       payload: {
@@ -16697,7 +17769,7 @@ export const crmGetViewTool: McpTool = {
     operation: 'read',
     tags: ['views'],
     httpMethod: 'get',
-    httpPath: '/v1/public/views/{view_id}',
+    httpPath: '/api/v2/views/{view_id}',
     operationId: 'public.views.retrieve',
   },
   tool: {
@@ -16727,10 +17799,12 @@ export const crmGetViewTool: McpTool = {
     if (!viewID) {
       return asErrorResult('`view_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/views/${encodeURIComponent(viewID)}`, {
-      query: params,
-    })) as Record<string, unknown>;
-    const view = readRecord(payload['view']);
+    const payload = normalizeViewDetailPayload(
+      (await reqContext.client.get(`/api/v2/views/${encodeURIComponent(viewID)}`, {
+        query: params,
+      })) as Record<string, unknown>,
+    );
+    const view = readRecord(payload['view']) ?? readRecord(payload['data']);
     const title = readString(view?.['label']) ?? readString(view?.['title']) ?? viewID;
     return {
       content: [{ type: 'text', text: `Loaded saved view ${title}.` }],
@@ -16745,7 +17819,7 @@ export const crmGetViewColumnsTool: McpTool = {
     operation: 'read',
     tags: ['views'],
     httpMethod: 'get',
-    httpPath: '/v1/public/views/{view_id}/columns',
+    httpPath: '/api/v2/views/{view_id}/columns',
     operationId: 'public.views.columns',
   },
   tool: {
@@ -16775,9 +17849,11 @@ export const crmGetViewColumnsTool: McpTool = {
     if (!viewID) {
       return asErrorResult('`view_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/views/${encodeURIComponent(viewID)}/columns`, {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = normalizeViewDetailPayload(
+      (await reqContext.client.get(`/api/v2/views/${encodeURIComponent(viewID)}/columns`, {
+        query: params,
+      })) as Record<string, unknown>,
+    );
     const columns = Array.isArray(payload['columns']) ? payload['columns'] : [];
     return {
       content: [{ type: 'text', text: `Loaded ${columns.length} columns for saved view ${viewID}.` }],
@@ -16792,7 +17868,7 @@ export const crmCreateViewTool: McpTool = {
     operation: 'write',
     tags: ['views'],
     httpMethod: 'post',
-    httpPath: '/v1/public/views',
+    httpPath: '/api/v2/views',
     operationId: 'public.views.create',
   },
   tool: {
@@ -16819,10 +17895,12 @@ export const crmCreateViewTool: McpTool = {
     }
 
     const { body, query } = buildViewMutationBody(args);
-    const payload = (await reqContext.client.post('/v1/public/views', {
-      body,
-      query,
-    })) as Record<string, unknown>;
+    const payload = normalizeViewDetailPayload(
+      (await reqContext.client.post('/api/v2/views', {
+        body,
+        query,
+      })) as Record<string, unknown>,
+    );
     const data = readRecord(payload['data']) ?? {};
     const viewID = readString(data['view_id']);
     return {
@@ -16838,7 +17916,7 @@ export const crmUpdateViewTool: McpTool = {
     operation: 'write',
     tags: ['views'],
     httpMethod: 'patch',
-    httpPath: '/v1/public/views/{view_id}',
+    httpPath: '/api/v2/views/{view_id}',
     operationId: 'public.views.update',
   },
   tool: {
@@ -16869,10 +17947,12 @@ export const crmUpdateViewTool: McpTool = {
       return asErrorResult('`view_id` is required.');
     }
     const { body, query } = buildViewMutationBody(args);
-    const payload = (await reqContext.client.patch(`/v1/public/views/${encodeURIComponent(viewID)}`, {
-      body,
-      query,
-    })) as Record<string, unknown>;
+    const payload = normalizeViewDetailPayload(
+      (await reqContext.client.patch(`/api/v2/views/${encodeURIComponent(viewID)}`, {
+        body,
+        query,
+      })) as Record<string, unknown>,
+    );
     return {
       content: [{ type: 'text', text: `Updated saved view ${viewID}.` }],
       structuredContent: payload,
@@ -16886,7 +17966,7 @@ export const crmDeleteViewTool: McpTool = {
     operation: 'write',
     tags: ['views'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/views/{view_id}',
+    httpPath: '/api/v2/views/{view_id}',
     operationId: 'public.views.delete',
   },
   tool: {
@@ -16917,10 +17997,12 @@ export const crmDeleteViewTool: McpTool = {
       return asErrorResult('`view_id` is required.');
     }
     const { body, query } = buildViewMutationBody(args);
-    const payload = (await reqContext.client.delete(`/v1/public/views/${encodeURIComponent(viewID)}`, {
-      body,
-      query,
-    })) as Record<string, unknown>;
+    const payload = normalizeViewDetailPayload(
+      (await reqContext.client.delete(`/api/v2/views/${encodeURIComponent(viewID)}`, {
+        body,
+        query,
+      })) as Record<string, unknown>,
+    );
     return {
       content: [{ type: 'text', text: `Deleted saved view ${viewID}.` }],
       structuredContent: payload,
@@ -16934,7 +18016,7 @@ export const crmListReportsTool: McpTool = {
     operation: 'read',
     tags: ['reports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/reports',
+    httpPath: '/api/v2/public/reports',
     operationId: 'public.reports.list',
   },
   tool: {
@@ -16961,9 +18043,7 @@ export const crmListReportsTool: McpTool = {
     }
 
     const { limit, params } = buildReportListParams(args);
-    const rows = (await reqContext.client.get('/v1/public/reports', {
-      query: params,
-    })) as unknown[];
+    const rows = (await reqContext.client.public.reports.list(params, undefined)) as unknown[];
     const results =
       Array.isArray(rows) ? rows.slice(0, limit).map((row) => row as Record<string, unknown>) : [];
     return buildListResult({
@@ -16986,7 +18066,7 @@ export const crmGetReportTool: McpTool = {
     operation: 'read',
     tags: ['reports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/reports/{report_id}',
+    httpPath: '/api/v2/public/reports/{report_id}',
     operationId: 'public.reports.retrieve',
   },
   tool: {
@@ -17016,9 +18096,11 @@ export const crmGetReportTool: McpTool = {
     if (!reportID) {
       return asErrorResult('`report_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = (await reqContext.client.public.reports.retrieve(
+      reportID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
     return {
       content: [{ type: 'text', text: `Loaded report ${readString(payload['name']) ?? reportID}.` }],
       structuredContent: payload,
@@ -17032,7 +18114,7 @@ export const crmCreateReportTool: McpTool = {
     operation: 'write',
     tags: ['reports'],
     httpMethod: 'post',
-    httpPath: '/v1/public/reports',
+    httpPath: '/api/v2/public/reports',
     operationId: 'public.reports.create',
   },
   tool: {
@@ -17059,7 +18141,10 @@ export const crmCreateReportTool: McpTool = {
     }
 
     const body = buildReportMutationBody(args, { defaultCreateDefaultPanel: true });
-    const payload = (await reqContext.client.post('/v1/public/reports', { body })) as Record<string, unknown>;
+    const payload = (await reqContext.client.public.reports.create(
+      body as never,
+      undefined,
+    )) as unknown as Record<string, unknown>;
     return {
       content: [{ type: 'text', text: `Created report ${readString(payload['report_id']) ?? ''}.`.trim() }],
       structuredContent: payload,
@@ -17073,7 +18158,7 @@ export const crmUpdateReportTool: McpTool = {
     operation: 'write',
     tags: ['reports'],
     httpMethod: 'put',
-    httpPath: '/v1/public/reports/{report_id}',
+    httpPath: '/api/v2/public/reports/{report_id}',
     operationId: 'public.reports.update',
   },
   tool: {
@@ -17104,10 +18189,11 @@ export const crmUpdateReportTool: McpTool = {
       return asErrorResult('`report_id` is required.');
     }
     const body = buildReportMutationBody(args);
-    const payload = (await reqContext.client.put(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
-      body,
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = (await reqContext.client.public.reports.update(
+      reportID,
+      { ...body, ...params } as never,
+      undefined,
+    )) as unknown as Record<string, unknown>;
     return {
       content: [{ type: 'text', text: `Updated report ${reportID}.` }],
       structuredContent: payload,
@@ -17121,7 +18207,7 @@ export const crmDeleteReportTool: McpTool = {
     operation: 'write',
     tags: ['reports'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/reports/{report_id}',
+    httpPath: '/api/v2/public/reports/{report_id}',
     operationId: 'public.reports.delete',
   },
   tool: {
@@ -17151,9 +18237,11 @@ export const crmDeleteReportTool: McpTool = {
     if (!reportID) {
       return asErrorResult('`report_id` is required.');
     }
-    const payload = (await reqContext.client.delete(`/v1/public/reports/${encodeURIComponent(reportID)}`, {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = (await reqContext.client.public.reports.delete(
+      reportID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
     return {
       content: [{ type: 'text', text: `Deleted report ${reportID}.` }],
       structuredContent: payload,
@@ -17167,7 +18255,7 @@ export const crmGetInvoiceTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'invoices'],
     httpMethod: 'get',
-    httpPath: '/v1/public/invoices/{invoice_id}',
+    httpPath: '/api/v2/invoices/{invoice_id}',
     operationId: 'public.invoices.retrieve',
   },
   tool: {
@@ -17203,16 +18291,18 @@ export const crmGetInvoiceTool: McpTool = {
       params,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const summary = buildEntityDetailSummary({
+      entity: 'invoice',
+      payload: invoice,
+      previewKeys: ['id_inv', 'company_name', 'contact_name'],
+    });
+    const appURL = readString(invoice['app_url']);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityDetailSummary({
-            entity: 'invoice',
-            payload: invoice,
-            previewKeys: ['id_inv', 'company_name', 'contact_name'],
-          }),
+          text: appURL ? `${summary} app_url: ${appURL}` : summary,
         },
       ],
       structuredContent: invoice,
@@ -17226,7 +18316,7 @@ export const crmDownloadInvoicePDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'invoices'],
     httpMethod: 'get',
-    httpPath: '/v1/public/invoices/{invoice_id}/pdf',
+    httpPath: '/api/v2/invoices/{invoice_id}/pdf',
     operationId: 'public.invoices.downloadPDF',
   },
   tool: {
@@ -17320,6 +18410,47 @@ export const crmSendInvoiceEmailTool: McpTool = {
   },
 };
 
+export const crmUploadInvoiceAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'write',
+    tags: ['crm', 'invoices'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/invoices/files',
+    operationId: 'public.invoices.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_invoice_attachment',
+    title: 'Upload invoice attachment',
+    description:
+      'Upload an invoice attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_invoice or update_invoice.',
+    inputSchema: INVOICE_UPLOAD_INPUT_SCHEMA,
+    outputSchema: INVOICE_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload invoice attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload invoice attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    return uploadAttachmentFileFromArgs({
+      args,
+      entityName: 'invoice',
+      uploadAttachment: (file) => reqContext.client.public.invoices.uploadAttachment({ file }, undefined),
+    });
+  },
+};
+
 export const crmCreateInvoiceTool: McpTool = {
   metadata: {
     resource: 'invoices',
@@ -17333,7 +18464,7 @@ export const crmCreateInvoiceTool: McpTool = {
     name: 'create_invoice',
     title: 'Create invoice',
     description:
-      'Create an invoice in Sanka from explicit customer and line item data. For CRM deal/opportunity-sourced billing, use deal_to_order first and create invoices from the Sanka Order context.',
+      'Create an invoice in Sanka from explicit customer and line item data. Attach uploaded file ids with `attachment_file_ids` when needed. For CRM deal/opportunity-sourced billing, use deal_to_order first and create invoices from the Sanka Order context.',
     inputSchema: INVOICE_CREATE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17383,14 +18514,15 @@ export const crmUpdateInvoiceTool: McpTool = {
     resource: 'invoices',
     operation: 'write',
     tags: ['crm', 'invoices'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/invoices/{invoice_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/invoices/{invoice_id}',
     operationId: 'public.invoices.update',
   },
   tool: {
     name: 'update_invoice',
     title: 'Update invoice',
-    description: 'Update an existing invoice in Sanka.',
+    description:
+      'Update an existing invoice in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: INVOICE_UPDATE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17510,7 +18642,7 @@ export const crmDeleteInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/invoices/{invoice_id}',
+    httpPath: '/api/v2/invoices/{invoice_id}',
     operationId: 'public.invoices.delete',
   },
   tool: {
@@ -17648,7 +18780,7 @@ export const crmDownloadPaymentPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'payments'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payments/{payment_id}/pdf',
+    httpPath: '/api/v2/payments/{payment_id}/pdf',
     operationId: 'public.payments.downloadPDF',
   },
   tool: {
@@ -17690,7 +18822,7 @@ export const crmListSlipsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'slips'],
     httpMethod: 'get',
-    httpPath: '/v1/public/slips',
+    httpPath: '/api/v2/revenues',
     operationId: 'public.slips.list',
   },
   tool: {
@@ -17740,7 +18872,7 @@ export const crmGetSlipTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'slips'],
     httpMethod: 'get',
-    httpPath: '/v1/public/slips/{slip_id}',
+    httpPath: '/api/v2/revenues/{slip_id}',
     operationId: 'public.slips.retrieve',
   },
   tool: {
@@ -17852,8 +18984,8 @@ export const crmUpdateSlipTool: McpTool = {
     resource: 'slips',
     operation: 'write',
     tags: ['crm', 'slips'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/slips/{slip_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/revenues/{slip_id}',
     operationId: 'public.slips.update',
   },
   tool: {
@@ -17913,7 +19045,7 @@ export const crmDeleteSlipTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'slips'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/slips/{slip_id}',
+    httpPath: '/api/v2/revenues/{slip_id}',
     operationId: 'public.slips.delete',
   },
   tool: {
@@ -17974,7 +19106,7 @@ export const crmDownloadSlipPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'slips'],
     httpMethod: 'get',
-    httpPath: '/v1/public/slips/{slip_id}/pdf',
+    httpPath: '/api/v2/revenues/{slip_id}/pdf',
     operationId: 'public.slips.downloadPDF',
   },
   tool: {
@@ -18016,7 +19148,7 @@ export const crmListBillsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'bills'],
     httpMethod: 'get',
-    httpPath: '/v1/public/bills',
+    httpPath: '/api/v2/bills',
     operationId: 'public.bills.list',
   },
   tool: {
@@ -18066,7 +19198,7 @@ export const crmGetBillTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'bills'],
     httpMethod: 'get',
-    httpPath: '/v1/public/bills/{bill_id}',
+    httpPath: '/api/v2/bills/{bill_id}',
     operationId: 'public.bills.retrieve',
   },
   tool: {
@@ -18119,6 +19251,67 @@ export const crmGetBillTool: McpTool = {
   },
 };
 
+export const crmUploadBillAttachmentTool: McpTool = {
+  metadata: {
+    resource: 'bills',
+    operation: 'write',
+    tags: ['crm', 'bills'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/bills/files',
+    operationId: 'public.bills.uploadAttachment',
+  },
+  tool: {
+    name: 'upload_bill_attachment',
+    title: 'Upload bill attachment',
+    description:
+      'Upload a bill attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_bill or update_bill.',
+    inputSchema: BILL_UPLOAD_INPUT_SCHEMA,
+    outputSchema: BILL_UPLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload bill attachment',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Upload bill attachment',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const filename = readString(args?.['filename']);
+    const contentBase64 = readString(args?.['content_base64']);
+    const mimeType = readString(args?.['mime_type']);
+    if (!filename) {
+      return asErrorResult('`filename` is required.');
+    }
+    if (!contentBase64) {
+      return asErrorResult('`content_base64` is required.');
+    }
+
+    const parsed = parseBase64Content(contentBase64);
+    const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+      type: mimeType || parsed.mimeType || 'application/octet-stream',
+    });
+    const response = await reqContext.client.public.bills.uploadAttachment({ file }, undefined);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded bill attachment ${response.filename || filename}.`,
+        },
+      ],
+      structuredContent: response as unknown as Record<string, unknown>,
+    };
+  },
+};
+
 export const crmCreateBillTool: McpTool = {
   metadata: {
     resource: 'bills',
@@ -18131,7 +19324,7 @@ export const crmCreateBillTool: McpTool = {
   tool: {
     name: 'create_bill',
     title: 'Create bill',
-    description: 'Create a bill in Sanka.',
+    description: 'Create a bill in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: BILL_CREATE_INPUT_SCHEMA,
     outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18178,14 +19371,15 @@ export const crmUpdateBillTool: McpTool = {
     resource: 'bills',
     operation: 'write',
     tags: ['crm', 'bills'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/bills/{bill_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/bills/{bill_id}',
     operationId: 'public.bills.update',
   },
   tool: {
     name: 'update_bill',
     title: 'Update bill',
-    description: 'Update an existing bill in Sanka.',
+    description:
+      'Update an existing bill in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: BILL_UPDATE_INPUT_SCHEMA,
     outputSchema: BILL_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18239,7 +19433,7 @@ export const crmDeleteBillTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'bills'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/bills/{bill_id}',
+    httpPath: '/api/v2/bills/{bill_id}',
     operationId: 'public.bills.delete',
   },
   tool: {
@@ -18300,7 +19494,7 @@ export const crmListDisbursementsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'disbursements'],
     httpMethod: 'get',
-    httpPath: '/v1/public/disbursements',
+    httpPath: '/api/v2/disbursements',
     operationId: 'public.disbursements.list',
   },
   tool: {
@@ -18352,7 +19546,7 @@ export const crmGetDisbursementTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'disbursements'],
     httpMethod: 'get',
-    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    httpPath: '/api/v2/disbursements/{disbursement_id}',
     operationId: 'public.disbursements.retrieve',
   },
   tool: {
@@ -18464,8 +19658,8 @@ export const crmUpdateDisbursementTool: McpTool = {
     resource: 'disbursements',
     operation: 'write',
     tags: ['crm', 'disbursements'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/disbursements/{disbursement_id}',
     operationId: 'public.disbursements.update',
   },
   tool: {
@@ -18525,7 +19719,7 @@ export const crmDeleteDisbursementTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/disbursements/{disbursement_id}',
+    httpPath: '/api/v2/disbursements/{disbursement_id}',
     operationId: 'public.disbursements.delete',
   },
   tool: {
@@ -18819,7 +20013,7 @@ export const crmListTicketsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'tickets'],
     httpMethod: 'get',
-    httpPath: '/v1/public/tickets',
+    httpPath: '/api/v2/tickets',
     operationId: 'public.tickets.list',
   },
   tool: {
@@ -18870,7 +20064,7 @@ export const crmGetTicketTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'tickets'],
     httpMethod: 'get',
-    httpPath: '/v1/public/tickets/{ticket_id}',
+    httpPath: '/api/v2/tickets/{ticket_id}',
     operationId: 'public.tickets.retrieve',
   },
   tool: {
@@ -18920,7 +20114,7 @@ export const crmCreateTicketTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'tickets'],
     httpMethod: 'post',
-    httpPath: '/v1/public/tickets',
+    httpPath: '/api/v2/tickets',
     operationId: 'public.tickets.create',
   },
   tool: {
@@ -18973,8 +20167,8 @@ export const crmUpdateTicketTool: McpTool = {
     resource: 'tickets',
     operation: 'write',
     tags: ['crm', 'tickets'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/tickets/{ticket_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/tickets/{ticket_id}',
     operationId: 'public.tickets.update',
   },
   tool: {
@@ -19035,7 +20229,7 @@ export const crmDeleteTicketTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'tickets'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/tickets/{ticket_id}',
+    httpPath: '/api/v2/tickets/{ticket_id}',
     operationId: 'public.tickets.delete',
   },
   tool: {
@@ -19097,7 +20291,7 @@ export const crmListTicketPipelinesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'tickets'],
     httpMethod: 'get',
-    httpPath: '/v1/public/tickets/pipelines',
+    httpPath: '/api/v2/tickets/pipelines',
     operationId: 'public.tickets.listPipelines',
   },
   tool: {
@@ -19149,7 +20343,7 @@ export const crmUpdateTicketStatusTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'tickets'],
     httpMethod: 'patch',
-    httpPath: '/v1/public/tickets/{ticket_id}/status',
+    httpPath: '/api/v2/tickets/{ticket_id}/status',
     operationId: 'public.tickets.updateStatus',
   },
   tool: {
@@ -19213,14 +20407,14 @@ export const crmListObjectSchemasTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'schema', 'custom-objects'],
     httpMethod: 'get',
-    httpPath: '/v1/public/object-schemas',
+    httpPath: '/api/v2/object-schemas',
     operationId: 'public.objectSchemas.list',
   },
   tool: {
     name: 'list_object_schemas',
     title: 'List object schemas',
     description:
-      'List Sanka custom object schemas or live HubSpot/Salesforce object schemas. Use scope="integration" with provider to inspect provider custom objects.',
+      'List Sanka custom object schemas. Integration schema listing is a V2 backend gap and will be rejected by the API.',
     inputSchema: OBJECT_SCHEMA_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -19241,9 +20435,11 @@ export const crmListObjectSchemasTool: McpTool = {
     }
 
     const { limit, params } = buildObjectSchemaListParams(args);
-    const schemas = (await reqContext.client.get('/v1/public/object-schemas', {
-      query: params,
-    })) as Array<Record<string, unknown>>;
+    const schemas = normalizeObjectSchemaListPayload(
+      await reqContext.client.get('/api/v2/object-schemas', {
+        query: params,
+      }),
+    );
     const results = schemas.slice(0, limit);
 
     return buildListResult({
@@ -19266,14 +20462,14 @@ export const crmMutateObjectSchemaTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'schema', 'custom-objects'],
     httpMethod: 'post',
-    httpPath: '/v1/public/object-schemas',
+    httpPath: '/api/v2/object-schemas',
     operationId: 'public.objectSchemas.mutate',
   },
   tool: {
     name: 'mutate_object_schema',
     title: 'Mutate object schema',
     description:
-      'Create, update, or delete a Sanka, HubSpot, or Salesforce custom object schema through routed arguments. Run dry_run=true first for HubSpot/Salesforce and set confirm=true before deletes. Salesforce schema writes use Metadata API.',
+      'Create, update, or delete a Sanka custom object schema through routed arguments. Integration schema mutation is a V2 backend gap and will be rejected by the API.',
     inputSchema: OBJECT_SCHEMA_MUTATION_INPUT_SCHEMA,
     outputSchema: OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -19298,9 +20494,11 @@ export const crmMutateObjectSchemaTool: McpTool = {
       return asErrorResult('`operation` is required.');
     }
 
-    const response = (await reqContext.client.post('/v1/public/object-schemas', {
-      body,
-    })) as Record<string, unknown>;
+    const response = normalizeObjectSchemaMutationPayload(
+      (await reqContext.client.post('/api/v2/object-schemas', {
+        body,
+      })) as Record<string, unknown>,
+    );
 
     return {
       content: [
@@ -19325,7 +20523,7 @@ export const crmListPropertiesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'properties'],
     httpMethod: 'get',
-    httpPath: '/v1/public/properties/{object_name}',
+    httpPath: '/api/v2/properties/{object_name}',
     operationId: 'public.properties.list',
   },
   tool: {
@@ -19382,7 +20580,7 @@ export const crmGetPropertyTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'properties'],
     httpMethod: 'get',
-    httpPath: '/v1/public/properties/{object_name}/{property_ref}',
+    httpPath: '/api/v2/properties/{object_name}/{property_ref}',
     operationId: 'public.properties.retrieve',
   },
   tool: {
@@ -19444,7 +20642,7 @@ export const crmCreatePropertyTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'properties'],
     httpMethod: 'post',
-    httpPath: '/v1/public/properties/{object_name}',
+    httpPath: '/api/v2/properties/{object_name}',
     operationId: 'public.properties.create',
   },
   tool: {
@@ -19505,7 +20703,7 @@ export const crmUpdatePropertyTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'properties'],
     httpMethod: 'put',
-    httpPath: '/v1/public/properties/{object_name}/{property_ref}',
+    httpPath: '/api/v2/properties/{object_name}/{property_ref}',
     operationId: 'public.properties.update',
   },
   tool: {
@@ -19572,7 +20770,7 @@ export const crmDeletePropertyTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'properties'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/properties/{object_name}/{property_ref}',
+    httpPath: '/api/v2/properties/{object_name}/{property_ref}',
     operationId: 'public.properties.delete',
   },
   tool: {
@@ -19637,13 +20835,141 @@ export const crmDeletePropertyTool: McpTool = {
   },
 };
 
+export const crmListApprovalRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_approval_rules',
+  title: 'List approval rules',
+  description:
+    'List approval rules for a Sanka object. Use this before changing approval gates that block save, send, download, export, convert, CRUD, or bulk actions.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_LIST_INPUT_SCHEMA,
+  label: 'approval rules',
+});
+
+export const crmGetApprovalRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_approval_rule_options',
+  title: 'Get approval rule options',
+  description:
+    'Load approval rule options for an object, including available fields, operators, approvers, and block targets.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'approval rule options',
+});
+
+export const crmUpsertApprovalRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_approval_rule',
+  title: 'Upsert approval rule',
+  description:
+    'Create or update an approval rule for an object. Use block_targets to choose what waits for approval, for example document_download, delivery_send, status_sent, export, or convert.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Approval rule',
+  buildBody: buildApprovalRuleBody,
+});
+
+export const crmDeleteApprovalRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_approval_rule',
+  title: 'Delete approval rule',
+  description: 'Delete one approval rule for the specified object.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  label: 'Approval rule',
+});
+
+export const crmListLockRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_lock_rules',
+  title: 'List lock rules',
+  description: 'List record lock rules for a Sanka object.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_LIST_INPUT_SCHEMA,
+  label: 'lock rules',
+});
+
+export const crmGetLockRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_lock_rule_options',
+  title: 'Get lock rule options',
+  description:
+    'Load lock rule options for an object, including fields, operators, lock scopes, and lockable invoice fields.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'lock rule options',
+});
+
+export const crmUpsertLockRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_lock_rule',
+  title: 'Upsert lock rule',
+  description:
+    'Create or update a record lock rule. For invoices, use lock_scope selected_fields with lock_config.locked_field_keys to lock only chosen fields.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Lock rule',
+  buildBody: buildLockRuleBody,
+});
+
+export const crmDeleteLockRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_lock_rule',
+  title: 'Delete lock rule',
+  description: 'Delete one record lock rule for the specified object.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  label: 'Lock rule',
+});
+
+export const crmListDeliveryRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_delivery_rules',
+  title: 'List delivery rules',
+  description: 'List delivery rules. Delivery rules currently apply to invoices only.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_LIST_INPUT_SCHEMA,
+  label: 'delivery rules',
+});
+
+export const crmGetDeliveryRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_delivery_rule_options',
+  title: 'Get delivery rule options',
+  description:
+    'Load invoice delivery rule options, including send/schedule actions, fields, operators, and required-field groups.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'delivery rule options',
+  extraQueryKeys: ['action'],
+});
+
+export const crmUpsertDeliveryRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_delivery_rule',
+  title: 'Upsert delivery rule',
+  description:
+    'Create or update an invoice delivery rule that controls when invoices can be sent or scheduled and which fields are required first.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Delivery rule',
+  buildBody: buildDeliveryRuleBody,
+});
+
+export const crmDeleteDeliveryRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_delivery_rule',
+  title: 'Delete delivery rule',
+  description: 'Delete one invoice delivery rule for the specified object.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  label: 'Delivery rule',
+});
+
 export const crmGetCalendarBootstrapTool: McpTool = {
   metadata: {
     resource: 'calendar',
     operation: 'read',
     tags: ['crm', 'calendar'],
     httpMethod: 'get',
-    httpPath: '/v1/public/calendar/bootstrap',
+    httpPath: '/api/v2/public/calendar/bootstrap',
     operationId: 'public.calendar.bootstrap',
   },
   tool: {
@@ -19688,7 +21014,7 @@ export const crmCheckCalendarAvailabilityTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'calendar'],
     httpMethod: 'get',
-    httpPath: '/v1/public/calendar/availability',
+    httpPath: '/api/v2/public/calendar/availability',
     operationId: 'public.calendar.checkAvailability',
   },
   tool: {
@@ -19737,7 +21063,7 @@ export const crmCreateCalendarAttendanceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'calendar'],
     httpMethod: 'post',
-    httpPath: '/v1/public/calendar/attendance',
+    httpPath: '/api/v2/public/calendar/attendance',
     operationId: 'public.calendar.attendance.create',
   },
   tool: {
@@ -19789,7 +21115,7 @@ export const crmCancelCalendarAttendanceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'calendar'],
     httpMethod: 'post',
-    httpPath: '/v1/public/calendar/attendance/{attendance_id}/cancel',
+    httpPath: '/api/v2/public/calendar/attendance/{attendance_id}/cancel',
     operationId: 'public.calendar.attendance.cancel',
   },
   tool: {
@@ -19838,7 +21164,7 @@ export const crmRescheduleCalendarAttendanceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'calendar'],
     httpMethod: 'post',
-    httpPath: '/v1/public/calendar/attendance/{attendance_id}/reschedule',
+    httpPath: '/api/v2/public/calendar/attendance/{attendance_id}/reschedule',
     operationId: 'public.calendar.attendance.reschedule',
   },
   tool: {
@@ -19895,7 +21221,7 @@ export const crmListItemsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'items'],
     httpMethod: 'get',
-    httpPath: '/v1/public/items',
+    httpPath: '/api/v2/items',
     operationId: 'public.items.list',
   },
   tool: {
@@ -19945,7 +21271,7 @@ export const crmGetItemTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'items'],
     httpMethod: 'get',
-    httpPath: '/v1/public/items/{item_id}',
+    httpPath: '/api/v2/items/{item_id}',
     operationId: 'public.items.retrieve',
   },
   tool: {
@@ -20004,7 +21330,7 @@ export const crmCreateItemTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'items'],
     httpMethod: 'post',
-    httpPath: '/v1/public/items',
+    httpPath: '/api/v2/items',
     operationId: 'public.items.create',
   },
   tool: {
@@ -20067,8 +21393,8 @@ export const crmUpdateItemTool: McpTool = {
     resource: 'items',
     operation: 'write',
     tags: ['crm', 'items'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/items/{item_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/items/{item_id}',
     operationId: 'public.items.update',
   },
   tool: {
@@ -20137,7 +21463,7 @@ export const crmDeleteItemTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'items'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/items/{item_id}',
+    httpPath: '/api/v2/items/{item_id}',
     operationId: 'public.items.delete',
   },
   tool: {
@@ -20197,7 +21523,7 @@ export const crmListSubscriptionsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'subscriptions'],
     httpMethod: 'get',
-    httpPath: '/v1/public/subscriptions',
+    httpPath: '/api/v2/subscriptions',
     operationId: 'public.subscriptions.list',
   },
   tool: {
@@ -20249,7 +21575,7 @@ export const crmGetSubscriptionTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'subscriptions'],
     httpMethod: 'get',
-    httpPath: '/v1/public/subscriptions/{subscription_id}',
+    httpPath: '/api/v2/subscriptions/{subscription_id}',
     operationId: 'public.subscriptions.retrieve',
   },
   tool: {
@@ -20398,8 +21724,8 @@ export const crmUpdateSubscriptionTool: McpTool = {
     resource: 'subscriptions',
     operation: 'write',
     tags: ['crm', 'subscriptions'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/subscriptions/{subscription_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/subscriptions/{subscription_id}',
     operationId: 'public.subscriptions.update',
   },
   tool: {
@@ -20474,7 +21800,7 @@ export const crmDeleteSubscriptionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'subscriptions'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/subscriptions/{subscription_id}',
+    httpPath: '/api/v2/subscriptions/{subscription_id}',
     operationId: 'public.subscriptions.delete',
   },
   tool: {
@@ -20534,7 +21860,7 @@ export const crmListPaymentsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'payments'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payments',
+    httpPath: '/api/v2/payments',
     operationId: 'public.payments.list',
   },
   tool: {
@@ -20584,7 +21910,7 @@ export const crmGetPaymentTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'payments'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payments/{payment_id}',
+    httpPath: '/api/v2/payments/{payment_id}',
     operationId: 'public.payments.retrieve',
   },
   tool: {
@@ -20818,8 +22144,8 @@ export const crmUpdatePaymentTool: McpTool = {
     resource: 'payments',
     operation: 'write',
     tags: ['crm', 'payments'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/payments/{payment_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/payments/{payment_id}',
     operationId: 'public.payments.update',
   },
   tool: {
@@ -20879,7 +22205,7 @@ export const crmDeletePaymentTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'payments'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/payments/{payment_id}',
+    httpPath: '/api/v2/payments/{payment_id}',
     operationId: 'public.payments.delete',
   },
   tool: {
@@ -20941,7 +22267,7 @@ export const crmListLocationsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'locations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/locations',
+    httpPath: '/api/v2/locations',
     operationId: 'public.locations.list',
   },
   tool: {
@@ -20993,7 +22319,7 @@ export const crmGetLocationTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'locations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/locations/{location_id}',
+    httpPath: '/api/v2/locations/{location_id}',
     operationId: 'public.locations.retrieve',
   },
   tool: {
@@ -21052,7 +22378,7 @@ export const crmCreateLocationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'locations'],
     httpMethod: 'post',
-    httpPath: '/v1/public/locations',
+    httpPath: '/api/v2/locations',
     operationId: 'public.locations.create',
   },
   tool: {
@@ -21116,8 +22442,8 @@ export const crmUpdateLocationTool: McpTool = {
     resource: 'locations',
     operation: 'write',
     tags: ['crm', 'locations'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/locations/{location_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/locations/{location_id}',
     operationId: 'public.locations.update',
   },
   tool: {
@@ -21188,7 +22514,7 @@ export const crmDeleteLocationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'locations'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/locations/{location_id}',
+    httpPath: '/api/v2/locations/{location_id}',
     operationId: 'public.locations.delete',
   },
   tool: {
@@ -21248,7 +22574,7 @@ export const crmListInventoriesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'inventories'],
     httpMethod: 'get',
-    httpPath: '/v1/public/inventories',
+    httpPath: '/api/v2/inventories',
     operationId: 'public.inventories.list',
   },
   tool: {
@@ -21300,7 +22626,7 @@ export const crmGetInventoryTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'inventories'],
     httpMethod: 'get',
-    httpPath: '/v1/public/inventories/{inventory_id}',
+    httpPath: '/api/v2/inventories/{inventory_id}',
     operationId: 'public.inventories.retrieve',
   },
   tool: {
@@ -21498,7 +22824,7 @@ export const crmDeleteInventoryTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/inventories/{inventory_id}',
+    httpPath: '/api/v2/inventories/{inventory_id}',
     operationId: 'public.inventories.delete',
   },
   tool: {
@@ -21560,7 +22886,7 @@ export const crmListInventoryTransactionsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'inventories'],
     httpMethod: 'get',
-    httpPath: '/v1/public/inventory-transactions',
+    httpPath: '/api/v2/inventory-transactions',
     operationId: 'public.inventoryTransactions.list',
   },
   tool: {
@@ -21612,7 +22938,7 @@ export const crmGetInventoryTransactionTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'inventories'],
     httpMethod: 'get',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
     operationId: 'public.inventoryTransactions.retrieve',
   },
   tool: {
@@ -21867,7 +23193,7 @@ export const crmGetCompanyPriceTableTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'companies', 'pricing'],
     httpMethod: 'get',
-    httpPath: '/v1/public/companies/{company_id}/price-table',
+    httpPath: '/api/v2/companies/{company_id}/price-table',
     operationId: 'public.companies.getPriceTable',
   },
   tool: {
@@ -21918,7 +23244,7 @@ export const crmUpdateCompanyPriceTableCompanyTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'companies', 'pricing'],
     httpMethod: 'patch',
-    httpPath: '/v1/public/companies/{company_id}/price-table/company',
+    httpPath: '/api/v2/companies/{company_id}/price-table/company',
     operationId: 'public.companies.updatePriceTableCompany',
   },
   tool: {
@@ -21968,7 +23294,7 @@ export const crmUpdateCompanyPriceTableItemTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'companies', 'pricing'],
     httpMethod: 'patch',
-    httpPath: '/v1/public/companies/{company_id}/price-table/items/{item_id}',
+    httpPath: '/api/v2/companies/{company_id}/price-table/items/{item_id}',
     operationId: 'public.companies.updatePriceTableItem',
   },
   tool: {
@@ -22029,7 +23355,7 @@ export const crmApplyCompanyPriceTableItemsTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'companies', 'pricing'],
     httpMethod: 'post',
-    httpPath: '/v1/public/companies/{company_id}/price-table/items/apply-all',
+    httpPath: '/api/v2/companies/{company_id}/price-table/items/apply-all',
     operationId: 'public.companies.applyPriceTableItems',
   },
   tool: {
@@ -22335,7 +23661,7 @@ export const crmScoreRecordTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'scoring'],
     httpMethod: 'post',
-    httpPath: '/v1/score',
+    httpPath: '/api/v2/score',
     operationId: 'score.create',
   },
   tool: {

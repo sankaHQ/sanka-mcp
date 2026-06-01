@@ -4,6 +4,7 @@
 import { APIResource } from '../core/resource';
 import { APIPromise } from '../core/api-promise';
 import { RequestOptions } from '../internal/request-options';
+import { unwrapV2DataPromise } from '../internal/v2';
 
 export class IntegrationSync extends APIResource {
   /**
@@ -12,7 +13,9 @@ export class IntegrationSync extends APIResource {
    * push every eligible record for the given ``object_type``.
    */
   push(body: IntegrationSyncPushParams, options?: RequestOptions): APIPromise<IntegrationSyncPushResponse> {
-    return this._client.post('/v1/integration-sync/push', { body, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Post<IntegrationSyncPushResponse>('/integration-sync/push', { body, ...options }),
+    );
   }
 }
 

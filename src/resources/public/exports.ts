@@ -4,6 +4,7 @@ import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
 import type * as ImportsAPI from './imports';
 
 export class Exports extends APIResource {
@@ -11,14 +12,14 @@ export class Exports extends APIResource {
    * Create Export Job
    */
   create(body: ExportCreateParams, options?: RequestOptions): APIPromise<ImportsAPI.TransferJob> {
-    return this._client.post('/v1/public/exports', { body, ...options });
+    return unwrapV2DataPromise(this._client.v2Post<ImportsAPI.TransferJob>('/exports', { body, ...options }));
   }
 
   /**
    * Get Export Job
    */
   retrieve(jobID: string, options?: RequestOptions): APIPromise<ImportsAPI.TransferJob> {
-    return this._client.get(path`/v1/public/exports/${jobID}`, options);
+    return unwrapV2DataPromise(this._client.v2Get<ImportsAPI.TransferJob>(path`/exports/${jobID}`, options));
   }
 
   /**
@@ -28,14 +29,18 @@ export class Exports extends APIResource {
     params: ExportListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ExportListResponse> {
-    return this._client.get('/v1/public/exports', { query: params ?? {}, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Get<ExportListResponse>('/exports', { query: params ?? {}, ...options }),
+    );
   }
 
   /**
    * Cancel Export Job
    */
   cancel(jobID: string, options?: RequestOptions): APIPromise<ImportsAPI.TransferJob> {
-    return this._client.post(path`/v1/public/exports/${jobID}/cancel`, { ...options });
+    return this._client
+      .v2Post<ImportsAPI.TransferJobCancelResponse>(path`/exports/${jobID}/cancel`, { ...options })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope).job);
   }
 }
 

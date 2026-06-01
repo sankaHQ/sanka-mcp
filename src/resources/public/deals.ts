@@ -5,13 +5,166 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
+import { V2Envelope, unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
+import { compactProperties } from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+
+type V2ObjectRecord = {
+  id: string;
+  record_id?: string | null;
+  object_type?: string | null;
+  properties?: Record<string, unknown>;
+};
+
+type V2ObjectRecordList = {
+  items?: Array<V2ObjectRecord>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+};
+
+type V2LifecycleData = {
+  id?: string | null;
+  record_id?: string | null;
+  status?: string | null;
+  usage_status?: string | null;
+};
+
+const numericRecordID = (recordID: string | null | undefined): number | undefined => {
+  if (typeof recordID !== 'string' || !recordID.trim()) return undefined;
+  const value = Number(recordID);
+  return Number.isFinite(value) ? value : undefined;
+};
+
+const dealFromV2Record = (record: V2ObjectRecord): Case => {
+  const properties = record.properties ?? {};
+  const stageKey = properties['stage_key'] ?? properties['stage'];
+  const caseStatus = properties['case_status'] ?? properties['stage_label'] ?? properties['stage'];
+  return {
+    ...properties,
+    id: record.id,
+    deal_id: numericRecordID(record.record_id) ?? (record.record_id as never) ?? null,
+    case_status: (caseStatus as never) ?? null,
+    stage_key: (stageKey as never) ?? null,
+  } as unknown as Case;
+};
+
+const unwrapV2Deal = (promise: APIPromise<V2Envelope<V2ObjectRecord>>): APIPromise<Case> =>
+  promise._thenUnwrap((envelope) => dealFromV2Record(unwrapV2Data(envelope)));
+
+const unwrapV2DealList = (
+  promise: APIPromise<V2Envelope<V2ObjectRecordList>>,
+): APIPromise<DealListResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return (data.items ?? []).map(dealFromV2Record);
+  });
+
+const dealDeleteResponseFromV2Lifecycle = (
+  envelope: V2Envelope<V2LifecycleData>,
+  externalID?: string | null,
+): PublicCaseResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status: 'deleted',
+    case_id: data.id ?? null,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const dealMutationResponseFromV2Record = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  externalID?: string | null,
+  status = 'updated',
+): PublicCaseResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status,
+    case_id: data.id,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
+const usableExternalID = (value: string | null | undefined): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+};
+
+const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
+  target != null && target !== 'sanka';
+
+const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
+  const properties = { ...body };
+  if (properties['target'] === 'sanka') {
+    delete properties['target'];
+  }
+  return compactProperties(properties);
+};
+
+const hasLegacyDealCreateArgs = (params: DealCreateParams): boolean =>
+  params.caseStatus != null ||
+  params.channel_id != null ||
+  params.companyExternalId != null ||
+  params.companyId != null ||
+  params.confirm != null ||
+  params.contactExternalId != null ||
+  params.contactId != null ||
+  params.custom_fields != null ||
+  params.dry_run != null ||
+  params.external_object_type != null ||
+  params.operation != null ||
+  params.provider != null ||
+  hasRemoteMutationTarget(params.target);
+
+const hasLegacyDealDeleteArgs = (params: DealDeleteParams | null | undefined): boolean => {
+  if (!params) return false;
+  return (
+    params.channel_id != null ||
+    params.confirm != null ||
+    params.dry_run != null ||
+    params.external_object_type != null ||
+    params.operation != null ||
+    params.provider != null ||
+    hasRemoteMutationTarget(params.target)
+  );
+};
+
+const hasLegacyDealUpdateArgs = (params: DealUpdateParams): boolean =>
+  params.external_id != null ||
+  params.channel_id != null ||
+  params.caseStatus != null ||
+  params.companyExternalId != null ||
+  params.companyId != null ||
+  params.confirm != null ||
+  params.contactExternalId != null ||
+  params.contactId != null ||
+  params.custom_fields != null ||
+  params.dry_run != null ||
+  params.externalId != null ||
+  params.external_object_type != null ||
+  params.operation != null ||
+  params.provider != null ||
+  hasRemoteMutationTarget(params.target);
 
 export class Deals extends APIResource {
   /**
    * Create Deal
    */
   create(body: DealCreateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
+    if (!hasLegacyDealCreateArgs(body)) {
+      const externalID = usableExternalID(body.externalId);
+      return this._client
+        .v2Post<V2ObjectRecord>('/deals', {
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope, externalID, 'created'));
+    }
     return this._client.post('/v1/public/deals', { body, ...options });
   }
 
@@ -23,15 +176,19 @@ export class Deals extends APIResource {
     params: DealRetrieveParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Case> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/deals/${caseID}`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const { 'Accept-Language': acceptLanguage, lang, language, ...query } = params ?? {};
+    void lang;
+    void language;
+    return unwrapV2Deal(
+      this._client.v2Get<V2ObjectRecord>(path`/deals/${caseID}`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -39,6 +196,14 @@ export class Deals extends APIResource {
    */
   update(caseID: string, params: DealUpdateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
     const { external_id, ...body } = params;
+    if (!hasLegacyDealUpdateArgs(params)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/deals/${caseID}`, {
+          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope));
+    }
     return this._client.put(path`/v1/public/deals/${caseID}`, { query: { external_id }, body, ...options });
   }
 
@@ -49,15 +214,32 @@ export class Deals extends APIResource {
     params: DealListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<DealListResponse> {
-    const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get('/v1/public/deals', {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    const {
+      'Accept-Language': acceptLanguage,
+      lang,
+      language,
+      limit,
+      scope,
+      workspace_id,
+      ...query
+    } = params ?? {};
+    void lang;
+    void language;
+    void scope;
+    void workspace_id;
+    return unwrapV2DealList(
+      this._client.v2Get<V2ObjectRecordList>('/deals', {
+        query: {
+          ...query,
+          ...(limit != null ? { limit } : undefined),
+        },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -70,10 +252,27 @@ export class Deals extends APIResource {
   ): APIPromise<PublicCaseResponse> {
     const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
-    return this._client.delete(path`/v1/public/deals/${caseID}`, {
-      query: { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target },
-      ...options,
-    });
+    if (hasLegacyDealDeleteArgs(params)) {
+      return this._client.delete(path`/v1/public/deals/${caseID}`, {
+        query: {
+          channel_id,
+          confirm,
+          dry_run,
+          external_id,
+          external_object_type,
+          operation,
+          provider,
+          target,
+        },
+        ...options,
+      });
+    }
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/deals/${caseID}`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => dealDeleteResponseFromV2Lifecycle(envelope, external_id));
   }
 
   /**
@@ -83,7 +282,8 @@ export class Deals extends APIResource {
     query: DealListPipelinesParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<DealListPipelinesResponse> {
-    return this._client.get('/v1/public/deals/pipelines', { query, ...options });
+    void query;
+    return unwrapV2DataPromise(this._client.v2Get<DealListPipelinesResponse>('/deals/pipelines', options));
   }
 }
 

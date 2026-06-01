@@ -1,6 +1,6 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-import Sanka from 'sanka-sdk';
+import Sanka, { toFile } from 'sanka-sdk';
 
 const client = new Sanka({
   apiKey: 'My API Key',
@@ -141,5 +141,26 @@ describe('resource estimates', () => {
         { path: '/_stainless_unknown_path' },
       ),
     ).rejects.toThrow(Sanka.NotFoundError);
+  });
+
+  // Mock server tests are disabled
+  test.skip('uploadAttachment: only required params', async () => {
+    const responsePromise = client.public.estimates.uploadAttachment({
+      file: await toFile(Buffer.from('Example data'), 'README.md'),
+    });
+    const rawResponse = await responsePromise.asResponse();
+    expect(rawResponse).toBeInstanceOf(Response);
+    const response = await responsePromise;
+    expect(response).not.toBeInstanceOf(Response);
+    const dataAndResponse = await responsePromise.withResponse();
+    expect(dataAndResponse.data).toBe(response);
+    expect(dataAndResponse.response).toBe(rawResponse);
+  });
+
+  // Mock server tests are disabled
+  test.skip('uploadAttachment: required and optional params', async () => {
+    const response = await client.public.estimates.uploadAttachment({
+      file: await toFile(Buffer.from('Example data'), 'README.md'),
+    });
   });
 });

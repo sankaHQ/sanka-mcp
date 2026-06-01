@@ -349,7 +349,7 @@ export const uploadImportFileTool: McpTool = {
     operation: 'write',
     tags: ['imports', 'files'],
     httpMethod: 'post',
-    httpPath: '/v1/public/files',
+    httpPath: '/api/v2/files',
     operationId: 'public.imports.uploadFile',
   },
   tool: {
@@ -415,7 +415,7 @@ export const importRecordsTool: McpTool = {
     operation: 'write',
     tags: ['imports'],
     httpMethod: 'post',
-    httpPath: '/v1/public/imports',
+    httpPath: '/api/v2/imports',
     operationId: 'public.imports.create',
   },
   tool: {
@@ -482,7 +482,7 @@ export const getImportJobTool: McpTool = {
     operation: 'read',
     tags: ['imports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/imports/{job_id}',
+    httpPath: '/api/v2/imports/{job_id}',
     operationId: 'public.imports.retrieve',
   },
   tool: {
@@ -527,7 +527,7 @@ export const listImportJobsTool: McpTool = {
     operation: 'read',
     tags: ['imports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/imports',
+    httpPath: '/api/v2/imports',
     operationId: 'public.imports.list',
   },
   tool: {
@@ -575,7 +575,7 @@ export const cancelImportJobTool: McpTool = {
     operation: 'write',
     tags: ['imports'],
     httpMethod: 'post',
-    httpPath: '/v1/public/imports/{job_id}/cancel',
+    httpPath: '/api/v2/imports/{job_id}/cancel',
     operationId: 'public.imports.cancel',
   },
   tool: {
@@ -620,7 +620,7 @@ export const listIntegrationChannelsTool: McpTool = {
     operation: 'read',
     tags: ['exports', 'integrations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/integrations/channels',
+    httpPath: '/api/v2/integrations/channels',
     operationId: 'public.integrations.listChannels',
   },
   tool: {
@@ -670,7 +670,7 @@ export const exportRecordsTool: McpTool = {
     operation: 'write',
     tags: ['exports'],
     httpMethod: 'post',
-    httpPath: '/v1/public/exports',
+    httpPath: '/api/v2/exports',
     operationId: 'public.exports.create',
   },
   tool: {
@@ -747,7 +747,7 @@ export const getExportJobTool: McpTool = {
     operation: 'read',
     tags: ['exports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/exports/{job_id}',
+    httpPath: '/api/v2/exports/{job_id}',
     operationId: 'public.exports.retrieve',
   },
   tool: {
@@ -792,7 +792,7 @@ export const listExportJobsTool: McpTool = {
     operation: 'read',
     tags: ['exports'],
     httpMethod: 'get',
-    httpPath: '/v1/public/exports',
+    httpPath: '/api/v2/exports',
     operationId: 'public.exports.list',
   },
   tool: {
@@ -840,7 +840,7 @@ export const cancelExportJobTool: McpTool = {
     operation: 'write',
     tags: ['exports'],
     httpMethod: 'post',
-    httpPath: '/v1/public/exports/{job_id}/cancel',
+    httpPath: '/api/v2/exports/{job_id}/cancel',
     operationId: 'public.exports.cancel',
   },
   tool: {
