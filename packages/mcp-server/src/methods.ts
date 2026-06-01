@@ -890,7 +890,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.workflows.createOrUpdate',
     fullyQualifiedName: 'public.workflows.createOrUpdate',
     httpMethod: 'post',
-    httpPath: '/v1/public/workflows',
+    httpPath: '/api/v2/public/workflows',
+  },
+  {
+    clientCallName: 'client.public.workflows.update',
+    fullyQualifiedName: 'public.workflows.update',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/public/workflows/{workflow_ref}',
   },
   {
     clientCallName: 'client.public.workflows.listActions',
@@ -908,7 +914,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.workflows.run',
     fullyQualifiedName: 'public.workflows.run',
     httpMethod: 'post',
-    httpPath: '/v1/public/workflows/{workflow_ref}/run',
+    httpPath: '/api/v2/public/workflows/{workflow_ref}/run',
   },
   {
     clientCallName: 'client.public.calendar.bootstrap',
