@@ -2448,6 +2448,16 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     enum: ['sanka', 'integration', 'both'],
     default: 'sanka',
   },
+  scope: {
+    type: 'string',
+    description: 'Alias for target. If set to "integration", MCP routes the mutation to the connected CRM.',
+    enum: ['sanka', 'integration'],
+  },
+  source: {
+    type: 'string',
+    description: 'Alias for scope. Prefer target for property mutations.',
+    enum: ['sanka', 'integration'],
+  },
   provider: {
     type: 'string',
     description:
@@ -2907,6 +2917,16 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
         'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
       enum: ['sanka', 'integration', 'both'],
       default: 'sanka',
+    },
+    scope: {
+      type: 'string',
+      description: 'Alias for target. If set to "integration", MCP routes the delete to the connected CRM.',
+      enum: ['sanka', 'integration'],
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer target for property mutations.',
+      enum: ['sanka', 'integration'],
     },
     provider: {
       type: 'string',
@@ -8351,6 +8371,11 @@ const shouldUseLegacyRecordRoute = (
   if (scope === 'integration') {
     return true;
   }
+  if (scope !== 'sanka') {
+    if (readIntegrationProvider(body['provider']) || readString(body['channel_id'] ?? body['channelId'])) {
+      return true;
+    }
+  }
   if (readString(body['mode'])) {
     return true;
   }
@@ -10919,6 +10944,8 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     'name',
     'number_format',
     'provider',
+    'scope',
+    'source',
     'target',
     'type',
   ]);
@@ -10960,13 +10987,19 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
       .filter((option): option is Record<string, unknown> => Boolean(option));
   }
 
+  const scope = readLowerString(body['scope'] ?? body['source']);
+  if (scope === 'integration' && !readString(body['target'])) {
+    body['target'] = 'integration';
+  }
+
   return body;
 };
 
 const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const objectName = readString(args?.['object_name']);
   const propertyRef = readString(args?.['property_ref']);
-  const target = readString(args?.['target']);
+  const scope = readLowerString(args?.['scope'] ?? args?.['source']);
+  const target = readString(args?.['target']) ?? (scope === 'integration' ? 'integration' : undefined);
   const provider = readIntegrationProvider(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
@@ -11000,8 +11033,10 @@ const hasIntegrationPropertyQueryHints = (params: Record<string, unknown>): bool
 
 const hasIntegrationPropertyMutationHints = (payload: Record<string, unknown>): boolean => {
   const target = readLowerString(payload['target']);
+  const scope = readLowerString(payload['scope'] ?? payload['source']);
   return Boolean(
-    (target && target !== 'sanka') ||
+    scope === 'integration' ||
+      (target && target !== 'sanka') ||
       readString(payload['provider']) ||
       readString(payload['channel_id'] ?? payload['channelId']) ||
       readString(payload['external_object_type'] ?? payload['externalObjectType']),

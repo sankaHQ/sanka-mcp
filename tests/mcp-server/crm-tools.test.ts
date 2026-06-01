@@ -988,6 +988,47 @@ describe('ChatGPT CRM tools', () => {
     );
   });
 
+  it('routes provider-only record queries through the legacy integration route', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'deals',
+      provider: 'hubspot',
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [{ id: 'deal-1', name: 'Renewal' }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'deals',
+        provider: 'hubspot',
+        select: ['id', 'name'],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+      body: {
+        object_type: 'deals',
+        provider: 'hubspot',
+        select: ['id', 'name'],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      provider: 'hubspot',
+      results: [{ id: 'deal-1', name: 'Renewal' }],
+    });
+  });
+
   it('passes Sanka custom object row arguments through aggregate_records', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'custom_objects',
@@ -6931,6 +6972,52 @@ describe('ChatGPT CRM tools', () => {
       target: 'integration',
       provider: 'salesforce',
       dry_run: true,
+    });
+  });
+
+  it('treats property mutation scope=integration as target=integration', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      object: 'contacts',
+      property_id: 'test_property',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        scope: 'integration',
+        provider: 'hubspot',
+        external_id: 'test_property',
+        group_name: 'contactinformation',
+        dry_run: true,
+        name: 'Test property',
+        type: 'text',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/contacts', {
+      body: {
+        dry_run: true,
+        external_id: 'test_property',
+        group_name: 'contactinformation',
+        name: 'Test property',
+        provider: 'hubspot',
+        scope: 'integration',
+        target: 'integration',
+        type: 'text',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      target: 'integration',
+      provider: 'hubspot',
     });
   });
 
