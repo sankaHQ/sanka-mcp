@@ -41,6 +41,7 @@ import {
   crmCreateTaskTool,
   crmCreateTicketTool,
   crmDeleteBillTool,
+  crmDeleteDeliveryRuleTool,
   crmDeleteAssociationTool,
   crmDeleteCompanyTool,
   crmDeleteContactTool,
@@ -93,6 +94,7 @@ import {
   crmGetPaymentTool,
   crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
+  crmGetDeliveryRuleOptionsTool,
   crmGetPropertyTool,
   crmGetPurchaseOrderTool,
   crmGetSlipTool,
@@ -129,6 +131,7 @@ import {
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
+  crmListApprovalRulesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
   crmListSlipsTool,
@@ -174,6 +177,7 @@ import {
   crmUpdateTaskTool,
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
+  crmUpsertApprovalRuleTool,
   crmUploadBillAttachmentTool,
   crmUploadEstimateAttachmentTool,
   crmUploadExpenseAttachmentTool,
@@ -6597,6 +6601,150 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+  });
+
+  it('lists approval rules through the public rule settings API', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        settingType: 'invoices',
+        rules: [
+          {
+            id: 'rule-1',
+            name: 'Block invoice download',
+            blockTargets: ['document_download'],
+            summary: 'status == sent',
+          },
+        ],
+        message: 'OK',
+      },
+    });
+
+    const result = await crmListApprovalRulesTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        workspace_id: 'workspace-1',
+        language: 'ja',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/approval-rules', {
+      query: {
+        object: 'invoices',
+        workspace_id: 'workspace-1',
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      results: [{ id: 'rule-1', name: 'Block invoice download' }],
+    });
+  });
+
+  it('upserts approval rules with object and block targets', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        rule: {
+          id: 'rule-1',
+          name: 'Block invoice download',
+          blockTargets: ['document_download'],
+        },
+        message: 'Approval rule saved.',
+      },
+    });
+
+    const result = await crmUpsertApprovalRuleTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        name: 'Block invoice download',
+        conditions: { all: [{ field: 'status', op: '==', value: 'sent' }] },
+        block_targets: ['document_download'],
+        approver_user_ids: ['7'],
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/approval-rules', {
+      body: {
+        object: 'invoices',
+        name: 'Block invoice download',
+        conditions: { all: [{ field: 'status', op: '==', value: 'sent' }] },
+        block_targets: ['document_download'],
+        approver_user_ids: ['7'],
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      rule: {
+        id: 'rule-1',
+        name: 'Block invoice download',
+        blockTargets: ['document_download'],
+      },
+      message: 'Approval rule saved.',
+    });
+  });
+
+  it('loads delivery rule options and deletes delivery rules through object-scoped endpoints', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        rule: { id: 'default-send', action: 'send' },
+        actionOptions: [{ value: 'send', label: 'Send' }],
+        message: 'OK',
+      },
+    });
+    const del = jest.fn().mockResolvedValue({
+      success: true,
+      data: { message: 'Send rule deleted.' },
+    });
+
+    const optionsResult = await crmGetDeliveryRuleOptionsTool.handler({
+      reqContext: {
+        client: { get, delete: del } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        action: 'send',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/delivery-rules/options', {
+      query: {
+        object: 'invoices',
+        action: 'send',
+      },
+    });
+    expect(optionsResult.structuredContent).toMatchObject({
+      rule: { id: 'default-send', action: 'send' },
+    });
+
+    const deleteResult = await crmDeleteDeliveryRuleTool.handler({
+      reqContext: {
+        client: { get, delete: del } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        rule_id: 'rule-1',
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/api/v2/delivery-rules/rule-1', {
+      query: { object: 'invoices' },
+    });
+    expect(deleteResult.structuredContent).toEqual({ message: 'Send rule deleted.' });
   });
 
   it('gets one property when authentication is present', async () => {
