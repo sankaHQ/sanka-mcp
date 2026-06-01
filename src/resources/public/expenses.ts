@@ -23,7 +23,9 @@ import {
 const expenseFromV2Record = (record: V2ObjectRecord): Expense =>
   legacyObjectRecordFromV2<Expense>(record, 'id_pm');
 
-const expenseMutationProperties = (params: ExpenseCreateParams | ExpenseUpdateParams): Record<string, unknown> => {
+const expenseMutationProperties = (
+  params: ExpenseCreateParams | ExpenseUpdateParams,
+): Record<string, unknown> => {
   const {
     amount,
     attachment_file: _attachmentFile,
@@ -60,9 +62,17 @@ export class Expenses extends APIResource {
    */
   create(body: ExpenseCreateParams, options?: RequestOptions): APIPromise<PublicExpenseResponse> {
     return this._client
-      .v2Post<V2ObjectRecord>('/expenses', { body: { properties: expenseMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/expenses', {
+        body: { properties: expenseMutationProperties(body) },
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
-        legacyMutationResponseFromV2<PublicExpenseResponse>(envelope, 'expense_id', 'created', body.external_id),
+        legacyMutationResponseFromV2<PublicExpenseResponse>(
+          envelope,
+          'expense_id',
+          'created',
+          body.external_id,
+        ),
       );
   }
 

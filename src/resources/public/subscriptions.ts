@@ -33,10 +33,7 @@ const subscriptionMutationProperties = (
   const item = firstSubscriptionItem(params);
   const mutationParams = params as Partial<SubscriptionCreateParams & SubscriptionUpdateParams>;
   const contactID =
-    mutationParams.contact_id ??
-    mutationParams.cid ??
-    mutationParams.customer_id ??
-    mutationParams.contact;
+    mutationParams.contact_id ?? mutationParams.cid ?? mutationParams.customer_id ?? mutationParams.contact;
   const companyID = mutationParams.company_id ?? mutationParams.customer_id;
   const status = 'subscription_status' in params ? params.subscription_status : params.status;
   return compactProperties({

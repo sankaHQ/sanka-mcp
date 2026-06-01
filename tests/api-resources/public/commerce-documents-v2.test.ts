@@ -322,7 +322,11 @@ describe('public commerce document resources on V2', () => {
       company_id: 'supplier-1',
       status: 'draft',
     });
-    await client.public.slips.create({ company_id: 'company-1', start_date: '2026-06-01', slip_type: 'sales' });
+    await client.public.slips.create({
+      company_id: 'company-1',
+      start_date: '2026-06-01',
+      slip_type: 'sales',
+    });
     await client.public.slips.update('slip-1', {
       external_id: 'SLIP-1',
       company_id: 'company-1',

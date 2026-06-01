@@ -22,7 +22,9 @@ import { PublicLineItem } from './line-items';
 const paymentFromV2Record = (record: V2ObjectRecord): Receipt =>
   legacyObjectRecordFromV2<Receipt>(record, 'id_rcp');
 
-const paymentMutationProperties = (params: PaymentCreateParams | PaymentUpdateParams): Record<string, unknown> => {
+const paymentMutationProperties = (
+  params: PaymentCreateParams | PaymentUpdateParams,
+): Record<string, unknown> => {
   const {
     companyExternalId: _companyExternalID,
     companyId,
@@ -61,7 +63,10 @@ export class Payments extends APIResource {
    */
   create(body: PaymentCreateParams, options?: RequestOptions): APIPromise<PaymentResponse> {
     return this._client
-      .v2Post<V2ObjectRecord>('/payments', { body: { properties: paymentMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/payments', {
+        body: { properties: paymentMutationProperties(body) },
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
         legacyMutationResponseFromV2<PaymentResponse>(envelope, 'payment_id', 'created', body.externalId),
       );

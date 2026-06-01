@@ -42,7 +42,9 @@ const invoiceFromV2Record = (record: V2ObjectRecord): InvoiceSchema => {
   });
 };
 
-const invoiceMutationProperties = (params: InvoiceCreateParams | InvoiceUpdateParams): Record<string, unknown> => {
+const invoiceMutationProperties = (
+  params: InvoiceCreateParams | InvoiceUpdateParams,
+): Record<string, unknown> => {
   const {
     attachment_file: _attachmentFile,
     company_external_id: _companyExternalID,
@@ -87,7 +89,10 @@ export class Invoices extends APIResource {
    */
   create(body: InvoiceCreateParams, options?: RequestOptions): APIPromise<Invoice> {
     return this._client
-      .v2Post<V2ObjectRecord>('/invoices', { body: { properties: invoiceMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/invoices', {
+        body: { properties: invoiceMutationProperties(body) },
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
         legacyMutationResponseFromV2<Invoice>(envelope, 'invoice_id', 'created', body.external_id),
       );

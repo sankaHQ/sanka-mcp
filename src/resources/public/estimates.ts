@@ -75,7 +75,10 @@ export class Estimates extends APIResource {
    */
   create(body: EstimateCreateParams, options?: RequestOptions): APIPromise<PublicEstimateResponse> {
     return this._client
-      .v2Post<V2ObjectRecord>('/estimates', { body: { properties: estimateMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/estimates', {
+        body: { properties: estimateMutationProperties(body) },
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
         legacyMutationResponseFromV2<PublicEstimateResponse>(
           envelope,
