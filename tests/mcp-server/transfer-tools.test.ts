@@ -313,6 +313,7 @@ describe('public transfer MCP tools', () => {
       args: {
         object_type: 'invoice',
         destination_kind: 'accounting',
+        provider: 'hubspot',
         target_system: 'moneyforward',
         channel_id: 'chan-mf',
         record_ids: ['invoice-1'],
@@ -331,6 +332,29 @@ describe('public transfer MCP tools', () => {
       dry_run: true,
     });
     expect(result.structuredContent?.['job_id']).toBe('exp-inv-1');
+  });
+
+  it('rejects target_system on non-invoice exports', async () => {
+    const create = jest.fn();
+
+    const result = await exportRecordsTool.handler({
+      reqContext: {
+        client: {
+          public: { exports: { create } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'deal',
+        target_system: 'moneyforward',
+        channel_id: 'chan-1',
+        record_ids: ['deal-1'],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('creates an export job and exposes lookup/list/cancel tool calls', async () => {
