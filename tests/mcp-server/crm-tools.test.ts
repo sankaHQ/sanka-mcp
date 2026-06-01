@@ -3223,7 +3223,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('activates an order with read-after-write verification', async () => {
-    const post = jest.fn().mockResolvedValue({
+    const activate = jest.fn().mockResolvedValue({
       ok: true,
       operation: 'activate',
       status: 'active',
@@ -3237,9 +3237,8 @@ describe('ChatGPT CRM tools', () => {
     const result = await crmActivateOrderTool.handler({
       reqContext: {
         client: {
-          post,
           public: {
-            orders: { retrieve },
+            orders: { activate, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -3251,9 +3250,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/orders/order-1/activate', {
-      query: { external_id: 'ORD-1' },
-    });
+    expect(activate).toHaveBeenCalledWith('order-1', { external_id: 'ORD-1' }, undefined);
     expect(retrieve).toHaveBeenCalledWith(
       'order-1',
       {

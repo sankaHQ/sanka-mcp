@@ -68,7 +68,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/orders',
+    httpPath: '/api/v2/orders',
   },
   {
     clientCallName: 'client.public.orders.retrieve',
@@ -91,14 +91,20 @@ export const sdkMethods: SdkMethod[] = [
   {
     clientCallName: 'client.public.orders.update',
     fullyQualifiedName: 'public.orders.update',
-    httpMethod: 'put',
-    httpPath: '/v1/public/orders/{order_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/orders/{order_id}',
   },
   {
     clientCallName: 'client.public.orders.list',
     fullyQualifiedName: 'public.orders.list',
     httpMethod: 'get',
     httpPath: '/api/v2/orders',
+  },
+  {
+    clientCallName: 'client.public.orders.activate',
+    fullyQualifiedName: 'public.orders.activate',
+    httpMethod: 'post',
+    httpPath: '/api/v2/orders/{order_id}/activate',
   },
   {
     clientCallName: 'client.public.orders.delete',

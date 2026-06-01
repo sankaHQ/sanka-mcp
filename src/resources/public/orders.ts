@@ -7,11 +7,19 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
-import { V2PdfData, buildV2PdfRequest, unwrapV2DataPromise, unwrapV2PdfResponse } from '../../internal/v2';
+import {
+  V2Envelope,
+  V2PdfData,
+  buildV2PdfRequest,
+  unwrapV2Data,
+  unwrapV2DataPromise,
+  unwrapV2PdfResponse,
+} from '../../internal/v2';
 import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  compactProperties,
   legacyDeleteResponseFromV2,
   legacyListEnvelopeFromV2,
   legacyObjectRecordFromV2,
@@ -22,12 +30,86 @@ import { PublicLineItem } from './line-items';
 const orderFromV2Record = (record: V2ObjectRecord): OrderRetrieveResponse =>
   legacyObjectRecordFromV2<OrderRetrieveResponse>(record, 'order_id');
 
+const orderLineItemsForV2 = (order: PublicOrder): Array<Record<string, unknown>> | undefined => {
+  const lineItems: Array<Record<string, unknown>> = [];
+  for (const item of order.line_items ?? []) {
+    lineItems.push(item as Record<string, unknown>);
+  }
+  for (const item of order.items ?? []) {
+    lineItems.push(
+      compactProperties({
+        item_id: item.item_id,
+        item_external_id: item.itemExternalId,
+        quantity: item.quantity,
+        unit_price: item.price,
+        tax_rate: item.tax_rate ?? item.tax,
+      }),
+    );
+  }
+  return lineItems.length > 0 ? lineItems : undefined;
+};
+
+const orderMutationProperties = (
+  params: OrderCreateParams | OrderUpdateParams,
+): { externalID?: string; properties: Record<string, unknown> } => {
+  const order = params.order;
+  const lineItems = orderLineItemsForV2(order);
+  return {
+    externalID: order.externalId,
+    properties: compactProperties({
+      external_id: order.externalId,
+      company_external_id: order.companyExternalId,
+      company_id: order.companyId,
+      delivery_status: order.deliveryStatus,
+      order_at: order.orderAt,
+      line_items: lineItems,
+    }),
+  };
+};
+
+const legacyOrderMutationResponseFromV2 = (
+  envelope: V2Envelope<V2ObjectRecord>,
+  status: string,
+  externalID?: string | null,
+): BulkOrders => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    ctx_id: envelope.meta.ctx_id ?? null,
+    results: [
+      {
+        external_id: externalID ?? '',
+        status,
+        order_id: data.id,
+      },
+    ],
+  };
+};
+
+const legacyOrderLifecycleResponseFromV2 = (
+  envelope: V2Envelope<V2LifecycleData>,
+  status: string,
+  externalID?: string | null,
+): OrderDeleteResponse => {
+  const data = unwrapV2Data(envelope);
+  return {
+    ok: true,
+    status,
+    order_id: data.id ?? null,
+    external_id: externalID ?? null,
+    ctx_id: envelope.meta.ctx_id ?? null,
+  };
+};
+
 export class Orders extends APIResource {
   /**
    * Create Orders
    */
   create(body: OrderCreateParams, options?: RequestOptions): APIPromise<BulkOrders> {
-    return this._client.post('/v1/public/orders', { body, ...options });
+    const { externalID, properties } = orderMutationProperties(body);
+    return this._client
+      .v2Post<V2ObjectRecord>('/orders', { body: { properties }, ...options })
+      ._thenUnwrap((envelope) => legacyOrderMutationResponseFromV2(envelope, 'created', externalID));
   }
 
   /**
@@ -48,7 +130,14 @@ export class Orders extends APIResource {
    * Update Order
    */
   update(orderID: string, body: OrderUpdateParams, options?: RequestOptions): APIPromise<BulkOrders> {
-    return this._client.put(path`/v1/public/orders/${orderID}`, { body, ...options });
+    const { externalID, properties } = orderMutationProperties(body);
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/orders/${orderID}`, {
+        query: { external_id: externalID },
+        body: { properties },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => legacyOrderMutationResponseFromV2(envelope, 'updated', externalID));
   }
 
   /**
@@ -113,6 +202,23 @@ export class Orders extends APIResource {
   }
 
   /**
+   * Activate Order
+   */
+  activate(
+    orderID: string,
+    params: OrderActivateParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<OrderDeleteResponse> {
+    const { external_id } = params ?? {};
+    return this._client
+      .v2Post<V2LifecycleData>(path`/orders/${orderID}/activate`, {
+        query: { external_id },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => legacyOrderLifecycleResponseFromV2(envelope, 'active', external_id));
+  }
+
+  /**
    * Download Order PDF
    */
   downloadPDF(
@@ -171,7 +277,7 @@ export class Orders extends APIResource {
 export interface BulkOrder {
   externalId: string;
 
-  items: Array<BulkOrder.Item>;
+  items?: Array<BulkOrder.Item> | null;
 
   companyExternalId?: string | null;
 
@@ -200,6 +306,8 @@ export namespace BulkOrder {
 
 export interface PublicOrder extends BulkOrder {
   attachment_file?: PublicOrder.AttachmentFile | null;
+
+  line_items?: Array<PublicLineItem> | null;
 }
 
 export namespace PublicOrder {
@@ -402,6 +510,10 @@ export interface OrderDeleteParams {
   external_id?: string | null;
 }
 
+export interface OrderActivateParams {
+  external_id?: string | null;
+}
+
 export interface OrderBulkCreateParams {
   orders: Array<BulkOrder>;
 
@@ -429,6 +541,7 @@ export declare namespace Orders {
     type OrderUpdateParams as OrderUpdateParams,
     type OrderListParams as OrderListParams,
     type OrderDeleteParams as OrderDeleteParams,
+    type OrderActivateParams as OrderActivateParams,
     type OrderBulkCreateParams as OrderBulkCreateParams,
     type OrderUploadAttachmentParams as OrderUploadAttachmentParams,
   };

@@ -12,13 +12,14 @@ const config: JestConfigWithTsJest = {
   },
   modulePathIgnorePatterns: [
     '<rootDir>/.worktrees/',
+    '<rootDir>/worktrees/',
     '<rootDir>/ecosystem-tests/',
     '<rootDir>/dist/',
     '<rootDir>/deno/',
     '<rootDir>/deno_tests/',
     '<rootDir>/packages/',
   ],
-  testPathIgnorePatterns: ['scripts'],
+  testPathIgnorePatterns: ['scripts', '<rootDir>/worktrees/'],
 };
 
 export default config;

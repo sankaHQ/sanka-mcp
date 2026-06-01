@@ -58,6 +58,15 @@ describe('public commerce document resources on V2', () => {
           const id = requestURL.split('/').pop()?.split('?')[0] ?? 'record-1';
           return envelope({ id, record_id: '7000', status: 'archived' });
         }
+        if (method === 'POST' && requestURL.endsWith('/api/v2/orders')) {
+          return envelope(records.order);
+        }
+        if (method === 'PATCH' && requestURL.includes('/api/v2/orders/order-1')) {
+          return envelope(records.order);
+        }
+        if (method === 'POST' && requestURL.includes('/api/v2/orders/order-1/activate')) {
+          return envelope({ id: 'order-1', record_id: '7001', status: 'active' });
+        }
         if (requestURL.endsWith('/api/v2/orders?q=Acme&limit=5')) {
           return envelope({ items: [records.order], page: 1, page_size: 5, total: 1 });
         }
@@ -102,6 +111,37 @@ describe('public commerce document resources on V2', () => {
       status: 'deleted',
       order_id: 'order-1',
       external_id: 'ORDER-EXT',
+      ctx_id: 'ctx-test',
+    });
+    await expect(
+      client.public.orders.create({
+        order: {
+          externalId: 'ORDER-EXT-2',
+          companyId: 'company-1',
+          line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 300, tax_rate: 10 }],
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      results: [{ external_id: 'ORDER-EXT-2', status: 'created', order_id: 'order-1' }],
+    });
+    await expect(
+      client.public.orders.update('order-1', {
+        order: {
+          externalId: 'ORDER-EXT-2',
+          deliveryStatus: 'order_delivered',
+          items: [{ item_id: 'item-1', quantity: 1, price: 125 }],
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      results: [{ external_id: 'ORDER-EXT-2', status: 'updated', order_id: 'order-1' }],
+    });
+    await expect(client.public.orders.activate('order-1', { external_id: 'ORDER-EXT-2' })).resolves.toEqual({
+      ok: true,
+      status: 'active',
+      order_id: 'order-1',
+      external_id: 'ORDER-EXT-2',
       ctx_id: 'ctx-test',
     });
 
@@ -171,6 +211,9 @@ describe('public commerce document resources on V2', () => {
       'GET http://localhost:5000/api/v2/orders/order-1?external_id=ORDER-EXT',
       'GET http://localhost:5000/api/v2/orders?q=Acme&limit=5',
       'DELETE http://localhost:5000/api/v2/orders/order-1?external_id=ORDER-EXT',
+      'POST http://localhost:5000/api/v2/orders',
+      'PATCH http://localhost:5000/api/v2/orders/order-1?external_id=ORDER-EXT-2',
+      'POST http://localhost:5000/api/v2/orders/order-1/activate?external_id=ORDER-EXT-2',
       'GET http://localhost:5000/api/v2/estimates/estimate-1',
       'GET http://localhost:5000/api/v2/estimates',
       'DELETE http://localhost:5000/api/v2/estimates/estimate-1',
