@@ -251,6 +251,7 @@ import {
   resolveRecordTool,
   startWorkflowTool,
 } from './workflow-run-tools';
+import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
@@ -607,6 +608,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmUpdateDealTool,
     crmDeleteDealTool,
     crmListDealPipelinesTool,
+    createWorkflowTool,
+    updateWorkflowTool,
+    runWorkflowTool,
     resolveRecordTool,
     previewWorkflowTool,
     startWorkflowTool,

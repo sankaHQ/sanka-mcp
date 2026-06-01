@@ -253,6 +253,7 @@ const fuse = new Fuse(
     'client.public.workflows.retrieve',
     'client.public.workflows.retrieveRun',
     'client.public.workflows.run',
+    'client.public.workflows.update',
     'client.public.calendar.bootstrap',
     'client.public.calendar.checkAvailability',
     'client.public.calendar.attendance.cancel',

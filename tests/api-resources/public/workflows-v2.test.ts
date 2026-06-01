@@ -19,13 +19,42 @@ const envelope = (data: unknown) =>
 describe('public workflow resources on V2', () => {
   test('uses V2 workflow paths for backend-ready read methods', async () => {
     const calls: string[] = [];
+    const methods: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
       apiVersion: 'v2',
       baseURL: 'http://localhost:5000/',
-      fetch: async (url) => {
+      fetch: async (url, init) => {
         const requestURL = String(url);
         calls.push(requestURL);
+        methods.push(String(init?.method ?? 'GET'));
+        if (requestURL.endsWith('/api/v2/public/workflows/workflow-1/run')) {
+          return envelope({
+            run_id: 'run-1',
+            workflow_id: 'workflow-1',
+            workflow_history_id: 'history-1',
+            status: 'running',
+            started_at: '2026-05-31T00:00:00Z',
+          });
+        }
+        if (
+          requestURL.endsWith('/api/v2/public/workflows') ||
+          requestURL.endsWith('/api/v2/public/workflows/workflow-1')
+        ) {
+          if (init?.method === 'POST' || init?.method === 'PATCH') {
+            return envelope({
+              ok: true,
+              provider: 'hubspot',
+              dry_run: true,
+              workflow_id: 'workflow-1',
+              external_id: 'flow-1',
+              status: init.method === 'PATCH' ? 'updated' : 'previewed',
+              node_count: 0,
+              valid_to_run: false,
+              platform_payload: { objectTypeId: '0-3' },
+            });
+          }
+        }
         if (requestURL.includes('/actions')) {
           return envelope({
             actions: [{ action_uid: 'send_email', is_trigger: false, title: 'Send email' }],
@@ -84,15 +113,75 @@ describe('public workflow resources on V2', () => {
       message: 'ok',
       ctx_id: 'ctx-test',
     });
-    await expect(client.public.workflows.run('workflow-1')).rejects.toThrow(
-      'Sanka client is configured for V2-only requests, but received V1 path',
-    );
+    await expect(
+      client.public.workflows.createOrUpdate({
+        provider: 'hubspot',
+        title: 'Set amount',
+        dry_run: true,
+      }),
+    ).resolves.toMatchObject({
+      provider: 'hubspot',
+      dry_run: true,
+      external_id: 'flow-1',
+      status: 'previewed',
+    });
+    await expect(
+      client.public.workflows.update('workflow-1', {
+        provider: 'hubspot',
+        external_id: 'flow-1',
+        dry_run: true,
+      }),
+    ).resolves.toMatchObject({
+      provider: 'hubspot',
+      status: 'updated',
+    });
+    await expect(client.public.workflows.run('workflow-1')).resolves.toMatchObject({
+      data: {
+        run_id: 'run-1',
+        workflow_id: 'workflow-1',
+        status: 'running',
+      },
+      message: 'ok',
+      ctx_id: 'ctx-test',
+    });
 
     expect(calls).toEqual([
       'http://localhost:5000/api/v2/public/workflows?page=2&limit=10',
       'http://localhost:5000/api/v2/public/workflows/workflow-1',
       'http://localhost:5000/api/v2/public/workflows/actions',
       'http://localhost:5000/api/v2/public/workflow-runs/run-1',
+      'http://localhost:5000/api/v2/public/workflows',
+      'http://localhost:5000/api/v2/public/workflows/workflow-1',
+      'http://localhost:5000/api/v2/public/workflows/workflow-1/run',
     ]);
+    expect(methods).toEqual(['GET', 'GET', 'GET', 'GET', 'POST', 'PATCH', 'POST']);
+  });
+
+  test('preserves request options as the second run argument', async () => {
+    const requestBodies: string[] = [];
+    const requestHeaders: Array<string | null> = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (_url, init) => {
+        requestBodies.push(String(init?.body ?? ''));
+        requestHeaders.push(new Headers(init?.headers).get('x-run-option'));
+        return envelope({
+          run_id: 'run-1',
+          workflow_id: 'workflow-1',
+          workflow_history_id: 'history-1',
+          status: 'running',
+          started_at: '2026-05-31T00:00:00Z',
+        });
+      },
+    });
+
+    await client.public.workflows.run('workflow-1', {
+      headers: { 'x-run-option': 'preserved' },
+    });
+
+    expect(requestHeaders).toEqual(['preserved']);
+    expect(JSON.parse(requestBodies[0] || '{}')).toEqual({});
   });
 });
