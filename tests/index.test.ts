@@ -398,6 +398,8 @@ describe('instantiate client', () => {
 
     afterEach(() => {
       process.env['SANKA_BASE_URL'] = undefined;
+      process.env['SANKA_LEGACY_BASE_URL'] = undefined;
+      process.env['SANKA_LEGACY_PUBLIC_BASE_URL'] = undefined;
     });
 
     test('explicit option', () => {
@@ -442,6 +444,32 @@ describe('instantiate client', () => {
       const client = new Sanka({ apiKey: 'My API Key' });
       expect(client.buildURL('/foo', null, 'http://localhost:5000/option')).toEqual(
         'http://localhost:5000/env/foo',
+      );
+    });
+
+    test('routes legacy V1 requests away from production V2 API host', () => {
+      const client = new Sanka({ baseURL: 'https://sanka-api.fly.dev', apiKey: 'My API Key' });
+
+      expect(client.buildURL('/v1/public/expenses', null)).toEqual(
+        'https://api.sanka.com/v1/public/expenses',
+      );
+      expect(client.buildURL('/api/v2/expenses', null)).toEqual('https://sanka-api.fly.dev/api/v2/expenses');
+    });
+
+    test('routes staging legacy V1 requests to staging public API host', () => {
+      const client = new Sanka({ baseURL: 'https://sanka-api-staging.fly.dev', apiKey: 'My API Key' });
+
+      expect(client.buildURL('/v1/public/expenses', null)).toEqual(
+        'https://api.sankastaging.com/v1/public/expenses',
+      );
+    });
+
+    test('allows overriding the legacy public API host', () => {
+      process.env['SANKA_LEGACY_PUBLIC_BASE_URL'] = 'https://legacy.example.com/';
+      const client = new Sanka({ baseURL: 'https://sanka-api.fly.dev', apiKey: 'My API Key' });
+
+      expect(client.buildURL('/v1/public/expenses', null)).toEqual(
+        'https://legacy.example.com/v1/public/expenses',
       );
     });
   });

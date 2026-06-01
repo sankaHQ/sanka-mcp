@@ -192,12 +192,13 @@ import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
   scopes?: string[];
+  authorizationServerUrl?: string;
   workspace?: { id?: string; code?: string; name?: string };
 }) => ({
   authMode: overrides?.authMode ?? 'oauth_bearer',
   clientOptions: {},
   oauth: {
-    authorizationServerUrl: 'https://app.sanka.com',
+    authorizationServerUrl: overrides?.authorizationServerUrl ?? 'https://app.sanka.com',
     resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
     resourceUrl: 'https://mcp.sanka.com/mcp',
     scopes: overrides?.scopes ?? [],
@@ -6365,7 +6366,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('creates an expense with uploaded attachment ids', async () => {
-    const create = jest.fn().mockResolvedValue({
+    const post = jest.fn().mockResolvedValue({
       ok: true,
       status: 'created',
       expense_id: 'expense-1',
@@ -6381,11 +6382,7 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmCreateExpenseTool.handler({
       reqContext: {
-        client: {
-          public: {
-            expenses: { create },
-          },
-        } as any,
+        client: { post } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -6398,8 +6395,8 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(create).toHaveBeenCalledWith(
-      {
+    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/expenses', {
+      body: {
         amount: 100,
         currency: 'USD',
         description: 'Hotel',
@@ -6408,8 +6405,7 @@ describe('ChatGPT CRM tools', () => {
           files: [{ file_id: 'file-1' }, { file_id: 'file-2' }],
         },
       },
-      undefined,
-    );
+    });
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'created',
@@ -6622,7 +6618,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/properties/companies', {
+    expect(get).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/companies', {
       query: {
         scope: 'integration',
         provider: 'hubspot',
@@ -6915,7 +6911,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/properties/deals', {
+    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/deals', {
       body: {
         external_id: 'CodexSmokeField__c',
         external_object_type: 'Opportunity',
@@ -6936,6 +6932,32 @@ describe('ChatGPT CRM tools', () => {
       provider: 'salesforce',
       dry_run: true,
     });
+  });
+
+  it('routes staging integration properties to the staging legacy public API host', async () => {
+    const get = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Stage Field' }]);
+
+    const result = await crmListPropertiesTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext({ authorizationServerUrl: 'https://app.sankastaging.com' }),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        scope: 'integration',
+        provider: 'hubspot',
+        limit: 10,
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('https://api.sankastaging.com/v1/public/properties/contacts', {
+      query: {
+        scope: 'integration',
+        provider: 'hubspot',
+      },
+    });
+    expect(result.structuredContent?.['count']).toBe(1);
   });
 
   it('updates a property', async () => {
@@ -7050,7 +7072,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(del).toHaveBeenCalledWith('/v1/public/properties/deals/codex_smoke_field', {
+    expect(del).toHaveBeenCalledWith('https://api.sanka.com/v1/public/properties/deals/codex_smoke_field', {
       query: {
         object_name: 'deals',
         target: 'integration',

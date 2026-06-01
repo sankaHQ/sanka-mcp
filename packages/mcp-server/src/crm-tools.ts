@@ -11008,9 +11008,50 @@ const hasIntegrationPropertyMutationHints = (payload: Record<string, unknown>): 
   );
 };
 
-const legacyPropertyPath = (objectName: string, propertyRef?: string): string => {
-  const base = `/v1/public/properties/${encodeURIComponent(objectName)}`;
-  return propertyRef ? `${base}/${encodeURIComponent(propertyRef)}` : base;
+const trimTrailingSlashes = (value: string): string => value.replace(/\/+$/, '');
+
+const legacyPublicAPIBaseUrl = (reqContext: McpRequestContext): string | undefined => {
+  const configured = readString(
+    process.env['SANKA_LEGACY_PUBLIC_BASE_URL'] ?? process.env['SANKA_LEGACY_BASE_URL'],
+  );
+  if (configured) {
+    return trimTrailingSlashes(configured);
+  }
+
+  const authorizationServerUrl = readString(reqContext.auth?.oauth?.authorizationServerUrl);
+  if (!authorizationServerUrl) {
+    return undefined;
+  }
+
+  try {
+    const hostname = new URL(authorizationServerUrl).hostname.toLowerCase();
+    if (hostname === 'app.sanka.com') {
+      return 'https://api.sanka.com';
+    }
+    if (hostname === 'app.sankastaging.com') {
+      return 'https://api.sankastaging.com';
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+};
+
+const legacyPropertyPath = (
+  reqContext: McpRequestContext,
+  objectName: string,
+  propertyRef?: string,
+): string => {
+  const path = `/v1/public/properties/${encodeURIComponent(objectName)}`;
+  const fullPath = propertyRef ? `${path}/${encodeURIComponent(propertyRef)}` : path;
+  return legacyPublicPath(reqContext, fullPath);
+};
+
+const legacyPublicPath = (reqContext: McpRequestContext, path: string): string => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const baseUrl = legacyPublicAPIBaseUrl(reqContext);
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
 };
 
 const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
@@ -13935,10 +13976,9 @@ export const crmCreateExpenseTool: McpTool = {
       return authError;
     }
 
-    const response = (await reqContext.client.public.expenses.create(
-      buildExpenseMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const response = (await reqContext.client.post(legacyPublicPath(reqContext, '/v1/public/expenses'), {
+      body: buildExpenseMutationBody(args),
+    })) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20681,7 +20721,9 @@ export const crmListPropertiesTool: McpTool = {
 
     const properties =
       hasIntegrationPropertyQueryHints(params) ?
-        readArrayPayload(await reqContext.client.get(legacyPropertyPath(objectName), { query: params }))
+        readArrayPayload(
+          await reqContext.client.get(legacyPropertyPath(reqContext, objectName), { query: params }),
+        )
       : await reqContext.client.public.properties.list(objectName, params, undefined);
     const results = properties
       .slice(0, limit)
@@ -20744,7 +20786,7 @@ export const crmGetPropertyTool: McpTool = {
     const property =
       hasIntegrationPropertyQueryHints(params) ?
         readPayloadDataRecord(
-          (await reqContext.client.get(legacyPropertyPath(objectName, propertyRef), {
+          (await reqContext.client.get(legacyPropertyPath(reqContext, objectName, propertyRef), {
             query: params,
           })) as Record<string, unknown>,
         )
@@ -20810,7 +20852,7 @@ export const crmCreatePropertyTool: McpTool = {
 
     const body = buildPropertyMutationBody(args);
     const response = (hasIntegrationPropertyMutationHints(body) ?
-      await reqContext.client.post(legacyPropertyPath(objectName), { body })
+      await reqContext.client.post(legacyPropertyPath(reqContext, objectName), { body })
     : await reqContext.client.public.properties.create(objectName, body, undefined)) as unknown as Record<
       string,
       unknown
@@ -20876,7 +20918,7 @@ export const crmUpdatePropertyTool: McpTool = {
 
     const body = buildPropertyMutationBody(args);
     const response = (hasIntegrationPropertyMutationHints(body) ?
-      await reqContext.client.put(legacyPropertyPath(objectName, propertyRef), { body })
+      await reqContext.client.put(legacyPropertyPath(reqContext, objectName, propertyRef), { body })
     : await reqContext.client.public.properties.update(
         propertyRef,
         {
@@ -20944,7 +20986,9 @@ export const crmDeletePropertyTool: McpTool = {
     }
 
     const response = (hasIntegrationPropertyMutationHints(params) ?
-      await reqContext.client.delete(legacyPropertyPath(objectName, propertyRef), { query: params })
+      await reqContext.client.delete(legacyPropertyPath(reqContext, objectName, propertyRef), {
+        query: params,
+      })
     : await reqContext.client.public.properties.delete(
         propertyRef,
         params as {
