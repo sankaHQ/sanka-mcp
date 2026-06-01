@@ -156,4 +156,32 @@ describe('public workflow resources on V2', () => {
     ]);
     expect(methods).toEqual(['GET', 'GET', 'GET', 'GET', 'POST', 'PATCH', 'POST']);
   });
+
+  test('preserves request options as the second run argument', async () => {
+    const requestBodies: string[] = [];
+    const requestHeaders: Array<string | null> = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (_url, init) => {
+        requestBodies.push(String(init?.body ?? ''));
+        requestHeaders.push(new Headers(init?.headers).get('x-run-option'));
+        return envelope({
+          run_id: 'run-1',
+          workflow_id: 'workflow-1',
+          workflow_history_id: 'history-1',
+          status: 'running',
+          started_at: '2026-05-31T00:00:00Z',
+        });
+      },
+    });
+
+    await client.public.workflows.run('workflow-1', {
+      headers: { 'x-run-option': 'preserved' },
+    });
+
+    expect(requestHeaders).toEqual(['preserved']);
+    expect(JSON.parse(requestBodies[0] || '{}')).toEqual({});
+  });
 });

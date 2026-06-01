@@ -103,6 +103,28 @@ const unwrapV2WorkflowMutation = (
   });
 };
 
+const REQUEST_OPTION_KEYS = new Set([
+  'method',
+  'path',
+  'query',
+  'body',
+  'headers',
+  'maxRetries',
+  'stream',
+  'timeout',
+  'fetchOptions',
+  'signal',
+  'idempotencyKey',
+  'defaultBaseURL',
+  '__binaryResponse',
+]);
+
+const isRequestOptions = (value: unknown): value is RequestOptions => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const keys = Object.keys(value as Record<string, unknown>);
+  return keys.length > 0 && keys.every((key) => REQUEST_OPTION_KEYS.has(key));
+};
+
 export class Workflows extends APIResource {
   /**
    * Get Workflow
@@ -161,13 +183,27 @@ export class Workflows extends APIResource {
   /**
    * Run Workflow
    */
+  run(workflowRef: string, options?: RequestOptions): APIPromise<WorkflowRunResponse>;
   run(
     workflowRef: string,
-    body: WorkflowRunParams | null | undefined = {},
+    body: WorkflowRunParams | null | undefined,
+    options?: RequestOptions,
+  ): APIPromise<WorkflowRunResponse>;
+  run(
+    workflowRef: string,
+    bodyOrOptions: WorkflowRunParams | RequestOptions | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<WorkflowRunResponse> {
+    const requestOptions = options ?? (isRequestOptions(bodyOrOptions) ? bodyOrOptions : undefined);
+    const body =
+      !options && isRequestOptions(bodyOrOptions) ?
+        {}
+      : (bodyOrOptions as WorkflowRunParams | null | undefined) ?? {};
     return unwrapV2WorkflowRun(
-      this._client.post(path`/api/v2/public/workflows/${workflowRef}/run`, { body, ...options }),
+      this._client.post(path`/api/v2/public/workflows/${workflowRef}/run`, {
+        body,
+        ...requestOptions,
+      }),
     );
   }
 }

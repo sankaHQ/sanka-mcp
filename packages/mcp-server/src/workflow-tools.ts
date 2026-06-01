@@ -118,10 +118,13 @@ const readObject = (value: unknown): Record<string, unknown> | undefined =>
     (value as Record<string, unknown>)
   : undefined;
 
-const readObjectArray = (value: unknown): Array<Record<string, unknown>> =>
+const hasOwn = (value: Record<string, unknown> | undefined, key: string): boolean =>
+  Boolean(value && Object.prototype.hasOwnProperty.call(value, key));
+
+const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undefined =>
   Array.isArray(value) ?
     value.filter((entry): entry is Record<string, unknown> => Boolean(readObject(entry)))
-  : [];
+  : undefined;
 
 const workflowResult = (payload: Record<string, unknown>, fallbackSummary: string): ToolCallResult => {
   const data = readObject(payload['data']) ?? payload;
@@ -152,8 +155,8 @@ const mutationBody = (args: Record<string, unknown> | undefined): Record<string,
     is_trigger_active: readBoolean(args?.['is_trigger_active']),
     object_type: readString(args?.['object_type']),
     trigger: readObject(args?.['trigger']),
-    actions: readObjectArray(args?.['actions']),
-    nodes: readObjectArray(args?.['nodes']),
+    actions: hasOwn(args, 'actions') ? readObjectArray(args?.['actions']) ?? [] : undefined,
+    nodes: hasOwn(args, 'nodes') ? readObjectArray(args?.['nodes']) ?? [] : undefined,
     config: readObject(args?.['config']) ?? {},
     platform_payload: readObject(args?.['platform_payload']),
     revision_id: readString(args?.['revision_id']),

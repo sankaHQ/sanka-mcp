@@ -104,6 +104,30 @@ describe('workflow definition MCP tools', () => {
     });
   });
 
+  it('does not clear workflow actions or nodes when update omits them', async () => {
+    const patch = jest.fn().mockResolvedValue({
+      data: { provider: 'hubspot', external_id: 'flow-1', status: 'updated' },
+      message: 'Updated workflow',
+    });
+
+    await updateWorkflowTool.handler({
+      reqContext: {
+        client: { patch } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_id: 'flow-1',
+        provider: 'hubspot',
+        title: 'Renamed workflow',
+        confirm: true,
+      },
+    });
+
+    const body = (patch.mock.calls[0]?.[1] as any).body;
+    expect(body).not.toHaveProperty('actions');
+    expect(body).not.toHaveProperty('nodes');
+  });
+
   it('runs Sanka workflows through the V2 workflow run endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: { run_id: 'run-1', workflow_id: 'workflow-1', status: 'running' },
