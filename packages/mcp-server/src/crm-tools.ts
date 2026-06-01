@@ -2448,6 +2448,16 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     enum: ['sanka', 'integration', 'both'],
     default: 'sanka',
   },
+  scope: {
+    type: 'string',
+    description: 'Alias for target. If set to "integration", MCP routes the mutation to the connected CRM.',
+    enum: ['sanka', 'integration'],
+  },
+  source: {
+    type: 'string',
+    description: 'Alias for scope. Prefer target for property mutations.',
+    enum: ['sanka', 'integration'],
+  },
   provider: {
     type: 'string',
     description:
@@ -2621,6 +2631,196 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
   required: ['object_name'],
 };
 
+const RULE_SETTINGS_OBJECT_PROPERTY = {
+  type: 'string',
+  description:
+    'Sanka object family the rule applies to, for example invoices, companies, contacts, deals, payments, estimates, orders, or purchase-orders. Delivery rules currently support invoices only.',
+};
+
+const RULE_SETTINGS_COMMON_INPUT_PROPERTIES = {
+  object: RULE_SETTINGS_OBJECT_PROPERTY,
+  object_name: {
+    ...RULE_SETTINGS_OBJECT_PROPERTY,
+    description: 'Alias for object. Prefer object.',
+  },
+  workspace_id: {
+    type: 'string',
+    description: WORKSPACE_ID_DESCRIPTION,
+  },
+  language: {
+    type: 'string',
+    description: 'Optional language override.',
+  },
+};
+
+const RULE_CONDITIONS_PROPERTY = {
+  type: 'object',
+  description:
+    'Rule condition DSL. Use {"all":[{"field":"status","op":"==","value":"sent"}]} for simple AND conditions.',
+  additionalProperties: true,
+};
+
+const APPROVAL_RULE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of rules to show in the MCP response.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object'],
+};
+
+const APPROVAL_RULE_OPTIONS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID to load. Omit to get a blank rule template and available options.',
+    },
+  },
+  required: ['object'],
+};
+
+const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID. Omit to create a new approval rule.',
+    },
+    name: { type: 'string', description: 'Approval rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    block_save: {
+      type: 'boolean',
+      description: 'Legacy shortcut for block_targets=["save"]. Prefer block_targets.',
+    },
+    block_targets: {
+      type: 'array',
+      description:
+        'Actions to block until approved, such as save, status_sent, status_scheduled, document_download, delivery_send, delivery_schedule, crud_create, crud_update, crud_delete, bulk_update, export, or convert.',
+      items: { type: 'string' },
+    },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    approver_user_ids: {
+      type: 'array',
+      description: 'Sanka UserManagement ids that can approve this rule.',
+      items: { type: 'string' },
+    },
+    worker_scope_type: {
+      type: 'string',
+      description: 'Employee scope for expense approval rules. Usually omit or use all.',
+      enum: ['all', 'selected_workers'],
+      default: 'all',
+    },
+    worker_ids: {
+      type: 'array',
+      description: 'Employee worker UUIDs for selected_workers expense rules.',
+      items: { type: 'string' },
+    },
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const RULE_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: { type: 'string', description: 'Rule UUID to delete.' },
+  },
+  required: ['object', 'rule_id'],
+};
+
+const LOCK_RULE_LIST_INPUT_SCHEMA = APPROVAL_RULE_LIST_INPUT_SCHEMA;
+const LOCK_RULE_OPTIONS_INPUT_SCHEMA = APPROVAL_RULE_OPTIONS_INPUT_SCHEMA;
+const LOCK_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing rule UUID. Omit to create a new lock rule.',
+    },
+    name: { type: 'string', description: 'Lock rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    lock_scope: {
+      type: 'string',
+      description:
+        'What to lock while conditions match. invoices support full_record, financial_fields, and selected_fields; other objects use full_record.',
+      enum: ['full_record', 'financial_fields', 'selected_fields'],
+      default: 'full_record',
+    },
+    lock_config: {
+      type: 'object',
+      description:
+        'Lock configuration. For invoices selected_fields, pass {"locked_field_keys":["status","issue_date"]}.',
+      additionalProperties: true,
+    },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const DELIVERY_RULE_LIST_INPUT_SCHEMA = APPROVAL_RULE_LIST_INPUT_SCHEMA;
+const DELIVERY_RULE_OPTIONS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing delivery rule UUID to load.',
+    },
+    action: {
+      type: 'string',
+      description: 'Delivery action to inspect when rule_id is omitted.',
+      enum: ['send', 'schedule'],
+    },
+  },
+  required: ['object'],
+};
+const DELIVERY_RULE_UPSERT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    rule_id: {
+      type: 'string',
+      description: 'Existing delivery rule UUID. Omit to create a new delivery rule.',
+    },
+    action: {
+      type: 'string',
+      description: 'Invoice delivery action controlled by this rule.',
+      enum: ['send', 'schedule'],
+      default: 'send',
+    },
+    name: { type: 'string', description: 'Delivery rule name.' },
+    description: { type: 'string', description: 'Optional rule description.' },
+    is_active: { type: 'boolean', description: 'Whether this rule is active.', default: true },
+    conditions: RULE_CONDITIONS_PROPERTY,
+    required_fields: {
+      type: 'array',
+      description: 'Invoice fields that must be present before the delivery action can run.',
+      items: { type: 'string' },
+    },
+    order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
+  },
+  required: ['object', 'name'],
+};
+
+const RULE_SETTINGS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+};
+
 const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -2717,6 +2917,16 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
         'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
       enum: ['sanka', 'integration', 'both'],
       default: 'sanka',
+    },
+    scope: {
+      type: 'string',
+      description: 'Alias for target. If set to "integration", MCP routes the delete to the connected CRM.',
+      enum: ['sanka', 'integration'],
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer target for property mutations.',
+      enum: ['sanka', 'integration'],
     },
     provider: {
       type: 'string',
@@ -8151,6 +8361,36 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   return body;
 };
 
+const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
+
+const shouldUseLegacyRecordRoute = (
+  body: Record<string, unknown>,
+  action: 'query' | 'aggregate',
+): boolean => {
+  if (readString(body['mode'])) {
+    return true;
+  }
+  if (action === 'aggregate') {
+    const groupBy = readStringArray(body['group_by'] ?? body['groupBy']);
+    if (groupBy.length > 0) {
+      return true;
+    }
+    const metrics = readStringArray(body['metrics']);
+    if (metrics.some((metric) => metric !== 'count')) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const recordQueryPathForBody = (body: Record<string, unknown>): string =>
+  shouldUseLegacyRecordRoute(body, 'query') ? '/v1/public/records/query' : '/api/v2/records/query';
+
+const recordAggregatePathForBody = (body: Record<string, unknown>): string =>
+  shouldUseLegacyRecordRoute(body, 'aggregate') ?
+    '/v1/public/records/aggregate'
+  : '/api/v2/records/aggregate';
+
 const buildCustomObjectRecordMutationBody = (
   args: Record<string, unknown> | undefined,
 ): Record<string, unknown> => {
@@ -10695,6 +10935,8 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     'name',
     'number_format',
     'provider',
+    'scope',
+    'source',
     'target',
     'type',
   ]);
@@ -10736,13 +10978,19 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
       .filter((option): option is Record<string, unknown> => Boolean(option));
   }
 
+  const scope = readLowerString(body['scope'] ?? body['source']);
+  if (scope === 'integration' && !readString(body['target'])) {
+    body['target'] = 'integration';
+  }
+
   return body;
 };
 
 const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const objectName = readString(args?.['object_name']);
   const propertyRef = readString(args?.['property_ref']);
-  const target = readString(args?.['target']);
+  const scope = readLowerString(args?.['scope'] ?? args?.['source']);
+  const target = readString(args?.['target']) ?? (scope === 'integration' ? 'integration' : undefined);
   const provider = readIntegrationProvider(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
@@ -10763,6 +11011,444 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
     },
   };
 };
+
+const trimTrailingSlashes = (value: string): string => value.replace(/\/+$/, '');
+
+const legacyPublicAPIBaseUrl = (reqContext: McpRequestContext): string | undefined => {
+  const configured = readString(
+    process.env['SANKA_LEGACY_PUBLIC_BASE_URL'] ?? process.env['SANKA_LEGACY_BASE_URL'],
+  );
+  if (configured) {
+    return trimTrailingSlashes(configured);
+  }
+
+  const authorizationServerUrl = readString(reqContext.auth?.oauth?.authorizationServerUrl);
+  if (!authorizationServerUrl) {
+    return undefined;
+  }
+
+  try {
+    const hostname = new URL(authorizationServerUrl).hostname.toLowerCase();
+    if (hostname === 'app.sanka.com') {
+      return 'https://api.sanka.com';
+    }
+    if (hostname === 'app.sankastaging.com') {
+      return 'https://api.sankastaging.com';
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+};
+
+const legacyPublicPath = (reqContext: McpRequestContext, path: string): string => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const baseUrl = legacyPublicAPIBaseUrl(reqContext);
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
+};
+
+const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.map((row) => readRecord(row) ?? {}).filter(Boolean);
+  }
+  return readDataArray(readRecord(payload) ?? {});
+};
+
+const readRuleObjectName = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['object']) ?? readString(args?.['object_name']) ?? readString(args?.['object_type']);
+
+const buildRuleSettingsQuery = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const params: Record<string, unknown> = {};
+  if (objectName) {
+    params['object'] = objectName;
+  }
+  assignStringFields(params, args, ['workspace_id', 'language']);
+  return { objectName, params };
+};
+
+const buildRuleSettingsOptionsQuery = (
+  args: Record<string, unknown> | undefined,
+  extraKeys: readonly string[] = [],
+) => {
+  const { objectName, params } = buildRuleSettingsQuery(args);
+  assignStringFields(params, args, ['rule_id', ...extraKeys]);
+  return { objectName, params };
+};
+
+const buildApprovalRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'name', 'description', 'language', 'worker_scope_type']);
+  assignBooleanFields(body, args, ['is_active', 'block_save']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const blockTargets = readStringArray(args?.['block_targets']);
+  if (blockTargets.length > 0) {
+    body['block_targets'] = blockTargets;
+  }
+  const approverUserIDs = readStringArray(args?.['approver_user_ids']);
+  if (approverUserIDs.length > 0) {
+    body['approver_user_ids'] = approverUserIDs;
+  }
+  const workerIDs = readStringArray(args?.['worker_ids']);
+  if (workerIDs.length > 0) {
+    body['worker_ids'] = workerIDs;
+  }
+  return { objectName, body };
+};
+
+const buildLockRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'name', 'description', 'language', 'lock_scope']);
+  assignBooleanFields(body, args, ['is_active']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const lockConfig = readRecord(args?.['lock_config']);
+  if (lockConfig) {
+    body['lock_config'] = lockConfig;
+  }
+  return { objectName, body };
+};
+
+const buildDeliveryRuleBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  assignStringFields(body, args, ['rule_id', 'action', 'name', 'description', 'language']);
+  assignBooleanFields(body, args, ['is_active']);
+  assignIntegerFields(body, args, ['order']);
+
+  const conditions = readRecord(args?.['conditions']);
+  if (conditions) {
+    body['conditions'] = conditions;
+  }
+  const requiredFields = readStringArray(args?.['required_fields']);
+  if (requiredFields.length > 0) {
+    body['required_fields'] = requiredFields;
+  }
+  return { objectName, body };
+};
+
+const unwrapRuleSettingsEnvelope = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['data']) ?? payload;
+
+const ruleRowsFromPayload = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  const rules = data['rules'];
+  return Array.isArray(rules) ? rules.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const buildRuleSettingsListResult = ({
+  label,
+  payload,
+  limit,
+}: {
+  label: string;
+  payload: Record<string, unknown>;
+  limit: number;
+}): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  const rows = ruleRowsFromPayload(payload).slice(0, limit);
+  return buildListResult({
+    label,
+    payload: {
+      count: rows.length,
+      data: rows,
+      message: readString(data['message']) ?? `Returned ${rows.length} ${label}.`,
+      page: 1,
+      total: ruleRowsFromPayload(payload).length,
+    },
+    previewKeys: ['name', 'action', 'summary', 'id'],
+  });
+};
+
+const buildRuleSettingsDetailResult = (label: string, payload: Record<string, unknown>): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Loaded ${label}.`,
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const buildRuleSettingsMutationResult = (
+  label: string,
+  action: 'created' | 'updated' | 'deleted',
+  payload: Record<string, unknown>,
+): ToolCallResult => {
+  const data = unwrapRuleSettingsEnvelope(payload);
+  return {
+    content: [
+      {
+        type: 'text',
+        text: buildEntityMutationSummary({
+          entity: label,
+          action,
+          payload: readRecord(data['rule']) ?? data,
+          idKeys: ['id'],
+        }),
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const createRuleSettingsListTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'read',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'get',
+    httpPath: path,
+    operationId: `public.${resource}.list`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, params } = buildRuleSettingsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
+    const payload = (await reqContext.client.get(path, { query: params })) as Record<string, unknown>;
+    return buildRuleSettingsListResult({ label, payload, limit });
+  },
+});
+
+const createRuleSettingsOptionsTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+  extraQueryKeys = [],
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+  extraQueryKeys?: readonly string[];
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'read',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'get',
+    httpPath: `${path}/options`,
+    operationId: `public.${resource}.options`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, params } = buildRuleSettingsOptionsQuery(args, extraQueryKeys);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const payload = (await reqContext.client.get(`${path}/options`, { query: params })) as Record<
+      string,
+      unknown
+    >;
+    return buildRuleSettingsDetailResult(label, payload);
+  },
+});
+
+const createRuleSettingsUpsertTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  inputSchema,
+  label,
+  buildBody,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  inputSchema: NonNullable<McpTool['tool']['inputSchema']>;
+  label: string;
+  buildBody: (args: Record<string, unknown> | undefined) => {
+    objectName: string | undefined;
+    body: Record<string, unknown>;
+  };
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'write',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'post',
+    httpPath: path,
+    operationId: `public.${resource}.upsert`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, body } = buildBody(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!readString(body['name'])) {
+      return asErrorResult('`name` is required.');
+    }
+    const response = (await reqContext.client.post(path, { body })) as Record<string, unknown>;
+    return buildRuleSettingsMutationResult(
+      label,
+      readString(body['rule_id']) ? 'updated' : 'created',
+      response,
+    );
+  },
+});
+
+const createRuleSettingsDeleteTool = ({
+  name,
+  title,
+  description,
+  path,
+  resource,
+  label,
+}: {
+  name: string;
+  title: string;
+  description: string;
+  path: string;
+  resource: string;
+  label: string;
+}): McpTool => ({
+  metadata: {
+    resource,
+    operation: 'write',
+    tags: ['crm', 'rules', resource],
+    httpMethod: 'delete',
+    httpPath: `${path}/{rule_id}`,
+    operationId: `public.${resource}.delete`,
+  },
+  tool: {
+    name,
+    title,
+    description,
+    inputSchema: RULE_DELETE_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const ruleID = readString(args?.['rule_id']);
+    if (!ruleID) {
+      return asErrorResult('`rule_id` is required.');
+    }
+    const { objectName, params } = buildRuleSettingsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    const response = (await reqContext.client.delete(`${path}/${encodeURIComponent(ruleID)}`, {
+      query: params,
+    })) as Record<string, unknown>;
+    return buildRuleSettingsMutationResult(label, 'deleted', response);
+  },
+});
 
 const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undefined => {
   if (!Array.isArray(value)) {
@@ -12146,7 +12832,7 @@ export const crmQueryRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/api/v2/records/query', {
+    const payload = (await reqContext.client.post(recordQueryPathForBody(body), {
       body,
     })) as Record<string, unknown>;
 
@@ -12192,7 +12878,7 @@ export const crmAggregateRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/api/v2/records/aggregate', {
+    const payload = (await reqContext.client.post(recordAggregatePathForBody(body), {
       body,
     })) as Record<string, unknown>;
 
@@ -12555,7 +13241,7 @@ export const crmListCompaniesTool: McpTool = {
     };
     if (hasCompanyRecordRoutingArgs(args)) {
       const body = buildCompanyRecordQueryBody(args);
-      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+      const rawPayload = (await reqContext.client.post(recordQueryPathForBody(body), {
         body,
       })) as Record<string, unknown>;
       payload = normalizeRecordQueryPayload(rawPayload, body) as typeof payload;
@@ -13284,10 +13970,9 @@ export const crmCreateExpenseTool: McpTool = {
       return authError;
     }
 
-    const response = (await reqContext.client.public.expenses.create(
-      buildExpenseMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const response = (await reqContext.client.post(legacyPublicPath(reqContext, '/v1/public/expenses'), {
+      body: buildExpenseMutationBody(args),
+    })) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -14809,7 +15494,7 @@ export const crmListDealsTool: McpTool = {
 
     if (hasDealRecordRoutingArgs(args)) {
       const body = buildDealRecordQueryBody(args);
-      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+      const rawPayload = (await reqContext.client.post(recordQueryPathForBody(body), {
         body,
       })) as Record<string, unknown>;
       const payload = normalizeRecordQueryPayload(rawPayload, body) as {
@@ -20147,9 +20832,10 @@ export const crmCreatePropertyTool: McpTool = {
       return asErrorResult('`object_name` is required.');
     }
 
+    const body = buildPropertyMutationBody(args);
     const response = (await reqContext.client.public.properties.create(
       objectName,
-      buildPropertyMutationBody(args),
+      body,
       undefined,
     )) as unknown as Record<string, unknown>;
 
@@ -20211,11 +20897,12 @@ export const crmUpdatePropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
+    const body = buildPropertyMutationBody(args);
     const response = (await reqContext.client.public.properties.update(
       propertyRef,
       {
         object_name: objectName,
-        ...buildPropertyMutationBody(args),
+        ...body,
       },
       undefined,
     )) as unknown as Record<string, unknown>;
@@ -20307,6 +20994,134 @@ export const crmDeletePropertyTool: McpTool = {
     };
   },
 };
+
+export const crmListApprovalRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_approval_rules',
+  title: 'List approval rules',
+  description:
+    'List approval rules for a Sanka object. Use this before changing approval gates that block save, send, download, export, convert, CRUD, or bulk actions.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_LIST_INPUT_SCHEMA,
+  label: 'approval rules',
+});
+
+export const crmGetApprovalRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_approval_rule_options',
+  title: 'Get approval rule options',
+  description:
+    'Load approval rule options for an object, including available fields, operators, approvers, and block targets.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'approval rule options',
+});
+
+export const crmUpsertApprovalRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_approval_rule',
+  title: 'Upsert approval rule',
+  description:
+    'Create or update an approval rule for an object. Use block_targets to choose what waits for approval, for example document_download, delivery_send, status_sent, export, or convert.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  inputSchema: APPROVAL_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Approval rule',
+  buildBody: buildApprovalRuleBody,
+});
+
+export const crmDeleteApprovalRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_approval_rule',
+  title: 'Delete approval rule',
+  description: 'Delete one approval rule for the specified object.',
+  path: '/api/v2/approval-rules',
+  resource: 'approval-rules',
+  label: 'Approval rule',
+});
+
+export const crmListLockRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_lock_rules',
+  title: 'List lock rules',
+  description: 'List record lock rules for a Sanka object.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_LIST_INPUT_SCHEMA,
+  label: 'lock rules',
+});
+
+export const crmGetLockRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_lock_rule_options',
+  title: 'Get lock rule options',
+  description:
+    'Load lock rule options for an object, including fields, operators, lock scopes, and lockable invoice fields.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'lock rule options',
+});
+
+export const crmUpsertLockRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_lock_rule',
+  title: 'Upsert lock rule',
+  description:
+    'Create or update a record lock rule. For invoices, use lock_scope selected_fields with lock_config.locked_field_keys to lock only chosen fields.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  inputSchema: LOCK_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Lock rule',
+  buildBody: buildLockRuleBody,
+});
+
+export const crmDeleteLockRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_lock_rule',
+  title: 'Delete lock rule',
+  description: 'Delete one record lock rule for the specified object.',
+  path: '/api/v2/lock-rules',
+  resource: 'lock-rules',
+  label: 'Lock rule',
+});
+
+export const crmListDeliveryRulesTool: McpTool = createRuleSettingsListTool({
+  name: 'list_delivery_rules',
+  title: 'List delivery rules',
+  description: 'List delivery rules. Delivery rules currently apply to invoices only.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_LIST_INPUT_SCHEMA,
+  label: 'delivery rules',
+});
+
+export const crmGetDeliveryRuleOptionsTool: McpTool = createRuleSettingsOptionsTool({
+  name: 'get_delivery_rule_options',
+  title: 'Get delivery rule options',
+  description:
+    'Load invoice delivery rule options, including send/schedule actions, fields, operators, and required-field groups.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_OPTIONS_INPUT_SCHEMA,
+  label: 'delivery rule options',
+  extraQueryKeys: ['action'],
+});
+
+export const crmUpsertDeliveryRuleTool: McpTool = createRuleSettingsUpsertTool({
+  name: 'upsert_delivery_rule',
+  title: 'Upsert delivery rule',
+  description:
+    'Create or update an invoice delivery rule that controls when invoices can be sent or scheduled and which fields are required first.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  inputSchema: DELIVERY_RULE_UPSERT_INPUT_SCHEMA,
+  label: 'Delivery rule',
+  buildBody: buildDeliveryRuleBody,
+});
+
+export const crmDeleteDeliveryRuleTool: McpTool = createRuleSettingsDeleteTool({
+  name: 'delete_delivery_rule',
+  title: 'Delete delivery rule',
+  description: 'Delete one invoice delivery rule for the specified object.',
+  path: '/api/v2/delivery-rules',
+  resource: 'delivery-rules',
+  label: 'Delivery rule',
+});
 
 export const crmGetCalendarBootstrapTool: McpTool = {
   metadata: {

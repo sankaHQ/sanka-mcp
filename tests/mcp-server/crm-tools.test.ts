@@ -41,6 +41,7 @@ import {
   crmCreateTaskTool,
   crmCreateTicketTool,
   crmDeleteBillTool,
+  crmDeleteDeliveryRuleTool,
   crmDeleteAssociationTool,
   crmDeleteCompanyTool,
   crmDeleteContactTool,
@@ -93,6 +94,7 @@ import {
   crmGetPaymentTool,
   crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
+  crmGetDeliveryRuleOptionsTool,
   crmGetPropertyTool,
   crmGetPurchaseOrderTool,
   crmGetSlipTool,
@@ -129,6 +131,7 @@ import {
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
+  crmListApprovalRulesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
   crmListSlipsTool,
@@ -174,6 +177,7 @@ import {
   crmUpdateTaskTool,
   crmUpdateTicketStatusTool,
   crmUpdateTicketTool,
+  crmUpsertApprovalRuleTool,
   crmUploadBillAttachmentTool,
   crmUploadEstimateAttachmentTool,
   crmUploadExpenseAttachmentTool,
@@ -188,12 +192,13 @@ import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
   scopes?: string[];
+  authorizationServerUrl?: string;
   workspace?: { id?: string; code?: string; name?: string };
 }) => ({
   authMode: overrides?.authMode ?? 'oauth_bearer',
   clientOptions: {},
   oauth: {
-    authorizationServerUrl: 'https://app.sanka.com',
+    authorizationServerUrl: overrides?.authorizationServerUrl ?? 'https://app.sanka.com',
     resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
     resourceUrl: 'https://mcp.sanka.com/mcp',
     scopes: overrides?.scopes ?? [],
@@ -911,7 +916,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
       body: {
         object_type: 'companies',
         mode: 'dedupe_candidates',
@@ -983,6 +988,47 @@ describe('ChatGPT CRM tools', () => {
     );
   });
 
+  it('routes provider-only record queries through the V2 integration route', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'deals',
+      provider: 'hubspot',
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 10,
+      data: [{ id: 'deal-1', name: 'Renewal' }],
+      message: 'OK',
+    });
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'deals',
+        provider: 'hubspot',
+        select: ['id', 'name'],
+        limit: 10,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+      body: {
+        object_type: 'deals',
+        provider: 'hubspot',
+        select: ['id', 'name'],
+        page: 1,
+        limit: 10,
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      provider: 'hubspot',
+      results: [{ id: 'deal-1', name: 'Renewal' }],
+    });
+  });
+
   it('passes Sanka custom object row arguments through aggregate_records', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'custom_objects',
@@ -1008,7 +1054,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -1160,7 +1206,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -6361,7 +6407,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('creates an expense with uploaded attachment ids', async () => {
-    const create = jest.fn().mockResolvedValue({
+    const post = jest.fn().mockResolvedValue({
       ok: true,
       status: 'created',
       expense_id: 'expense-1',
@@ -6377,11 +6423,7 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmCreateExpenseTool.handler({
       reqContext: {
-        client: {
-          public: {
-            expenses: { create },
-          },
-        } as any,
+        client: { post } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -6394,8 +6436,8 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(create).toHaveBeenCalledWith(
-      {
+    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/expenses', {
+      body: {
         amount: 100,
         currency: 'USD',
         description: 'Hotel',
@@ -6404,8 +6446,7 @@ describe('ChatGPT CRM tools', () => {
           files: [{ file_id: 'file-1' }, { file_id: 'file-2' }],
         },
       },
-      undefined,
-    );
+    });
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'created',
@@ -6652,6 +6693,150 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists approval rules through the public rule settings API', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        settingType: 'invoices',
+        rules: [
+          {
+            id: 'rule-1',
+            name: 'Block invoice download',
+            blockTargets: ['document_download'],
+            summary: 'status == sent',
+          },
+        ],
+        message: 'OK',
+      },
+    });
+
+    const result = await crmListApprovalRulesTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        workspace_id: 'workspace-1',
+        language: 'ja',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/approval-rules', {
+      query: {
+        object: 'invoices',
+        workspace_id: 'workspace-1',
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      results: [{ id: 'rule-1', name: 'Block invoice download' }],
+    });
+  });
+
+  it('upserts approval rules with object and block targets', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        rule: {
+          id: 'rule-1',
+          name: 'Block invoice download',
+          blockTargets: ['document_download'],
+        },
+        message: 'Approval rule saved.',
+      },
+    });
+
+    const result = await crmUpsertApprovalRuleTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        name: 'Block invoice download',
+        conditions: { all: [{ field: 'status', op: '==', value: 'sent' }] },
+        block_targets: ['document_download'],
+        approver_user_ids: ['7'],
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/approval-rules', {
+      body: {
+        object: 'invoices',
+        name: 'Block invoice download',
+        conditions: { all: [{ field: 'status', op: '==', value: 'sent' }] },
+        block_targets: ['document_download'],
+        approver_user_ids: ['7'],
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      rule: {
+        id: 'rule-1',
+        name: 'Block invoice download',
+        blockTargets: ['document_download'],
+      },
+      message: 'Approval rule saved.',
+    });
+  });
+
+  it('loads delivery rule options and deletes delivery rules through object-scoped endpoints', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        rule: { id: 'default-send', action: 'send' },
+        actionOptions: [{ value: 'send', label: 'Send' }],
+        message: 'OK',
+      },
+    });
+    const del = jest.fn().mockResolvedValue({
+      success: true,
+      data: { message: 'Send rule deleted.' },
+    });
+
+    const optionsResult = await crmGetDeliveryRuleOptionsTool.handler({
+      reqContext: {
+        client: { get, delete: del } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        action: 'send',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/delivery-rules/options', {
+      query: {
+        object: 'invoices',
+        action: 'send',
+      },
+    });
+    expect(optionsResult.structuredContent).toMatchObject({
+      rule: { id: 'default-send', action: 'send' },
+    });
+
+    const deleteResult = await crmDeleteDeliveryRuleTool.handler({
+      reqContext: {
+        client: { get, delete: del } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'invoices',
+        rule_id: 'rule-1',
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith('/api/v2/delivery-rules/rule-1', {
+      query: { object: 'invoices' },
+    });
+    expect(deleteResult.structuredContent).toEqual({ message: 'Send rule deleted.' });
+  });
+
   it('gets one property when authentication is present', async () => {
     const retrieve = jest.fn().mockResolvedValue({
       id: 'prop-1',
@@ -6741,7 +6926,7 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('creates an integration property with mutation routing', async () => {
+  it('creates an integration property with V2 mutation routing', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,
       status: 'dry_run',
@@ -6798,6 +6983,90 @@ describe('ChatGPT CRM tools', () => {
       provider: 'salesforce',
       dry_run: true,
     });
+  });
+
+  it('treats property mutation scope=integration as target=integration', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'dry_run',
+      object: 'contacts',
+      property_id: 'test_property',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        scope: 'integration',
+        provider: 'hubspot',
+        external_id: 'test_property',
+        group_name: 'contactinformation',
+        dry_run: true,
+        name: 'Test property',
+        type: 'text',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      'contacts',
+      {
+        dry_run: true,
+        external_id: 'test_property',
+        group_name: 'contactinformation',
+        name: 'Test property',
+        provider: 'hubspot',
+        scope: 'integration',
+        target: 'integration',
+        type: 'text',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      target: 'integration',
+      provider: 'hubspot',
+    });
+  });
+
+  it('routes integration property listing through the V2 public SDK', async () => {
+    const list = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Stage Field' }]);
+
+    const result = await crmListPropertiesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { list },
+          },
+        } as any,
+        auth: oauthContext({ authorizationServerUrl: 'https://app.sankastaging.com' }),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        scope: 'integration',
+        provider: 'hubspot',
+        limit: 10,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      'contacts',
+      {
+        scope: 'integration',
+        provider: 'hubspot',
+      },
+      undefined,
+    );
+    expect(result.structuredContent?.['count']).toBe(1);
   });
 
   it('updates a property', async () => {

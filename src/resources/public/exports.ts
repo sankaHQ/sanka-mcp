@@ -42,6 +42,17 @@ export class Exports extends APIResource {
       .v2Post<ImportsAPI.TransferJobCancelResponse>(path`/exports/${jobID}/cancel`, { ...options })
       ._thenUnwrap((envelope) => unwrapV2Data(envelope).job);
   }
+
+  /**
+   * Retry Export Job
+   */
+  retry(jobID: string, options?: RequestOptions): APIPromise<ImportsAPI.TransferJobRetryResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<ImportsAPI.TransferJobRetryResponse>(path`/exports/${jobID}/retry`, {
+        ...options,
+      }),
+    );
+  }
 }
 
 export interface ExportListResponse {
@@ -54,6 +65,7 @@ export interface ExportCreateParams {
   object_type: string;
   destination_kind?: string;
   provider?: string | null;
+  target_system?: string | null;
   channel_id?: string | null;
   operation?: string;
   record_ids?: Array<string> | null;

@@ -154,6 +154,7 @@ import {
   Imports,
   TransferColumnMapping,
   TransferJob,
+  TransferJobRetryResponse,
   TransferJobSummary,
   TransferUploadFileResponse,
 } from './imports';
@@ -510,6 +511,7 @@ export declare namespace Public {
     type ImportUploadFileParams as ImportUploadFileParams,
     type TransferColumnMapping as TransferColumnMapping,
     type TransferJob as TransferJob,
+    type TransferJobRetryResponse as TransferJobRetryResponse,
     type TransferJobSummary as TransferJobSummary,
     type TransferUploadFileResponse as TransferUploadFileResponse,
   };

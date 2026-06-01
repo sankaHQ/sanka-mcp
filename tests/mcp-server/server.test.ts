@@ -216,6 +216,18 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_property');
     expect(toolNames).toContain('update_property');
     expect(toolNames).toContain('delete_property');
+    expect(toolNames).toContain('list_approval_rules');
+    expect(toolNames).toContain('get_approval_rule_options');
+    expect(toolNames).toContain('upsert_approval_rule');
+    expect(toolNames).toContain('delete_approval_rule');
+    expect(toolNames).toContain('list_lock_rules');
+    expect(toolNames).toContain('get_lock_rule_options');
+    expect(toolNames).toContain('upsert_lock_rule');
+    expect(toolNames).toContain('delete_lock_rule');
+    expect(toolNames).toContain('list_delivery_rules');
+    expect(toolNames).toContain('get_delivery_rule_options');
+    expect(toolNames).toContain('upsert_delivery_rule');
+    expect(toolNames).toContain('delete_delivery_rule');
     expect(toolNames).toContain('get_calendar_bootstrap');
     expect(toolNames).toContain('check_calendar_availability');
     expect(toolNames).toContain('create_calendar_attendance');
