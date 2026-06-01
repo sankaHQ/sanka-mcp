@@ -22,6 +22,8 @@ type V2WorkflowActionsData = {
   count?: number;
 };
 
+type V2WorkflowMutationData = Record<string, unknown>;
+
 const workflowFromV2 = (workflow: Record<string, unknown>): WorkflowRetrieveResponse => {
   const workflowID = String(workflow['workflow_id'] ?? workflow['id'] ?? '');
   return {
@@ -83,6 +85,24 @@ const unwrapV2WorkflowRun = (
   });
 };
 
+const unwrapV2WorkflowMutation = (
+  promise: APIPromise<V2Envelope<V2WorkflowMutationData>>,
+): APIPromise<WorkflowCreateOrUpdateResponse> => {
+  return promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return {
+      ...data,
+      ok: data['ok'] !== false,
+      external_id: String(data['external_id'] ?? data['workflow_id'] ?? ''),
+      workflow_id: String(data['workflow_id'] ?? ''),
+      node_count: Number(data['node_count'] ?? 0),
+      status: String(data['status'] ?? ''),
+      valid_to_run: data['valid_to_run'] === true,
+      ctx_id: envelope.meta.ctx_id ?? null,
+    } as WorkflowCreateOrUpdateResponse;
+  });
+};
+
 export class Workflows extends APIResource {
   /**
    * Get Workflow
@@ -108,7 +128,20 @@ export class Workflows extends APIResource {
     body: WorkflowCreateOrUpdateParams,
     options?: RequestOptions,
   ): APIPromise<WorkflowCreateOrUpdateResponse> {
-    return this._client.post('/v1/public/workflows', { body, ...options });
+    return unwrapV2WorkflowMutation(this._client.post('/api/v2/public/workflows', { body, ...options }));
+  }
+
+  /**
+   * Update Workflow
+   */
+  update(
+    workflowRef: string,
+    body: WorkflowCreateOrUpdateParams,
+    options?: RequestOptions,
+  ): APIPromise<WorkflowCreateOrUpdateResponse> {
+    return unwrapV2WorkflowMutation(
+      this._client.patch(path`/api/v2/public/workflows/${workflowRef}`, { body, ...options }),
+    );
   }
 
   /**
@@ -128,8 +161,14 @@ export class Workflows extends APIResource {
   /**
    * Run Workflow
    */
-  run(workflowRef: string, options?: RequestOptions): APIPromise<WorkflowRunResponse> {
-    return this._client.post(path`/v1/public/workflows/${workflowRef}/run`, options);
+  run(
+    workflowRef: string,
+    body: WorkflowRunParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<WorkflowRunResponse> {
+    return unwrapV2WorkflowRun(
+      this._client.post(path`/api/v2/public/workflows/${workflowRef}/run`, { body, ...options }),
+    );
   }
 }
 
@@ -305,6 +344,20 @@ export interface WorkflowCreateOrUpdateResponse {
   workflow_id: string;
 
   ctx_id?: string | null;
+
+  channel_id?: string | null;
+
+  dry_run?: boolean;
+
+  operation?: string;
+
+  platform_payload?: { [key: string]: unknown } | null;
+
+  platform_response?: { [key: string]: unknown } | null;
+
+  provider?: string;
+
+  warnings?: Array<string>;
 }
 
 export interface WorkflowListActionsResponse {
@@ -344,9 +397,17 @@ export interface WorkflowListParams {
 }
 
 export interface WorkflowCreateOrUpdateParams {
+  actions?: Array<{ [key: string]: unknown }>;
+
+  channel_id?: string | null;
+
   config?: { [key: string]: unknown } | null;
 
+  confirm?: boolean;
+
   description?: string | null;
+
+  dry_run?: boolean;
 
   external_id?: string | null;
 
@@ -354,9 +415,19 @@ export interface WorkflowCreateOrUpdateParams {
 
   nodes?: Array<WorkflowCreateOrUpdateParams.Node>;
 
+  object_type?: string | null;
+
+  platform_payload?: { [key: string]: unknown } | null;
+
+  provider?: 'sanka' | 'hubspot' | string | null;
+
+  revision_id?: string | null;
+
   status?: string | null;
 
   title?: string | null;
+
+  trigger?: { [key: string]: unknown } | null;
 
   trigger_every?: number | null;
 
@@ -439,6 +510,24 @@ export namespace WorkflowCreateOrUpdateParams {
   }
 }
 
+export interface WorkflowRunParams {
+  channel_id?: string | null;
+
+  confirm?: boolean;
+
+  dry_run?: boolean;
+
+  external_id?: string | null;
+
+  options?: { [key: string]: unknown };
+
+  payload?: { [key: string]: unknown };
+
+  provider?: 'sanka' | 'hubspot' | string | null;
+
+  [k: string]: unknown;
+}
+
 export declare namespace Workflows {
   export {
     type WorkflowRunResponse as WorkflowRunResponse,
@@ -448,5 +537,6 @@ export declare namespace Workflows {
     type WorkflowListActionsResponse as WorkflowListActionsResponse,
     type WorkflowListParams as WorkflowListParams,
     type WorkflowCreateOrUpdateParams as WorkflowCreateOrUpdateParams,
+    type WorkflowRunParams as WorkflowRunParams,
   };
 }
