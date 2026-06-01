@@ -8341,6 +8341,40 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   return body;
 };
 
+const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
+
+const shouldUseLegacyRecordRoute = (
+  body: Record<string, unknown>,
+  action: 'query' | 'aggregate',
+): boolean => {
+  const scope = readLowerString(body['scope']);
+  if (scope === 'integration') {
+    return true;
+  }
+  if (readString(body['mode'])) {
+    return true;
+  }
+  if (action === 'aggregate') {
+    const groupBy = readStringArray(body['group_by'] ?? body['groupBy']);
+    if (groupBy.length > 0) {
+      return true;
+    }
+    const metrics = readStringArray(body['metrics']);
+    if (metrics.some((metric) => metric !== 'count')) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const recordQueryPathForBody = (body: Record<string, unknown>): string =>
+  shouldUseLegacyRecordRoute(body, 'query') ? '/v1/public/records/query' : '/api/v2/records/query';
+
+const recordAggregatePathForBody = (body: Record<string, unknown>): string =>
+  shouldUseLegacyRecordRoute(body, 'aggregate') ?
+    '/v1/public/records/aggregate'
+  : '/api/v2/records/aggregate';
+
 const buildCustomObjectRecordMutationBody = (
   args: Record<string, unknown> | undefined,
 ): Record<string, unknown> => {
@@ -10954,6 +10988,38 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
   };
 };
 
+const hasIntegrationPropertyQueryHints = (params: Record<string, unknown>): boolean => {
+  const scope = readLowerString(params['scope'] ?? params['source']);
+  return Boolean(
+    scope === 'integration' ||
+      readString(params['provider']) ||
+      readString(params['channel_id'] ?? params['channelId']) ||
+      readString(params['external_object_type'] ?? params['externalObjectType']),
+  );
+};
+
+const hasIntegrationPropertyMutationHints = (payload: Record<string, unknown>): boolean => {
+  const target = readLowerString(payload['target']);
+  return Boolean(
+    (target && target !== 'sanka') ||
+      readString(payload['provider']) ||
+      readString(payload['channel_id'] ?? payload['channelId']) ||
+      readString(payload['external_object_type'] ?? payload['externalObjectType']),
+  );
+};
+
+const legacyPropertyPath = (objectName: string, propertyRef?: string): string => {
+  const base = `/v1/public/properties/${encodeURIComponent(objectName)}`;
+  return propertyRef ? `${base}/${encodeURIComponent(propertyRef)}` : base;
+};
+
+const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.map((row) => readRecord(row) ?? {}).filter(Boolean);
+  }
+  return readDataArray(readRecord(payload) ?? {});
+};
+
 const readRuleObjectName = (args: Record<string, unknown> | undefined): string | undefined =>
   readString(args?.['object']) ?? readString(args?.['object_name']) ?? readString(args?.['object_type']);
 
@@ -12731,7 +12797,7 @@ export const crmQueryRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/api/v2/records/query', {
+    const payload = (await reqContext.client.post(recordQueryPathForBody(body), {
       body,
     })) as Record<string, unknown>;
 
@@ -12777,7 +12843,7 @@ export const crmAggregateRecordsTool: McpTool = {
       return asErrorResult('`object_type` is required.');
     }
 
-    const payload = (await reqContext.client.post('/api/v2/records/aggregate', {
+    const payload = (await reqContext.client.post(recordAggregatePathForBody(body), {
       body,
     })) as Record<string, unknown>;
 
@@ -13140,7 +13206,7 @@ export const crmListCompaniesTool: McpTool = {
     };
     if (hasCompanyRecordRoutingArgs(args)) {
       const body = buildCompanyRecordQueryBody(args);
-      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+      const rawPayload = (await reqContext.client.post(recordQueryPathForBody(body), {
         body,
       })) as Record<string, unknown>;
       payload = normalizeRecordQueryPayload(rawPayload, body) as typeof payload;
@@ -15394,7 +15460,7 @@ export const crmListDealsTool: McpTool = {
 
     if (hasDealRecordRoutingArgs(args)) {
       const body = buildDealRecordQueryBody(args);
-      const rawPayload = (await reqContext.client.post('/api/v2/records/query', {
+      const rawPayload = (await reqContext.client.post(recordQueryPathForBody(body), {
         body,
       })) as Record<string, unknown>;
       const payload = normalizeRecordQueryPayload(rawPayload, body) as {
@@ -20613,7 +20679,10 @@ export const crmListPropertiesTool: McpTool = {
       return asErrorResult('`object_name` is required.');
     }
 
-    const properties = await reqContext.client.public.properties.list(objectName, params, undefined);
+    const properties =
+      hasIntegrationPropertyQueryHints(params) ?
+        readArrayPayload(await reqContext.client.get(legacyPropertyPath(objectName), { query: params }))
+      : await reqContext.client.public.properties.list(objectName, params, undefined);
     const results = properties
       .slice(0, limit)
       .map((property) => property as unknown as Record<string, unknown>);
@@ -20672,11 +20741,18 @@ export const crmGetPropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const property = (await reqContext.client.public.properties.retrieve(
-      propertyRef,
-      params as { object_name: string; workspace_id?: string; 'Accept-Language'?: string },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const property =
+      hasIntegrationPropertyQueryHints(params) ?
+        readPayloadDataRecord(
+          (await reqContext.client.get(legacyPropertyPath(objectName, propertyRef), {
+            query: params,
+          })) as Record<string, unknown>,
+        )
+      : ((await reqContext.client.public.properties.retrieve(
+          propertyRef,
+          params as { object_name: string; workspace_id?: string; 'Accept-Language'?: string },
+          undefined,
+        )) as unknown as Record<string, unknown>);
 
     return {
       content: [
@@ -20732,11 +20808,13 @@ export const crmCreatePropertyTool: McpTool = {
       return asErrorResult('`object_name` is required.');
     }
 
-    const response = (await reqContext.client.public.properties.create(
-      objectName,
-      buildPropertyMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const body = buildPropertyMutationBody(args);
+    const response = (hasIntegrationPropertyMutationHints(body) ?
+      await reqContext.client.post(legacyPropertyPath(objectName), { body })
+    : await reqContext.client.public.properties.create(objectName, body, undefined)) as unknown as Record<
+      string,
+      unknown
+    >;
 
     return {
       content: [
@@ -20796,14 +20874,17 @@ export const crmUpdatePropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const response = (await reqContext.client.public.properties.update(
-      propertyRef,
-      {
-        object_name: objectName,
-        ...buildPropertyMutationBody(args),
-      },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const body = buildPropertyMutationBody(args);
+    const response = (hasIntegrationPropertyMutationHints(body) ?
+      await reqContext.client.put(legacyPropertyPath(objectName, propertyRef), { body })
+    : await reqContext.client.public.properties.update(
+        propertyRef,
+        {
+          object_name: objectName,
+          ...body,
+        },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20862,19 +20943,21 @@ export const crmDeletePropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const response = (await reqContext.client.public.properties.delete(
-      propertyRef,
-      params as {
-        object_name: string;
-        target?: string;
-        provider?: string;
-        channel_id?: string;
-        external_object_type?: string;
-        dry_run?: boolean;
-        confirm?: boolean;
-      },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const response = (hasIntegrationPropertyMutationHints(params) ?
+      await reqContext.client.delete(legacyPropertyPath(objectName, propertyRef), { query: params })
+    : await reqContext.client.public.properties.delete(
+        propertyRef,
+        params as {
+          object_name: string;
+          target?: string;
+          provider?: string;
+          channel_id?: string;
+          external_object_type?: string;
+          dry_run?: boolean;
+          confirm?: boolean;
+        },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
     return {
       content: [
