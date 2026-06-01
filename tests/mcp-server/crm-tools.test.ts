@@ -3622,6 +3622,7 @@ describe('ChatGPT CRM tools', () => {
       file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
+      resource_uri: 'resource://tool-response',
     });
 
     const createResult = await crmCreatePurchaseOrderTool.handler({
@@ -4100,14 +4101,11 @@ describe('ChatGPT CRM tools', () => {
       file_assembly_required: false,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
+      resource_uri: 'resource://tool-response',
     });
     expect(result.content[0]).toEqual({
-      type: 'resource',
-      resource: {
-        uri: 'resource://tool-response',
-        mimeType: 'application/pdf',
-        blob: pdfBytes.toString('base64'),
-      },
+      type: 'text',
+      text: `Downloaded 見積書.pdf (${pdfBytes.byteLength} bytes). Decode structuredContent.content_base64 to save the PDF locally.`,
     });
   });
 
@@ -4438,15 +4436,12 @@ describe('ChatGPT CRM tools', () => {
       file_assembly_required: false,
       content_base64_available: true,
       content_base64: contentBase64,
+      resource_uri: 'resource://tool-response',
     });
     expect(result.content).toEqual([
       {
-        type: 'resource',
-        resource: {
-          uri: 'resource://tool-response',
-          mimeType: 'application/pdf',
-          blob: contentBase64,
-        },
+        type: 'text',
+        text: `Downloaded invoice 5.pdf (${pdfBytes.length} bytes). Decode structuredContent.content_base64 to save the PDF locally.`,
       },
     ]);
     expect(Buffer.from(result.structuredContent?.['content_base64'] as string, 'base64')).toEqual(pdfBytes);

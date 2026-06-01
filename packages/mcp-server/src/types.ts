@@ -246,12 +246,8 @@ export async function asBinaryDownloadResult(
   return {
     content: [
       {
-        type: 'resource',
-        resource: {
-          uri: TOOL_RESPONSE_RESOURCE_URI,
-          mimeType,
-          blob: data,
-        },
+        type: 'text',
+        text: `Downloaded ${filename} (${byteLength} bytes). Decode structuredContent.content_base64 to save the PDF locally.`,
       },
     ],
     structuredContent: {
@@ -264,6 +260,7 @@ export async function asBinaryDownloadResult(
       file_assembly_required: false,
       content_base64_available: true,
       content_base64: data,
+      resource_uri: TOOL_RESPONSE_RESOURCE_URI,
     },
   };
 }
