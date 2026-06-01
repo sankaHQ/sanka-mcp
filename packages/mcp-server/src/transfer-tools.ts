@@ -46,8 +46,9 @@ const IMPORT_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type to import. Currently supports only "item".',
-      enum: ['item'],
+      description:
+        'Object type to import. Use "item" for CSV file imports or "order" to import HubSpot deals as Sanka Orders.',
+      enum: ['item', 'order'],
       default: 'item',
     },
     file_id: {
@@ -56,9 +57,29 @@ const IMPORT_INPUT_SCHEMA = {
     },
     source_kind: {
       type: 'string',
-      description: 'Import source kind. Currently supports only "file".',
-      enum: ['file'],
+      description:
+        'Import source kind. Use "file" for item CSV or "integration" for HubSpot deal-to-order imports.',
+      enum: ['file', 'integration'],
       default: 'file',
+    },
+    provider: {
+      type: 'string',
+      description: 'Source provider for integration imports. Required when object_type="order".',
+      enum: ['hubspot'],
+    },
+    channel_id: {
+      type: 'string',
+      description: 'Optional source integration channel id for HubSpot deal imports.',
+    },
+    record_ids: {
+      type: 'array',
+      description: 'HubSpot Deal ids to import as Sanka Orders when source_kind="integration".',
+      items: { type: 'string' },
+    },
+    source_record: {
+      type: 'object',
+      description: 'Optional source record reference for a single integration import.',
+      additionalProperties: true,
     },
     file_format: {
       type: 'string',
@@ -97,11 +118,10 @@ const IMPORT_INPUT_SCHEMA = {
     },
     dry_run: {
       type: 'boolean',
-      description: 'Reserved for future validation-only imports. Currently unsupported by the API.',
+      description: 'Validate the import without creating or updating records.',
       default: false,
     },
   },
-  required: ['file_id'],
 };
 
 const JOB_LOOKUP_INPUT_SCHEMA = {
@@ -120,8 +140,8 @@ const IMPORT_LIST_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Optional filter. Currently supports only "item".',
-      enum: ['item'],
+      description: 'Optional import job filter.',
+      enum: ['item', 'order'],
       default: 'item',
     },
     limit: {
@@ -139,14 +159,14 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type you plan to export. Currently supports only "deal".',
-      enum: ['deal'],
+      description: 'Object type you plan to export.',
+      enum: ['deal', 'invoice'],
       default: 'deal',
     },
     provider: {
       type: 'string',
       description: 'Optional destination provider filter.',
-      enum: ['hubspot'],
+      enum: ['hubspot', 'freee', 'moneyforward'],
       default: 'hubspot',
     },
   },
@@ -157,21 +177,26 @@ const EXPORT_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type to export. Currently supports only "deal".',
-      enum: ['deal'],
+      description: 'Object type to export. Use "deal" for HubSpot or "invoice" for accounting draft exports.',
+      enum: ['deal', 'invoice'],
       default: 'deal',
     },
     destination_kind: {
       type: 'string',
-      description: 'Destination kind. Currently supports only "integration".',
-      enum: ['integration'],
+      description: 'Destination kind. Use "integration" for deals or "accounting" for invoice exports.',
+      enum: ['integration', 'accounting'],
       default: 'integration',
     },
     provider: {
       type: 'string',
-      description: 'Destination provider. Currently supports only "hubspot".',
-      enum: ['hubspot'],
+      description: 'Destination provider.',
+      enum: ['hubspot', 'freee', 'moneyforward'],
       default: 'hubspot',
+    },
+    target_system: {
+      type: 'string',
+      description: 'Accounting target system for invoice exports. Alias of provider.',
+      enum: ['freee', 'moneyforward'],
     },
     channel_id: {
       type: 'string',
@@ -202,7 +227,7 @@ const EXPORT_INPUT_SCHEMA = {
     },
     dry_run: {
       type: 'boolean',
-      description: 'Reserved for future validation-only exports. Currently unsupported by the API.',
+      description: 'Validate the export selection without enqueuing outbound sync events.',
       default: false,
     },
   },
@@ -249,6 +274,35 @@ const JOB_LIST_OUTPUT_SCHEMA = {
   required: ['jobs', 'message'],
 };
 
+const EXPORT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description: 'Optional export job filter.',
+      enum: ['deal', 'invoice'],
+      default: 'deal',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of jobs to return.',
+      minimum: 1,
+      maximum: 200,
+      default: 50,
+    },
+  },
+};
+
+const JOB_RETRY_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    job: JOB_OUTPUT_SCHEMA,
+    retry_of_job_id: { type: 'string' },
+    message: { type: ['string', 'null'] as any },
+  },
+  required: ['job', 'retry_of_job_id'],
+};
+
 const CHANNELS_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -292,6 +346,11 @@ const readStringArray = (value: unknown): string[] | undefined => {
   );
   return result.length > 0 ? result : undefined;
 };
+
+const readPlainRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value) ?
+    (value as Record<string, unknown>)
+  : undefined;
 
 const readColumnMappings = (value: unknown): ImportCreateParams['column_mappings'] | undefined => {
   if (!Array.isArray(value)) {
@@ -422,7 +481,7 @@ export const importRecordsTool: McpTool = {
     name: 'import_records',
     title: 'Import records',
     description:
-      'Create a public import job from an uploaded file. Use upload_import_file first to obtain a file_id. Currently supports item CSV imports.',
+      'Create a public import job. Use upload_import_file first for item CSV imports, or pass HubSpot Deal ids with object_type="order" and source_kind="integration" to create Sanka Orders.',
     inputSchema: IMPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -442,19 +501,41 @@ export const importRecordsTool: McpTool = {
       return authError;
     }
 
-    const fileId = readString(args?.['file_id']);
-    if (!fileId) {
-      return asErrorResult('`file_id` is required.');
-    }
+    const objectType = readString(args?.['object_type']) || 'item';
+    const sourceKind = readString(args?.['source_kind']) || (objectType === 'order' ? 'integration' : 'file');
 
     const body: ImportCreateParams = {
-      object_type: readString(args?.['object_type']) || 'item',
-      file_id: fileId,
-      source_kind: readString(args?.['source_kind']) || 'file',
+      object_type: objectType,
+      source_kind: sourceKind,
       file_format: readString(args?.['file_format']) || 'csv',
-      operation: readString(args?.['operation']) || 'upsert',
+      operation: readString(args?.['operation']) || (objectType === 'order' ? 'create' : 'upsert'),
       mapping_mode: readString(args?.['mapping_mode']) || 'auto',
     };
+    const fileId = readString(args?.['file_id']);
+    if (sourceKind === 'file') {
+      if (!fileId) {
+        return asErrorResult('`file_id` is required for file imports.');
+      }
+      body.file_id = fileId;
+    }
+    if (sourceKind === 'integration') {
+      const recordIds = readStringArray(args?.['record_ids']);
+      const sourceRecord = readPlainRecord(args?.['source_record']);
+      if (!recordIds && !sourceRecord) {
+        return asErrorResult('Provide `record_ids` or `source_record` for integration imports.');
+      }
+      body.provider = readString(args?.['provider']) || 'hubspot';
+      const channelId = readString(args?.['channel_id']);
+      if (channelId) {
+        body.channel_id = channelId;
+      }
+      if (recordIds) {
+        body.record_ids = recordIds;
+      }
+      if (sourceRecord) {
+        body.source_record = sourceRecord;
+      }
+    }
     const keyField = readString(args?.['key_field']);
     if (keyField) {
       body.key_field = keyField;
@@ -614,6 +695,51 @@ export const cancelImportJobTool: McpTool = {
   },
 };
 
+export const retryImportJobTool: McpTool = {
+  metadata: {
+    resource: 'imports',
+    operation: 'write',
+    tags: ['imports'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/imports/{job_id}/retry',
+    operationId: 'public.imports.retry',
+  },
+  tool: {
+    name: 'retry_import_job',
+    title: 'Retry import job',
+    description: 'Retry a failed, canceled, or otherwise terminal import job.',
+    inputSchema: JOB_LOOKUP_INPUT_SCHEMA,
+    outputSchema: JOB_RETRY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Retry import job',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Retry import job',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const jobId = readString(args?.['job_id']);
+    if (!jobId) {
+      return asErrorResult('`job_id` is required.');
+    }
+
+    const response = await reqContext.client.public.imports.retry(jobId);
+    return {
+      content: [{ type: 'text', text: `Retried import job ${jobId}. ${buildJobSummary(response.job)}` }],
+      structuredContent: response as unknown as Record<string, unknown>,
+    };
+  },
+};
+
 export const listIntegrationChannelsTool: McpTool = {
   metadata: {
     resource: 'integrations',
@@ -677,7 +803,7 @@ export const exportRecordsTool: McpTool = {
     name: 'export_records',
     title: 'Export records',
     description:
-      'Create a public export job for Sanka records. Currently supports exporting deals to a HubSpot integration channel.',
+      'Create a public export job for Sanka records. Supports deal exports to HubSpot and invoice accounting exports to freee or MoneyForward channels.',
     inputSchema: EXPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -711,13 +837,24 @@ export const exportRecordsTool: McpTool = {
       return asErrorResult('`record_ids` and `workspace_scope` are mutually exclusive.');
     }
 
+    const objectType = readString(args?.['object_type']) || 'deal';
+    const destinationKind =
+      readString(args?.['destination_kind']) || (objectType === 'invoice' ? 'accounting' : 'integration');
+    const provider =
+      readString(args?.['provider']) ||
+      readString(args?.['target_system']) ||
+      (objectType === 'invoice' ? 'freee' : 'hubspot');
     const body: ExportCreateParams = {
-      object_type: readString(args?.['object_type']) || 'deal',
-      destination_kind: readString(args?.['destination_kind']) || 'integration',
-      provider: readString(args?.['provider']) || 'hubspot',
+      object_type: objectType,
+      destination_kind: destinationKind,
+      provider,
       channel_id: channelId,
-      operation: readString(args?.['operation']) || 'update',
+      operation: readString(args?.['operation']) || (objectType === 'invoice' ? 'create' : 'update'),
     };
+    const targetSystem = readString(args?.['target_system']);
+    if (targetSystem) {
+      body.target_system = targetSystem;
+    }
     if (recordIds) {
       body.record_ids = recordIds;
     }
@@ -799,7 +936,7 @@ export const listExportJobsTool: McpTool = {
     name: 'list_export_jobs',
     title: 'List export jobs',
     description: 'List recent public export jobs for the authenticated workspace context.',
-    inputSchema: IMPORT_LIST_INPUT_SCHEMA,
+    inputSchema: EXPORT_LIST_INPUT_SCHEMA,
     outputSchema: JOB_LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
@@ -875,6 +1012,51 @@ export const cancelExportJobTool: McpTool = {
     return {
       content: [{ type: 'text', text: buildJobSummary(job) }],
       structuredContent: job as unknown as Record<string, unknown>,
+    };
+  },
+};
+
+export const retryExportJobTool: McpTool = {
+  metadata: {
+    resource: 'exports',
+    operation: 'write',
+    tags: ['exports'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/exports/{job_id}/retry',
+    operationId: 'public.exports.retry',
+  },
+  tool: {
+    name: 'retry_export_job',
+    title: 'Retry export job',
+    description: 'Retry a failed, canceled, or otherwise terminal export job.',
+    inputSchema: JOB_LOOKUP_INPUT_SCHEMA,
+    outputSchema: JOB_RETRY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Retry export job',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Retry export job',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const jobId = readString(args?.['job_id']);
+    if (!jobId) {
+      return asErrorResult('`job_id` is required.');
+    }
+
+    const response = await reqContext.client.public.exports.retry(jobId);
+    return {
+      content: [{ type: 'text', text: `Retried export job ${jobId}. ${buildJobSummary(response.job)}` }],
+      structuredContent: response as unknown as Record<string, unknown>,
     };
   },
 };

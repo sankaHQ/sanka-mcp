@@ -241,6 +241,8 @@ import {
   listExportJobsTool,
   listImportJobsTool,
   listIntegrationChannelsTool,
+  retryExportJobTool,
+  retryImportJobTool,
   uploadImportFileTool,
 } from './transfer-tools';
 import {
@@ -785,11 +787,13 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     getImportJobTool,
     listImportJobsTool,
     cancelImportJobTool,
+    retryImportJobTool,
     listIntegrationChannelsTool,
     exportRecordsTool,
     getExportJobTool,
     listExportJobsTool,
     cancelExportJobTool,
+    retryExportJobTool,
     demoGenerateTool,
     integrationSyncPushTool,
     browserUseTool,

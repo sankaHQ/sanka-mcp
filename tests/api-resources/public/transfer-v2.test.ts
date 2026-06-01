@@ -26,6 +26,9 @@ describe('public transfer resources on V2', () => {
         const method = String(init?.method ?? 'GET').toUpperCase();
         calls.push(requestURL);
         if (pathname.endsWith('/cancel')) return envelope({ job: transferJob, canceled: true });
+        if (pathname.endsWith('/retry')) {
+          return envelope({ job: transferJob, retry_of_job_id: 'job-1', message: 'Retried.' });
+        }
         if (pathname.endsWith('/exports') && method === 'GET') {
           return envelope({ jobs: [transferJob], message: 'OK' });
         }
@@ -48,6 +51,11 @@ describe('public transfer resources on V2', () => {
       message: 'OK',
     });
     await expect(client.public.imports.cancel('job-1')).resolves.toEqual(transferJob);
+    await expect(client.public.imports.retry('job-1')).resolves.toEqual({
+      job: transferJob,
+      retry_of_job_id: 'job-1',
+      message: 'Retried.',
+    });
     await expect(client.public.exports.create({ object_type: 'company' })).resolves.toEqual({
       ...transferJob,
       job_type: 'export',
@@ -61,16 +69,23 @@ describe('public transfer resources on V2', () => {
       message: 'OK',
     });
     await expect(client.public.exports.cancel('job-1')).resolves.toEqual(transferJob);
+    await expect(client.public.exports.retry('job-1')).resolves.toEqual({
+      job: transferJob,
+      retry_of_job_id: 'job-1',
+      message: 'Retried.',
+    });
 
     expect(calls).toEqual([
       'http://localhost:5000/api/v2/imports',
       'http://localhost:5000/api/v2/imports/job-1',
       'http://localhost:5000/api/v2/imports?object_type=company&limit=10',
       'http://localhost:5000/api/v2/imports/job-1/cancel',
+      'http://localhost:5000/api/v2/imports/job-1/retry',
       'http://localhost:5000/api/v2/exports',
       'http://localhost:5000/api/v2/exports/job-1',
       'http://localhost:5000/api/v2/exports?object_type=company&limit=10',
       'http://localhost:5000/api/v2/exports/job-1/cancel',
+      'http://localhost:5000/api/v2/exports/job-1/retry',
     ]);
   });
 
