@@ -53,7 +53,7 @@ describe('MCP tool call logging', () => {
         startedAt: Date.now(),
       });
 
-      expect(post).toHaveBeenCalledWith('/v1/public/auth/mcp-session/tool-call-log', {
+      expect(post).toHaveBeenCalledWith('/api/v2/mcp/tool-call-log', {
         body: expect.objectContaining({
           tool_name: toolName,
           tool_title: toolTitle,
@@ -155,7 +155,7 @@ describe('MCP tool call logging', () => {
       startedAt: Date.now(),
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/auth/mcp-session/tool-call-log', {
+    expect(post).toHaveBeenCalledWith('/api/v2/mcp/tool-call-log', {
       body: expect.objectContaining({
         tool_name: 'list_companies',
         success: false,

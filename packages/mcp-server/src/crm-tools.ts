@@ -15305,7 +15305,7 @@ export const crmCreateOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'orders'],
     httpMethod: 'post',
-    httpPath: '/v1/public/orders',
+    httpPath: '/api/v2/orders',
     operationId: 'public.orders.create',
   },
   tool: {
@@ -15372,8 +15372,8 @@ export const crmUpdateOrderTool: McpTool = {
     resource: 'orders',
     operation: 'write',
     tags: ['crm', 'orders'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/orders/{order_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/orders/{order_id}',
     operationId: 'public.orders.update',
   },
   tool: {
@@ -15447,7 +15447,7 @@ export const crmActivateOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'orders'],
     httpMethod: 'post',
-    httpPath: '/v1/public/orders/{order_id}/activate',
+    httpPath: '/api/v2/orders/{order_id}/activate',
     operationId: 'public.orders.activate',
   },
   tool: {
@@ -15478,10 +15478,11 @@ export const crmActivateOrderTool: McpTool = {
       return asErrorResult('`order_id` is required.');
     }
 
-    const response = (await reqContext.client.post(
-      `/v1/public/orders/${encodeURIComponent(orderID)}/activate`,
-      { query: params },
-    )) as Record<string, unknown>;
+    const response = (await reqContext.client.public.orders.activate(
+      orderID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
     const verification = await buildLifecycleVerification({
       entity: 'order',
       id: orderID,

@@ -115,6 +115,7 @@ const fuse = new Fuse(
     'client.public.associations.create',
     'client.public.associations.delete',
     'client.public.associations.list',
+    'client.public.orders.activate',
     'client.public.orders.bulkCreate',
     'client.public.orders.create',
     'client.public.orders.delete',
