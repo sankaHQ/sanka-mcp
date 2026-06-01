@@ -9684,12 +9684,23 @@ const buildLifecycleVerification = async ({
       record_id: readString(record['id']) || id,
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (expectedStatus === 'archived' && /\b404\b/.test(errorMessage)) {
+      return {
+        entity,
+        expected_status: expectedStatus,
+        actual_status: 'not_found',
+        matched: true,
+        record_id: id,
+        verification_mode: 'not_found_after_archive',
+      };
+    }
     return {
       entity,
       expected_status: expectedStatus,
       actual_status: null,
       matched: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     };
   }
 };

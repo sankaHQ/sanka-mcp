@@ -3326,6 +3326,43 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('treats archived order 404 readback as successful verification', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'archived',
+      order_id: 'order-1',
+    });
+    const retrieve = jest.fn().mockRejectedValue(new Error('404 {"error":{"code":"NOT_FOUND"}}'));
+
+    const result = await crmDeleteOrderTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            orders: { delete: del, retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        order_id: 'order-1',
+      },
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'archived',
+      verification: {
+        entity: 'order',
+        expected_status: 'archived',
+        actual_status: 'not_found',
+        matched: true,
+        record_id: 'order-1',
+        verification_mode: 'not_found_after_archive',
+      },
+    });
+  });
+
   it('permanently deletes an archived order only with explicit confirmation', async () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
