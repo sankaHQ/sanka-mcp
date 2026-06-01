@@ -11058,6 +11058,20 @@ const legacyPublicPath = (reqContext: McpRequestContext, path: string): string =
   return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
 };
 
+const downloadLegacyPublicPDF = async (
+  reqContext: McpRequestContext,
+  path: string,
+  params: Record<string, unknown>,
+  fallbackFilename: string,
+): Promise<ToolCallResult> => {
+  const response = await reqContext.client
+    .get(legacyPublicPath(reqContext, path), {
+      query: params,
+    })
+    .asResponse();
+  return asStoredBinaryDownloadResult(reqContext, response, fallbackFilename);
+};
+
 const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
   if (Array.isArray(payload)) {
     return payload.map((row) => readRecord(row) ?? {}).filter(Boolean);
@@ -15971,8 +15985,12 @@ export const crmDownloadOrderPDFTool: McpTool = {
       return asErrorResult('`order_id` is required.');
     }
 
-    const response = await reqContext.client.public.orders.downloadPDF(orderID, params, undefined);
-    return asStoredBinaryDownloadResult(reqContext, response, 'order.pdf');
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/orders/${encodeURIComponent(orderID)}/pdf`,
+      params,
+      'order.pdf',
+    );
   },
 };
 
@@ -16521,12 +16539,12 @@ export const crmDownloadPurchaseOrderPDFTool: McpTool = {
       return asErrorResult('`purchase_order_id` is required.');
     }
 
-    const response = await reqContext.client.public.purchaseOrders.downloadPDF(
-      purchaseOrderID,
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/purchase-orders/${encodeURIComponent(purchaseOrderID)}/pdf`,
       params,
-      undefined,
+      'purchase-order.pdf',
     );
-    return asStoredBinaryDownloadResult(reqContext, response, 'purchase-order.pdf');
   },
 };
 
@@ -17200,8 +17218,12 @@ export const crmDownloadEstimatePDFTool: McpTool = {
       return asErrorResult('`estimate_id` is required.');
     }
 
-    const response = await reqContext.client.public.estimates.downloadPDF(estimateID, params, undefined);
-    return asStoredBinaryDownloadResult(reqContext, response, 'estimate.pdf');
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/estimates/${encodeURIComponent(estimateID)}/pdf`,
+      params,
+      'estimate.pdf',
+    );
   },
 };
 
@@ -18537,8 +18559,12 @@ export const crmDownloadInvoicePDFTool: McpTool = {
       return asErrorResult('`invoice_id` is required.');
     }
 
-    const response = await reqContext.client.public.invoices.downloadPDF(invoiceID, params, undefined);
-    return asStoredBinaryDownloadResult(reqContext, response, 'invoice.pdf');
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/pdf`,
+      params,
+      'invoice.pdf',
+    );
   },
 };
 
@@ -19011,8 +19037,12 @@ export const crmDownloadPaymentPDFTool: McpTool = {
       return asErrorResult('`payment_id` is required.');
     }
 
-    const response = await reqContext.client.public.payments.downloadPDF(paymentID, params, undefined);
-    return asStoredBinaryDownloadResult(reqContext, response, 'payment.pdf');
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/payments/${encodeURIComponent(paymentID)}/pdf`,
+      params,
+      'payment.pdf',
+    );
   },
 };
 
@@ -19337,8 +19367,12 @@ export const crmDownloadSlipPDFTool: McpTool = {
       return asErrorResult('`slip_id` is required.');
     }
 
-    const response = await reqContext.client.public.slips.downloadPDF(slipID, params, undefined);
-    return asStoredBinaryDownloadResult(reqContext, response, 'slip.pdf');
+    return downloadLegacyPublicPDF(
+      reqContext,
+      `/v1/public/slips/${encodeURIComponent(slipID)}/pdf`,
+      params,
+      'slip.pdf',
+    );
   },
 };
 
