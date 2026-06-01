@@ -53,6 +53,30 @@ const normalizeAPIVersion = (value: string | null | undefined): APIVersionMode =
   return 'any';
 };
 
+const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
+
+const configuredLegacyPublicBaseURL = (): string | undefined => {
+  const configured = readEnv('SANKA_LEGACY_PUBLIC_BASE_URL') || readEnv('SANKA_LEGACY_BASE_URL');
+  return configured ? stripTrailingSlash(configured) : undefined;
+};
+
+const legacyPublicBaseURLFor = (baseURL: string, path: string): string | undefined => {
+  if (!path.startsWith('/v1/')) return undefined;
+
+  const configured = configuredLegacyPublicBaseURL();
+  if (configured) return configured;
+
+  try {
+    const hostname = new URL(baseURL).hostname.toLowerCase();
+    if (hostname === 'sanka-api.fly.dev') return 'https://api.sanka.com';
+    if (hostname === 'sanka-api-staging.fly.dev') return 'https://api.sankastaging.com';
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+};
+
 export interface ClientOptions {
   /**
    * Defaults to process.env['SANKA_API_KEY'].
@@ -294,7 +318,9 @@ export class Sanka {
     query: Record<string, unknown> | null | undefined,
     defaultBaseURL?: string | undefined,
   ): string {
-    const baseURL = (!this.#baseURLOverridden() && defaultBaseURL) || this.baseURL;
+    const candidateBaseURL = (!this.#baseURLOverridden() && defaultBaseURL) || this.baseURL;
+    const legacyBaseURL = !isAbsoluteURL(path) ? legacyPublicBaseURLFor(candidateBaseURL, path) : undefined;
+    const baseURL = legacyBaseURL || candidateBaseURL;
     const url =
       isAbsoluteURL(path) ?
         new URL(path)
