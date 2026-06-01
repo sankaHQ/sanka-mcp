@@ -151,6 +151,7 @@ export {
   type ImportUploadFileParams,
   type TransferColumnMapping,
   type TransferJob,
+  type TransferJobRetryResponse,
   type TransferJobSummary,
   type TransferUploadFileResponse,
 } from './imports';

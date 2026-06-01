@@ -45,6 +45,17 @@ export class Imports extends APIResource {
   }
 
   /**
+   * Retry Import Job
+   */
+  retry(jobID: string, options?: RequestOptions): APIPromise<TransferJobRetryResponse> {
+    return unwrapV2DataPromise(
+      this._client.v2Post<TransferJobRetryResponse>(path`/imports/${jobID}/retry`, {
+        ...options,
+      }),
+    );
+  }
+
+  /**
    * Upload Import File
    */
   uploadFile(body: ImportUploadFileParams, options?: RequestOptions): APIPromise<TransferUploadFileResponse> {
@@ -86,6 +97,7 @@ export interface TransferJobSummary {
   requested_count?: number | null;
   skipped_count?: number | null;
   emitted_event_ids?: Array<string>;
+  created_record_ids?: Array<string>;
 }
 
 export interface TransferJob {
@@ -120,6 +132,12 @@ export interface TransferJobCancelResponse {
   message?: string | null;
 }
 
+export interface TransferJobRetryResponse {
+  job: TransferJob;
+  retry_of_job_id: string;
+  message?: string | null;
+}
+
 export interface V2FileUploadResponse {
   id: string;
   filename: string;
@@ -146,7 +164,11 @@ export interface ImportListResponse {
 
 export interface ImportCreateParams {
   object_type: string;
-  file_id: string;
+  file_id?: string | null;
+  provider?: string | null;
+  channel_id?: string | null;
+  record_ids?: Array<string> | null;
+  source_record?: Record<string, unknown> | null;
   source_kind?: string;
   file_format?: string;
   operation?: string;
