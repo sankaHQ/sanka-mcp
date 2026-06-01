@@ -10,6 +10,7 @@ import {
 import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { browserUseTool } from './browser-use-tools';
+import { getCapabilityGuidanceTool } from './capability-guidance-tools';
 import { codeTool } from './code-tool';
 import {
   crmArchiveCustomObjectRecordTool,
@@ -569,6 +570,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     includedTools.push(docsSearchTool);
   }
   includedTools.push(
+    getCapabilityGuidanceTool,
     crmConnectSankaTool,
     crmAuthStatusTool,
     crmCurrentWorkspaceTool,

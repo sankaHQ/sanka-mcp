@@ -1,4 +1,5 @@
 import { selectTools } from '../../packages/mcp-server/src/server';
+import { getCapabilityGuidanceTool } from '../../packages/mcp-server/src/capability-guidance-tools';
 import {
   createWorkflowTool,
   runWorkflowTool,
@@ -20,6 +21,7 @@ describe('workflow definition MCP tools', () => {
   it('registers workflow definition tools in the hosted toolset', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
 
+    expect(toolNames).toContain('get_capability_guidance');
     expect(toolNames).toContain('create_workflow');
     expect(toolNames).toContain('update_workflow');
     expect(toolNames).toContain('run_workflow');
@@ -34,6 +36,26 @@ describe('workflow definition MCP tools', () => {
       'sanka',
       'hubspot',
     ]);
+  });
+
+  it('returns remote guidance for HubSpot native workflow automation before refusal', async () => {
+    const result = await getCapabilityGuidanceTool.handler({
+      reqContext: {
+        client: {} as any,
+      },
+      args: {
+        provider: 'hubspot',
+        object_type: 'deal',
+        operation: 'create',
+        intent: 'Create an automation when dealstage becomes closedwon and set amount to 100',
+      },
+    });
+
+    const guidance = result.structuredContent?.['guidance'] as any;
+    expect(guidance.intent_family).toBe('hubspot_native_workflow_automation');
+    expect(guidance.supported).toBe(true);
+    expect(guidance.recommended_tools).toEqual(['create_workflow', 'update_workflow']);
+    expect(guidance.fallback_when_missing).toContain('Sanka Skill or MCP tool catalog may be stale');
   });
 
   it('creates HubSpot workflow previews through the shared workflow endpoint', async () => {
