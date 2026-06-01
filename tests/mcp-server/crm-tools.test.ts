@@ -4012,6 +4012,46 @@ describe('ChatGPT CRM tools', () => {
     ]);
   });
 
+  it('accepts v2 estimate detail payloads without legacy timestamp fields', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'estimate-1',
+      id_est: 1,
+      customer_label: 'Acme',
+      status: 'draft',
+      total_price: 2200000,
+      currency: 'JPY',
+      start_date: '2026-06-01',
+    });
+
+    const result = await crmGetEstimateTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            estimates: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { estimate_id: 'estimate-1', language: 'ja' },
+    });
+
+    const outputSchema = crmGetEstimateTool.tool.outputSchema as { required?: string[] };
+    expect(outputSchema.required ?? []).not.toContain('created_at');
+    expect(outputSchema.required ?? []).not.toContain('updated_at');
+    expect(result.structuredContent).toMatchObject({
+      id: 'estimate-1',
+      id_est: 1,
+      status: 'draft',
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded estimate successfully: Estimate No. 1.',
+      },
+    ]);
+  });
+
   it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
     const pdfBytes = Buffer.from('%PDF-estimate');
     const downloadPDF = jest.fn().mockResolvedValue(

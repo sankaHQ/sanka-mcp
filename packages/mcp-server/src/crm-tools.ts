@@ -3791,7 +3791,7 @@ const ORDER_OUTPUT_SCHEMA = {
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
   },
-  required: ['id', 'created_at', 'updated_at', 'order_at'],
+  required: [],
 };
 
 const ORDER_MUTATION_OUTPUT_SCHEMA = {
@@ -4002,7 +4002,7 @@ const PURCHASE_ORDER_OUTPUT_SCHEMA = {
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
   },
-  required: ['created_at', 'updated_at'],
+  required: [],
 };
 
 const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
@@ -4237,7 +4237,7 @@ const ESTIMATE_OUTPUT_SCHEMA = {
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
   },
-  required: ['created_at', 'updated_at'],
+  required: [],
 };
 
 const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
@@ -5634,7 +5634,7 @@ const INVOICE_OUTPUT_SCHEMA = {
       items: { type: 'object' },
     },
   },
-  required: ['created_at', 'updated_at'],
+  required: [],
 };
 
 const INVOICE_MUTATION_OUTPUT_SCHEMA = {
@@ -5695,7 +5695,7 @@ const SLIP_OUTPUT_SCHEMA = {
     total_price: { type: 'number' },
     total_price_without_tax: { type: 'number' },
   },
-  required: ['created_at', 'updated_at'],
+  required: [],
 };
 
 const SLIP_MUTATION_OUTPUT_SCHEMA = {
@@ -5726,7 +5726,7 @@ const BILL_OUTPUT_SCHEMA = {
     status: { type: 'string' },
     updated_at: { type: 'string' },
   },
-  required: ['created_at'],
+  required: [],
 };
 
 const BILL_MUTATION_OUTPUT_SCHEMA = {
@@ -6982,7 +6982,7 @@ const PAYMENT_OUTPUT_SCHEMA = {
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
   },
-  required: ['created_at', 'updated_at'],
+  required: [],
 };
 
 const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
