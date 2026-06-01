@@ -4016,10 +4016,12 @@ describe('ChatGPT CRM tools', () => {
   it('accepts v2 estimate detail payloads without legacy timestamp fields', async () => {
     const retrieve = jest.fn().mockResolvedValue({
       id: 'estimate-1',
-      id_est: 1,
-      customer_label: 'Acme',
+      id_est: '1',
+      company_name: null,
+      contact_name: null,
+      customer_label: null,
       status: 'draft',
-      total_price: 2200000,
+      total_price: '2200000',
       currency: 'JPY',
       start_date: '2026-06-01',
     });
@@ -4037,13 +4039,21 @@ describe('ChatGPT CRM tools', () => {
       args: { estimate_id: 'estimate-1', language: 'ja' },
     });
 
-    const outputSchema = crmGetEstimateTool.tool.outputSchema as { required?: string[] };
+    const outputSchema = crmGetEstimateTool.tool.outputSchema as {
+      additionalProperties?: boolean;
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
     expect(outputSchema.required ?? []).not.toContain('created_at');
     expect(outputSchema.required ?? []).not.toContain('updated_at');
+    expect(outputSchema.additionalProperties).toBe(true);
+    expect(outputSchema.properties ?? {}).toEqual({});
     expect(result.structuredContent).toMatchObject({
       id: 'estimate-1',
-      id_est: 1,
+      id_est: '1',
       status: 'draft',
+      company_name: null,
+      contact_name: null,
     });
     expect(result.content).toEqual([
       {

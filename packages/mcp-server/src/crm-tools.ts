@@ -3774,25 +3774,14 @@ const TASK_DELETE_INPUT_SCHEMA = {
   required: ['task_id'],
 };
 
-const ORDER_OUTPUT_SCHEMA = {
+const V2_RECORD_DETAIL_OUTPUT_SCHEMA = {
   type: 'object' as const,
-  properties: {
-    id: { type: 'string' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    order_at: { type: 'string' },
-    company_id: { type: 'string' },
-    contact_id: { type: 'string' },
-    currency: { type: 'string' },
-    delivery_status: { type: 'string' },
-    number_item: { type: 'integer' },
-    order_id: { type: 'integer' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
+  properties: {},
+  additionalProperties: true,
   required: [],
 };
+
+const ORDER_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -3988,22 +3977,7 @@ const PURCHASE_ORDER_LIST_INPUT_SCHEMA = {
   },
 };
 
-const PURCHASE_ORDER_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    date: { type: 'string' },
-    id_po: { type: 'integer' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: [],
-};
+const PURCHASE_ORDER_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -4222,23 +4196,7 @@ const ESTIMATE_LIST_INPUT_SCHEMA = {
   },
 };
 
-const ESTIMATE_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_est: { type: 'integer' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: [],
-};
+const ESTIMATE_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5608,34 +5566,7 @@ const DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA = {
   required: ['disbursement_id', 'allocation_id'],
 };
 
-const INVOICE_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id: { type: 'string' },
-    app_url: { type: 'string' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    days_overdue: { type: 'integer' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_inv: { type: 'integer' },
-    outstanding_balance: { type: 'number' },
-    paid_amount: { type: 'number' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    status_key: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-    workspace_code: { type: 'string' },
-    line_items: {
-      type: 'array',
-      items: { type: 'object' },
-    },
-  },
-  required: [],
-};
+const INVOICE_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const INVOICE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5679,24 +5610,7 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
   required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
 };
 
-const SLIP_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_slip: { type: 'integer' },
-    slip_type: { type: 'string' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: [],
-};
+const SLIP_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const SLIP_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5710,24 +5624,7 @@ const SLIP_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
-const BILL_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    amount: { type: 'number' },
-    amount_without_tax: { type: 'number' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_bill: { type: 'integer' },
-    issued_date: { type: 'string' },
-    payment_date: { type: 'string' },
-    status: { type: 'string' },
-    updated_at: { type: 'string' },
-  },
-  required: [],
-};
+const BILL_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const BILL_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -6967,23 +6864,7 @@ const PAYMENT_DELETE_INPUT_SCHEMA = {
   required: ['payment_id'],
 };
 
-const PAYMENT_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id_rcp: { type: 'integer' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    entry_type: { type: 'string' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-  },
-  required: [],
-};
+const PAYMENT_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
