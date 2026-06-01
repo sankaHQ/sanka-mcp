@@ -63,6 +63,9 @@ const orderMutationProperties = (
       delivery_status: order.deliveryStatus,
       order_at: order.orderAt,
       line_items: lineItems,
+      attachment_file: order.attachment_file,
+      create_missing_items: params.createMissingItems,
+      trigger_workflows: params.triggerWorkflows,
     }),
   };
 };
@@ -156,21 +159,14 @@ export class Orders extends APIResource {
       view,
       ...query
     } = params ?? {};
-    if (reference_id != null || sort != null || view != null) {
-      return this._client.get('/v1/public/orders', {
-        query: { limit, reference_id, search, sort, view, ...query },
-        ...options,
-        headers: buildHeaders([
-          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      });
-    }
     return this._client
       .v2Get<V2ObjectRecordList>('/orders', {
         query: {
           ...query,
           ...(search != null ? { q: search } : undefined),
+          ...(reference_id != null ? { q: reference_id } : undefined),
+          ...(sort != null ? { sort } : undefined),
+          ...(view != null ? { view } : undefined),
           ...(limit != null ? { limit } : undefined),
         },
         ...options,
@@ -226,19 +222,7 @@ export class Orders extends APIResource {
     params: OrderDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/orders/${orderID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
     return unwrapV2PdfResponse(
       this._client.v2Get<V2PdfData>(path`/orders/${orderID}/pdf`, {
         query,
@@ -255,7 +239,7 @@ export class Orders extends APIResource {
    * Bulk Create Orders
    */
   bulkCreate(body: OrderBulkCreateParams, options?: RequestOptions): APIPromise<BulkOrders> {
-    return this._client.post('/v1/public/orders/bulk', { body, ...options });
+    return unwrapV2DataPromise(this._client.v2Post<BulkOrders>('/orders/bulk', { body, ...options }));
   }
 
   /**

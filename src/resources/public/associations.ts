@@ -3,27 +3,75 @@
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
 import { RequestOptions } from '../../internal/request-options';
+import { unwrapV2DataPromise } from '../../internal/v2';
+
+const associationRefFromParams = (
+  objectType: string | null | undefined,
+  recordID: string | null | undefined,
+  customObjectID: string | null | undefined,
+) => ({
+  object_type: objectType,
+  record_id: recordID,
+  ...(customObjectID != null ? { custom_object_id: customObjectID } : undefined),
+});
+
+const associationMutationBody = (params: AssociationCreateParams | AssociationDeleteParams) => ({
+  source_ref: associationRefFromParams(
+    params.source_object,
+    params.source_id,
+    params.source_custom_object_id,
+  ),
+  target_ref: associationRefFromParams(
+    params.target_object,
+    params.target_id,
+    params.target_custom_object_id,
+  ),
+  ...(params.label_id != null ? { definition_id: params.label_id } : undefined),
+  ...(params.label != null ? { label: params.label } : undefined),
+});
 
 export class Associations extends APIResource {
   /**
    * List Associations
    */
   list(params: AssociationListParams, options?: RequestOptions): APIPromise<AssociationListResponse> {
-    return this._client.get('/v1/public/associations', { query: params, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Get<AssociationListResponse>('/public/associations', {
+        query: {
+          source_object_type: params.source_object,
+          source_record_id: params.source_id,
+          source_custom_object_id: params.source_custom_object_id,
+          definition_id: params.label_id,
+          page: params.page,
+          page_size: params.limit,
+        },
+        ...options,
+      }),
+    );
   }
 
   /**
    * Create Association
    */
   create(body: AssociationCreateParams, options?: RequestOptions): APIPromise<AssociationMutationResponse> {
-    return this._client.post('/v1/public/associations', { body, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Post<AssociationMutationResponse>('/public/associations', {
+        body: associationMutationBody(body),
+        ...options,
+      }),
+    );
   }
 
   /**
    * Delete Association
    */
   delete(params: AssociationDeleteParams, options?: RequestOptions): APIPromise<AssociationDeleteResponse> {
-    return this._client.delete('/v1/public/associations', { query: params, ...options });
+    return unwrapV2DataPromise(
+      this._client.v2Delete<AssociationDeleteResponse>('/public/associations', {
+        body: associationMutationBody(params),
+        ...options,
+      }),
+    );
   }
 }
 

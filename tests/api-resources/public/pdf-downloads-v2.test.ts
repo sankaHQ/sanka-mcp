@@ -19,14 +19,6 @@ const v2PdfEnvelope = (filename: string) =>
     { headers: { 'Content-Type': 'application/json' } },
   );
 
-const v1PdfResponse = () =>
-  new Response(pdfBytes, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="legacy.pdf"',
-    },
-  });
-
 const readBody = async (response: Response): Promise<Buffer> => {
   return Buffer.from(await response.arrayBuffer());
 };
@@ -77,14 +69,14 @@ describe('public PDF downloads on V2', () => {
     ]);
   });
 
-  test('keeps V1 fallback for PDF downloads that require external_id lookup', async () => {
+  test('passes external_id lookup through the V2 PDF route', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
       baseURL: 'http://localhost:5000/',
       fetch: async (url, init) => {
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
-        return v1PdfResponse();
+        return v2PdfEnvelope('external-order.pdf');
       },
     });
 
@@ -97,7 +89,7 @@ describe('public PDF downloads on V2', () => {
     expect(response.headers.get('content-type')).toEqual('application/pdf');
     expect(await readBody(response)).toEqual(pdfBytes);
     expect(calls).toEqual([
-      'GET http://localhost:5000/v1/public/orders/order-external/pdf?external_id=ORDER-EXT&template_select=template-1&lang=en',
+      'GET http://localhost:5000/api/v2/orders/order-external/pdf?external_id=ORDER-EXT&template_id=template-1&language=en',
     ]);
   });
 });

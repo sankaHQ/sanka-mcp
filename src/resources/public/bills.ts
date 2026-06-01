@@ -23,7 +23,7 @@ import { PublicLineItem } from './line-items';
 
 const billFromV2Record = (record: V2ObjectRecord): Bill => legacyObjectRecordFromV2<Bill>(record, 'id_bill');
 
-const billUpdateProperties = (params: BillUpdateParams): Record<string, unknown> => {
+const billMutationProperties = (params: BillCreateParams | BillUpdateParams): Record<string, unknown> => {
   const {
     amount,
     amount_without_tax,
@@ -66,20 +66,16 @@ const billUpdateProperties = (params: BillUpdateParams): Record<string, unknown>
   });
 };
 
-const canUseV2BillUpdate = (params: BillUpdateParams, properties: Record<string, unknown>): boolean =>
-  params.attachment_file == null &&
-  params.company_external_id == null &&
-  params.contact_external_id == null &&
-  params.tax_inclusive == null &&
-  params.tax_option == null &&
-  Object.keys(properties).length > 0;
-
 export class Bills extends APIResource {
   /**
    * Create Bill
    */
   create(body: BillCreateParams, options?: RequestOptions): APIPromise<PublicBillResponse> {
-    return this._client.post('/v1/public/bills', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/bills', { body: { properties: billMutationProperties(body) }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicBillResponse>(envelope, 'bill_id', 'created', body.external_id),
+      );
   }
 
   /**
@@ -110,24 +106,15 @@ export class Bills extends APIResource {
    * Update Bill
    */
   update(billID: string, params: BillUpdateParams, options?: RequestOptions): APIPromise<PublicBillResponse> {
-    const properties = billUpdateProperties(params);
-    if (canUseV2BillUpdate(params, properties)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/bills/${billID}`, {
-          query: { external_id: params.external_id },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PublicBillResponse>(
-            envelope,
-            'bill_id',
-            'updated',
-            params.external_id,
-          ),
-        );
-    }
-    return this._client.put(path`/v1/public/bills/${billID}`, { body: params, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/bills/${billID}`, {
+        query: { external_id: params.external_id },
+        body: { properties: billMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicBillResponse>(envelope, 'bill_id', 'updated', params.external_id),
+      );
   }
 
   /**

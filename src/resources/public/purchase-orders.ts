@@ -24,7 +24,9 @@ import { PublicLineItem } from './line-items';
 const purchaseOrderFromV2Record = (record: V2ObjectRecord): PurchaseOrder =>
   legacyObjectRecordFromV2<PurchaseOrder>(record, 'id_po');
 
-const purchaseOrderUpdateProperties = (params: PurchaseOrderUpdateParams): Record<string, unknown> => {
+const purchaseOrderMutationProperties = (
+  params: PurchaseOrderCreateParams | PurchaseOrderUpdateParams,
+): Record<string, unknown> => {
   const {
     attachment_file: _attachmentFile,
     company_external_id: _companyExternalID,
@@ -59,21 +61,24 @@ const purchaseOrderUpdateProperties = (params: PurchaseOrderUpdateParams): Recor
   });
 };
 
-const canUseV2PurchaseOrderUpdate = (
-  params: PurchaseOrderUpdateParams,
-  properties: Record<string, unknown>,
-): boolean =>
-  params.attachment_file == null &&
-  params.company_external_id == null &&
-  params.contact_external_id == null &&
-  Object.keys(properties).length > 0;
-
 export class PurchaseOrders extends APIResource {
   /**
    * Create Purchase Order
    */
   create(body: PurchaseOrderCreateParams, options?: RequestOptions): APIPromise<PurchaseOrderResponse> {
-    return this._client.post('/v1/public/purchase-orders', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/purchase-orders', {
+        body: { properties: purchaseOrderMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PurchaseOrderResponse>(
+          envelope,
+          'purchase_order_id',
+          'created',
+          body.external_id,
+        ),
+      );
   }
 
   /**
@@ -108,27 +113,20 @@ export class PurchaseOrders extends APIResource {
     params: PurchaseOrderUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PurchaseOrderResponse> {
-    const properties = purchaseOrderUpdateProperties(params);
-    if (canUseV2PurchaseOrderUpdate(params, properties)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/purchase-orders/${purchaseOrderID}`, {
-          query: { external_id: params.external_id },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PurchaseOrderResponse>(
-            envelope,
-            'purchase_order_id',
-            'updated',
-            params.external_id,
-          ),
-        );
-    }
-    return this._client.put(path`/v1/public/purchase-orders/${purchaseOrderID}`, {
-      body: params,
-      ...options,
-    });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/purchase-orders/${purchaseOrderID}`, {
+        query: { external_id: params.external_id },
+        body: { properties: purchaseOrderMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PurchaseOrderResponse>(
+          envelope,
+          'purchase_order_id',
+          'updated',
+          params.external_id,
+        ),
+      );
   }
 
   /**
@@ -188,19 +186,7 @@ export class PurchaseOrders extends APIResource {
     params: PurchaseOrderDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/purchase-orders/${purchaseOrderID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
     return unwrapV2PdfResponse(
       this._client.v2Get<V2PdfData>(path`/purchase-orders/${purchaseOrderID}/pdf`, {
         query,

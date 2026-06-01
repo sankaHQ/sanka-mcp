@@ -104,6 +104,7 @@ export const buildV2PdfRequest = (
     ...(external_id !== undefined ? { externalID: external_id } : undefined),
     query: {
       ...query,
+      ...(external_id != null ? { external_id } : undefined),
       ...(resolvedTemplateID != null ? { template_id: resolvedTemplateID } : undefined),
       ...(resolvedLanguage != null ? { language: resolvedLanguage } : undefined),
     },

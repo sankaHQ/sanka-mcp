@@ -28,7 +28,9 @@ const estimateFromV2Record = (record: V2ObjectRecord): Estimate => {
   });
 };
 
-const estimateUpdateProperties = (params: EstimateUpdateParams): Record<string, unknown> => {
+const estimateMutationProperties = (
+  params: EstimateCreateParams | EstimateUpdateParams,
+): Record<string, unknown> => {
   const {
     attachment_file: _attachmentFile,
     company_external_id: _companyExternalID,
@@ -67,18 +69,21 @@ const estimateUpdateProperties = (params: EstimateUpdateParams): Record<string, 
   });
 };
 
-const canUseV2EstimateUpdate = (params: EstimateUpdateParams, properties: Record<string, unknown>): boolean =>
-  params.attachment_file == null &&
-  params.company_external_id == null &&
-  params.contact_external_id == null &&
-  Object.keys(properties).length > 0;
-
 export class Estimates extends APIResource {
   /**
    * Create Estimate
    */
   create(body: EstimateCreateParams, options?: RequestOptions): APIPromise<PublicEstimateResponse> {
-    return this._client.post('/v1/public/estimates', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/estimates', { body: { properties: estimateMutationProperties(body) }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicEstimateResponse>(
+          envelope,
+          'estimate_id',
+          'created',
+          body.external_id,
+        ),
+      );
   }
 
   /**
@@ -113,24 +118,20 @@ export class Estimates extends APIResource {
     params: EstimateUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicEstimateResponse> {
-    const properties = estimateUpdateProperties(params);
-    if (canUseV2EstimateUpdate(params, properties)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/estimates/${estimateID}`, {
-          query: { external_id: params.external_id },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PublicEstimateResponse>(
-            envelope,
-            'estimate_id',
-            'updated',
-            params.external_id,
-          ),
-        );
-    }
-    return this._client.put(path`/v1/public/estimates/${estimateID}`, { body: params, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/estimates/${estimateID}`, {
+        query: { external_id: params.external_id },
+        body: { properties: estimateMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicEstimateResponse>(
+          envelope,
+          'estimate_id',
+          'updated',
+          params.external_id,
+        ),
+      );
   }
 
   /**
@@ -190,19 +191,7 @@ export class Estimates extends APIResource {
     params: EstimateDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/estimates/${estimateID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
     return unwrapV2PdfResponse(
       this._client.v2Get<V2PdfData>(path`/estimates/${estimateID}/pdf`, {
         query,

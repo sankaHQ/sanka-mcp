@@ -19,25 +19,54 @@ import {
 const subscriptionFromV2Record = (record: V2ObjectRecord): SubscriptionDetail =>
   legacyObjectRecordFromV2<SubscriptionDetail>(record);
 
-const subscriptionUpdateProperties = (params: SubscriptionUpdateParams): Record<string, unknown> => {
-  const { contact: _contact, external_id: _externalID, items: _items, status } = params;
-  void _contact;
-  void _externalID;
-  void _items;
-  return compactProperties({ status });
+const firstSubscriptionItem = (
+  params: SubscriptionCreateParams | SubscriptionUpdateParams,
+): SubscriptionItemInput | undefined => {
+  const lineItems = 'line_items' in params ? params.line_items : undefined;
+  const items = 'items' in params ? params.items : undefined;
+  return lineItems?.[0] ?? items?.[0] ?? undefined;
 };
 
-const canUseV2SubscriptionUpdate = (
-  params: SubscriptionUpdateParams,
-  properties: Record<string, unknown>,
-): boolean => params.contact == null && params.items == null && Object.keys(properties).length > 0;
+const subscriptionMutationProperties = (
+  params: SubscriptionCreateParams | SubscriptionUpdateParams,
+): Record<string, unknown> => {
+  const item = firstSubscriptionItem(params);
+  const contactID =
+    'contact_id' in params ? params.contact_id ?? params.cid ?? params.customer_id : params.contact;
+  const companyID = 'company_id' in params ? params.company_id ?? params.customer_id : undefined;
+  const status = 'subscription_status' in params ? params.subscription_status : params.status;
+  return compactProperties({
+    status,
+    contact_id: companyID ? undefined : contactID,
+    company_id: companyID,
+    item_id: item?.item_id ?? item?.item ?? item?.id,
+    currency: 'currency' in params ? params.currency : undefined,
+    frequency: 'frequency' in params ? params.frequency : undefined,
+    frequency_time: 'frequency_time' in params ? params.frequency_time : undefined,
+    number_item: item?.quantity ?? item?.qty ?? item?.amount_item ?? item?.amount,
+    shipping_cost_tax_status:
+      'shipping_cost_tax_status' in params ? params.shipping_cost_tax_status : undefined,
+    start_date: 'start_date' in params ? params.start_date : undefined,
+    tax: 'tax' in params ? params.tax : undefined,
+    total_price: ('total_price' in params ? params.total_price : undefined) ?? item?.total_price,
+    total_price_without_tax:
+      ('total_price_without_tax' in params ? params.total_price_without_tax : undefined) ??
+      item?.total_price_without_tax,
+  });
+};
 
 export class Subscriptions extends APIResource {
   /**
    * Create Subscription
    */
   create(body: SubscriptionCreateParams, options?: RequestOptions): APIPromise<SubscriptionDetail> {
-    return this._client.post('/v1/public/subscriptions', { body, ...options });
+    return unwrapV2ObjectRecord(
+      this._client.v2Post<V2ObjectRecord>('/subscriptions', {
+        body: { properties: subscriptionMutationProperties(body) },
+        ...options,
+      }),
+      subscriptionFromV2Record,
+    );
   }
 
   /**
@@ -62,23 +91,15 @@ export class Subscriptions extends APIResource {
     params: SubscriptionUpdateParams,
     options?: RequestOptions,
   ): APIPromise<SubscriptionDetail> {
-    const { external_id, ...body } = params;
-    const properties = subscriptionUpdateProperties(params);
-    if (canUseV2SubscriptionUpdate(params, properties)) {
-      return unwrapV2ObjectRecord(
-        this._client.v2Patch<V2ObjectRecord>(path`/subscriptions/${subscriptionID}`, {
-          query: { external_id },
-          body: { properties },
-          ...options,
-        }),
-        subscriptionFromV2Record,
-      );
-    }
-    return this._client.put(path`/v1/public/subscriptions/${subscriptionID}`, {
-      query: { external_id },
-      body,
-      ...options,
-    });
+    const { external_id } = params;
+    return unwrapV2ObjectRecord(
+      this._client.v2Patch<V2ObjectRecord>(path`/subscriptions/${subscriptionID}`, {
+        query: { external_id },
+        body: { properties: subscriptionMutationProperties(params) },
+        ...options,
+      }),
+      subscriptionFromV2Record,
+    );
   }
 
   /**
