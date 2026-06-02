@@ -6,6 +6,12 @@ import {
   storeBinaryDownload,
 } from './binary-download-store';
 import {
+  appendBinaryUploadChunk,
+  BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+  finishBinaryUpload,
+  startBinaryUpload,
+} from './binary-upload-store';
+import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -966,7 +972,8 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
   },
   attachment_file_ids: {
     type: 'array',
-    description: 'Optional uploaded expense attachment file IDs to bind to the expense.',
+    description:
+      'Optional uploaded expense attachment file IDs to bind to the expense. Upload receipt or invoice files with upload_expense_attachment first, then pass the returned file_id values here.',
     items: {
       type: 'string',
     },
@@ -1821,7 +1828,8 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     },
     content_base64: {
       type: 'string',
-      description: 'Base64-encoded file content. Data URLs are also accepted.',
+      description:
+        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB.',
     },
     mime_type: {
       type: 'string',
@@ -1829,6 +1837,147 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     },
   },
   required: ['filename', 'content_base64'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    filename: {
+      type: 'string',
+      description: 'Attachment filename to preserve in Sanka.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type. Defaults to application/octet-stream.',
+    },
+    content_base64_length: {
+      type: 'number',
+      description:
+        'Optional total base64 character length. Pass this when known so finish_expense_attachment_upload can detect missing chunks.',
+      minimum: 1,
+    },
+    byte_length: {
+      type: 'number',
+      description:
+        'Optional original byte length. Pass this when known so finish_expense_attachment_upload can verify the decoded file size.',
+      minimum: 1,
+    },
+  },
+  required: ['filename'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: {
+      type: 'string',
+      description: 'Opaque token returned by start_expense_attachment_upload.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for upload_token.',
+    },
+    offset: {
+      type: 'number',
+      description:
+        'Base64 character offset for this chunk. Start at 0, then use next_offset from the previous append result.',
+      minimum: 0,
+      default: 0,
+    },
+    content_base64: {
+      type: 'string',
+      description:
+        'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
+    },
+  },
+  required: ['upload_token', 'content_base64'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: {
+      type: 'string',
+      description: 'Opaque token returned by start_expense_attachment_upload.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for upload_token.',
+    },
+  },
+  required: ['upload_token'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: { type: 'string' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+    next_offset: { type: 'number' },
+    completion_status: { type: 'string' },
+    required_next_tool: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: [
+    'upload_token',
+    'chunk_size',
+    'expires_at',
+    'next_offset',
+    'completion_status',
+    'required_next_tool',
+    'next_action',
+  ],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: { type: 'string' },
+    filename: { type: 'string' },
+    mime_type: { type: 'string' },
+    content_base64_offset: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    expected_content_base64_length: { type: 'number' },
+    expected_byte_length: { type: 'number' },
+    next_offset: { type: 'number' },
+    done: { type: 'boolean' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+    completion_status: { type: 'string' },
+    required_next_tool: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: [
+    'upload_token',
+    'filename',
+    'mime_type',
+    'content_base64_offset',
+    'content_base64_length',
+    'next_offset',
+    'done',
+    'chunk_size',
+    'expires_at',
+    'completion_status',
+    'next_action',
+  ],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_FINISH_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    file_id: { type: 'string' },
+    id: { type: 'string' },
+    filename: { type: 'string' },
+    url: { type: 'string' },
+    relative_path: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    completion_status: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: ['ok', 'file_id', 'filename', 'completion_status', 'next_action'],
 };
 
 const LIST_OUTPUT_SCHEMA = {
@@ -11129,42 +11278,6 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
   };
 };
 
-const trimTrailingSlashes = (value: string): string => value.replace(/\/+$/, '');
-
-const legacyPublicAPIBaseUrl = (reqContext: McpRequestContext): string | undefined => {
-  const configured = readString(
-    process.env['SANKA_LEGACY_PUBLIC_BASE_URL'] ?? process.env['SANKA_LEGACY_BASE_URL'],
-  );
-  if (configured) {
-    return trimTrailingSlashes(configured);
-  }
-
-  const authorizationServerUrl = readString(reqContext.auth?.oauth?.authorizationServerUrl);
-  if (!authorizationServerUrl) {
-    return undefined;
-  }
-
-  try {
-    const hostname = new URL(authorizationServerUrl).hostname.toLowerCase();
-    if (hostname === 'app.sanka.com') {
-      return 'https://api.sanka.com';
-    }
-    if (hostname === 'app.sankastaging.com') {
-      return 'https://api.sankastaging.com';
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
-};
-
-const legacyPublicPath = (reqContext: McpRequestContext, path: string): string => {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const baseUrl = legacyPublicAPIBaseUrl(reqContext);
-  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
-};
-
 const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
   if (Array.isArray(payload)) {
     return payload.map((row) => readRecord(row) ?? {}).filter(Boolean);
@@ -14153,7 +14266,7 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
     name: 'upload_expense_attachment',
     title: 'Upload expense attachment',
     description:
-      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_expense or update_expense.',
+      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded original file content, then use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
     inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
     outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14201,6 +14314,233 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
   },
 };
 
+export const crmStartExpenseAttachmentUploadTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    operationId: 'public.expenses.startChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'start_expense_attachment_upload',
+    title: 'Start expense attachment upload',
+    description:
+      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append chunks, then finish to receive a file_id for create_expense or update_expense.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Start expense attachment upload',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Start expense attachment upload',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const filename = readString(args?.['filename']);
+    if (!filename) {
+      return asErrorResult('`filename` is required.');
+    }
+
+    const upload = startBinaryUpload({
+      filename,
+      mimeType: readString(args?.['mime_type']),
+      expectedBase64Length:
+        typeof args?.['content_base64_length'] === 'number' ? args['content_base64_length'] : undefined,
+      expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Started chunked expense attachment upload for ${filename}.`,
+        },
+      ],
+      structuredContent: {
+        upload_token: upload.uploadToken,
+        chunk_size: upload.chunkSize,
+        expires_at: upload.expiresAt,
+        next_offset: upload.nextOffset,
+        completion_status: 'requires_chunks',
+        required_next_tool: 'append_expense_attachment_upload_chunk',
+        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks of about ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+      },
+    };
+  },
+};
+
+export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    operationId: 'public.expenses.appendChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'append_expense_attachment_upload_chunk',
+    title: 'Append expense attachment upload chunk',
+    description:
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Append expense attachment upload chunk',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Append expense attachment upload chunk',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
+    if (!uploadToken) {
+      return asErrorResult('`upload_token` is required.');
+    }
+    const contentBase64 = readString(args?.['content_base64']);
+    if (!contentBase64) {
+      return asErrorResult('`content_base64` is required.');
+    }
+
+    const chunk = appendBinaryUploadChunk({
+      uploadToken,
+      contentBase64,
+      offset: typeof args?.['offset'] === 'number' ? args['offset'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!chunk.ok) {
+      return asErrorResult(chunk.message);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Appended ${chunk.nextOffset - chunk.contentBase64Offset} base64 characters for ${
+            chunk.filename
+          }.`,
+        },
+      ],
+      structuredContent: {
+        upload_token: uploadToken,
+        filename: chunk.filename,
+        mime_type: chunk.mimeType,
+        content_base64_offset: chunk.contentBase64Offset,
+        content_base64_length: chunk.contentBase64Length,
+        ...(chunk.expectedBase64Length !== undefined ?
+          { expected_content_base64_length: chunk.expectedBase64Length }
+        : undefined),
+        ...(chunk.expectedByteLength !== undefined ?
+          { expected_byte_length: chunk.expectedByteLength }
+        : undefined),
+        next_offset: chunk.nextOffset,
+        done: chunk.done,
+        chunk_size: chunk.chunkSize,
+        expires_at: chunk.expiresAt,
+        completion_status: chunk.done ? 'chunks_received' : 'requires_next_chunk',
+        ...(chunk.done ?
+          { required_next_tool: 'finish_expense_attachment_upload' }
+        : { required_next_tool: 'append_expense_attachment_upload_chunk' }),
+        next_action:
+          chunk.done ?
+            'Call finish_expense_attachment_upload with this upload_token to upload the assembled file to Sanka and receive a file_id.'
+          : 'Call append_expense_attachment_upload_chunk again with next_offset and the next content_base64 chunk.',
+      },
+    };
+  },
+};
+
+export const crmFinishExpenseAttachmentUploadTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/expenses/files',
+    operationId: 'public.expenses.finishChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'finish_expense_attachment_upload',
+    title: 'Finish expense attachment upload',
+    description:
+      'Finish a chunked expense attachment upload, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for create_expense or update_expense.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Finish expense attachment upload',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Finish expense attachment upload',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
+    if (!uploadToken) {
+      return asErrorResult('`upload_token` is required.');
+    }
+
+    const assembled = finishBinaryUpload({
+      uploadToken,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!assembled.ok) {
+      return asErrorResult(assembled.message);
+    }
+
+    const file = new File([assembled.buffer], assembled.filename, {
+      type: assembled.mimeType,
+    });
+    const response = (await reqContext.client.public.expenses.uploadAttachment(
+      { file },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded expense attachment ${readString(response['filename']) || assembled.filename}.`,
+        },
+      ],
+      structuredContent: {
+        ...response,
+        filename: readString(response['filename']) || assembled.filename,
+        byte_length: assembled.byteLength,
+        content_base64_length: assembled.contentBase64Length,
+        completion_status: 'uploaded',
+        next_action:
+          'Pass structuredContent.file_id in attachment_file_ids when calling create_expense or update_expense.',
+      },
+    };
+  },
+};
+
 export const crmCreateExpenseTool: McpTool = {
   metadata: {
     resource: 'expenses',
@@ -14214,7 +14554,7 @@ export const crmCreateExpenseTool: McpTool = {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+      'Create an expense in Sanka. When a receipt or invoice is required, call upload_expense_attachment first and attach uploaded file ids with `attachment_file_ids` in the same create call. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14234,9 +14574,10 @@ export const crmCreateExpenseTool: McpTool = {
       return authError;
     }
 
-    const response = (await reqContext.client.post(legacyPublicPath(reqContext, '/v1/public/expenses'), {
-      body: buildExpenseMutationBody(args),
-    })) as unknown as Record<string, unknown>;
+    const response = (await reqContext.client.public.expenses.create(
+      buildExpenseMutationBody(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [

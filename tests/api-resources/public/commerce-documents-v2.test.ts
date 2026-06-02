@@ -388,4 +388,63 @@ describe('public commerce document resources on V2', () => {
       'PATCH http://localhost:5000/api/v2/subscriptions/subscription-1?external_id=SUB-1',
     ]);
   });
+
+  test('preserves expense external references and uploaded attachments in V2 create properties', async () => {
+    const calls: string[] = [];
+    const bodies: Array<unknown> = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+        return envelope({
+          id: 'expense-1',
+          record_id: '7009',
+          object_type: 'expense',
+          properties: {
+            amount: 1200,
+            currency: 'JPY',
+            description: 'Google Workspace',
+          },
+        });
+      },
+    });
+
+    await expect(
+      client.public.expenses.create({
+        amount: 1200,
+        attachment_file: { files: [{ file_id: 'file-1' }] },
+        company_external_id: 'google-asia-pacific',
+        currency: 'JPY',
+        description: 'Google Workspace',
+        due_date: '2026-05-31',
+        external_id: 'GOOGLE-2026-05-31',
+        status: 'submitted',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      status: 'created',
+      expense_id: 'expense-1',
+      external_id: 'GOOGLE-2026-05-31',
+      ctx_id: 'ctx-test',
+    });
+
+    expect(calls).toEqual(['POST http://localhost:5000/api/v2/expenses']);
+    expect(bodies).toEqual([
+      {
+        properties: {
+          amount: 1200,
+          attachment_file: { files: [{ file_id: 'file-1' }] },
+          company_external_id: 'google-asia-pacific',
+          currency: 'JPY',
+          description: 'Google Workspace',
+          due_date: '2026-05-31',
+          external_id: 'GOOGLE-2026-05-31',
+          status: 'submitted',
+        },
+      },
+    ]);
+  });
 });

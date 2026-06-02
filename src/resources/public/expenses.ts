@@ -25,32 +25,34 @@ const expenseFromV2Record = (record: V2ObjectRecord): Expense =>
 
 const expenseMutationProperties = (
   params: ExpenseCreateParams | ExpenseUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
   const {
     amount,
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
-    external_id: _externalID,
+    external_id: rawExternalID,
     reimburse_date,
     status,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
+  const external_id = options.includeExternalID ? rawExternalID : undefined;
   return compactProperties({
     amount,
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
+    external_id,
     reimburse_date,
     status,
   });
@@ -63,7 +65,7 @@ export class Expenses extends APIResource {
   create(body: ExpenseCreateParams, options?: RequestOptions): APIPromise<PublicExpenseResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/expenses', {
-        body: { properties: expenseMutationProperties(body) },
+        body: { properties: expenseMutationProperties(body, { includeExternalID: true }) },
         ...options,
       })
       ._thenUnwrap((envelope) =>

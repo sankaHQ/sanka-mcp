@@ -168,6 +168,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_expenses');
     expect(toolNames).toContain('get_expense');
     expect(toolNames).toContain('upload_expense_attachment');
+    expect(toolNames).toContain('start_expense_attachment_upload');
+    expect(toolNames).toContain('append_expense_attachment_upload_chunk');
+    expect(toolNames).toContain('finish_expense_attachment_upload');
     expect(toolNames).toContain('upload_order_attachment');
     expect(toolNames).toContain('upload_purchase_order_attachment');
     expect(toolNames).toContain('upload_estimate_attachment');
@@ -396,6 +399,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_expenses');
     expect(toolNames).toContain('get_expense');
     expect(toolNames).toContain('upload_expense_attachment');
+    expect(toolNames).toContain('start_expense_attachment_upload');
+    expect(toolNames).toContain('append_expense_attachment_upload_chunk');
+    expect(toolNames).toContain('finish_expense_attachment_upload');
     expect(toolNames).toContain('upload_order_attachment');
     expect(toolNames).toContain('upload_purchase_order_attachment');
     expect(toolNames).toContain('upload_estimate_attachment');
@@ -596,6 +602,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('start_expense_attachment_upload');
+    expect(instructions).toContain('append_expense_attachment_upload_chunk');
+    expect(instructions).toContain('finish_expense_attachment_upload');
     expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_order_attachment');
     expect(instructions).toContain('upload_purchase_order_attachment');
@@ -781,6 +790,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('start_expense_attachment_upload');
+    expect(instructions).toContain('append_expense_attachment_upload_chunk');
+    expect(instructions).toContain('finish_expense_attachment_upload');
     expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_order_attachment');
     expect(instructions).toContain('upload_purchase_order_attachment');

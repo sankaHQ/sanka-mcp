@@ -156,6 +156,9 @@ import {
   crmSendInvoiceEmailTool,
   crmSyncPrivateMessagesTool,
   crmSwitchWorkspaceTool,
+  crmAppendExpenseAttachmentUploadChunkTool,
+  crmFinishExpenseAttachmentUploadTool,
+  crmStartExpenseAttachmentUploadTool,
   crmUpdateBillTool,
   crmUpdateAbsenceTool,
   crmUpdateAttendanceRecordTool,
@@ -195,6 +198,7 @@ import {
   crmCalculatePayrollRunTool,
 } from '../../packages/mcp-server/src/crm-tools';
 import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
+import { resetBinaryUploadStoreForTests } from '../../packages/mcp-server/src/binary-upload-store';
 
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
@@ -218,6 +222,7 @@ const oauthContext = (overrides?: {
 describe('ChatGPT CRM tools', () => {
   beforeEach(() => {
     resetBinaryDownloadStoreForTests();
+    resetBinaryUploadStoreForTests();
   });
 
   it('documents Sanka company cycle fields as standard company inputs', () => {
@@ -6431,6 +6436,96 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('uploads an expense attachment from chunked base64 content', async () => {
+    const receiptBytes = Buffer.from('receipt pdf bytes that are sent in chunks');
+    const contentBase64 = receiptBytes.toString('base64');
+    const firstChunk = contentBase64.slice(0, 16);
+    const secondChunk = contentBase64.slice(16);
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'receipt.pdf',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          expenses: { uploadAttachment },
+        },
+      } as any,
+      auth: oauthContext(),
+      mcpSessionId: 'session-1',
+      toolProfile: 'full' as const,
+    };
+
+    const startResult = await crmStartExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: {
+        filename: 'receipt.pdf',
+        mime_type: 'application/pdf',
+        content_base64_length: contentBase64.length,
+        byte_length: receiptBytes.byteLength,
+      },
+    });
+    const uploadToken = startResult.structuredContent?.['upload_token'] as string;
+    expect(uploadToken).toBeTruthy();
+    expect(startResult.structuredContent).toMatchObject({
+      completion_status: 'requires_chunks',
+      required_next_tool: 'append_expense_attachment_upload_chunk',
+    });
+
+    const firstAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: 0,
+        content_base64: firstChunk,
+      },
+    });
+    expect(firstAppend.structuredContent).toMatchObject({
+      content_base64_offset: 0,
+      content_base64_length: firstChunk.length,
+      next_offset: firstChunk.length,
+      done: false,
+      required_next_tool: 'append_expense_attachment_upload_chunk',
+    });
+
+    const secondAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: firstChunk.length,
+        content_base64: secondChunk,
+      },
+    });
+    expect(secondAppend.structuredContent).toMatchObject({
+      content_base64_offset: firstChunk.length,
+      content_base64_length: contentBase64.length,
+      next_offset: contentBase64.length,
+      done: true,
+      required_next_tool: 'finish_expense_attachment_upload',
+    });
+
+    const finishResult = await crmFinishExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: { upload_token: uploadToken },
+    });
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('receipt.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(Buffer.from(await payload.file.arrayBuffer())).toEqual(receiptBytes);
+    expect(finishResult.structuredContent).toMatchObject({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'receipt.pdf',
+      byte_length: receiptBytes.byteLength,
+      content_base64_length: contentBase64.length,
+      completion_status: 'uploaded',
+    });
+  });
+
   it.each([
     [
       'order',
@@ -6487,7 +6582,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('creates an expense with uploaded attachment ids', async () => {
-    const post = jest.fn().mockResolvedValue({
+    const create = jest.fn().mockResolvedValue({
       ok: true,
       status: 'created',
       expense_id: 'expense-1',
@@ -6503,30 +6598,35 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmCreateExpenseTool.handler({
       reqContext: {
-        client: { post } as any,
+        client: { public: { expenses: { create } } } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
       args: {
         amount: 100,
+        company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
+        external_id: 'EXP-1',
         status: 'submitted',
         attachment_file_ids: ['file-1', 'file-2'],
       },
     });
 
-    expect(post).toHaveBeenCalledWith('https://api.sanka.com/v1/public/expenses', {
-      body: {
+    expect(create).toHaveBeenCalledWith(
+      {
         amount: 100,
+        company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
+        external_id: 'EXP-1',
         status: 'submitted',
         attachment_file: {
           files: [{ file_id: 'file-1' }, { file_id: 'file-2' }],
         },
       },
-    });
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'created',

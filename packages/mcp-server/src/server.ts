@@ -227,6 +227,9 @@ import {
   crmCalculatePayrollRunTool,
   crmUpdateViewTool,
   crmUploadExpenseAttachmentTool,
+  crmStartExpenseAttachmentUploadTool,
+  crmAppendExpenseAttachmentUploadChunkTool,
+  crmFinishExpenseAttachmentUploadTool,
 } from './crm-tools';
 import { demoGenerateTool, integrationSyncPushTool } from './demo-tools';
 import docsSearchTool from './docs-search-tool';
@@ -737,6 +740,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmListExpensesTool,
     crmGetExpenseTool,
     crmUploadExpenseAttachmentTool,
+    crmStartExpenseAttachmentUploadTool,
+    crmAppendExpenseAttachmentUploadChunkTool,
+    crmFinishExpenseAttachmentUploadTool,
     crmCreateExpenseTool,
     crmUpdateExpenseTool,
     crmDeleteExpenseTool,
