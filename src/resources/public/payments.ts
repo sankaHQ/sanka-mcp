@@ -5,7 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { V2PdfData, buildV2PdfRequest, unwrapV2PdfResponse } from '../../internal/v2';
+import { buildV2PdfRequest } from '../../internal/v2';
 import {
   V2LifecycleData,
   V2ObjectRecord,
@@ -210,16 +210,15 @@ export class Payments extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Response> {
     const { acceptLanguage, query } = buildV2PdfRequest(params);
-    return unwrapV2PdfResponse(
-      this._client.v2Get<V2PdfData>(path`/payments/${paymentID}/pdf`, {
-        query,
-        ...options,
-        headers: buildHeaders([
-          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }),
-    );
+    return this._client.get<Response>(this._client.v2Path(path`/payments/${paymentID}/pdf`), {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
   }
 }
 

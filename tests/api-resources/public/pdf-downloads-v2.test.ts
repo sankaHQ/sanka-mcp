@@ -2,29 +2,20 @@ import Sanka from 'sanka-sdk';
 
 const pdfBytes = Buffer.from('%PDF-v2-download');
 
-const v2PdfEnvelope = (filename: string) =>
-  new Response(
-    JSON.stringify({
-      success: true,
-      data: {
-        object_type: 'document',
-        record_id: 'record-1',
-        filename,
-        media_type: 'application/pdf',
-        disposition: 'attachment',
-        content_base64: pdfBytes.toString('base64'),
-      },
-      meta: { ctx_id: 'ctx-test' },
-    }),
-    { headers: { 'Content-Type': 'application/json' } },
-  );
+const v2PdfResponse = (filename: string) =>
+  new Response(pdfBytes, {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  });
 
 const readBody = async (response: Response): Promise<Buffer> => {
   return Buffer.from(await response.arrayBuffer());
 };
 
 describe('public PDF downloads on V2', () => {
-  test('maps SDK document download methods to V2 PDF envelope responses', async () => {
+  test('maps SDK document download methods to V2 binary PDF responses', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -32,12 +23,12 @@ describe('public PDF downloads on V2', () => {
       fetch: async (url, init) => {
         const requestURL = String(url);
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${requestURL}`);
-        if (requestURL.includes('/api/v2/orders/')) return v2PdfEnvelope('order.pdf');
-        if (requestURL.includes('/api/v2/estimates/')) return v2PdfEnvelope('estimate.pdf');
-        if (requestURL.includes('/api/v2/invoices/')) return v2PdfEnvelope('invoice.pdf');
-        if (requestURL.includes('/api/v2/payments/')) return v2PdfEnvelope('payment.pdf');
-        if (requestURL.includes('/api/v2/purchase-orders/')) return v2PdfEnvelope('purchase-order.pdf');
-        if (requestURL.includes('/api/v2/revenues/')) return v2PdfEnvelope('slip.pdf');
+        if (requestURL.includes('/api/v2/orders/')) return v2PdfResponse('order.pdf');
+        if (requestURL.includes('/api/v2/estimates/')) return v2PdfResponse('estimate.pdf');
+        if (requestURL.includes('/api/v2/invoices/')) return v2PdfResponse('invoice.pdf');
+        if (requestURL.includes('/api/v2/payments/')) return v2PdfResponse('payment.pdf');
+        if (requestURL.includes('/api/v2/purchase-orders/')) return v2PdfResponse('purchase-order.pdf');
+        if (requestURL.includes('/api/v2/revenues/')) return v2PdfResponse('slip.pdf');
         return new Response('not found', { status: 404 });
       },
     });
@@ -76,7 +67,7 @@ describe('public PDF downloads on V2', () => {
       baseURL: 'http://localhost:5000/',
       fetch: async (url, init) => {
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
-        return v2PdfEnvelope('external-order.pdf');
+        return v2PdfResponse('external-order.pdf');
       },
     });
 

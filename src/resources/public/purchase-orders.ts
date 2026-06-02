@@ -7,7 +7,7 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { multipartFormRequestOptions } from '../../internal/uploads';
 import { path } from '../../internal/utils/path';
-import { V2PdfData, buildV2PdfRequest, unwrapV2DataPromise, unwrapV2PdfResponse } from '../../internal/v2';
+import { buildV2PdfRequest, unwrapV2DataPromise } from '../../internal/v2';
 import {
   V2LifecycleData,
   V2ObjectRecord,
@@ -187,16 +187,15 @@ export class PurchaseOrders extends APIResource {
     options?: RequestOptions,
   ): APIPromise<Response> {
     const { acceptLanguage, query } = buildV2PdfRequest(params);
-    return unwrapV2PdfResponse(
-      this._client.v2Get<V2PdfData>(path`/purchase-orders/${purchaseOrderID}/pdf`, {
-        query,
-        ...options,
-        headers: buildHeaders([
-          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }),
-    );
+    return this._client.get<Response>(this._client.v2Path(path`/purchase-orders/${purchaseOrderID}/pdf`), {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
   }
 
   /**
