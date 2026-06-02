@@ -2711,7 +2711,7 @@ const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
     conditions: RULE_CONDITIONS_PROPERTY,
     approver_user_ids: {
       type: 'array',
-      description: 'Sanka UserManagement ids that can approve this rule.',
+      description: 'Sanka user ids that can approve this rule.',
       items: { type: 'string' },
     },
     worker_scope_type: {
@@ -2728,6 +2728,79 @@ const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
     order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
   },
   required: ['object', 'name'],
+};
+
+const APPROVAL_REQUEST_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    record_id: {
+      type: 'string',
+      description: 'Sanka record UUID to request approval for.',
+    },
+    approver_user_ids: {
+      type: 'array',
+      description: 'Sanka user ids that can approve this request.',
+      items: { type: 'string' },
+    },
+    title: {
+      type: 'string',
+      description: 'Approval request title shown to approvers.',
+    },
+    description: {
+      type: 'string',
+      description: 'Optional approval request description.',
+    },
+    block_targets: {
+      type: 'array',
+      description:
+        'Actions to block until this request is approved, for example status_transition, send, download, convert, crud_update, or document_download.',
+      items: { type: 'string' },
+    },
+    requested_action: {
+      type: 'string',
+      description: 'Optional machine-readable action label, such as approve_estimate or send_invoice.',
+    },
+    idempotency_key: {
+      type: 'string',
+      description: 'Optional idempotency key to avoid creating duplicate approval requests.',
+    },
+  },
+  required: ['object', 'record_id', 'approver_user_ids'],
+};
+
+const RECORD_APPROVAL_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    record_id: {
+      type: 'string',
+      description: 'Sanka record UUID whose approval requests should be listed.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of approval requests to show in the MCP response.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object', 'record_id'],
+};
+
+const RECORD_APPROVAL_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    history_id: {
+      type: 'string',
+      description: 'WorkflowHistory UUID for the approval request to approve or reject.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['history_id'],
 };
 
 const RULE_DELETE_INPUT_SCHEMA = {
@@ -8143,6 +8216,8 @@ const buildListResult = ({
     page: number;
     total: number;
     permission?: string | null;
+    hasBlockingPending?: boolean;
+    rules?: unknown[];
   };
   previewKeys?: string[];
   includeStructuredTextPreview?: boolean;
@@ -11136,6 +11211,43 @@ const buildApprovalRuleBody = (args: Record<string, unknown> | undefined) => {
   return { objectName, body };
 };
 
+const buildApprovalRequestBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+  if (recordID) {
+    body['record_id'] = recordID;
+  }
+  assignStringFields(body, args, ['title', 'description', 'requested_action', 'idempotency_key', 'language']);
+  const approverUserIDs = readStringArray(args?.['approver_user_ids']);
+  if (approverUserIDs.length > 0) {
+    body['approver_user_ids'] = approverUserIDs;
+  }
+  const blockTargets = readStringArray(args?.['block_targets']);
+  if (blockTargets.length > 0) {
+    body['block_targets'] = blockTargets;
+  }
+  return { objectName, recordID, body };
+};
+
+const buildRecordApprovalsQuery = (args: Record<string, unknown> | undefined) => {
+  const { objectName, params } = buildRuleSettingsQuery(args);
+  const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+  if (recordID) {
+    params['record_id'] = recordID;
+  }
+  return { objectName, recordID, params };
+};
+
+const buildApprovalMutationQuery = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, ['workspace_id']);
+  return params;
+};
+
 const buildLockRuleBody = (args: Record<string, unknown> | undefined) => {
   const objectName = readRuleObjectName(args);
   const body: Record<string, unknown> = {};
@@ -11240,6 +11352,51 @@ const buildRuleSettingsMutationResult = (
           payload: readRecord(data['rule']) ?? data,
           idKeys: ['id'],
         }),
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const unwrapApprovalRequestEnvelope = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['data']) ?? payload;
+
+const approvalRequestRowsFromPayload = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const rows = data['approvalRequests'];
+  return Array.isArray(rows) ? rows.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const buildRecordApprovalsListResult = (payload: Record<string, unknown>, limit: number): ToolCallResult => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const rows = approvalRequestRowsFromPayload(payload).slice(0, limit);
+  return buildListResult({
+    label: 'record approvals',
+    payload: {
+      count: rows.length,
+      data: rows,
+      message: readString(data['message']) ?? `Returned ${rows.length} record approvals.`,
+      page: 1,
+      total: approvalRequestRowsFromPayload(payload).length,
+      hasBlockingPending: Boolean(data['hasBlockingPending']),
+      rules: Array.isArray(data['rules']) ? data['rules'] : [],
+    },
+    previewKeys: ['title', 'status', 'source', 'historyId'],
+  });
+};
+
+const buildApprovalRequestMutationResult = (
+  action: 'created' | 'approved' | 'rejected',
+  payload: Record<string, unknown>,
+): ToolCallResult => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const approvalRequest = readRecord(data['approvalRequest']) ?? data;
+  const title = readString(approvalRequest['title']) ?? readString(data['historyId']) ?? 'approval request';
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Approval request ${action}: ${title}.`,
       },
     ],
     structuredContent: data,
@@ -21093,6 +21250,162 @@ export const crmDeletePropertyTool: McpTool = {
     };
   },
 };
+
+const APPROVAL_REQUEST_PATH = '/api/v2/approval-requests';
+
+export const crmCreateApprovalRequestTool: McpTool = {
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'write',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'post',
+    httpPath: APPROVAL_REQUEST_PATH,
+    operationId: 'public.approval-requests.create',
+  },
+  tool: {
+    name: 'create_approval_request',
+    title: 'Create approval request',
+    description:
+      'Create an ad hoc approval request for a Sanka record. Use this when a specific estimate, invoice, expense, or other supported record needs approval even if no approval rule exists.',
+    inputSchema: APPROVAL_REQUEST_CREATE_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create approval request',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create approval request' });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, recordID, body } = buildApprovalRequestBody(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    if (readStringArray(args?.['approver_user_ids']).length === 0) {
+      return asErrorResult('`approver_user_ids` is required.');
+    }
+    const query = buildApprovalMutationQuery(args);
+    const response = (await reqContext.client.post(APPROVAL_REQUEST_PATH, {
+      body,
+      ...(Object.keys(query).length > 0 ? { query } : undefined),
+    })) as Record<string, unknown>;
+    return buildApprovalRequestMutationResult('created', response);
+  },
+};
+
+export const crmListRecordApprovalsTool: McpTool = {
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'read',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'get',
+    httpPath: APPROVAL_REQUEST_PATH,
+    operationId: 'public.approval-requests.list',
+  },
+  tool: {
+    name: 'list_record_approvals',
+    title: 'List record approvals',
+    description:
+      'List approval rules and ad hoc approval requests currently associated with one Sanka record.',
+    inputSchema: RECORD_APPROVAL_LIST_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List record approvals',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List record approvals' });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, recordID, params } = buildRecordApprovalsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
+    const payload = (await reqContext.client.get(APPROVAL_REQUEST_PATH, { query: params })) as Record<
+      string,
+      unknown
+    >;
+    return buildRecordApprovalsListResult(payload, limit);
+  },
+};
+
+const createRecordApprovalDecisionTool = ({
+  name,
+  title,
+  decision,
+}: {
+  name: string;
+  title: string;
+  decision: 'approve' | 'reject';
+}): McpTool => ({
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'write',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'post',
+    httpPath: `${APPROVAL_REQUEST_PATH}/{history_id}/${decision}`,
+    operationId: `public.approval-requests.${decision}`,
+  },
+  tool: {
+    name,
+    title,
+    description: `${title} by WorkflowHistory UUID. The authenticated user must be one of the assigned approvers.`,
+    inputSchema: RECORD_APPROVAL_MUTATION_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: decision === 'reject',
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const historyID = readString(args?.['history_id'] ?? args?.['historyId']);
+    if (!historyID) {
+      return asErrorResult('`history_id` is required.');
+    }
+    const query = buildApprovalMutationQuery(args);
+    const response = (await reqContext.client.post(
+      `${APPROVAL_REQUEST_PATH}/${encodeURIComponent(historyID)}/${decision}`,
+      Object.keys(query).length > 0 ? { query } : {},
+    )) as Record<string, unknown>;
+    return buildApprovalRequestMutationResult(decision === 'approve' ? 'approved' : 'rejected', response);
+  },
+});
+
+export const crmApproveRecordApprovalTool: McpTool = createRecordApprovalDecisionTool({
+  name: 'approve_record_approval',
+  title: 'Approve record approval',
+  decision: 'approve',
+});
+
+export const crmRejectRecordApprovalTool: McpTool = createRecordApprovalDecisionTool({
+  name: 'reject_record_approval',
+  title: 'Reject record approval',
+  decision: 'reject',
+});
 
 export const crmListApprovalRulesTool: McpTool = createRuleSettingsListTool({
   name: 'list_approval_rules',

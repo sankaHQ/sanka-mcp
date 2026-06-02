@@ -5,6 +5,7 @@ import {
   crmArchiveCustomObjectRecordTool,
   crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApproveRecordApprovalTool,
   crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
@@ -13,6 +14,7 @@ import {
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateAssociationTool,
+  crmCreateApprovalRequestTool,
   crmCreateBillTool,
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
@@ -134,6 +136,7 @@ import {
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
+  crmListRecordApprovalsTool,
   crmListApprovalRulesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
@@ -147,6 +150,7 @@ import {
   crmQueryRecordsTool,
   crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
+  crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
   crmSendInvoiceEmailTool,
@@ -6872,6 +6876,151 @@ describe('ChatGPT CRM tools', () => {
       },
       message: 'Approval rule saved.',
     });
+  });
+
+  it('creates an ad hoc record approval request through the public approval request API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      approvalRequest: {
+        requestId: 'request-1',
+        historyId: 'history-1',
+        source: 'manual',
+        objectType: 'estimates',
+        recordId: 'estimate-1',
+        title: 'Manual estimate approval',
+        status: 'pending',
+        blockTargets: ['status_transition'],
+      },
+      message: 'OK',
+    });
+
+    const result = await crmCreateApprovalRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'estimates',
+        record_id: 'estimate-1',
+        approver_user_ids: ['456'],
+        title: 'Manual estimate approval',
+        description: 'Please approve this estimate.',
+        block_targets: ['status_transition'],
+        requested_action: 'approve_estimate',
+        idempotency_key: 'approval-estimate-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/approval-requests', {
+      body: {
+        object: 'estimates',
+        record_id: 'estimate-1',
+        title: 'Manual estimate approval',
+        description: 'Please approve this estimate.',
+        requested_action: 'approve_estimate',
+        idempotency_key: 'approval-estimate-1',
+        approver_user_ids: ['456'],
+        block_targets: ['status_transition'],
+      },
+      query: {
+        workspace_id: 'workspace-1',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      approvalRequest: {
+        historyId: 'history-1',
+        source: 'manual',
+        status: 'pending',
+      },
+    });
+  });
+
+  it('lists record approval requests for a record', async () => {
+    const get = jest.fn().mockResolvedValue({
+      approvalRequests: [
+        {
+          requestId: 'request-1',
+          historyId: 'history-1',
+          title: 'Manual estimate approval',
+          source: 'manual',
+          status: 'pending',
+        },
+      ],
+      rules: [],
+      hasBlockingPending: false,
+      message: 'OK',
+    });
+
+    const result = await crmListRecordApprovalsTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'estimate',
+        record_id: 'estimate-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/approval-requests', {
+      query: {
+        object: 'estimate',
+        workspace_id: 'workspace-1',
+        record_id: 'estimate-1',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      results: [
+        {
+          historyId: 'history-1',
+          source: 'manual',
+          status: 'pending',
+        },
+      ],
+    });
+  });
+
+  it('approves and rejects record approvals by history id', async () => {
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({ historyId: 'history-1', status: 'completed', message: 'OK' })
+      .mockResolvedValueOnce({ historyId: 'history-2', status: 'canceled', message: 'OK' });
+
+    const approveResult = await crmApproveRecordApprovalTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        history_id: 'history-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    const rejectResult = await crmRejectRecordApprovalTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        history_id: 'history-2',
+      },
+    });
+
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v2/approval-requests/history-1/approve', {
+      query: {
+        workspace_id: 'workspace-1',
+      },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v2/approval-requests/history-2/reject', {});
+    expect(approveResult.structuredContent).toMatchObject({ status: 'completed' });
+    expect(rejectResult.structuredContent).toMatchObject({ status: 'canceled' });
   });
 
   it('loads delivery rule options and deletes delivery rules through object-scoped endpoints', async () => {
