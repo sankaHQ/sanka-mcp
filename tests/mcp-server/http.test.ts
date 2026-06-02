@@ -641,6 +641,33 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_companies'));
   });
 
+  it('accepts receipt-sized JSON-RPC payloads before authentication preflight', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 18,
+        method: 'tools/call',
+        params: {
+          name: 'append_expense_attachment_upload_chunk',
+          arguments: {
+            upload_token: 'upload-token',
+            offset: 0,
+            content_base64: 'A'.repeat(150_000),
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'append_expense_attachment_upload_chunk'));
+  });
+
   it('returns an OAuth challenge for reply_private_message_thread when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',

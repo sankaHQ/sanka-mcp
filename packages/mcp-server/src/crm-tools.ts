@@ -1890,7 +1890,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
         'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
     },
   },
-  required: ['upload_token', 'content_base64'],
+  required: ['content_base64'],
 };
 
 const EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA = {
@@ -1905,7 +1905,6 @@ const EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA = {
       description: 'Alias for upload_token.',
     },
   },
-  required: ['upload_token'],
 };
 
 const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {

@@ -6468,6 +6468,10 @@ describe('ChatGPT CRM tools', () => {
     });
     const uploadToken = startResult.structuredContent?.['upload_token'] as string;
     expect(uploadToken).toBeTruthy();
+    expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
+      'content_base64',
+    ]);
+    expect((crmFinishExpenseAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
     expect(startResult.structuredContent).toMatchObject({
       completion_status: 'requires_chunks',
       required_next_tool: 'append_expense_attachment_upload_chunk',
@@ -6492,7 +6496,7 @@ describe('ChatGPT CRM tools', () => {
     const secondAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
       reqContext,
       args: {
-        upload_token: uploadToken,
+        token: uploadToken,
         offset: firstChunk.length,
         content_base64: secondChunk,
       },
@@ -6507,7 +6511,7 @@ describe('ChatGPT CRM tools', () => {
 
     const finishResult = await crmFinishExpenseAttachmentUploadTool.handler({
       reqContext,
-      args: { upload_token: uploadToken },
+      args: { token: uploadToken },
     });
 
     expect(uploadAttachment).toHaveBeenCalledTimes(1);

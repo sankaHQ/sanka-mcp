@@ -74,6 +74,7 @@ const INLINE_TOOL_HANDLERS = {
 } as const;
 const RECONNECT_RPC_METHOD = 'mcpServer/oauth/login';
 const RECONNECT_SERVER_NAME = 'sanka';
+const MCP_JSON_BODY_LIMIT = '16mb';
 const RECONNECT_INSTRUCTIONS =
   'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
 const MCP_CLIENT_INFO_CACHE_MAX = 1000;
@@ -746,8 +747,8 @@ export const streamableHTTPApp = ({
 }): express.Express => {
   const app = express();
   app.set('query parser', 'extended');
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
+  app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
   app.use(
     pinoHttp({
       logger: getLogger(),
