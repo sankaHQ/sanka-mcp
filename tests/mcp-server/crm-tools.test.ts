@@ -1840,21 +1840,24 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('passes integration scope arguments through list_companies', async () => {
-    const list = jest.fn().mockResolvedValue({
+  it('routes integration list_companies through query_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
       scope: 'integration',
-      provider: 'hubspot',
+      provider: 'salesforce',
       channel_id: 'channel-1',
       count: 1,
-      data: [{ id: 'hs-1', name: 'Acme' }],
+      data: [{ id: 'sf-1', name: 'Acme', phone_number: '(415) 555-0100' }],
       message: 'OK',
       page: 1,
       total: 77,
     });
+    const list = jest.fn();
 
     const result = await crmListCompaniesTool.handler({
       reqContext: {
         client: {
+          post,
           public: {
             companies: { list },
           },
@@ -1864,28 +1867,30 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         scope: 'integration',
-        provider: 'hubspot',
+        provider: 'salesforce',
         channel_id: 'channel-1',
         limit: 5,
       },
     });
 
-    expect(list).toHaveBeenCalledWith(
-      {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+      body: {
+        object_type: 'companies',
         scope: 'integration',
-        provider: 'hubspot',
+        provider: 'salesforce',
         channel_id: 'channel-1',
-        limit: 5,
         page: 1,
+        limit: 5,
+        select: ['id', 'name', 'url', 'phone_number', 'updated_at'],
       },
-      undefined,
-    );
+    });
+    expect(list).not.toHaveBeenCalled();
     expect(result.structuredContent).toMatchObject({
       scope: 'integration',
-      provider: 'hubspot',
+      provider: 'salesforce',
       channel_id: 'channel-1',
       total: 77,
-      results: [{ id: 'hs-1', name: 'Acme' }],
+      results: [{ id: 'sf-1', name: 'Acme', phone_number: '(415) 555-0100' }],
     });
   });
 

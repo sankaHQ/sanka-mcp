@@ -4,7 +4,8 @@ import { McpRequestContext } from '../src/types';
 
 describe('integration record routing tools', () => {
   it('list_companies forwards generic integration read arguments', async () => {
-    const list = jest.fn().mockResolvedValue({
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
       data: [{ external_id: '001000000000001AAA', name: 'Acme' }],
       count: 1,
       page: 1,
@@ -16,7 +17,7 @@ describe('integration record routing tools', () => {
       message: 'OK',
     });
     const reqContext = {
-      client: { public: { companies: { list } } },
+      client: { post, public: { companies: { list: jest.fn() } } },
     } as unknown as McpRequestContext;
 
     const result = await crmListCompaniesTool.handler({
@@ -30,17 +31,18 @@ describe('integration record routing tools', () => {
       },
     });
 
-    expect(list).toHaveBeenCalledWith(
-      {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+      body: {
+        object_type: 'companies',
         scope: 'integration',
         provider: 'salesforce',
         channel_id: 'channel-1',
         external_object_type: 'Account',
-        limit: 5,
         page: 1,
+        limit: 5,
+        select: ['id', 'name', 'url', 'phone_number', 'updated_at'],
       },
-      undefined,
-    );
+    });
     expect(result.structuredContent).toMatchObject({
       scope: 'integration',
       provider: 'salesforce',

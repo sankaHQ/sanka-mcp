@@ -8761,7 +8761,13 @@ const hasCompanyRecordRoutingArgs = (args: Record<string, unknown> | undefined):
   if (!args) {
     return false;
   }
-  return Boolean(readStringArray(args['select']).length);
+  return Boolean(
+    readIntegrationScope(args['scope'] ?? args['source']) ||
+      readIntegrationProvider(args['provider']) ||
+      readString(args['channel_id'] ?? args['channelId']) ||
+      readString(args['external_object_type'] ?? args['externalObjectType']) ||
+      readStringArray(args['select']).length,
+  );
 };
 
 const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
