@@ -5,6 +5,7 @@ import {
   crmArchiveCustomObjectRecordTool,
   crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApproveRecordApprovalTool,
   crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
   crmApproveIncentivesTool,
@@ -13,6 +14,7 @@ import {
   crmCalculateIncentivesTool,
   crmCheckCalendarAvailabilityTool,
   crmCreateAssociationTool,
+  crmCreateApprovalRequestTool,
   crmCreateBillTool,
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
@@ -134,6 +136,7 @@ import {
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
+  crmListRecordApprovalsTool,
   crmListApprovalRulesTool,
   crmListPropertiesTool,
   crmListPurchaseOrdersTool,
@@ -147,6 +150,7 @@ import {
   crmQueryRecordsTool,
   crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
+  crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
   crmSendInvoiceEmailTool,
@@ -3584,7 +3588,7 @@ describe('ChatGPT CRM tools', () => {
     });
 
     const pdfBytes = Buffer.from('%PDF-purchase-order');
-    const asResponse = jest.fn().mockResolvedValue(
+    const downloadPDF = jest.fn().mockResolvedValue(
       new Response(pdfBytes, {
         headers: {
           'content-type': 'application/pdf',
@@ -3593,10 +3597,9 @@ describe('ChatGPT CRM tools', () => {
         },
       }),
     );
-    const getPDF = jest.fn().mockReturnValue({ asResponse });
     const downloadResult = await crmDownloadPurchaseOrderPDFTool.handler({
       reqContext: {
-        client: { get: getPDF } as any,
+        client: { public: { purchaseOrders: { downloadPDF } } } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -3606,16 +3609,14 @@ describe('ChatGPT CRM tools', () => {
         language: 'ja',
       },
     });
-    expect(getPDF).toHaveBeenCalledWith(
-      'https://api.sanka.com/v1/public/purchase-orders/purchase-order-1/pdf',
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'purchase-order-1',
       {
-        query: {
-          template_select: 'template-1',
-          language: 'ja',
-        },
+        template_select: 'template-1',
+        language: 'ja',
       },
+      undefined,
     );
-    expect(asResponse).toHaveBeenCalledTimes(1);
     expect(downloadResult.structuredContent).toEqual({
       content_disposition:
         'attachment; filename="purchase-order.pdf"; filename*=UTF-8\'\'purchase-order-901.pdf',
@@ -4070,7 +4071,7 @@ describe('ChatGPT CRM tools', () => {
 
   it('returns saveable artifact metadata when downloading an estimate PDF', async () => {
     const pdfBytes = Buffer.from('%PDF-estimate');
-    const asResponse = jest.fn().mockResolvedValue(
+    const downloadPDF = jest.fn().mockResolvedValue(
       new Response(pdfBytes, {
         headers: {
           'content-type': 'application/pdf',
@@ -4079,11 +4080,10 @@ describe('ChatGPT CRM tools', () => {
         },
       }),
     );
-    const get = jest.fn().mockReturnValue({ asResponse });
 
     const result = await crmDownloadEstimatePDFTool.handler({
       reqContext: {
-        client: { get } as any,
+        client: { public: { estimates: { downloadPDF } } } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -4094,13 +4094,14 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('https://api.sanka.com/v1/public/estimates/estimate-1/pdf', {
-      query: {
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'estimate-1',
+      {
         template_select: 'template-1',
         'Accept-Language': 'ja',
       },
-    });
-    expect(asResponse).toHaveBeenCalledTimes(1);
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       content_disposition:
         'attachment; filename="estimate.pdf"; filename*=UTF-8\'\'%E8%A6%8B%E7%A9%8D%E6%9B%B8.pdf',
@@ -4396,7 +4397,7 @@ describe('ChatGPT CRM tools', () => {
   it('downloads invoice PDFs with structured base64 content', async () => {
     const pdfBytes = Buffer.from('%PDF-1.4\ninvoice');
     const contentDisposition = `attachment; filename="invoice-fallback.pdf"; filename*=UTF-8''invoice%205.pdf`;
-    const asResponse = jest.fn().mockResolvedValue(
+    const downloadPDF = jest.fn().mockResolvedValue(
       new Response(pdfBytes, {
         headers: {
           'content-disposition': contentDisposition,
@@ -4404,11 +4405,10 @@ describe('ChatGPT CRM tools', () => {
         },
       }),
     );
-    const get = jest.fn().mockReturnValue({ asResponse });
 
     const result = await crmDownloadInvoicePDFTool.handler({
       reqContext: {
-        client: { get } as any,
+        client: { public: { invoices: { downloadPDF } } } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -4421,14 +4421,15 @@ describe('ChatGPT CRM tools', () => {
     });
 
     const contentBase64 = pdfBytes.toString('base64');
-    expect(get).toHaveBeenCalledWith('https://api.sanka.com/v1/public/invoices/invoice-1/pdf', {
-      query: {
+    expect(downloadPDF).toHaveBeenCalledWith(
+      'invoice-1',
+      {
         external_id: 'INV-1',
         template_select: 'modern',
         'Accept-Language': 'ja',
       },
-    });
-    expect(asResponse).toHaveBeenCalledTimes(1);
+      undefined,
+    );
     expect(result.structuredContent).toEqual({
       content_disposition: contentDisposition,
       mime_type: 'application/pdf',
@@ -4453,7 +4454,7 @@ describe('ChatGPT CRM tools', () => {
   it('keeps large invoice PDF downloads below Codex output truncation limits and serves chunks', async () => {
     const pdfBytes = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(104732 - 9, 65)]);
     const contentBase64 = pdfBytes.toString('base64');
-    const asResponse = jest.fn().mockResolvedValue(
+    const downloadPDF = jest.fn().mockResolvedValue(
       new Response(pdfBytes, {
         headers: {
           'content-disposition': 'attachment; filename="invoice-7.pdf"',
@@ -4461,9 +4462,8 @@ describe('ChatGPT CRM tools', () => {
         },
       }),
     );
-    const get = jest.fn().mockReturnValue({ asResponse });
     const reqContext = {
-      client: { get } as any,
+      client: { public: { invoices: { downloadPDF } } } as any,
       auth: oauthContext(),
       toolProfile: 'full' as const,
       mcpSessionId: 'session-large-pdf',
@@ -4478,10 +4478,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenCalledWith('https://api.sanka.com/v1/public/invoices/invoice-7/pdf', {
-      query: { 'Accept-Language': 'ja' },
-    });
-    expect(asResponse).toHaveBeenCalledTimes(1);
+    expect(downloadPDF).toHaveBeenCalledWith('invoice-7', { 'Accept-Language': 'ja' }, undefined);
     const structured = result.structuredContent as Record<string, unknown>;
     expect(structured).toMatchObject({
       mime_type: 'application/pdf',
@@ -6874,6 +6871,151 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('creates an ad hoc record approval request through the public approval request API', async () => {
+    const post = jest.fn().mockResolvedValue({
+      approvalRequest: {
+        requestId: 'request-1',
+        historyId: 'history-1',
+        source: 'manual',
+        objectType: 'estimates',
+        recordId: 'estimate-1',
+        title: 'Manual estimate approval',
+        status: 'pending',
+        blockTargets: ['status_transition'],
+      },
+      message: 'OK',
+    });
+
+    const result = await crmCreateApprovalRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'estimates',
+        record_id: 'estimate-1',
+        approver_user_ids: ['456'],
+        title: 'Manual estimate approval',
+        description: 'Please approve this estimate.',
+        block_targets: ['status_transition'],
+        requested_action: 'approve_estimate',
+        idempotency_key: 'approval-estimate-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/approval-requests', {
+      body: {
+        object: 'estimates',
+        record_id: 'estimate-1',
+        title: 'Manual estimate approval',
+        description: 'Please approve this estimate.',
+        requested_action: 'approve_estimate',
+        idempotency_key: 'approval-estimate-1',
+        approver_user_ids: ['456'],
+        block_targets: ['status_transition'],
+      },
+      query: {
+        workspace_id: 'workspace-1',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      approvalRequest: {
+        historyId: 'history-1',
+        source: 'manual',
+        status: 'pending',
+      },
+    });
+  });
+
+  it('lists record approval requests for a record', async () => {
+    const get = jest.fn().mockResolvedValue({
+      approvalRequests: [
+        {
+          requestId: 'request-1',
+          historyId: 'history-1',
+          title: 'Manual estimate approval',
+          source: 'manual',
+          status: 'pending',
+        },
+      ],
+      rules: [],
+      hasBlockingPending: false,
+      message: 'OK',
+    });
+
+    const result = await crmListRecordApprovalsTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object: 'estimate',
+        record_id: 'estimate-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/approval-requests', {
+      query: {
+        object: 'estimate',
+        workspace_id: 'workspace-1',
+        record_id: 'estimate-1',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      results: [
+        {
+          historyId: 'history-1',
+          source: 'manual',
+          status: 'pending',
+        },
+      ],
+    });
+  });
+
+  it('approves and rejects record approvals by history id', async () => {
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({ historyId: 'history-1', status: 'completed', message: 'OK' })
+      .mockResolvedValueOnce({ historyId: 'history-2', status: 'canceled', message: 'OK' });
+
+    const approveResult = await crmApproveRecordApprovalTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        history_id: 'history-1',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    const rejectResult = await crmRejectRecordApprovalTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        history_id: 'history-2',
+      },
+    });
+
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v2/approval-requests/history-1/approve', {
+      query: {
+        workspace_id: 'workspace-1',
+      },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v2/approval-requests/history-2/reject', {});
+    expect(approveResult.structuredContent).toMatchObject({ status: 'completed' });
+    expect(rejectResult.structuredContent).toMatchObject({ status: 'canceled' });
+  });
+
   it('loads delivery rule options and deletes delivery rules through object-scoped endpoints', async () => {
     const get = jest.fn().mockResolvedValue({
       success: true,
@@ -7794,20 +7936,29 @@ describe('ChatGPT CRM tools', () => {
       args: {
         workspace_id: 'ws-1',
         language: 'en',
+        search: 'Widget',
         limit: 5,
+        page: 2,
+        sort: 'name',
+        view_id: 'view-1',
       },
     });
 
     expect(list).toHaveBeenCalledWith(
       {
+        limit: 5,
+        page: 2,
         workspace_id: 'ws-1',
+        search: 'Widget',
+        sort: 'name',
+        view_id: 'view-1',
         'Accept-Language': 'en',
       },
       undefined,
     );
     expect(result.structuredContent).toEqual({
       count: 1,
-      page: 1,
+      page: 2,
       total: 1,
       message: 'Returned 1 of 1 items.',
       permission: undefined,
@@ -8244,6 +8395,101 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists inventories with search and pagination filters', async () => {
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'inventory-1',
+        inventory_id: 1,
+        name: 'Sensor kit stock',
+        total_inventory: 5,
+        available: 5,
+      },
+    ]);
+
+    const result = await crmListInventoriesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            inventories: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        workspace_id: 'ws-1',
+        language: 'ja',
+        search: 'Sensor kit',
+        limit: 3,
+        page: 1,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        limit: 3,
+        page: 1,
+        workspace_id: 'ws-1',
+        search: 'Sensor kit',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 1,
+      message: 'Returned 1 of 1 inventories.',
+      permission: undefined,
+      results: [
+        {
+          id: 'inventory-1',
+          inventory_id: 1,
+          name: 'Sensor kit stock',
+          total_inventory: 5,
+          available: 5,
+        },
+      ],
+    });
+  });
+
+  it('falls back to list inventory data when inventory detail retrieval fails', async () => {
+    const retrieve = jest.fn().mockRejectedValue(new Error('HTTP 500'));
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'inventory-1',
+        inventory_id: 1,
+        name: 'Sensor kit stock',
+        total_inventory: 5,
+      },
+    ]);
+
+    const result = await crmGetInventoryTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            inventories: { retrieve, list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        inventory_id: 'inventory-1',
+      },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith('inventory-1', {}, undefined);
+    expect(list).toHaveBeenCalledWith({ limit: 100, page: 1 }, undefined);
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      id: 'inventory-1',
+      inventory_id: 1,
+      total_inventory: 5,
+      detail_fetch_status: 'fallback_from_list',
+    });
+  });
+
   it('updates inventory with required external id body', async () => {
     const update = jest.fn().mockResolvedValue({
       ok: true,
@@ -8284,6 +8530,58 @@ describe('ChatGPT CRM tools', () => {
       status: 'ok',
       inventory_id: 'inv-1',
       external_id: 'inv-ext-1',
+    });
+  });
+
+  it('lists inventory transactions with search filters', async () => {
+    const list = jest.fn().mockResolvedValue([
+      {
+        id: 'transaction-1',
+        transaction_id: 7,
+        inventory_id: 1,
+        amount: 5,
+      },
+    ]);
+
+    const result = await crmListInventoryTransactionsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            inventoryTransactions: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        search: 'Sensor kit',
+        limit: 5,
+        page: 1,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        limit: 5,
+        page: 1,
+        search: 'Sensor kit',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 1,
+      total: 1,
+      message: 'Returned 1 of 1 inventory transactions.',
+      permission: undefined,
+      results: [
+        {
+          id: 'transaction-1',
+          transaction_id: 7,
+          inventory_id: 1,
+          amount: 5,
+        },
+      ],
     });
   });
 
@@ -8652,9 +8950,10 @@ describe('ChatGPT CRM tools', () => {
     {
       name: 'order',
       tool: crmDownloadOrderPDFTool,
-      args: { order_id: 'order 1', external_id: 'order-ext', template_select: 'tpl-1', language: 'ja' },
-      path: '/v1/public/orders/order%201/pdf',
-      query: { external_id: 'order-ext', template_select: 'tpl-1', language: 'ja' },
+      args: { order_id: 'order 1', external_id: 'order-ext', template_select: 'tpl-1' },
+      expectedID: 'order 1',
+      expectedParams: { external_id: 'order-ext', template_select: 'tpl-1', language: 'ja' },
+      clientResource: 'orders',
       fallbackFilename: 'order.pdf',
     },
     {
@@ -8666,47 +8965,52 @@ describe('ChatGPT CRM tools', () => {
         template_select: 'tpl-1',
         language: 'ja',
       },
-      path: '/v1/public/purchase-orders/po%201/pdf',
-      query: { external_id: 'po-ext', template_select: 'tpl-1', language: 'ja' },
+      expectedID: 'po 1',
+      expectedParams: { external_id: 'po-ext', template_select: 'tpl-1', language: 'ja' },
+      clientResource: 'purchaseOrders',
       fallbackFilename: 'purchase-order.pdf',
     },
     {
       name: 'estimate',
       tool: crmDownloadEstimatePDFTool,
-      args: { estimate_id: 'estimate 1', external_id: 'est-ext', template_select: 'tpl-1', language: 'ja' },
-      path: '/v1/public/estimates/estimate%201/pdf',
-      query: { external_id: 'est-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      args: { estimate_id: 'estimate 1', external_id: 'est-ext', template_select: 'tpl-1' },
+      expectedID: 'estimate 1',
+      expectedParams: { external_id: 'est-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      clientResource: 'estimates',
       fallbackFilename: 'estimate.pdf',
     },
     {
       name: 'invoice',
       tool: crmDownloadInvoicePDFTool,
       args: { invoice_id: 'invoice 1', external_id: 'inv-ext', template_select: 'tpl-1', language: 'ja' },
-      path: '/v1/public/invoices/invoice%201/pdf',
-      query: { external_id: 'inv-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      expectedID: 'invoice 1',
+      expectedParams: { external_id: 'inv-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      clientResource: 'invoices',
       fallbackFilename: 'invoice.pdf',
     },
     {
       name: 'payment',
       tool: crmDownloadPaymentPDFTool,
       args: { payment_id: 'payment 1', external_id: 'pay-ext', template_select: 'tpl-1', language: 'ja' },
-      path: '/v1/public/payments/payment%201/pdf',
-      query: { external_id: 'pay-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      expectedID: 'payment 1',
+      expectedParams: { external_id: 'pay-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      clientResource: 'payments',
       fallbackFilename: 'payment.pdf',
     },
     {
       name: 'slip',
       tool: crmDownloadSlipPDFTool,
       args: { slip_id: 'slip 1', external_id: 'slip-ext', template_select: 'tpl-1', language: 'ja' },
-      path: '/v1/public/slips/slip%201/pdf',
-      query: { external_id: 'slip-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      expectedID: 'slip 1',
+      expectedParams: { external_id: 'slip-ext', template_select: 'tpl-1', 'Accept-Language': 'ja' },
+      clientResource: 'slips',
       fallbackFilename: 'slip.pdf',
     },
   ])(
-    'downloads $name PDFs through the Sanka template endpoint',
-    async ({ tool, args, path, query, fallbackFilename }) => {
+    'downloads $name PDFs through the V2 SDK endpoint',
+    async ({ tool, args, expectedID, expectedParams, clientResource, fallbackFilename }) => {
       const pdfBytes = Buffer.from('%PDF-template');
-      const asResponse = jest.fn().mockResolvedValue(
+      const downloadPDF = jest.fn().mockResolvedValue(
         new Response(pdfBytes, {
           headers: {
             'content-type': 'application/pdf',
@@ -8714,17 +9018,15 @@ describe('ChatGPT CRM tools', () => {
           },
         }),
       );
-      const get = jest.fn().mockReturnValue({ asResponse });
       const reqContext = {
-        client: { get } as any,
+        client: { public: { [clientResource]: { downloadPDF } } } as any,
         auth: oauthContext(),
         toolProfile: 'full' as const,
       };
 
       const result = await tool.handler({ reqContext, args });
 
-      expect(get).toHaveBeenCalledWith(`https://api.sanka.com${path}`, { query });
-      expect(asResponse).toHaveBeenCalledTimes(1);
+      expect(downloadPDF).toHaveBeenCalledWith(expectedID, expectedParams, undefined);
       expect(result.structuredContent).toMatchObject({
         mime_type: 'application/pdf',
         filename: fallbackFilename,

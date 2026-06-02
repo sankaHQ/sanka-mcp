@@ -68,19 +68,15 @@ export class InventoryTransactions extends APIResource {
     params: InventoryTransactionListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<InventoryTransactionListResponse> {
-    const {
-      'Accept-Language': acceptLanguage,
-      lang,
-      language,
-      workspace_id: _workspaceID,
-      ...query
-    } = params ?? {};
+    const { 'Accept-Language': acceptLanguage, lang, language, workspace_id, ...query } = params ?? {};
     void lang;
     void language;
-    void _workspaceID;
     return unwrapV2ObjectRecordArray(
       this._client.v2Get<V2ObjectRecordList>('/inventory-transactions', {
-        query,
+        query: {
+          ...query,
+          ...(workspace_id != null ? { workspace_id } : undefined),
+        },
         ...options,
         headers: buildHeaders([
           { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
@@ -224,6 +220,31 @@ export interface InventoryTransactionListParams {
    * Query param
    */
   lang?: string | null;
+
+  /**
+   * Query param
+   */
+  limit?: number | null;
+
+  /**
+   * Query param
+   */
+  page?: number | null;
+
+  /**
+   * Query param
+   */
+  search?: string | null;
+
+  /**
+   * Query param
+   */
+  sort?: string | null;
+
+  /**
+   * Query param
+   */
+  view_id?: string | null;
 
   /**
    * Query param

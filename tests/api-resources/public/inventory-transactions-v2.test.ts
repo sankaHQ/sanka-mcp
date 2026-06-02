@@ -29,7 +29,7 @@ describe('public inventory transaction resource on V2', () => {
         const requestURL = String(url);
         const method = String(init?.method ?? 'GET').toUpperCase();
         calls.push(`${method} ${requestURL}`);
-        if (requestURL.endsWith('/api/v2/inventory-transactions')) {
+        if (requestURL.includes('/api/v2/inventory-transactions?')) {
           return envelope({ items: [record], page: 1, page_size: 50, total: 1 });
         }
         return envelope(record);
@@ -42,12 +42,22 @@ describe('public inventory transaction resource on V2', () => {
       inventory_id: 8001,
       inventory_uuid: 'inventory-1',
     });
-    await expect(client.public.inventoryTransactions.list()).resolves.toEqual([
+    await expect(
+      client.public.inventoryTransactions.list({
+        limit: 5,
+        page: 2,
+        search: 'Sensor',
+        sort: '-created_at',
+        view_id: 'view-1',
+        workspace_id: 'ws-1',
+        'Accept-Language': 'ja',
+      }),
+    ).resolves.toEqual([
       expect.objectContaining({ id: 'transaction-1', transaction_id: 9001, inventory_id: 8001 }),
     ]);
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/inventory-transactions/transaction-1',
-      'GET http://localhost:5000/api/v2/inventory-transactions',
+      'GET http://localhost:5000/api/v2/inventory-transactions?limit=5&page=2&search=Sensor&sort=-created_at&view_id=view-1&workspace_id=ws-1',
     ]);
   });
 });

@@ -216,6 +216,10 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_property');
     expect(toolNames).toContain('update_property');
     expect(toolNames).toContain('delete_property');
+    expect(toolNames).toContain('create_approval_request');
+    expect(toolNames).toContain('list_record_approvals');
+    expect(toolNames).toContain('approve_record_approval');
+    expect(toolNames).toContain('reject_record_approval');
     expect(toolNames).toContain('list_approval_rules');
     expect(toolNames).toContain('get_approval_rule_options');
     expect(toolNames).toContain('upsert_approval_rule');
