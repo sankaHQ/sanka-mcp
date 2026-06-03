@@ -20,6 +20,7 @@ import {
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
 import { buildSafeRecordLabel } from './record-labels';
+import { normalizeMutationStructuredContent } from './tool-result-normalizer';
 import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -9946,42 +9947,26 @@ const buildExpenseMutationStructuredContent = ({
   payload: Record<string, unknown>;
   resolvedSupplier?: ExpenseSupplierResolution | undefined;
 }): Record<string, unknown> => {
-  const data = readRecord(payload['data']);
-  const properties = readRecord(data?.['properties']);
-  const meta = readRecord(payload['meta']) ?? readRecord(data?.['meta']);
-  const expenseID =
-    readString(payload['expense_id']) ??
-    readString(payload['id']) ??
-    readString(data?.['expense_id']) ??
-    readString(data?.['id']) ??
-    readString(properties?.['expense_id']) ??
-    readString(properties?.['id']);
-  const externalID =
-    readString(payload['external_id']) ??
-    readString(data?.['external_id']) ??
-    readString(properties?.['external_id']);
-  const status =
-    readString(payload['status']) ??
-    readString(data?.['status']) ??
-    readString(properties?.['status']) ??
-    action;
-  const ctxID = readString(payload['ctx_id']) ?? readString(meta?.['ctx_id']);
+  const normalized = normalizeMutationStructuredContent({
+    payload,
+    action,
+    idKeys: ['expense_id'],
+    extra:
+      resolvedSupplier ?
+        {
+          resolved_supplier: {
+            type: resolvedSupplier.supplierType,
+            id: resolvedSupplier.id,
+            name: resolvedSupplier.name,
+          },
+        }
+      : undefined,
+  });
   return {
-    ...payload,
-    ok: readBoolean(payload['ok']) ?? readBoolean(payload['success']) ?? true,
-    status,
-    ctx_id: ctxID ?? null,
-    expense_id: expenseID ?? null,
-    external_id: externalID ?? null,
-    ...(resolvedSupplier ?
-      {
-        resolved_supplier: {
-          type: resolvedSupplier.supplierType,
-          id: resolvedSupplier.id,
-          name: resolvedSupplier.name,
-        },
-      }
-    : undefined),
+    ...normalized,
+    ctx_id: readString(normalized['ctx_id']) ?? null,
+    expense_id: readString(normalized['expense_id']) ?? null,
+    external_id: readString(normalized['external_id']) ?? null,
   };
 };
 

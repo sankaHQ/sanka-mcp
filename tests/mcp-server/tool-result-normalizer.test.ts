@@ -99,6 +99,143 @@ describe('normalizeToolCallResult', () => {
     });
   });
 
+  it('normalizes v2 mutation envelopes before MCP output schema validation', () => {
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool({
+        metadata: {
+          resource: 'companies',
+          operation: 'write',
+          tags: ['crm', 'companies'],
+          httpMethod: 'post',
+          httpPath: '/api/v2/companies',
+          operationId: 'public.companies.create',
+        },
+        tool: {
+          name: 'create_company',
+          title: 'Create company',
+          description: 'Create a company.',
+          inputSchema: { type: 'object', properties: {} },
+          outputSchema: {
+            type: 'object',
+            properties: {
+              ok: { type: 'boolean' },
+              status: { type: 'string' },
+              ctx_id: { type: 'string' },
+              company_id: { type: 'string' },
+              external_id: { type: 'string' },
+            },
+            required: ['ok', 'status'],
+          },
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            openWorldHint: false,
+          },
+        },
+      }),
+      args: {
+        external_id: 'COMP-1',
+        name: 'Acme',
+      },
+      now,
+      result: {
+        content: [{ type: 'text', text: 'Company created.' }],
+        structuredContent: {
+          success: true,
+          data: {
+            id: 'company-v2-1',
+            object_type: 'company',
+            properties: {
+              name: 'Acme',
+            },
+          },
+          meta: { ctx_id: 'ctx-company' },
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]).toEqual({
+      type: 'text',
+      text: 'SUCCESS create_company created company_id=company-v2-1 external_id=COMP-1 id=company-v2-1 ok=true fields name="Acme"',
+    });
+    expect(result.structuredContent).toMatchObject({
+      success: true,
+      ok: true,
+      status: 'created',
+      ctx_id: 'ctx-company',
+      company_id: 'company-v2-1',
+      id: 'company-v2-1',
+      external_id: 'COMP-1',
+      confirmation: {
+        ok: true,
+        status: 'created',
+        returned_fields: {
+          name: 'Acme',
+        },
+        verification_needed: false,
+      },
+    });
+  });
+
+  it('fills required mutation schema keys from args when the API response is sparse', () => {
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool({
+        metadata: {
+          resource: 'properties',
+          operation: 'write',
+          tags: ['crm', 'properties'],
+          httpMethod: 'put',
+          httpPath: '/api/v2/properties/{object_name}/{property_ref}',
+          operationId: 'public.properties.update',
+        },
+        tool: {
+          name: 'update_property',
+          title: 'Update property',
+          description: 'Update a property.',
+          inputSchema: { type: 'object', properties: {} },
+          outputSchema: {
+            type: 'object',
+            properties: {
+              ok: { type: 'boolean' },
+              status: { type: 'string' },
+              ctx_id: { type: 'string' },
+              object: { type: 'string' },
+              property_id: { type: 'string' },
+            },
+            required: ['ok', 'status', 'ctx_id', 'object', 'property_id'],
+          },
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            openWorldHint: false,
+          },
+        },
+      }),
+      args: {
+        object_name: 'companies',
+        property_ref: 'prop-1',
+        name: 'Plan',
+      },
+      now,
+      result: {
+        content: [{ type: 'text', text: 'Property updated.' }],
+        structuredContent: {
+          success: true,
+          data: {},
+        },
+      },
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'updated',
+      ctx_id: '',
+      object: 'companies',
+      property_id: 'prop-1',
+    });
+  });
+
   it('marks field-level verification complete when the API returns a record preview', () => {
     const result = normalizeToolCallResult({
       mcpTool: makeTool(),
