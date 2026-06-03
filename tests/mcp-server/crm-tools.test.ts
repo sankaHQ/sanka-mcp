@@ -6618,6 +6618,7 @@ describe('ChatGPT CRM tools', () => {
         company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
+        due_date: '2026-06-02',
         external_id: 'EXP-1',
         status: 'submitted',
         attachment_file_ids: ['file-1', 'file-2'],
@@ -6630,6 +6631,7 @@ describe('ChatGPT CRM tools', () => {
         company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
+        due_date: '2026-06-02',
         external_id: 'EXP-1',
         status: 'submitted',
         attachment_file: {
@@ -6656,6 +6658,117 @@ describe('ChatGPT CRM tools', () => {
     const summaryText = summaryBlock?.type === 'text' ? summaryBlock.text : '';
     expect(summaryText).toContain('Partner fields are missing');
     expect(summaryText).toContain('explicit permission');
+  });
+
+  it('defaults submitted receipt expense creation to the safe expense-submit workflow', async () => {
+    const create = jest.fn();
+
+    const missingSupplier = await crmCreateExpenseTool.handler({
+      reqContext: {
+        client: { public: { expenses: { create } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        amount: 10,
+        currency: 'USD',
+        description: 'Loom Business',
+        payment_date: '2026-06-02',
+        attachment_file_ids: ['file-1'],
+      },
+    });
+
+    expect(missingSupplier.isError).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+    const missingSupplierText =
+      missingSupplier.content?.[0]?.type === 'text' ? missingSupplier.content[0].text : '';
+    expect(missingSupplierText).toContain('company_id');
+
+    const missingAttachment = await crmCreateExpenseTool.handler({
+      reqContext: {
+        client: { public: { expenses: { create } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        amount: 10,
+        company_id: 'company-1',
+        currency: 'USD',
+        description: 'Loom Business',
+        payment_date: '2026-06-02',
+      },
+    });
+
+    expect(missingAttachment.isError).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+    const missingAttachmentText =
+      missingAttachment.content?.[0]?.type === 'text' ? missingAttachment.content[0].text : '';
+    expect(missingAttachmentText).toContain('attachment_file_ids');
+  });
+
+  it('resolves a submitted expense supplier by name and maps payment date safely', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      expense_id: 'expense-1',
+      external_id: null,
+      ctx_id: null,
+    });
+    const companiesList = jest.fn().mockResolvedValue({
+      data: [{ id: 'company-loom', name: 'Loom, Inc.' }],
+    });
+    const contactsList = jest.fn().mockResolvedValue({ data: [] });
+
+    const result = await crmCreateExpenseTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            companies: { list: companiesList },
+            contacts: { list: contactsList },
+            expenses: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        amount: 10,
+        currency: 'USD',
+        description: 'Loom Business',
+        reimburse_date: '2026-06-02',
+        supplier_name: 'Loom Inc',
+        attachment_file_ids: ['file-1'],
+      },
+    });
+
+    expect(companiesList).toHaveBeenCalledWith({ search: 'Loom Inc', limit: 5 }, undefined);
+    expect(contactsList).toHaveBeenCalledWith({ search: 'Loom Inc', limit: 5 }, undefined);
+    expect(create).toHaveBeenCalledWith(
+      {
+        amount: 10,
+        company_id: 'company-loom',
+        currency: 'USD',
+        description: 'Loom Business',
+        status: 'submitted',
+        due_date: '2026-06-02',
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'created',
+      external_id: null,
+      ctx_id: null,
+      resolved_supplier: {
+        type: 'company',
+        id: 'company-loom',
+        name: 'Loom, Inc.',
+      },
+    });
   });
 
   it('updates an expense', async () => {

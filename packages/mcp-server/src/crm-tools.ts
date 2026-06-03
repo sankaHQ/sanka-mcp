@@ -970,6 +970,21 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Expense amount in the provided currency.',
   },
+  allow_missing_attachment: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without a receipt or invoice attachment. Normal receipt intake must upload the original file first and pass attachment_file_ids.',
+  },
+  allow_missing_due_date: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without a payment date. Normal receipt intake must pass due_date/payment_date.',
+  },
+  allow_missing_supplier: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without an existing supplier company/contact. Normal receipt intake must pass company_id/contact_id or supplier_name.',
+  },
   attachment_file_ids: {
     type: 'array',
     description:
@@ -1004,19 +1019,36 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
   },
   due_date: {
     type: 'string',
-    description: 'Optional due date in ISO format.',
+    description:
+      'Payment/receipt date in ISO format. This is the Sanka expense payment date shown as 支払日 in the UI. For a paid receipt, put the transaction/payment date here.',
   },
   external_id: {
     type: 'string',
     description: 'Optional external id for idempotent upsert-style integrations.',
   },
+  payment_date: {
+    type: 'string',
+    description:
+      'Alias for due_date. Use this for the receipt payment/transaction date when that is clearer than due_date.',
+  },
   reimburse_date: {
     type: 'string',
-    description: 'Optional reimbursement date in ISO format.',
+    description:
+      'Optional employee reimbursement date in ISO format. Do not use this for the receipt payment/transaction date unless the expense is already reimbursed; use due_date/payment_date for 支払日.',
   },
   status: {
     type: 'string',
-    description: 'Expense status.',
+    description:
+      'Expense status. Defaults to submitted for create_expense unless the user explicitly asks for draft.',
+  },
+  supplier_name: {
+    type: 'string',
+    description:
+      'Optional extracted receipt vendor name. When company_id/contact_id is not supplied, MCP searches existing Sanka companies and contacts and binds a single exact supplier match; it will not create a supplier silently.',
+  },
+  vendor_name: {
+    type: 'string',
+    description: 'Alias for supplier_name.',
   },
 };
 
@@ -2226,12 +2258,13 @@ const GOVERNANCE_ADVISORY_OUTPUT_SCHEMA = {
 
 const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
+  additionalProperties: true,
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    expense_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    expense_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -9216,13 +9249,124 @@ const buildExpenseRetrieveParams = (args: Record<string, unknown> | undefined) =
   };
 };
 
-const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => {
+type ExpenseSupplierResolution = {
+  supplierType: 'company' | 'contact';
+  id: string;
+  name: string;
+};
+
+type ExpenseMutationPreparation = {
+  body: Record<string, unknown>;
+  resolvedSupplier?: ExpenseSupplierResolution;
+};
+
+const readExpensePaymentDate = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['due_date']) ??
+  readString(args?.['payment_date']) ??
+  readString(args?.['paid_date']) ??
+  readString(args?.['transaction_date']);
+
+const readExpenseSupplierName = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['supplier_name']) ?? readString(args?.['vendor_name']);
+
+const normalizeSupplierName = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\b(inc|incorporated|corp|corporation|co|company|ltd|limited|llc|pte|gmbh|kk|k\.k)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const readSupplierCandidateName = (row: Record<string, unknown>): string | undefined =>
+  readString(row['name']) ??
+  readString(row['company_name']) ??
+  readString(row['full_name']) ??
+  readString(row['contact_name']) ??
+  readString(row['email']);
+
+const readSupplierCandidateID = (
+  row: Record<string, unknown>,
+  supplierType: 'company' | 'contact',
+): string | undefined =>
+  readString(row['id']) ??
+  readString(row[supplierType === 'company' ? 'company_id' : 'contact_id']) ??
+  (typeof row[supplierType === 'company' ? 'company_id' : 'contact_id'] === 'number' ?
+    String(row[supplierType === 'company' ? 'company_id' : 'contact_id'])
+  : undefined);
+
+const readSupplierListRows = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+  }
+  if (payload && typeof payload === 'object') {
+    const data = (payload as Record<string, unknown>)['data'];
+    if (Array.isArray(data)) {
+      return data.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+    }
+    const results = (payload as Record<string, unknown>)['results'];
+    if (Array.isArray(results)) {
+      return results.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+    }
+  }
+  return [];
+};
+
+const resolveExpenseSupplierByName = async (
+  reqContext: McpRequestContext,
+  supplierName: string,
+): Promise<ExpenseSupplierResolution | undefined> => {
+  const normalizedTarget = normalizeSupplierName(supplierName);
+  if (!normalizedTarget) {
+    return undefined;
+  }
+
+  const [companyPayload, contactPayload] = await Promise.all([
+    reqContext.client.public.companies.list({ search: supplierName, limit: 5 }, undefined),
+    reqContext.client.public.contacts.list({ search: supplierName, limit: 5 }, undefined),
+  ]);
+
+  const candidates: ExpenseSupplierResolution[] = [
+    ...readSupplierListRows(companyPayload).map((row): ExpenseSupplierResolution | undefined => {
+      const name = readSupplierCandidateName(row);
+      const id = readSupplierCandidateID(row, 'company');
+      if (!name || !id || normalizeSupplierName(name) !== normalizedTarget) {
+        return undefined;
+      }
+      return { supplierType: 'company', id, name };
+    }),
+    ...readSupplierListRows(contactPayload).map((row): ExpenseSupplierResolution | undefined => {
+      const name = readSupplierCandidateName(row);
+      const id = readSupplierCandidateID(row, 'contact');
+      if (!name || !id || normalizeSupplierName(name) !== normalizedTarget) {
+        return undefined;
+      }
+      return { supplierType: 'contact', id, name };
+    }),
+  ].filter((candidate): candidate is ExpenseSupplierResolution => Boolean(candidate));
+
+  return candidates.length === 1 ? candidates[0] : undefined;
+};
+
+const hasExpenseSupplierReference = (args: Record<string, unknown> | undefined): boolean =>
+  Boolean(
+    readString(args?.['company_external_id']) ||
+      readString(args?.['company_id']) ||
+      readString(args?.['contact_external_id']) ||
+      readString(args?.['contact_id']),
+  );
+
+const buildExpenseMutationBody = (
+  args: Record<string, unknown> | undefined,
+  options: { defaultStatus?: string } = {},
+) => {
   const body: Record<string, unknown> = {};
 
   if (typeof args?.['amount'] === 'number' && Number.isFinite(args['amount'])) {
     body['amount'] = args['amount'];
   }
 
+  const status = readString(args?.['status']) ?? options.defaultStatus;
   for (const key of [
     'company_external_id',
     'company_id',
@@ -9230,15 +9374,26 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
     'contact_id',
     'currency',
     'description',
-    'due_date',
     'external_id',
-    'reimburse_date',
-    'status',
   ] as const) {
     const value = readString(args?.[key]);
     if (value) {
       body[key] = value;
     }
+  }
+  if (status) {
+    body['status'] = status;
+  }
+
+  const paymentDate = readExpensePaymentDate(args);
+  const reimburseDate = readString(args?.['reimburse_date']);
+  if (paymentDate) {
+    body['due_date'] = paymentDate;
+  } else if (reimburseDate && status !== 'reimbursed') {
+    body['due_date'] = reimburseDate;
+  }
+  if (reimburseDate && status === 'reimbursed') {
+    body['reimburse_date'] = reimburseDate;
   }
 
   const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
@@ -9250,6 +9405,64 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
 
   return body;
 };
+
+const prepareExpenseMutation = async ({
+  reqContext,
+  args,
+  action,
+}: {
+  reqContext: McpRequestContext;
+  args: Record<string, unknown> | undefined;
+  action: 'create' | 'update';
+}): Promise<ExpenseMutationPreparation | ToolCallResult> => {
+  const defaultStatus = action === 'create' ? 'submitted' : undefined;
+  const body = buildExpenseMutationBody(args, defaultStatus ? { defaultStatus } : {});
+  const status = readString(body['status']);
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  const supplierName = readExpenseSupplierName(args);
+  let resolvedSupplier: ExpenseSupplierResolution | undefined;
+
+  if (!hasExpenseSupplierReference(args) && supplierName) {
+    resolvedSupplier = await resolveExpenseSupplierByName(reqContext, supplierName);
+    if (resolvedSupplier?.supplierType === 'company') {
+      body['company_id'] = resolvedSupplier.id;
+    } else if (resolvedSupplier?.supplierType === 'contact') {
+      body['contact_id'] = resolvedSupplier.id;
+    }
+  }
+
+  const isSubmittedCreate = action === 'create' && (status === 'submitted' || !status);
+  if (isSubmittedCreate) {
+    if (!readString(body['due_date']) && readBoolean(args?.['allow_missing_due_date']) !== true) {
+      return asErrorResult(
+        '`due_date` or `payment_date` is required for submitted receipt expenses. Use the receipt payment/transaction date shown as 支払日; do not put that date in reimburse_date.',
+      );
+    }
+    if (
+      !readString(body['company_id']) &&
+      !readString(body['company_external_id']) &&
+      !readString(body['contact_id']) &&
+      !readString(body['contact_external_id']) &&
+      readBoolean(args?.['allow_missing_supplier']) !== true
+    ) {
+      return asErrorResult(
+        supplierName ?
+          '`supplier_name` did not resolve to exactly one existing Sanka company/contact. Call list_companies/list_contacts, then pass company_id or contact_id. Do not create a supplier silently.'
+        : '`company_id`, `company_external_id`, `contact_id`, `contact_external_id`, or `supplier_name` is required for submitted receipt expenses. Search existing suppliers first; do not leave the vendor only in description.',
+      );
+    }
+    if (attachmentFileIDs.length === 0 && readBoolean(args?.['allow_missing_attachment']) !== true) {
+      return asErrorResult(
+        '`attachment_file_ids` is required for submitted receipt expenses. Upload the original receipt/invoice first, finish the upload to get file_id, then pass that file_id here.',
+      );
+    }
+  }
+
+  return resolvedSupplier ? { body, resolvedSupplier } : { body };
+};
+
+const isToolErrorResult = (value: ExpenseMutationPreparation | ToolCallResult): value is ToolCallResult =>
+  'isError' in value && value.isError === true;
 
 const buildPagedWorkspaceParams = (args: Record<string, unknown> | undefined, defaultLimit = 10) => {
   const rawLimit = readNumber(args?.['limit'], defaultLimit);
@@ -14574,7 +14787,7 @@ export const crmCreateExpenseTool: McpTool = {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. When a receipt or invoice is required, call upload_expense_attachment first and attach uploaded file ids with `attachment_file_ids` in the same create call. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
+      'Create and submit an expense in Sanka. For receipt/invoice intake, follow this order: search existing supplier with list_companies/list_contacts or pass supplier_name for exact auto-resolution; upload the original file and pass attachment_file_ids; put the receipt payment date in due_date/payment_date; preserve original currency and let Sanka calculate base currency; then read back with get_expense or list_expenses. Do not put the receipt payment date in reimburse_date and do not create missing suppliers silently.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14594,8 +14807,13 @@ export const crmCreateExpenseTool: McpTool = {
       return authError;
     }
 
+    const prepared = await prepareExpenseMutation({ reqContext, args, action: 'create' });
+    if (isToolErrorResult(prepared)) {
+      return prepared;
+    }
+
     const response = (await reqContext.client.public.expenses.create(
-      buildExpenseMutationBody(args),
+      prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
 
@@ -14603,7 +14821,18 @@ export const crmCreateExpenseTool: McpTool = {
       content: [
         { type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) },
       ],
-      structuredContent: response,
+      structuredContent: {
+        ...response,
+        ...(prepared.resolvedSupplier ?
+          {
+            resolved_supplier: {
+              type: prepared.resolvedSupplier.supplierType,
+              id: prepared.resolvedSupplier.id,
+              name: prepared.resolvedSupplier.name,
+            },
+          }
+        : undefined),
+      },
     };
   },
 };
@@ -14620,7 +14849,8 @@ export const crmUpdateExpenseTool: McpTool = {
   tool: {
     name: 'update_expense',
     title: 'Update expense',
-    description: 'Update an existing expense in Sanka.',
+    description:
+      'Update an existing expense in Sanka. For receipt corrections, pass due_date/payment_date for 支払日, company_id/contact_id or supplier_name for the vendor, and attachment_file_ids returned from upload/finish attachment tools.',
     inputSchema: EXPENSE_UPDATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14645,9 +14875,14 @@ export const crmUpdateExpenseTool: McpTool = {
       return asErrorResult('`expense_id` is required.');
     }
 
+    const prepared = await prepareExpenseMutation({ reqContext, args, action: 'update' });
+    if (isToolErrorResult(prepared)) {
+      return prepared;
+    }
+
     const response = (await reqContext.client.public.expenses.update(
       expenseID,
-      buildExpenseMutationBody(args),
+      prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
 
@@ -14655,7 +14890,18 @@ export const crmUpdateExpenseTool: McpTool = {
       content: [
         { type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) },
       ],
-      structuredContent: response,
+      structuredContent: {
+        ...response,
+        ...(prepared.resolvedSupplier ?
+          {
+            resolved_supplier: {
+              type: prepared.resolvedSupplier.supplierType,
+              id: prepared.resolvedSupplier.id,
+              name: prepared.resolvedSupplier.name,
+            },
+          }
+        : undefined),
+      },
     };
   },
 };
