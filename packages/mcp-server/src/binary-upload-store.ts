@@ -59,6 +59,29 @@ export type AppendBinaryUploadChunkResult =
       message: string;
     };
 
+export type PutBinaryUploadBufferResult =
+  | {
+      ok: true;
+      filename: string;
+      mimeType: string;
+      contentBase64Length: number;
+      byteLength: number;
+      chunkSize: number;
+      expectedBase64Length?: number | undefined;
+      expectedByteLength?: number | undefined;
+      expiresAt: string;
+    }
+  | {
+      ok: false;
+      reason:
+        | 'not_found'
+        | 'empty_file'
+        | 'exceeds_expected_length'
+        | 'exceeds_max_length'
+        | 'byte_length_mismatch';
+      message: string;
+    };
+
 export type FinishBinaryUploadResult =
   | {
       ok: true;
@@ -206,6 +229,77 @@ export const appendBinaryUploadChunk = ({
     contentBase64Length: entry.contentBase64Length,
     nextOffset: entry.contentBase64Length,
     done,
+    chunkSize: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+    expectedBase64Length: entry.expectedBase64Length,
+    expectedByteLength: entry.expectedByteLength,
+    expiresAt: new Date(entry.expiresAt).toISOString(),
+  };
+};
+
+export const putBinaryUploadBuffer = ({
+  uploadToken,
+  buffer,
+  mimeType,
+}: {
+  uploadToken: string;
+  buffer: Buffer;
+  mimeType?: string | undefined;
+}): PutBinaryUploadBufferResult => {
+  const now = nowMs();
+  cleanupUploads(now);
+
+  const entry = uploads.get(uploadToken);
+  if (!entry) {
+    return {
+      ok: false,
+      reason: 'not_found',
+      message: 'Upload token was not found or has expired. Start a new upload.',
+    };
+  }
+
+  if (buffer.byteLength === 0) {
+    return {
+      ok: false,
+      reason: 'empty_file',
+      message: 'Uploaded file was empty.',
+    };
+  }
+
+  const contentBase64 = buffer.toString('base64');
+  if (contentBase64.length > MAX_UPLOAD_BASE64_LENGTH) {
+    return {
+      ok: false,
+      reason: 'exceeds_max_length',
+      message: 'Uploaded file exceeds the maximum supported base64 length.',
+    };
+  }
+  if (entry.expectedBase64Length !== undefined && contentBase64.length !== entry.expectedBase64Length) {
+    return {
+      ok: false,
+      reason: 'exceeds_expected_length',
+      message: `Uploaded file base64 length ${contentBase64.length} does not match expected ${entry.expectedBase64Length}.`,
+    };
+  }
+  if (entry.expectedByteLength !== undefined && buffer.byteLength !== entry.expectedByteLength) {
+    return {
+      ok: false,
+      reason: 'byte_length_mismatch',
+      message: `Uploaded file byte length ${buffer.byteLength} does not match expected ${entry.expectedByteLength}.`,
+    };
+  }
+
+  entry.chunks = [contentBase64];
+  entry.contentBase64Length = contentBase64.length;
+  if (mimeType && entry.mimeType === 'application/octet-stream') {
+    entry.mimeType = mimeType;
+  }
+
+  return {
+    ok: true,
+    filename: entry.filename,
+    mimeType: entry.mimeType,
+    contentBase64Length: entry.contentBase64Length,
+    byteLength: buffer.byteLength,
     chunkSize: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
     expectedBase64Length: entry.expectedBase64Length,
     expectedByteLength: entry.expectedByteLength,

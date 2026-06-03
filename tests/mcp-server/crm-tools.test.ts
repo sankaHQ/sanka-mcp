@@ -6455,6 +6455,7 @@ describe('ChatGPT CRM tools', () => {
       auth: oauthContext(),
       mcpSessionId: 'session-1',
       toolProfile: 'full' as const,
+      downloadBaseUrl: 'https://mcp.example.test',
     };
 
     const startResult = await crmStartExpenseAttachmentUploadTool.handler({
@@ -6473,12 +6474,15 @@ describe('ChatGPT CRM tools', () => {
     ]);
     expect((crmFinishExpenseAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
     expect(startResult.structuredContent).toMatchObject({
-      completion_status: 'requires_chunks',
-      required_next_tool: 'append_expense_attachment_upload_chunk',
+      direct_upload_url: expect.stringMatching(/^https:\/\/mcp\.example\.test\/uploads\//),
+      completion_status: 'requires_direct_upload',
+      required_next_tool: 'finish_expense_attachment_upload',
+      fallback_next_tool: 'append_expense_attachment_upload_chunk',
+      direct_upload_required_before_finish: true,
       chunk_size: 8000,
     });
-    expect(startResult.structuredContent?.['next_action']).toContain('at most 8000 characters');
-    expect(startResult.structuredContent?.['next_action']).toContain('Do not shrink, rasterize');
+    expect(startResult.structuredContent?.['next_action']).toContain('curl -sS -X PUT');
+    expect(startResult.structuredContent?.['next_action']).toContain('avoids putting base64');
 
     const firstAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
       reqContext,

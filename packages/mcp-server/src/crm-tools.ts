@@ -1911,11 +1911,14 @@ const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     upload_token: { type: 'string' },
+    direct_upload_url: { type: 'string' },
     chunk_size: { type: 'number' },
     expires_at: { type: 'string' },
     next_offset: { type: 'number' },
     completion_status: { type: 'string' },
     required_next_tool: { type: 'string' },
+    fallback_next_tool: { type: 'string' },
+    direct_upload_required_before_finish: { type: 'boolean' },
     next_action: { type: 'string' },
   },
   required: [
@@ -14324,7 +14327,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: keep the original file bytes, append chunks at or below the returned chunk_size, then finish to receive a file_id for create_expense or update_expense.',
+      'Start an expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Prefer direct_upload_url with a local curl --data-binary @file upload when shell access is available; otherwise append chunks at or below the returned chunk_size. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14357,22 +14360,40 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
       expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
       sessionId: reqContext.mcpSessionId,
     });
+    const directUploadUrl =
+      reqContext.downloadBaseUrl ?
+        new URL(`/uploads/${encodeURIComponent(upload.uploadToken)}`, reqContext.downloadBaseUrl).toString()
+      : undefined;
+    const directUploadAction =
+      directUploadUrl ?
+        `Preferred: run a local shell command like curl -sS -X PUT --data-binary @"<local receipt path>" "${directUploadUrl}", then call finish_expense_attachment_upload with this upload_token. This preserves the original PDF and avoids putting base64 in the model/tool call.`
+      : undefined;
 
     return {
       content: [
         {
           type: 'text',
-          text: `Started chunked expense attachment upload for ${filename}.`,
+          text: `Started expense attachment upload for ${filename}.`,
         },
       ],
       structuredContent: {
         upload_token: upload.uploadToken,
+        ...(directUploadUrl ? { direct_upload_url: directUploadUrl } : undefined),
         chunk_size: upload.chunkSize,
         expires_at: upload.expiresAt,
         next_offset: upload.nextOffset,
-        completion_status: 'requires_chunks',
-        required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with original-file content_base64 chunks of at most ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset exactly each time. Do not shrink, rasterize, or replace the PDF with an image. Then call finish_expense_attachment_upload to get a file_id.`,
+        completion_status: directUploadUrl ? 'requires_direct_upload' : 'requires_chunks',
+        required_next_tool:
+          directUploadUrl ? 'finish_expense_attachment_upload' : 'append_expense_attachment_upload_chunk',
+        ...(directUploadUrl ?
+          {
+            fallback_next_tool: 'append_expense_attachment_upload_chunk',
+            direct_upload_required_before_finish: true,
+          }
+        : undefined),
+        next_action:
+          directUploadAction ??
+          `Call append_expense_attachment_upload_chunk with original-file content_base64 chunks of at most ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset exactly each time. Do not shrink, rasterize, or replace the PDF with an image. Then call finish_expense_attachment_upload to get a file_id.`,
       },
     };
   },
