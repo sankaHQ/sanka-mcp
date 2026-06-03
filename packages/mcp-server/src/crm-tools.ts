@@ -1862,7 +1862,7 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB.',
+        'Base64-encoded original file content. Data URLs are also accepted. Use this inline field only when the base64 is already available and small; for client-local receipt or invoice files, use start_expense_attachment_upload with direct_upload_url instead of reading base64 into the model context.',
     },
     mime_type: {
       type: 'string',
@@ -14512,9 +14512,9 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
   },
   tool: {
     name: 'upload_expense_attachment',
-    title: 'Upload expense attachment',
+    title: 'Upload expense attachment (small base64 only)',
     description:
-      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded original file content, then use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
+      'Upload an expense attachment only when small base64 content is already available in context. For client-local PDFs or images, do not read or split base64 for this tool; call start_expense_attachment_upload first and use its direct_upload_url with local curl --data-binary @file, then finish_expense_attachment_upload. Use the returned file_id in create_expense or update_expense.',
     inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
     outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14573,7 +14573,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start an expense attachment upload. When a local file path and shell access are available, call this before reading/base64-splitting the file, then use direct_upload_url with curl --data-binary @file. Only use append chunks when direct upload is unavailable. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
+      'Preferred expense attachment upload for client-local files. When a local file path and shell access are available, call this before reading or base64-splitting the file, then use direct_upload_url with curl --data-binary @file and finish_expense_attachment_upload. Only use append chunks when direct upload is unavailable. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
