@@ -273,23 +273,11 @@ export const putBinaryUploadBuffer = ({
       message: 'Uploaded file exceeds the maximum supported base64 length.',
     };
   }
-  if (entry.expectedBase64Length !== undefined && contentBase64.length !== entry.expectedBase64Length) {
-    return {
-      ok: false,
-      reason: 'exceeds_expected_length',
-      message: `Uploaded file base64 length ${contentBase64.length} does not match expected ${entry.expectedBase64Length}.`,
-    };
-  }
-  if (entry.expectedByteLength !== undefined && buffer.byteLength !== entry.expectedByteLength) {
-    return {
-      ok: false,
-      reason: 'byte_length_mismatch',
-      message: `Uploaded file byte length ${buffer.byteLength} does not match expected ${entry.expectedByteLength}.`,
-    };
-  }
 
   entry.chunks = [contentBase64];
   entry.contentBase64Length = contentBase64.length;
+  entry.expectedBase64Length = contentBase64.length;
+  entry.expectedByteLength = buffer.byteLength;
   if (mimeType && entry.mimeType === 'application/octet-stream') {
     entry.mimeType = mimeType;
   }

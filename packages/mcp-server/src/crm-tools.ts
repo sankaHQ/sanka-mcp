@@ -1891,7 +1891,7 @@ const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
     byte_length: {
       type: 'number',
       description:
-        'Optional original byte length. Pass this when known so finish_expense_attachment_upload can verify the decoded file size.',
+        'Optional original byte length. Pass only when computed from the same local file with a reliable command such as `wc -c`; omit guessed values, especially when using direct_upload_url.',
       minimum: 1,
     },
   },
@@ -14540,7 +14540,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start an expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Prefer direct_upload_url with a local curl --data-binary @file upload when shell access is available; otherwise append chunks at or below the returned chunk_size. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
+      'Start an expense attachment upload. When a local file path and shell access are available, call this before reading/base64-splitting the file, then use direct_upload_url with curl --data-binary @file. Only use append chunks when direct upload is unavailable. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14579,7 +14579,9 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
       : undefined;
     const directUploadAction =
       directUploadUrl ?
-        `Preferred: run a local shell command like curl -sS -X PUT --data-binary @"<local receipt path>" "${directUploadUrl}", then call finish_expense_attachment_upload with this upload_token. This preserves the original PDF and avoids putting base64 in the model/tool call.`
+        `Preferred and fastest: do not base64-split the file. Run a local shell command like curl -sS -X PUT -H "Content-Type: ${
+          readString(args?.['mime_type']) || 'application/octet-stream'
+        }" --data-binary @"<local receipt path>" "${directUploadUrl}", then call finish_expense_attachment_upload with this upload_token. This preserves the original PDF and avoids putting base64 in the model/tool call.`
       : undefined;
 
     return {

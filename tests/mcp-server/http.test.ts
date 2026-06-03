@@ -163,6 +163,42 @@ describe('protected resource metadata route', () => {
     }
   });
 
+  it('receives direct binary uploads before urlencoded parsing and trusts actual bytes', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\n% curl default content type\n%%EOF\n');
+    const started = startBinaryUpload({
+      filename: 'receipt.pdf',
+      mimeType: 'application/pdf',
+      expectedBase64Length: pdfBytes.toString('base64').length + 4,
+      expectedByteLength: pdfBytes.byteLength + 47,
+      sessionId: 'session-1',
+    });
+
+    const response = await fetch(`${baseUrl}/uploads/${started.uploadToken}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: pdfBytes,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      byte_length: pdfBytes.byteLength,
+      content_base64_length: pdfBytes.toString('base64').length,
+      completion_status: 'bytes_received',
+    });
+
+    const finished = finishBinaryUpload({
+      uploadToken: started.uploadToken,
+      sessionId: 'session-1',
+    });
+    expect(finished.ok).toBe(true);
+    if (finished.ok) {
+      expect(finished.buffer).toEqual(pdfBytes);
+      expect(finished.byteLength).toBe(pdfBytes.byteLength);
+    }
+  });
+
   it('serves prepared binary downloads from the /mcp alias path', async () => {
     const pdfBytes = Buffer.from('%PDF-1.4\n% alias download\n%%EOF\n');
     const stored = storeBinaryDownload({

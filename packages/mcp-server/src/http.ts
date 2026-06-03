@@ -86,6 +86,9 @@ const mcpClientInfoBySessionId = new Map<string, McpClientInfo>();
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const isBinaryUploadPath = (path: string): boolean =>
+  path.startsWith('/uploads/') || path.startsWith(`${DEFAULT_STREAMABLE_PATH}/uploads/`);
+
 const toolCallName = (body: unknown): string | undefined => {
   if (!isObjectRecord(body) || body['method'] !== 'tools/call' || !isObjectRecord(body['params'])) {
     return undefined;
@@ -749,6 +752,13 @@ export const streamableHTTPApp = ({
 }): express.Express => {
   const app = express();
   app.set('query parser', 'extended');
+  app.use((req, res, next) => {
+    if (req.method === 'PUT' && isBinaryUploadPath(req.path)) {
+      express.raw({ type: '*/*', limit: MCP_JSON_BODY_LIMIT })(req, res, next);
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
   app.use(
