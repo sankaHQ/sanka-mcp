@@ -6475,7 +6475,10 @@ describe('ChatGPT CRM tools', () => {
     expect(startResult.structuredContent).toMatchObject({
       completion_status: 'requires_chunks',
       required_next_tool: 'append_expense_attachment_upload_chunk',
+      chunk_size: 8000,
     });
+    expect(startResult.structuredContent?.['next_action']).toContain('at most 8000 characters');
+    expect(startResult.structuredContent?.['next_action']).toContain('Do not shrink, rasterize');
 
     const firstAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
       reqContext,

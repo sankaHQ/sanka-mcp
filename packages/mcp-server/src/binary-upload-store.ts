@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-export const BINARY_UPLOAD_CHUNK_BASE64_LENGTH = 24_000;
+export const BINARY_UPLOAD_CHUNK_BASE64_LENGTH = 8_000;
 
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
 const MAX_UPLOADS = 100;

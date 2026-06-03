@@ -1,5 +1,8 @@
 .prism.log
 .stdy.log
+.env
+.env.*
+!.env.example
 node_modules
 yarn-error.log
 codegen.log

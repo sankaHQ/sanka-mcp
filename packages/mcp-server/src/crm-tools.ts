@@ -1887,7 +1887,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
+        'One base64 chunk of the original file. Keep chunks at or below the returned chunk_size (8,000 base64 characters for Claude-safe upload); do not pass the full PDF as one huge string, and do not compress, rasterize, or substitute the receipt with an image just to fit one call.',
     },
   },
   required: ['content_base64'],
@@ -14324,7 +14324,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append chunks, then finish to receive a file_id for create_expense or update_expense.',
+      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: keep the original file bytes, append chunks at or below the returned chunk_size, then finish to receive a file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14372,7 +14372,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
         next_offset: upload.nextOffset,
         completion_status: 'requires_chunks',
         required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks of about ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+        next_action: `Call append_expense_attachment_upload_chunk with original-file content_base64 chunks of at most ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset exactly each time. Do not shrink, rasterize, or replace the PDF with an image. Then call finish_expense_attachment_upload to get a file_id.`,
       },
     };
   },
@@ -14389,7 +14389,7 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
     name: 'append_expense_attachment_upload_chunk',
     title: 'Append expense attachment upload chunk',
     description:
-      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context.',
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks no larger than the returned chunk_size; do not concatenate chunks in the model context, and do not compress or rasterize receipts to avoid chunking.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
