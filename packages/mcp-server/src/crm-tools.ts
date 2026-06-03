@@ -9937,6 +9937,54 @@ const buildExpenseMutationSummary = ({
   return appendGovernanceAdvisorySummary(`Expense ${action}: ${reference}.`, payload);
 };
 
+const buildExpenseMutationStructuredContent = ({
+  action,
+  payload,
+  resolvedSupplier,
+}: {
+  action: 'created' | 'updated' | 'deleted';
+  payload: Record<string, unknown>;
+  resolvedSupplier?: ExpenseSupplierResolution | undefined;
+}): Record<string, unknown> => {
+  const data = readRecord(payload['data']);
+  const properties = readRecord(data?.['properties']);
+  const meta = readRecord(payload['meta']) ?? readRecord(data?.['meta']);
+  const expenseID =
+    readString(payload['expense_id']) ??
+    readString(payload['id']) ??
+    readString(data?.['expense_id']) ??
+    readString(data?.['id']) ??
+    readString(properties?.['expense_id']) ??
+    readString(properties?.['id']);
+  const externalID =
+    readString(payload['external_id']) ??
+    readString(data?.['external_id']) ??
+    readString(properties?.['external_id']);
+  const status =
+    readString(payload['status']) ??
+    readString(data?.['status']) ??
+    readString(properties?.['status']) ??
+    action;
+  const ctxID = readString(payload['ctx_id']) ?? readString(meta?.['ctx_id']);
+  return {
+    ...payload,
+    ok: readBoolean(payload['ok']) ?? readBoolean(payload['success']) ?? true,
+    status,
+    ctx_id: ctxID ?? null,
+    expense_id: expenseID ?? null,
+    external_id: externalID ?? null,
+    ...(resolvedSupplier ?
+      {
+        resolved_supplier: {
+          type: resolvedSupplier.supplierType,
+          id: resolvedSupplier.id,
+          name: resolvedSupplier.name,
+        },
+      }
+    : undefined),
+  };
+};
+
 const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => {
   const description = readString(expense['description']);
   const companyName = readString(expense['company_name']);
@@ -14818,23 +14866,20 @@ export const crmCreateExpenseTool: McpTool = {
       prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'created',
+      payload: response,
+      resolvedSupplier: prepared.resolvedSupplier,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'created', payload: structuredContent }),
+        },
       ],
-      structuredContent: {
-        ...response,
-        ...(prepared.resolvedSupplier ?
-          {
-            resolved_supplier: {
-              type: prepared.resolvedSupplier.supplierType,
-              id: prepared.resolvedSupplier.id,
-              name: prepared.resolvedSupplier.name,
-            },
-          }
-        : undefined),
-      },
+      structuredContent,
     };
   },
 };
@@ -14887,23 +14932,20 @@ export const crmUpdateExpenseTool: McpTool = {
       prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'updated',
+      payload: response,
+      resolvedSupplier: prepared.resolvedSupplier,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'updated', payload: structuredContent }),
+        },
       ],
-      structuredContent: {
-        ...response,
-        ...(prepared.resolvedSupplier ?
-          {
-            resolved_supplier: {
-              type: prepared.resolvedSupplier.supplierType,
-              id: prepared.resolvedSupplier.id,
-              name: prepared.resolvedSupplier.name,
-            },
-          }
-        : undefined),
-      },
+      structuredContent,
     };
   },
 };
@@ -14953,12 +14995,19 @@ export const crmDeleteExpenseTool: McpTool = {
       },
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'deleted',
+      payload: response,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'deleted', payload: structuredContent }),
+        },
       ],
-      structuredContent: response,
+      structuredContent,
     };
   },
 };

@@ -6643,6 +6643,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'created',
+      ctx_id: null,
       expense_id: 'expense-1',
       external_id: 'EXP-1',
       advisories: [
@@ -6658,6 +6659,47 @@ describe('ChatGPT CRM tools', () => {
     const summaryText = summaryBlock?.type === 'text' ? summaryBlock.text : '';
     expect(summaryText).toContain('Partner fields are missing');
     expect(summaryText).toContain('explicit permission');
+  });
+
+  it('normalizes a v2 object-record expense create response for the tool output schema', async () => {
+    const create = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'expense-v2-1',
+        object_type: 'expense',
+        properties: {
+          status: 'submitted',
+          description: 'Loom Business',
+        },
+      },
+      meta: { ctx_id: 'ctx-v2-create' },
+    });
+
+    const result = await crmCreateExpenseTool.handler({
+      reqContext: {
+        client: { public: { expenses: { create } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        amount: 10,
+        company_id: 'company-1',
+        currency: 'USD',
+        description: 'Loom Business',
+        payment_date: '2026-06-02',
+        attachment_file_ids: ['file-1'],
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      success: true,
+      ok: true,
+      status: 'submitted',
+      ctx_id: 'ctx-v2-create',
+      expense_id: 'expense-v2-1',
+      external_id: null,
+    });
   });
 
   it('defaults submitted receipt expense creation to the safe expense-submit workflow', async () => {
@@ -6806,7 +6848,9 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'updated',
+      ctx_id: null,
       expense_id: 'expense-1',
+      external_id: null,
     });
   });
 
@@ -6843,7 +6887,9 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'deleted',
+      ctx_id: null,
       expense_id: 'expense-1',
+      external_id: null,
     });
   });
 
