@@ -20,6 +20,7 @@ import {
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
 import { buildSafeRecordLabel } from './record-labels';
+import { normalizeMutationStructuredContent } from './tool-result-normalizer';
 import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -970,6 +971,21 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Expense amount in the provided currency.',
   },
+  allow_missing_attachment: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without a receipt or invoice attachment. Normal receipt intake must upload the original file first and pass attachment_file_ids.',
+  },
+  allow_missing_due_date: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without a payment date. Normal receipt intake must pass due_date/payment_date.',
+  },
+  allow_missing_supplier: {
+    type: 'boolean',
+    description:
+      'Set true only when the user explicitly wants to create a submitted expense without an existing supplier company/contact. Normal receipt intake must pass company_id/contact_id or supplier_name.',
+  },
   attachment_file_ids: {
     type: 'array',
     description:
@@ -1004,19 +1020,36 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
   },
   due_date: {
     type: 'string',
-    description: 'Optional due date in ISO format.',
+    description:
+      'Payment/receipt date in ISO format. This is the Sanka expense payment date shown as 支払日 in the UI. For a paid receipt, put the transaction/payment date here.',
   },
   external_id: {
     type: 'string',
     description: 'Optional external id for idempotent upsert-style integrations.',
   },
+  payment_date: {
+    type: 'string',
+    description:
+      'Alias for due_date. Use this for the receipt payment/transaction date when that is clearer than due_date.',
+  },
   reimburse_date: {
     type: 'string',
-    description: 'Optional reimbursement date in ISO format.',
+    description:
+      'Optional employee reimbursement date in ISO format. Do not use this for the receipt payment/transaction date unless the expense is already reimbursed; use due_date/payment_date for 支払日.',
   },
   status: {
     type: 'string',
-    description: 'Expense status.',
+    description:
+      'Expense status. Defaults to submitted for create_expense unless the user explicitly asks for draft.',
+  },
+  supplier_name: {
+    type: 'string',
+    description:
+      'Optional extracted receipt vendor name. When company_id/contact_id is not supplied, MCP searches existing Sanka companies and contacts and binds a single exact supplier match; it will not create a supplier silently.',
+  },
+  vendor_name: {
+    type: 'string',
+    description: 'Alias for supplier_name.',
   },
 };
 
@@ -1829,7 +1862,7 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB.',
+        'Base64-encoded original file content. Data URLs are also accepted. Use this inline field only when the base64 is already available and small; for client-local receipt or invoice files, use start_expense_attachment_upload with direct_upload_url instead of reading base64 into the model context.',
     },
     mime_type: {
       type: 'string',
@@ -1859,7 +1892,7 @@ const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
     byte_length: {
       type: 'number',
       description:
-        'Optional original byte length. Pass this when known so finish_expense_attachment_upload can verify the decoded file size.',
+        'Optional original byte length. Pass only when computed from the same local file with a reliable command such as `wc -c`; omit guessed values, especially when using direct_upload_url.',
       minimum: 1,
     },
   },
@@ -1887,7 +1920,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
+        'One base64 chunk of the original file. Keep chunks at or below the returned chunk_size (8,000 base64 characters for Claude-safe upload); do not pass the full PDF as one huge string, and do not compress, rasterize, or substitute the receipt with an image just to fit one call.',
     },
   },
   required: ['content_base64'],
@@ -1911,11 +1944,14 @@ const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     upload_token: { type: 'string' },
+    direct_upload_url: { type: 'string' },
     chunk_size: { type: 'number' },
     expires_at: { type: 'string' },
     next_offset: { type: 'number' },
     completion_status: { type: 'string' },
     required_next_tool: { type: 'string' },
+    fallback_next_tool: { type: 'string' },
+    direct_upload_required_before_finish: { type: 'boolean' },
     next_action: { type: 'string' },
   },
   required: [
@@ -2223,12 +2259,13 @@ const GOVERNANCE_ADVISORY_OUTPUT_SCHEMA = {
 
 const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
+  additionalProperties: true,
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    expense_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    expense_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -9213,13 +9250,124 @@ const buildExpenseRetrieveParams = (args: Record<string, unknown> | undefined) =
   };
 };
 
-const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => {
+type ExpenseSupplierResolution = {
+  supplierType: 'company' | 'contact';
+  id: string;
+  name: string;
+};
+
+type ExpenseMutationPreparation = {
+  body: Record<string, unknown>;
+  resolvedSupplier?: ExpenseSupplierResolution;
+};
+
+const readExpensePaymentDate = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['due_date']) ??
+  readString(args?.['payment_date']) ??
+  readString(args?.['paid_date']) ??
+  readString(args?.['transaction_date']);
+
+const readExpenseSupplierName = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['supplier_name']) ?? readString(args?.['vendor_name']);
+
+const normalizeSupplierName = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\b(inc|incorporated|corp|corporation|co|company|ltd|limited|llc|pte|gmbh|kk|k\.k)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const readSupplierCandidateName = (row: Record<string, unknown>): string | undefined =>
+  readString(row['name']) ??
+  readString(row['company_name']) ??
+  readString(row['full_name']) ??
+  readString(row['contact_name']) ??
+  readString(row['email']);
+
+const readSupplierCandidateID = (
+  row: Record<string, unknown>,
+  supplierType: 'company' | 'contact',
+): string | undefined =>
+  readString(row['id']) ??
+  readString(row[supplierType === 'company' ? 'company_id' : 'contact_id']) ??
+  (typeof row[supplierType === 'company' ? 'company_id' : 'contact_id'] === 'number' ?
+    String(row[supplierType === 'company' ? 'company_id' : 'contact_id'])
+  : undefined);
+
+const readSupplierListRows = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+  }
+  if (payload && typeof payload === 'object') {
+    const data = (payload as Record<string, unknown>)['data'];
+    if (Array.isArray(data)) {
+      return data.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+    }
+    const results = (payload as Record<string, unknown>)['results'];
+    if (Array.isArray(results)) {
+      return results.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'));
+    }
+  }
+  return [];
+};
+
+const resolveExpenseSupplierByName = async (
+  reqContext: McpRequestContext,
+  supplierName: string,
+): Promise<ExpenseSupplierResolution | undefined> => {
+  const normalizedTarget = normalizeSupplierName(supplierName);
+  if (!normalizedTarget) {
+    return undefined;
+  }
+
+  const [companyPayload, contactPayload] = await Promise.all([
+    reqContext.client.public.companies.list({ search: supplierName, limit: 5 }, undefined),
+    reqContext.client.public.contacts.list({ search: supplierName, limit: 5 }, undefined),
+  ]);
+
+  const candidates: ExpenseSupplierResolution[] = [
+    ...readSupplierListRows(companyPayload).map((row): ExpenseSupplierResolution | undefined => {
+      const name = readSupplierCandidateName(row);
+      const id = readSupplierCandidateID(row, 'company');
+      if (!name || !id || normalizeSupplierName(name) !== normalizedTarget) {
+        return undefined;
+      }
+      return { supplierType: 'company', id, name };
+    }),
+    ...readSupplierListRows(contactPayload).map((row): ExpenseSupplierResolution | undefined => {
+      const name = readSupplierCandidateName(row);
+      const id = readSupplierCandidateID(row, 'contact');
+      if (!name || !id || normalizeSupplierName(name) !== normalizedTarget) {
+        return undefined;
+      }
+      return { supplierType: 'contact', id, name };
+    }),
+  ].filter((candidate): candidate is ExpenseSupplierResolution => Boolean(candidate));
+
+  return candidates.length === 1 ? candidates[0] : undefined;
+};
+
+const hasExpenseSupplierReference = (args: Record<string, unknown> | undefined): boolean =>
+  Boolean(
+    readString(args?.['company_external_id']) ||
+      readString(args?.['company_id']) ||
+      readString(args?.['contact_external_id']) ||
+      readString(args?.['contact_id']),
+  );
+
+const buildExpenseMutationBody = (
+  args: Record<string, unknown> | undefined,
+  options: { defaultStatus?: string } = {},
+) => {
   const body: Record<string, unknown> = {};
 
   if (typeof args?.['amount'] === 'number' && Number.isFinite(args['amount'])) {
     body['amount'] = args['amount'];
   }
 
+  const status = readString(args?.['status']) ?? options.defaultStatus;
   for (const key of [
     'company_external_id',
     'company_id',
@@ -9227,15 +9375,26 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
     'contact_id',
     'currency',
     'description',
-    'due_date',
     'external_id',
-    'reimburse_date',
-    'status',
   ] as const) {
     const value = readString(args?.[key]);
     if (value) {
       body[key] = value;
     }
+  }
+  if (status) {
+    body['status'] = status;
+  }
+
+  const paymentDate = readExpensePaymentDate(args);
+  const reimburseDate = readString(args?.['reimburse_date']);
+  if (paymentDate) {
+    body['due_date'] = paymentDate;
+  } else if (reimburseDate && status !== 'reimbursed') {
+    body['due_date'] = reimburseDate;
+  }
+  if (reimburseDate && status === 'reimbursed') {
+    body['reimburse_date'] = reimburseDate;
   }
 
   const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
@@ -9247,6 +9406,64 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
 
   return body;
 };
+
+const prepareExpenseMutation = async ({
+  reqContext,
+  args,
+  action,
+}: {
+  reqContext: McpRequestContext;
+  args: Record<string, unknown> | undefined;
+  action: 'create' | 'update';
+}): Promise<ExpenseMutationPreparation | ToolCallResult> => {
+  const defaultStatus = action === 'create' ? 'submitted' : undefined;
+  const body = buildExpenseMutationBody(args, defaultStatus ? { defaultStatus } : {});
+  const status = readString(body['status']);
+  const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+  const supplierName = readExpenseSupplierName(args);
+  let resolvedSupplier: ExpenseSupplierResolution | undefined;
+
+  if (!hasExpenseSupplierReference(args) && supplierName) {
+    resolvedSupplier = await resolveExpenseSupplierByName(reqContext, supplierName);
+    if (resolvedSupplier?.supplierType === 'company') {
+      body['company_id'] = resolvedSupplier.id;
+    } else if (resolvedSupplier?.supplierType === 'contact') {
+      body['contact_id'] = resolvedSupplier.id;
+    }
+  }
+
+  const isSubmittedCreate = action === 'create' && (status === 'submitted' || !status);
+  if (isSubmittedCreate) {
+    if (!readString(body['due_date']) && readBoolean(args?.['allow_missing_due_date']) !== true) {
+      return asErrorResult(
+        '`due_date` or `payment_date` is required for submitted receipt expenses. Use the receipt payment/transaction date shown as 支払日; do not put that date in reimburse_date.',
+      );
+    }
+    if (
+      !readString(body['company_id']) &&
+      !readString(body['company_external_id']) &&
+      !readString(body['contact_id']) &&
+      !readString(body['contact_external_id']) &&
+      readBoolean(args?.['allow_missing_supplier']) !== true
+    ) {
+      return asErrorResult(
+        supplierName ?
+          '`supplier_name` did not resolve to exactly one existing Sanka company/contact. Call list_companies/list_contacts, then pass company_id or contact_id. Do not create a supplier silently.'
+        : '`company_id`, `company_external_id`, `contact_id`, `contact_external_id`, or `supplier_name` is required for submitted receipt expenses. Search existing suppliers first; do not leave the vendor only in description.',
+      );
+    }
+    if (attachmentFileIDs.length === 0 && readBoolean(args?.['allow_missing_attachment']) !== true) {
+      return asErrorResult(
+        '`attachment_file_ids` is required for submitted receipt expenses. Upload the original receipt/invoice first, finish the upload to get file_id, then pass that file_id here.',
+      );
+    }
+  }
+
+  return resolvedSupplier ? { body, resolvedSupplier } : { body };
+};
+
+const isToolErrorResult = (value: ExpenseMutationPreparation | ToolCallResult): value is ToolCallResult =>
+  'isError' in value && value.isError === true;
 
 const buildPagedWorkspaceParams = (args: Record<string, unknown> | undefined, defaultLimit = 10) => {
   const rawLimit = readNumber(args?.['limit'], defaultLimit);
@@ -9719,6 +9936,38 @@ const buildExpenseMutationSummary = ({
     readString(payload['status']) ||
     'expense';
   return appendGovernanceAdvisorySummary(`Expense ${action}: ${reference}.`, payload);
+};
+
+const buildExpenseMutationStructuredContent = ({
+  action,
+  payload,
+  resolvedSupplier,
+}: {
+  action: 'created' | 'updated' | 'deleted';
+  payload: Record<string, unknown>;
+  resolvedSupplier?: ExpenseSupplierResolution | undefined;
+}): Record<string, unknown> => {
+  const normalized = normalizeMutationStructuredContent({
+    payload,
+    action,
+    idKeys: ['expense_id'],
+    extra:
+      resolvedSupplier ?
+        {
+          resolved_supplier: {
+            type: resolvedSupplier.supplierType,
+            id: resolvedSupplier.id,
+            name: resolvedSupplier.name,
+          },
+        }
+      : undefined,
+  });
+  return {
+    ...normalized,
+    ctx_id: readString(normalized['ctx_id']) ?? null,
+    expense_id: readString(normalized['expense_id']) ?? null,
+    external_id: readString(normalized['external_id']) ?? null,
+  };
 };
 
 const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => {
@@ -14263,9 +14512,9 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
   },
   tool: {
     name: 'upload_expense_attachment',
-    title: 'Upload expense attachment',
+    title: 'Upload expense attachment (small base64 only)',
     description:
-      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded original file content, then use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
+      'Upload an expense attachment only when small base64 content is already available in context. For client-local PDFs or images, do not read or split base64 for this tool; call start_expense_attachment_upload first and use its direct_upload_url with local curl --data-binary @file, then finish_expense_attachment_upload. Use the returned file_id in create_expense or update_expense.',
     inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
     outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14324,7 +14573,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append chunks, then finish to receive a file_id for create_expense or update_expense.',
+      'Preferred expense attachment upload for client-local files. When a local file path and shell access are available, call this before reading or base64-splitting the file, then use direct_upload_url with curl --data-binary @file and finish_expense_attachment_upload. Only use append chunks when direct upload is unavailable. Always keep the original receipt/invoice PDF bytes, then finish to receive a file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14357,22 +14606,42 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
       expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
       sessionId: reqContext.mcpSessionId,
     });
+    const directUploadUrl =
+      reqContext.downloadBaseUrl ?
+        new URL(`/uploads/${encodeURIComponent(upload.uploadToken)}`, reqContext.downloadBaseUrl).toString()
+      : undefined;
+    const directUploadAction =
+      directUploadUrl ?
+        `Preferred and fastest: do not base64-split the file. Run a local shell command like curl -sS -X PUT -H "Content-Type: ${
+          readString(args?.['mime_type']) || 'application/octet-stream'
+        }" --data-binary @"<local receipt path>" "${directUploadUrl}", then call finish_expense_attachment_upload with this upload_token. This preserves the original PDF and avoids putting base64 in the model/tool call.`
+      : undefined;
 
     return {
       content: [
         {
           type: 'text',
-          text: `Started chunked expense attachment upload for ${filename}.`,
+          text: `Started expense attachment upload for ${filename}.`,
         },
       ],
       structuredContent: {
         upload_token: upload.uploadToken,
+        ...(directUploadUrl ? { direct_upload_url: directUploadUrl } : undefined),
         chunk_size: upload.chunkSize,
         expires_at: upload.expiresAt,
         next_offset: upload.nextOffset,
-        completion_status: 'requires_chunks',
-        required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks of about ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+        completion_status: directUploadUrl ? 'requires_direct_upload' : 'requires_chunks',
+        required_next_tool:
+          directUploadUrl ? 'finish_expense_attachment_upload' : 'append_expense_attachment_upload_chunk',
+        ...(directUploadUrl ?
+          {
+            fallback_next_tool: 'append_expense_attachment_upload_chunk',
+            direct_upload_required_before_finish: true,
+          }
+        : undefined),
+        next_action:
+          directUploadAction ??
+          `Call append_expense_attachment_upload_chunk with original-file content_base64 chunks of at most ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset exactly each time. Do not shrink, rasterize, or replace the PDF with an image. Then call finish_expense_attachment_upload to get a file_id.`,
       },
     };
   },
@@ -14389,7 +14658,7 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
     name: 'append_expense_attachment_upload_chunk',
     title: 'Append expense attachment upload chunk',
     description:
-      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context.',
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks no larger than the returned chunk_size; do not concatenate chunks in the model context, and do not compress or rasterize receipts to avoid chunking.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14553,7 +14822,7 @@ export const crmCreateExpenseTool: McpTool = {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. When a receipt or invoice is required, call upload_expense_attachment first and attach uploaded file ids with `attachment_file_ids` in the same create call. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
+      'Create and submit an expense in Sanka. For receipt/invoice intake, follow this order: search existing supplier with list_companies/list_contacts or pass supplier_name for exact auto-resolution; upload the original file and pass attachment_file_ids; put the receipt payment date in due_date/payment_date; preserve original currency and let Sanka calculate base currency; then read back with get_expense or list_expenses. Do not put the receipt payment date in reimburse_date and do not create missing suppliers silently.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14573,16 +14842,29 @@ export const crmCreateExpenseTool: McpTool = {
       return authError;
     }
 
+    const prepared = await prepareExpenseMutation({ reqContext, args, action: 'create' });
+    if (isToolErrorResult(prepared)) {
+      return prepared;
+    }
+
     const response = (await reqContext.client.public.expenses.create(
-      buildExpenseMutationBody(args),
+      prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'created',
+      payload: response,
+      resolvedSupplier: prepared.resolvedSupplier,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'created', payload: structuredContent }),
+        },
       ],
-      structuredContent: response,
+      structuredContent,
     };
   },
 };
@@ -14599,7 +14881,8 @@ export const crmUpdateExpenseTool: McpTool = {
   tool: {
     name: 'update_expense',
     title: 'Update expense',
-    description: 'Update an existing expense in Sanka.',
+    description:
+      'Update an existing expense in Sanka. For receipt corrections, pass due_date/payment_date for 支払日, company_id/contact_id or supplier_name for the vendor, and attachment_file_ids returned from upload/finish attachment tools.',
     inputSchema: EXPENSE_UPDATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14624,17 +14907,30 @@ export const crmUpdateExpenseTool: McpTool = {
       return asErrorResult('`expense_id` is required.');
     }
 
+    const prepared = await prepareExpenseMutation({ reqContext, args, action: 'update' });
+    if (isToolErrorResult(prepared)) {
+      return prepared;
+    }
+
     const response = (await reqContext.client.public.expenses.update(
       expenseID,
-      buildExpenseMutationBody(args),
+      prepared.body,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'updated',
+      payload: response,
+      resolvedSupplier: prepared.resolvedSupplier,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'updated', payload: structuredContent }),
+        },
       ],
-      structuredContent: response,
+      structuredContent,
     };
   },
 };
@@ -14684,12 +14980,19 @@ export const crmDeleteExpenseTool: McpTool = {
       },
       undefined,
     )) as unknown as Record<string, unknown>;
+    const structuredContent = buildExpenseMutationStructuredContent({
+      action: 'deleted',
+      payload: response,
+    });
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'deleted', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'deleted', payload: structuredContent }),
+        },
       ],
-      structuredContent: response,
+      structuredContent,
     };
   },
 };

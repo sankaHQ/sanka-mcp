@@ -36,6 +36,7 @@ import { resolveMissingScopes } from './tool-auth';
 import { buildToolAccessRequirements } from './tool-scope-requirements';
 import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 import { readBinaryDownloadFile } from './binary-download-store';
+import { putBinaryUploadBuffer } from './binary-upload-store';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
 const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
@@ -53,6 +54,7 @@ const BINARY_DOWNLOAD_PATHS = [
   '/downloads/:downloadToken',
   `${DEFAULT_STREAMABLE_PATH}/downloads/:downloadToken`,
 ];
+const BINARY_UPLOAD_PATHS = ['/uploads/:uploadToken', `${DEFAULT_STREAMABLE_PATH}/uploads/:uploadToken`];
 const AUTHORIZATION_METADATA_PATHS = [
   DEFAULT_AUTHORIZATION_METADATA_PATH,
   `${DEFAULT_AUTHORIZATION_METADATA_PATH}${DEFAULT_STREAMABLE_PATH}`,
@@ -83,6 +85,9 @@ const mcpClientInfoBySessionId = new Map<string, McpClientInfo>();
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isBinaryUploadPath = (path: string): boolean =>
+  path.startsWith('/uploads/') || path.startsWith(`${DEFAULT_STREAMABLE_PATH}/uploads/`);
 
 const toolCallName = (body: unknown): string | undefined => {
   if (!isObjectRecord(body) || body['method'] !== 'tools/call' || !isObjectRecord(body['params'])) {
@@ -747,6 +752,13 @@ export const streamableHTTPApp = ({
 }): express.Express => {
   const app = express();
   app.set('query parser', 'extended');
+  app.use((req, res, next) => {
+    if (req.method === 'PUT' && isBinaryUploadPath(req.path)) {
+      express.raw({ type: '*/*', limit: MCP_JSON_BODY_LIMIT })(req, res, next);
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
   app.use(
@@ -809,6 +821,41 @@ export const streamableHTTPApp = ({
     res.setHeader('X-Sanka-Download-Expires-At', file.expiresAt);
     res.status(200).send(data);
   };
+  const receiveBinaryUpload = async (req: express.Request, res: express.Response) => {
+    const uploadToken = req.params['uploadToken'];
+    if (!uploadToken) {
+      res.status(400).json({ error: 'missing_upload_token' });
+      return;
+    }
+
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const uploaded = putBinaryUploadBuffer({
+      uploadToken,
+      buffer: body,
+      mimeType: typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : undefined,
+    });
+    if (!uploaded.ok) {
+      const status =
+        uploaded.reason === 'not_found' ? 404
+        : uploaded.reason === 'empty_file' ? 400
+        : 409;
+      res.status(status).json({ error: uploaded.reason, error_description: uploaded.message });
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.status(200).json({
+      ok: true,
+      filename: uploaded.filename,
+      mime_type: uploaded.mimeType,
+      byte_length: uploaded.byteLength,
+      content_base64_length: uploaded.contentBase64Length,
+      expires_at: uploaded.expiresAt,
+      completion_status: 'bytes_received',
+      next_action:
+        'Call finish_expense_attachment_upload with this upload_token to upload the received file to Sanka and receive a file_id.',
+    });
+  };
   const sendAuthorizationServerMetadata = async (_req: express.Request, res: express.Response) => {
     const authorizationServerUrl = upstreamAuthorizationServerUrl(mcpOptions);
     res.status(200).json(
@@ -842,6 +889,9 @@ export const streamableHTTPApp = ({
   }
   for (const routePath of BINARY_DOWNLOAD_PATHS) {
     app.get(routePath, sendBinaryDownload);
+  }
+  for (const routePath of BINARY_UPLOAD_PATHS) {
+    app.put(routePath, express.raw({ type: '*/*', limit: MCP_JSON_BODY_LIMIT }), receiveBinaryUpload);
   }
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {

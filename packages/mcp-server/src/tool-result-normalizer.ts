@@ -44,6 +44,15 @@ type NormalizeToolCallResultInput = {
   now?: Date;
 };
 
+type NormalizeMutationStructuredContentInput = {
+  payload: Record<string, unknown>;
+  mcpTool?: McpTool | undefined;
+  args?: Record<string, unknown> | undefined;
+  action?: string | undefined;
+  idKeys?: string[] | undefined;
+  extra?: Record<string, unknown> | undefined;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -65,6 +74,28 @@ const readNumber = (value: unknown): number | undefined => {
 };
 
 const readBoolean = (value: unknown): boolean | undefined => (typeof value === 'boolean' ? value : undefined);
+
+const ACTION_STATUS_BY_TOOL_PREFIX: Record<string, string> = {
+  activate: 'activated',
+  append: 'appended',
+  approve: 'approved',
+  archive: 'archived',
+  cancel: 'canceled',
+  create: 'created',
+  delete: 'deleted',
+  finish: 'finished',
+  reject: 'rejected',
+  reply: 'replied',
+  reschedule: 'rescheduled',
+  retry: 'retried',
+  schedule: 'scheduled',
+  send: 'sent',
+  start: 'started',
+  switch: 'switched',
+  update: 'updated',
+  upload: 'uploaded',
+  upsert: 'upserted',
+};
 
 export const buildToolErrorResult = (error: unknown): ToolCallResult => {
   const errorRecord = isRecord(error) ? error : {};
@@ -105,7 +136,7 @@ const inferAction = (toolName: string, payload: Record<string, unknown>, httpMet
   }
   const prefix = toolName.split('_')[0];
   if (prefix) {
-    return prefix;
+    return ACTION_STATUS_BY_TOOL_PREFIX[prefix] ?? prefix;
   }
   switch ((httpMethod ?? '').toUpperCase()) {
     case 'POST':
@@ -167,6 +198,10 @@ const findReturnedValue = (payload: Record<string, unknown>, key: string): unkno
     const container = payload[containerKey];
     if (isRecord(container) && container[key] !== undefined) {
       return container[key];
+    }
+    const properties = isRecord(container) ? container['properties'] : undefined;
+    if (isRecord(properties) && properties[key] !== undefined) {
+      return properties[key];
     }
   }
   return undefined;
@@ -257,18 +292,228 @@ const prependSuccessSummary = (result: ToolCallResult, summary: string): Content
   return [{ type: 'text', text: summary }, ...result.content];
 };
 
+const unwrapEnvelopeData = (
+  payload: Record<string, unknown>,
+): { data: Record<string, unknown> | undefined; meta: Record<string, unknown> | undefined } => {
+  const data = isRecord(payload['data']) ? payload['data'] : undefined;
+  const meta = isRecord(payload['meta']) ? payload['meta'] : undefined;
+  return { data, meta };
+};
+
+const readNestedString = (
+  key: string,
+  payload: Record<string, unknown>,
+  data: Record<string, unknown> | undefined,
+  properties: Record<string, unknown> | undefined,
+  args: Record<string, unknown> | undefined,
+): string | undefined =>
+  readString(payload[key]) ??
+  readString(data?.[key]) ??
+  readString(properties?.[key]) ??
+  readString(args?.[key]);
+
+const readIDCandidate = (
+  key: string,
+  payload: Record<string, unknown>,
+  data: Record<string, unknown> | undefined,
+  properties: Record<string, unknown> | undefined,
+  args: Record<string, unknown> | undefined,
+): string | undefined => {
+  const exact = readNestedString(key, payload, data, properties, args);
+  if (exact) {
+    return exact;
+  }
+  if (key === 'property_id') {
+    return readString(args?.['property_ref']);
+  }
+  if (key === 'case_id') {
+    return readString(args?.['deal_id']);
+  }
+  if (key === 'transaction_id') {
+    return readString(args?.['inventory_transaction_id']);
+  }
+  if (key === 'external_id') {
+    return undefined;
+  }
+  return (
+    readString(payload['id']) ??
+    readString(data?.['id']) ??
+    readString(properties?.['id']) ??
+    readString(payload['record_id']) ??
+    readString(data?.['record_id']) ??
+    readString(properties?.['record_id'])
+  );
+};
+
+const readOutputSchemaProperties = (mcpTool: McpTool | undefined): Record<string, unknown> => {
+  const outputSchema = isRecord(mcpTool?.tool.outputSchema) ? mcpTool?.tool.outputSchema : undefined;
+  return isRecord(outputSchema?.['properties']) ? outputSchema['properties'] : {};
+};
+
+const readOutputSchemaRequired = (mcpTool: McpTool | undefined): Set<string> => {
+  const outputSchema = isRecord(mcpTool?.tool.outputSchema) ? mcpTool?.tool.outputSchema : undefined;
+  const required = outputSchema?.['required'];
+  if (!Array.isArray(required)) {
+    return new Set();
+  }
+  return new Set(required.filter((entry): entry is string => typeof entry === 'string'));
+};
+
+const inferMutationIDKeys = (
+  mcpTool: McpTool | undefined,
+  explicitIDKeys: string[] | undefined,
+): string[] => {
+  const schemaProperties = readOutputSchemaProperties(mcpTool);
+  const schemaIDKeys = Object.keys(schemaProperties).filter(
+    (key) =>
+      key !== 'ctx_id' && (key === 'id' || key === 'case_id' || key === 'external_id' || key.endsWith('_id')),
+  );
+  const resourceName = mcpTool?.metadata.resource?.replace(/-/g, '_');
+  const resourceIDKey =
+    schemaIDKeys.length === 0 && resourceName ?
+      `${resourceName.endsWith('ies') ? `${resourceName.slice(0, -3)}y` : resourceName.replace(/s$/, '')}_id`
+    : undefined;
+  return Array.from(
+    new Set(
+      [...(explicitIDKeys ?? []), ...schemaIDKeys, resourceIDKey, 'id', 'external_id'].filter(
+        (key): key is string => Boolean(key),
+      ),
+    ),
+  );
+};
+
+const inferMutationMessage = (mcpTool: McpTool | undefined, status: string): string =>
+  `${mcpTool?.tool.title ?? mcpTool?.tool.name ?? 'Mutation'} ${status}.`;
+
+const buildRequiredMutationDefaults = ({
+  required,
+  payload,
+  normalizedIDs,
+  objectName,
+  status,
+}: {
+  required: Set<string>;
+  payload: Record<string, unknown>;
+  normalizedIDs: Record<string, string>;
+  objectName: string | undefined;
+  status: string;
+}): Record<string, unknown> => {
+  const defaults: Record<string, unknown> = {};
+  for (const key of required) {
+    if (payload[key] !== undefined || normalizedIDs[key] !== undefined) {
+      continue;
+    }
+    if (key === 'data') {
+      defaults[key] = {};
+    } else if (key === 'object') {
+      defaults[key] = objectName ?? '';
+    } else if (key === 'created') {
+      defaults[key] = ['created', 'create'].includes(status);
+    } else if (key === 'deleted') {
+      defaults[key] = ['deleted', 'delete', 'archived', 'archive'].includes(status);
+    } else if (key === 'ctx_id' || key === 'external_id' || key === 'id' || key.endsWith('_id')) {
+      defaults[key] = '';
+    }
+  }
+  return defaults;
+};
+
+export const normalizeMutationStructuredContent = ({
+  payload,
+  mcpTool,
+  args,
+  action,
+  idKeys,
+  extra,
+}: NormalizeMutationStructuredContentInput): Record<string, unknown> => {
+  const { data, meta } = unwrapEnvelopeData(payload);
+  const properties = isRecord(data?.['properties']) ? data['properties'] : undefined;
+  const schemaProperties = readOutputSchemaProperties(mcpTool);
+  const required = readOutputSchemaRequired(mcpTool);
+  const fallbackAction =
+    action ?? (mcpTool ? inferAction(mcpTool.tool.name, payload, mcpTool.metadata.httpMethod) : 'completed');
+  const status =
+    readString(payload['status']) ??
+    readString(data?.['status']) ??
+    readString(properties?.['status']) ??
+    readString(payload['operation']) ??
+    readString(data?.['operation']) ??
+    fallbackAction;
+  const ctxID =
+    readString(payload['ctx_id']) ??
+    readString(data?.['ctx_id']) ??
+    readString(properties?.['ctx_id']) ??
+    readString(meta?.['ctx_id']);
+  const ok =
+    readBoolean(payload['ok']) ??
+    readBoolean(payload['success']) ??
+    readBoolean(data?.['ok']) ??
+    readBoolean(data?.['success']) ??
+    true;
+  const normalizedIDs = Object.fromEntries(
+    inferMutationIDKeys(mcpTool, idKeys)
+      .map((key) => [key, readIDCandidate(key, payload, data, properties, args)] as const)
+      .filter((entry): entry is [string, string] => Boolean(entry[1])),
+  );
+  const objectName =
+    readString(payload['object']) ??
+    readString(data?.['object']) ??
+    readString(properties?.['object']) ??
+    readString(args?.['object_name']) ??
+    readString(args?.['object']);
+  const requiredDefaults = buildRequiredMutationDefaults({
+    required,
+    payload,
+    normalizedIDs,
+    objectName,
+    status,
+  });
+
+  return {
+    ...payload,
+    ok,
+    status,
+    ...requiredDefaults,
+    ...(ctxID !== undefined ? { ctx_id: ctxID }
+    : required.has('ctx_id') ? { ctx_id: '' }
+    : undefined),
+    ...(required.has('message') && payload['message'] === undefined ?
+      { message: inferMutationMessage(mcpTool, status) }
+    : undefined),
+    ...normalizedIDs,
+    ...(Object.prototype.hasOwnProperty.call(schemaProperties, 'object') && objectName ?
+      { object: objectName }
+    : undefined),
+    ...extra,
+  };
+};
+
+const shouldNormalizeMutationStructuredContent = (mcpTool: McpTool, isError: boolean): boolean => {
+  if (isError) {
+    return false;
+  }
+  if (mcpTool.tool.annotations?.readOnlyHint === true) {
+    return false;
+  }
+  return mcpTool.metadata.operation !== 'read';
+};
+
 export const normalizeToolCallResult = ({
   mcpTool,
   result,
   args,
   now = new Date(),
 }: NormalizeToolCallResultInput): ToolCallResult => {
-  const payload = isRecord(result.structuredContent) ? result.structuredContent : {};
+  const rawPayload = isRecord(result.structuredContent) ? result.structuredContent : {};
   const httpStatus =
-    readNumber(payload['http_status']) ??
-    readNumber(payload['status_code']) ??
-    readNumber(payload['statusCode']);
+    readNumber(rawPayload['http_status']) ??
+    readNumber(rawPayload['status_code']) ??
+    readNumber(rawPayload['statusCode']);
   const isError = result.isError === true || (httpStatus !== undefined && httpStatus >= 400);
+  const payload =
+    shouldNormalizeMutationStructuredContent(mcpTool, isError) ?
+      normalizeMutationStructuredContent({ payload: rawPayload, mcpTool, args })
+    : rawPayload;
   const requestedFields = buildRequestedFields(args);
   const returnedFields = buildReturnedFields(payload, requestedFields);
   const hasRequestedFields = Object.keys(requestedFields).length > 0;
