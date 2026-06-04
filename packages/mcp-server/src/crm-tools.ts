@@ -2188,6 +2188,115 @@ const PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA = {
   required: ['message', 'thread_id', 'has_unread'],
 };
 
+const WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    status: {
+      type: 'string',
+      description:
+        'Optional shared workspace inbox thread status filter. Defaults to `active` on the API side.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional shared workspace inbox channel id to sync. Omit to sync all supported workspace channels.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional shared workspace inbox thread status filter to return after sync.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    thread_id: {
+      type: 'string',
+      description: 'Shared workspace inbox thread identifier.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['thread_id'],
+};
+
+const WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA.properties,
+    status: { type: 'string' },
+    assignee_id: { type: 'integer' },
+    assignee_username: { type: 'string' },
+    assignee_display_name: { type: 'string' },
+  },
+  required: PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA.required,
+};
+
+const WORKSPACE_MESSAGES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    channels: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_CHANNEL_OUTPUT_SCHEMA,
+    },
+    threads: {
+      type: 'array',
+      items: WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA,
+    },
+  },
+  required: ['message', 'channels', 'threads'],
+};
+
+const WORKSPACE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    ...WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA.properties,
+    open_in_web_url: { type: 'string' },
+    can_reply: { type: 'boolean' },
+    reply_target: { type: 'string' },
+    messages: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_THREAD_MESSAGE_OUTPUT_SCHEMA,
+    },
+  },
+  required: [
+    'message',
+    'id',
+    'title',
+    'counterparty',
+    'preview',
+    'channel_id',
+    'channel_label',
+    'has_unread',
+    'message_type',
+    'message_count',
+    'open_in_web_url',
+    'can_reply',
+    'messages',
+  ],
+};
+
 const EXPENSE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -7081,6 +7190,104 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
         type: 'text',
         text:
           threadID ? `Replied to private message thread ${threadID}.` : 'Replied to private message thread.',
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
+const buildWorkspaceMessageListParams = (args: Record<string, unknown> | undefined) => {
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildWorkspaceMessageSyncParams = (args: Record<string, unknown> | undefined) => {
+  const channelID = readString(args?.['channel_id']);
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildWorkspaceMessageThreadLanguageParams = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+
+  return {
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const flattenWorkspaceMessagesPayload = (payload: Record<string, unknown>) => {
+  const data = readRecord(payload['data']);
+  const channels =
+    Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
+  const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+
+  return {
+    message: readString(payload['message']) ?? 'ok',
+    ctx_id: readString(payload['ctx_id']) ?? undefined,
+    channels,
+    threads,
+  };
+};
+
+const buildWorkspaceMessagesResult = ({
+  action,
+  payload,
+}: {
+  action: 'Loaded' | 'Synced';
+  payload: Record<string, unknown>;
+}): ToolCallResult => {
+  const flattened = flattenWorkspaceMessagesPayload(payload);
+  const unreadThreads = flattened.threads.reduce((total, thread) => {
+    return total + (readBoolean(thread['has_unread']) ? 1 : 0);
+  }, 0);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `${action} ${flattened.threads.length} shared workspace message thread${
+          flattened.threads.length === 1 ? '' : 's'
+        } across ${flattened.channels.length} channel${flattened.channels.length === 1 ? '' : 's'}${
+          unreadThreads > 0 ? `, ${unreadThreads} unread` : ''
+        }.`,
+      },
+    ],
+    structuredContent: flattened,
+  };
+};
+
+const buildWorkspaceMessageThreadResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const title = readString(data['title']);
+  const messages = Array.isArray(data['messages']) ? data['messages'] : [];
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          title ?
+            `Loaded shared workspace message thread "${title}" with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`
+          : `Loaded shared workspace message thread with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`,
       },
     ],
     structuredContent: {
@@ -18243,6 +18450,144 @@ export const crmArchivePrivateMessageThreadTool: McpTool = {
       action: 'Updated',
       payload,
     });
+  },
+};
+
+export const crmListWorkspaceMessagesTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages',
+    operationId: 'public.workspaceMessages.list',
+  },
+  tool: {
+    name: 'list_workspace_messages',
+    title: 'List workspace messages',
+    description:
+      'Review shared workspace inbox threads in Sanka from integration-linked channels such as Gmail. This is not the authenticated user private inbox.',
+    inputSchema: WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List workspace messages',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List workspace messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.list(
+      buildWorkspaceMessageListParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessagesResult({
+      action: 'Loaded',
+      payload,
+    });
+  },
+};
+
+export const crmSyncWorkspaceMessagesTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/sync',
+    operationId: 'public.workspaceMessages.sync',
+  },
+  tool: {
+    name: 'sync_workspace_messages',
+    title: 'Sync workspace messages',
+    description:
+      'Pull the latest shared workspace inbox messages into Sanka from integration-linked channels such as Gmail.',
+    inputSchema: WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Sync workspace messages',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Sync workspace messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.sync(
+      buildWorkspaceMessageSyncParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessagesResult({
+      action: 'Synced',
+      payload,
+    });
+  },
+};
+
+export const crmGetWorkspaceMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}',
+    operationId: 'public.workspaceMessages.threads.retrieve',
+  },
+  tool: {
+    name: 'get_workspace_message_thread',
+    title: 'Get workspace message thread',
+    description:
+      'Load one shared workspace inbox thread from Sanka, including message history. Use this for integration-linked inbox threads, not private account inbox threads.',
+    inputSchema: WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get workspace message thread',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get workspace message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.threads.retrieve(
+      threadID,
+      buildWorkspaceMessageThreadLanguageParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessageThreadResult(payload);
   },
 };
 export const crmListInvoicesTool: McpTool = {

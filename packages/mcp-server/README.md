@@ -95,6 +95,9 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `get_private_message_thread`: load one private inbox thread and its history
 - `reply_private_message_thread`: send a reply on a private inbox thread
 - `archive_private_message_thread`: archive a private inbox thread
+- `list_workspace_messages`: read shared workspace inbox threads from connected integration channels
+- `sync_workspace_messages`: pull the latest shared workspace inbox threads into Sanka
+- `get_workspace_message_thread`: load one shared workspace inbox thread and its history
 - `list_companies`: read-only company search
 - `get_company`: load a single company
 - `create_company`: create or upsert a company by external reference

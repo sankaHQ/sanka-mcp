@@ -99,6 +99,7 @@ import {
   crmGetPaymentTool,
   crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
+  crmGetWorkspaceMessageThreadTool,
   crmGetDeliveryRuleOptionsTool,
   crmGetPropertyTool,
   crmGetPurchaseOrderTool,
@@ -136,6 +137,7 @@ import {
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
+  crmListWorkspaceMessagesTool,
   crmListRecordApprovalsTool,
   crmListApprovalRulesTool,
   crmListPropertiesTool,
@@ -155,6 +157,7 @@ import {
   crmScoreRecordTool,
   crmSendInvoiceEmailTool,
   crmSyncPrivateMessagesTool,
+  crmSyncWorkspaceMessagesTool,
   crmSwitchWorkspaceTool,
   crmAppendExpenseAttachmentUploadChunkTool,
   crmFinishExpenseAttachmentUploadTool,
@@ -256,6 +259,9 @@ describe('ChatGPT CRM tools', () => {
     expect(crmGetPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmReplyPrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmArchivePrivateMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListWorkspaceMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSyncWorkspaceMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetWorkspaceMessageThreadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmArchiveCustomObjectRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -422,6 +428,11 @@ describe('ChatGPT CRM tools', () => {
       '/api/v2/me/messages/threads/{thread_id}/archive',
     );
     expect(crmSyncPrivateMessagesTool.metadata.httpPath).toBe('/api/v2/me/messages/sync');
+    expect(crmListWorkspaceMessagesTool.metadata.httpPath).toBe('/api/v2/workspace/messages');
+    expect(crmSyncWorkspaceMessagesTool.metadata.httpPath).toBe('/api/v2/workspace/messages/sync');
+    expect(crmGetWorkspaceMessageThreadTool.metadata.httpPath).toBe(
+      '/api/v2/workspace/messages/threads/{thread_id}',
+    );
     expect(crmGetCalendarBootstrapTool.metadata.httpPath).toBe('/api/v2/public/calendar/bootstrap');
     expect(crmCheckCalendarAvailabilityTool.metadata.httpPath).toBe('/api/v2/public/calendar/availability');
     expect(crmCreateCalendarAttendanceTool.metadata.httpPath).toBe('/api/v2/public/calendar/attendance');
@@ -1777,6 +1788,200 @@ describe('ChatGPT CRM tools', () => {
       undefined,
     );
     expect(result.isError).toBeUndefined();
+  });
+
+  it('lists workspace messages when authentication is present', async () => {
+    const list = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-workspace-list',
+      data: {
+        channels: [
+          {
+            id: 'channel-support',
+            integration_slug: 'gmail',
+            display_name: 'Support Inbox',
+            thread_count: 1,
+            unread_count: 1,
+          },
+        ],
+        threads: [
+          {
+            id: 'workspace-thread-1',
+            title: 'Support request',
+            counterparty: 'Sarah Chen',
+            preview: 'Checking in',
+            channel_id: 'channel-support',
+            channel_label: 'Support Inbox',
+            has_unread: true,
+            message_type: 'email',
+            message_count: 2,
+            status: 'todo',
+            assignee_username: 'ada',
+          },
+        ],
+      },
+    });
+
+    const result = await crmListWorkspaceMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { status: 'active', language: 'en' },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        status: 'active',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-workspace-list',
+      channels: [
+        {
+          id: 'channel-support',
+          integration_slug: 'gmail',
+          display_name: 'Support Inbox',
+          thread_count: 1,
+          unread_count: 1,
+        },
+      ],
+      threads: [
+        {
+          id: 'workspace-thread-1',
+          title: 'Support request',
+          counterparty: 'Sarah Chen',
+          preview: 'Checking in',
+          channel_id: 'channel-support',
+          channel_label: 'Support Inbox',
+          has_unread: true,
+          message_type: 'email',
+          message_count: 2,
+          status: 'todo',
+          assignee_username: 'ada',
+        },
+      ],
+    });
+  });
+
+  it('syncs workspace messages when authentication is present', async () => {
+    const sync = jest.fn().mockResolvedValue({
+      message: 'ok',
+      data: {
+        channels: [],
+        threads: [],
+      },
+    });
+
+    const result = await crmSyncWorkspaceMessagesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: { sync },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { channel_id: 'channel-support', status: 'active', language: 'ja' },
+    });
+
+    expect(sync).toHaveBeenCalledWith(
+      {
+        channel_id: 'channel-support',
+        status: 'active',
+        'Accept-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('gets one workspace message thread when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      message: 'ok',
+      data: {
+        id: 'workspace-thread-1',
+        title: 'Support request',
+        counterparty: 'Sarah Chen',
+        preview: 'Checking in',
+        channel_id: 'channel-support',
+        channel_label: 'Support Inbox',
+        has_unread: false,
+        message_type: 'email',
+        message_count: 2,
+        status: 'todo',
+        assignee_username: 'ada',
+        open_in_web_url: '/conversation/',
+        can_reply: true,
+        reply_target: 'sarah@example.com',
+        messages: [
+          {
+            id: 'workspace-message-1',
+            body: 'Hello',
+            direction: 'incoming',
+            sender_label: 'Sarah Chen',
+          },
+        ],
+      },
+    });
+
+    const result = await crmGetWorkspaceMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: {
+              threads: { retrieve },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'workspace-thread-1', language: 'en' },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'workspace-thread-1',
+      {
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: undefined,
+      id: 'workspace-thread-1',
+      title: 'Support request',
+      counterparty: 'Sarah Chen',
+      preview: 'Checking in',
+      channel_id: 'channel-support',
+      channel_label: 'Support Inbox',
+      has_unread: false,
+      message_type: 'email',
+      message_count: 2,
+      status: 'todo',
+      assignee_username: 'ada',
+      open_in_web_url: '/conversation/',
+      can_reply: true,
+      reply_target: 'sarah@example.com',
+      messages: [
+        {
+          id: 'workspace-message-1',
+          body: 'Hello',
+          direction: 'incoming',
+          sender_label: 'Sarah Chen',
+        },
+      ],
+    });
   });
 
   it('lists companies when authentication is present', async () => {

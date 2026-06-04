@@ -65,6 +65,24 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/me/messages/threads/{thread_id}/reply',
   },
   {
+    clientCallName: 'client.public.workspaceMessages.list',
+    fullyQualifiedName: 'public.workspaceMessages.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages',
+  },
+  {
+    clientCallName: 'client.public.workspaceMessages.sync',
+    fullyQualifiedName: 'public.workspaceMessages.sync',
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/sync',
+  },
+  {
+    clientCallName: 'client.public.workspaceMessages.threads.retrieve',
+    fullyQualifiedName: 'public.workspaceMessages.threads.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}',
+  },
+  {
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',
