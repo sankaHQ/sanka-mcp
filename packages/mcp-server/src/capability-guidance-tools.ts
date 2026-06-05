@@ -1,6 +1,6 @@
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-06-02.workflow-platform-guidance.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-06-05.workspace-message-guidance.v1';
 
 const GUIDANCE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -35,6 +35,41 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
   const objectType = readString(args?.['object_type']).toLowerCase();
   const operation = readString(args?.['operation']).toLowerCase();
   const combined = [intent, provider, objectType, operation].join(' ');
+
+  if (
+    includesAny(combined, [
+      'sanka-connected gmail',
+      'connected gmail',
+      'gmail integration',
+      'integration inbox',
+      'public message',
+      'workspace message',
+      'shared inbox',
+      'group inbox',
+      'workspace inbox',
+      'contact conversation',
+      '/conversation',
+      '連携されてるgmail',
+      '連携 gmail',
+      '共有受信箱',
+      'ワークスペース受信箱',
+    ])
+  ) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'workspace_integration_inbox_messages',
+      supported: true,
+      recommended_tools: [
+        'sync_workspace_messages',
+        'list_workspace_messages',
+        'get_workspace_message_thread',
+      ],
+      route:
+        'Use workspace message tools for Sanka-connected Gmail, integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox. Do not use private message tools unless the user explicitly asks for their private/personal account-level inbox.',
+      fallback_when_missing:
+        'If workspace message tools are not visible in this client session, say the Sanka Skill or MCP tool catalog may be stale and ask the user to update/reconnect the Sanka plugin or start a fresh session.',
+    };
+  }
 
   if (
     includesAny(combined, ['hubspot', 'salesforce']) &&

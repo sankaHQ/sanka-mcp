@@ -2012,7 +2012,8 @@ const PRIVATE_MESSAGE_LIST_INPUT_SCHEMA = {
   properties: {
     status: {
       type: 'string',
-      description: 'Optional private-inbox thread status filter. Defaults to `active` on the API side.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox thread status filter. Do not use for Sanka workspace Gmail integrations, /conversation, or shared inbox threads.',
     },
     language: {
       type: 'string',
@@ -2026,11 +2027,13 @@ const PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA = {
   properties: {
     channel_id: {
       type: 'string',
-      description: 'Optional private inbox channel id to sync. Omit to sync all account-level channels.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox channel id to sync. Do not use for integration-linked Gmail, /conversation, or shared workspace inbox channels.',
     },
     status: {
       type: 'string',
-      description: 'Optional private-inbox thread status filter to return after sync.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox thread status filter to return after sync.',
     },
     language: {
       type: 'string',
@@ -2044,7 +2047,8 @@ const PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA = {
   properties: {
     thread_id: {
       type: 'string',
-      description: 'Private inbox thread identifier.',
+      description:
+        'Authenticated-user private/personal account-level inbox thread identifier. Not a /conversation shared workspace thread.',
     },
     language: {
       type: 'string',
@@ -2059,11 +2063,13 @@ const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
   properties: {
     thread_id: {
       type: 'string',
-      description: 'Private inbox thread identifier.',
+      description:
+        'Authenticated-user private/personal account-level inbox thread identifier. Not a /conversation shared workspace thread.',
     },
     body: {
       type: 'string',
-      description: 'Reply body to send on the private message thread.',
+      description:
+        'Reply body to send on an authenticated-user private/personal account-level message thread.',
     },
     language: {
       type: 'string',
@@ -2194,7 +2200,7 @@ const WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA = {
     status: {
       type: 'string',
       description:
-        'Optional shared workspace inbox thread status filter. Defaults to `active` on the API side.',
+        'Optional shared workspace/integration inbox thread status filter. Use for Sanka-connected Gmail, integration inbox, /conversation, shared inbox, group inbox, and Contact Conversation threads. Defaults to `active` on the API side.',
     },
     language: {
       type: 'string',
@@ -2209,11 +2215,11 @@ const WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA = {
     channel_id: {
       type: 'string',
       description:
-        'Optional shared workspace inbox channel id to sync. Omit to sync all supported workspace channels.',
+        'Optional shared workspace/integration inbox channel id to sync. Use for Sanka-connected Gmail, integration inbox, /conversation, shared inbox, group inbox, and Contact Conversation channels. Omit to sync all supported workspace channels.',
     },
     status: {
       type: 'string',
-      description: 'Optional shared workspace inbox thread status filter to return after sync.',
+      description: 'Optional shared workspace/integration inbox thread status filter to return after sync.',
     },
     language: {
       type: 'string',
@@ -2227,7 +2233,8 @@ const WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA = {
   properties: {
     thread_id: {
       type: 'string',
-      description: 'Shared workspace inbox thread identifier.',
+      description:
+        'Shared workspace/integration inbox thread identifier from /conversation, Contact Conversation, or integration-linked Gmail.',
     },
     language: {
       type: 'string',
@@ -18225,7 +18232,7 @@ export const crmListPrivateMessagesTool: McpTool = {
     name: 'list_private_messages',
     title: 'List private messages',
     description:
-      'Review the authenticated user private inbox in Sanka. This covers account-level inbox threads, not the shared group inbox.',
+      'Review ONLY the authenticated user private/personal account-level inbox in Sanka. Do not use for Sanka-connected Gmail integrations, workspace integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, or workspace inbox; use list_workspace_messages for those.',
     inputSchema: PRIVATE_MESSAGE_LIST_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18270,7 +18277,7 @@ export const crmSyncPrivateMessagesTool: McpTool = {
     name: 'sync_private_messages',
     title: 'Sync private messages',
     description:
-      'Pull the latest private inbox messages into Sanka for the authenticated user account-level inbox.',
+      'Pull latest messages ONLY for the authenticated user private/personal account-level inbox. Do not use for Sanka-connected Gmail integrations, workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox; use sync_workspace_messages for those.',
     inputSchema: PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18315,7 +18322,7 @@ export const crmGetPrivateMessageThreadTool: McpTool = {
     name: 'get_private_message_thread',
     title: 'Get private message thread',
     description:
-      'Load one private inbox thread from Sanka, including message history and reply metadata for the authenticated user.',
+      'Load one authenticated user private/personal account-level inbox thread, including message history and reply metadata. Do not use for /conversation or shared workspace inbox threads; use get_workspace_message_thread for those.',
     inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18363,7 +18370,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     name: 'reply_private_message_thread',
     title: 'Reply private message thread',
     description:
-      'Send a reply on a private inbox thread in Sanka. This is for the authenticated user account-level inbox, not the shared group inbox.',
+      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18415,7 +18422,8 @@ export const crmArchivePrivateMessageThreadTool: McpTool = {
   tool: {
     name: 'archive_private_message_thread',
     title: 'Archive private message thread',
-    description: 'Archive a private inbox thread in Sanka for the authenticated user account-level inbox.',
+    description:
+      'Archive an authenticated user private/personal account-level inbox thread in Sanka. Do not use for /conversation or shared workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18466,7 +18474,7 @@ export const crmListWorkspaceMessagesTool: McpTool = {
     name: 'list_workspace_messages',
     title: 'List workspace messages',
     description:
-      'Review shared workspace inbox threads in Sanka from integration-linked channels such as Gmail. This is not the authenticated user private inbox.',
+      'Review shared workspace/integration inbox threads in Sanka. Prefer this for Sanka-connected Gmail, Gmail integrations, integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox. This is not the authenticated user private/personal inbox.',
     inputSchema: WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA,
     outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18511,7 +18519,7 @@ export const crmSyncWorkspaceMessagesTool: McpTool = {
     name: 'sync_workspace_messages',
     title: 'Sync workspace messages',
     description:
-      'Pull the latest shared workspace inbox messages into Sanka from integration-linked channels such as Gmail.',
+      'Pull latest shared workspace/integration inbox messages into Sanka from integration-linked channels such as Gmail. Prefer this for "Sanka-connected Gmail", Gmail integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox requests.',
     inputSchema: WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA,
     outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -18556,7 +18564,7 @@ export const crmGetWorkspaceMessageThreadTool: McpTool = {
     name: 'get_workspace_message_thread',
     title: 'Get workspace message thread',
     description:
-      'Load one shared workspace inbox thread from Sanka, including message history. Use this for integration-linked inbox threads, not private account inbox threads.',
+      'Load one shared workspace/integration inbox thread from Sanka, including message history/body. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal account inbox threads.',
     inputSchema: WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA,
     outputSchema: WORKSPACE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
