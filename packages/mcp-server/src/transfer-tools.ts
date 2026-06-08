@@ -1136,7 +1136,7 @@ export const exportRecordsTool: McpTool = {
     name: 'export_records',
     title: 'Export records',
     description:
-      'Create a public export job for Sanka records. Supports deal exports to HubSpot and invoice accounting exports to freee or MoneyForward channels.',
+      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For invoice accounting sync to freee, MoneyForward, Xero, or QuickBooks, use preview_workflow/start_workflow with workflow_type=invoice_export instead.',
     inputSchema: EXPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -1180,6 +1180,11 @@ export const exportRecordsTool: McpTool = {
     let provider = readString(args?.['provider']) || (objectType === 'invoice' ? 'freee' : 'hubspot');
     if (objectType === 'invoice' && targetSystem) {
       provider = targetSystem;
+    }
+    if (objectType === 'invoice' && destinationKind === 'accounting') {
+      return asErrorResult(
+        'Invoice accounting exports must use preview_workflow/start_workflow with workflow_type=invoice_export. export_records uses generic export jobs and must not be used for freee, MoneyForward, Xero, or QuickBooks invoice sync.',
+      );
     }
     const body: ExportCreateParams = {
       object_type: objectType,

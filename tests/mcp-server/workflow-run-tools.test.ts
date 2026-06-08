@@ -856,7 +856,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -914,7 +914,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -971,7 +971,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {

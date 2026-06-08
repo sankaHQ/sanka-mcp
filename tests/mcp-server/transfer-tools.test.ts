@@ -421,18 +421,8 @@ describe('public transfer MCP tools', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('creates an invoice accounting export job', async () => {
-    const create = jest.fn().mockResolvedValue({
-      job_id: 'exp-inv-1',
-      job_type: 'export',
-      object_type: 'invoice',
-      status: 'dry_run',
-      mode: 'create',
-      destination_kind: 'accounting',
-      provider: 'moneyforward',
-      channel_id: 'chan-mf',
-      summary: { processed: 0, succeeded: 0, failed: 0, total: 1, requested_count: 1 },
-    });
+  it('rejects invoice accounting export jobs and directs callers to invoice_export workflow', async () => {
+    const create = jest.fn();
 
     const result = await exportRecordsTool.handler({
       reqContext: {
@@ -453,17 +443,10 @@ describe('public transfer MCP tools', () => {
       },
     });
 
-    expect(create).toHaveBeenCalledWith({
-      object_type: 'invoice',
-      destination_kind: 'accounting',
-      provider: 'moneyforward',
-      channel_id: 'chan-mf',
-      operation: 'create',
-      target_system: 'moneyforward',
-      record_ids: ['invoice-1'],
-      dry_run: true,
-    });
-    expect(result.structuredContent?.['job_id']).toBe('exp-inv-1');
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('workflow_type=invoice_export');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('rejects target_system on non-invoice exports', async () => {
