@@ -160,13 +160,14 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Object type you plan to export. For invoice/accounting exports, the MCP server queries accounting-capable channels without forwarding object_type=invoice to the backend channel-list endpoint.',
+        'Object type you plan to export. For invoice/accounting exports, this tool can return accounting channel_id candidates, but preview_workflow/start_workflow invoice_export determines actual export readiness.',
       enum: ['deal', 'invoice'],
       default: 'deal',
     },
     provider: {
       type: 'string',
-      description: 'Optional destination provider filter.',
+      description:
+        'Optional destination provider filter. MoneyForward/freee are accounting invoice_export channel candidates, not public export_records readiness checks.',
       enum: ['hubspot', 'freee', 'moneyforward'],
       default: 'hubspot',
     },
@@ -322,6 +323,9 @@ const CHANNELS_OUTPUT_SCHEMA = {
             items: { type: 'string' },
           },
           is_export_blocked: { type: 'boolean' },
+          invoice_export_channel_id: { type: 'string' },
+          accounting_invoice_export_candidate: { type: 'boolean' },
+          invoice_export_readiness_signal: { type: 'string' },
           readiness_guidance: { type: 'string' },
           shadow_mode: { type: 'boolean' },
           rollout_stage: { type: 'string' },
@@ -336,6 +340,8 @@ const CHANNELS_OUTPUT_SCHEMA = {
     blocked_count: { type: 'integer' },
     blocked_by_shadow_mode: { type: 'boolean' },
     readiness_guidance: { type: 'string' },
+    channel_usage: { type: 'string' },
+    recommended_workflow_type: { type: 'string' },
     message: { type: 'string' },
   },
   required: ['channels', 'message'],
@@ -596,6 +602,60 @@ const normalizeIntegrationChannelResponse = (
   };
 };
 
+const isAccountingInvoiceChannelRequest = (context: {
+  requestedObjectType: string;
+  requestedProvider?: string;
+}): boolean =>
+  context.requestedObjectType === 'invoice' ||
+  (context.requestedProvider ? ACCOUNTING_EXPORT_PROVIDERS.has(context.requestedProvider) : false);
+
+const normalizeAccountingInvoiceExportChannel = (
+  channel: Record<string, unknown>,
+): Record<string, unknown> => {
+  const {
+    export_ready: _exportReady,
+    export_blocker_reason: _exportBlockerReason,
+    export_blocker_reasons: _exportBlockerReasons,
+    ...rest
+  } = channel;
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id');
+  return {
+    ...rest,
+    ...(channelID ? { channel_id: channelID, invoice_export_channel_id: channelID } : {}),
+    accounting_invoice_export_candidate: true,
+    is_export_blocked: false,
+    invoice_export_readiness_signal: 'preview_or_start_workflow',
+    readiness_guidance:
+      'Use this channel_id as the accounting channel for preview_workflow/start_workflow with workflow_type=invoice_export. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active flags from this channel-list endpoint as MoneyForward/freee invoice_export blockers; preview_workflow/start_workflow returns the actual accounting export blockers.',
+  };
+};
+
+const normalizeAccountingInvoiceChannelResponse = (
+  response: IntegrationChannelsListResponse,
+  context: { requestedObjectType: string; requestedProvider?: string },
+): IntegrationChannelsListResponse & Record<string, unknown> => {
+  const channels = (response.channels ?? [])
+    .filter(
+      (channel): channel is Record<string, unknown> =>
+        Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+    )
+    .map(normalizeAccountingInvoiceExportChannel);
+  return {
+    ...response,
+    channels,
+    requested_object_type: context.requestedObjectType,
+    ...(context.requestedProvider ? { requested_provider: context.requestedProvider } : {}),
+    channel_usage: 'accounting_invoice_export_channel_candidates',
+    recommended_workflow_type: 'invoice_export',
+    has_export_ready_channel: channels.length > 0,
+    export_ready_count: channels.length,
+    blocked_count: 0,
+    blocked_by_shadow_mode: false,
+    readiness_guidance:
+      'For MoneyForward/freee invoice exports, list_integration_channels only discovers accounting channel_id candidates. Use preview_workflow/start_workflow with workflow_type=invoice_export, target_system, sync_scope, invoice ids, and the selected channel_id; do not block on integration-sync shadow/outbound flags from this endpoint.',
+  };
+};
+
 const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
   const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
   const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
@@ -624,6 +684,13 @@ const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
   }`;
 };
 
+const buildAccountingInvoiceChannelSummaryLine = (channel: Record<string, unknown>): string => {
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
+  const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
+  const provider = channelString(channel, 'provider') ?? 'unknown-provider';
+  return `${name} (${provider}, ${channelID}): accounting invoice_export channel candidate. Use this channel_id with preview_workflow/start_workflow; integration-sync shadow/outbound flags are not invoice_export readiness blockers.`;
+};
+
 const buildChannelListSummary = (response: IntegrationChannelsListResponse): string => {
   const count = response.channels?.length ?? 0;
   const channels = (response.channels ?? []).filter(
@@ -639,6 +706,17 @@ const buildChannelListSummary = (response: IntegrationChannelsListResponse): str
   const exportReadyCount = readNumber(responseMetadata['export_ready_count']);
   const blockedCount = readNumber(responseMetadata['blocked_count']);
   const blockedByShadowMode = readBoolean(responseMetadata['blocked_by_shadow_mode']);
+  const channelUsage = readString(responseMetadata['channel_usage']);
+  if (channelUsage === 'accounting_invoice_export_channel_candidates') {
+    const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
+    return [
+      `Found ${count} ${providerLabel}accounting channel candidate${
+        count === 1 ? '' : 's'
+      } for invoice_export.`,
+      'Use preview_workflow/start_workflow with workflow_type=invoice_export to check and run MoneyForward/freee invoice export. Do not block on integration-sync shadow/outbound flags from this channel-list endpoint.',
+      ...channels.map(buildAccountingInvoiceChannelSummaryLine),
+    ].join('\n');
+  }
   const header: string[] = [`Found ${count} integration channel${count === 1 ? '' : 's'}.`];
   if ((exportReadyCount ?? 0) === 0 && (blockedCount ?? 0) > 0) {
     const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
@@ -1006,7 +1084,7 @@ export const listIntegrationChannelsTool: McpTool = {
     name: 'list_integration_channels',
     title: 'List integration channels',
     description:
-      'List connected integration channels available for a public export flow. Use this before export_records or invoice_export start_workflow when the user does not already know the destination channel_id. For invoice/accounting exports, object_type="invoice" is accepted as MCP input but is not forwarded to the backend channel-list endpoint. Treat export_ready=false, is_export_blocked=true, export_blocker_reason(s), shadow_mode=true, rollout_stage="shadow", or outbound_pipeline_active=false as hard blockers; do not call export_records or start_workflow with blocked channel ids.',
+      'List connected integration channels available for a public export flow. Use this before export_records for HubSpot deal exports. For MoneyForward/freee invoice_export workflows, use this only to discover accounting channel_id candidates when needed; preview_workflow/start_workflow with workflow_type=invoice_export determines actual accounting export readiness. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active fields from this endpoint as MoneyForward/freee invoice_export blockers.',
     inputSchema: INTEGRATION_CHANNELS_INPUT_SCHEMA,
     outputSchema: CHANNELS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -1030,10 +1108,14 @@ export const listIntegrationChannelsTool: McpTool = {
 
     const response: IntegrationChannelsListResponse =
       await reqContext.client.public.integrations.listChannels(params);
-    const normalizedResponse = normalizeIntegrationChannelResponse(response, {
+    const channelContext = {
       requestedObjectType,
       ...(requestedProvider ? { requestedProvider } : {}),
-    });
+    };
+    const normalizedResponse =
+      isAccountingInvoiceChannelRequest(channelContext) ?
+        normalizeAccountingInvoiceChannelResponse(response, channelContext)
+      : normalizeIntegrationChannelResponse(response, channelContext);
     return {
       content: [{ type: 'text', text: buildChannelListSummary(normalizedResponse) }],
       structuredContent: normalizedResponse,

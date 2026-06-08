@@ -263,7 +263,7 @@ describe('public transfer MCP tools', () => {
     expect(text).toContain('export ready');
   });
 
-  it('summarizes blocked integration channel export readiness', async () => {
+  it('summarizes accounting channels as invoice_export candidates instead of blockers', async () => {
     const listChannels = jest.fn().mockResolvedValue({
       channels: [
         {
@@ -308,35 +308,36 @@ describe('public transfer MCP tools', () => {
       channels: [
         {
           channel_id: 'mf-1',
+          invoice_export_channel_id: 'mf-1',
           provider: 'moneyforward',
-          export_ready: false,
-          is_export_blocked: true,
-          export_blocker_reason: 'shadow_mode',
-          export_blocker_reasons: [
-            'shadow_mode',
-            'rollout_stage_shadow',
-            'channel_disabled',
-            'outbound_pipeline_inactive',
-            'object_map_missing',
-          ],
+          accounting_invoice_export_candidate: true,
+          is_export_blocked: false,
+          invoice_export_readiness_signal: 'preview_or_start_workflow',
         },
       ],
       requested_object_type: 'invoice',
       requested_provider: 'moneyforward',
-      has_export_ready_channel: false,
-      export_ready_count: 0,
-      blocked_count: 1,
-      blocked_by_shadow_mode: true,
+      channel_usage: 'accounting_invoice_export_channel_candidates',
+      recommended_workflow_type: 'invoice_export',
+      has_export_ready_channel: true,
+      export_ready_count: 1,
+      blocked_count: 0,
+      blocked_by_shadow_mode: false,
     });
+    const channel = (result.structuredContent?.['channels'] as Array<Record<string, unknown>>)[0];
+    expect(channel).not.toHaveProperty('export_blocker_reason');
+    expect(channel).not.toHaveProperty('export_blocker_reasons');
+    expect(channel).not.toHaveProperty('export_ready');
     const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('No export-ready moneyforward channel is available for invoice exports');
-    expect(text).toContain('Do not call export_records or start_workflow');
-    expect(text).toContain('internal rollout state');
-    expect(text).toContain('export not ready: shadow_mode');
-    expect(text).toContain('details: shadow_mode=true');
+    expect(text).toContain('Found 1 moneyforward accounting channel candidate for invoice_export');
+    expect(text).toContain('Use preview_workflow/start_workflow with workflow_type=invoice_export');
+    expect(text).toContain('not invoice_export readiness blockers');
+    expect(text).toContain('accounting invoice_export channel candidate');
+    expect(text).not.toContain('No export-ready');
+    expect(text).not.toContain('export not ready');
   });
 
-  it('adds export blockers from raw accounting channel flags', async () => {
+  it('does not convert raw accounting channel flags into invoice_export blockers', async () => {
     const listChannels = jest.fn().mockResolvedValue({
       channels: [
         {
@@ -372,20 +373,19 @@ describe('public transfer MCP tools', () => {
       channels: [
         {
           channel_id: 'mf-raw',
-          export_ready: false,
-          is_export_blocked: true,
-          export_blocker_reason: 'shadow_mode',
-          export_blocker_reasons: [
-            'shadow_mode',
-            'rollout_stage_shadow',
-            'channel_disabled',
-            'outbound_pipeline_inactive',
-          ],
+          invoice_export_channel_id: 'mf-raw',
+          accounting_invoice_export_candidate: true,
+          is_export_blocked: false,
+          invoice_export_readiness_signal: 'preview_or_start_workflow',
         },
       ],
-      has_export_ready_channel: false,
-      blocked_by_shadow_mode: true,
+      has_export_ready_channel: true,
+      blocked_by_shadow_mode: false,
     });
+    const channel = (result.structuredContent?.['channels'] as Array<Record<string, unknown>>)[0];
+    expect(channel).not.toHaveProperty('export_blocker_reason');
+    expect(channel).not.toHaveProperty('export_blocker_reasons');
+    expect(channel).not.toHaveProperty('export_ready');
   });
 
   it('validates export_records channel and selection args', async () => {
