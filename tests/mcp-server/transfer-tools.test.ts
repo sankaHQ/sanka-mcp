@@ -229,7 +229,7 @@ describe('public transfer MCP tools', () => {
 
   it('lists integration channels for exports', async () => {
     const listChannels = jest.fn().mockResolvedValue({
-      channels: [{ channel_id: 'chan-1', provider: 'hubspot' }],
+      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true }],
       message: 'OK',
     });
 
@@ -251,9 +251,58 @@ describe('public transfer MCP tools', () => {
       provider: 'hubspot',
     });
     expect(result.structuredContent).toEqual({
-      channels: [{ channel_id: 'chan-1', provider: 'hubspot' }],
+      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true }],
       message: 'OK',
     });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('export ready');
+  });
+
+  it('summarizes blocked integration channel export readiness', async () => {
+    const listChannels = jest.fn().mockResolvedValue({
+      channels: [
+        {
+          channel_id: 'mf-1',
+          channel_name: 'MoneyForward - Mr.Search JA',
+          provider: 'moneyforward',
+          is_enabled: false,
+          outbound_pipeline_active: false,
+          shadow_mode: true,
+          rollout_stage: 'shadow',
+          export_ready: false,
+          export_blocker_reason: 'channel_disabled',
+          export_blocker_reasons: [
+            'channel_disabled',
+            'outbound_pipeline_inactive',
+            'object_map_missing',
+            'shadow_mode',
+          ],
+        },
+      ],
+      message: 'OK',
+    });
+
+    const result = await listIntegrationChannelsTool.handler({
+      reqContext: {
+        client: {
+          public: { integrations: { listChannels } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'invoice',
+        provider: 'moneyforward',
+      },
+    });
+
+    expect(listChannels).toHaveBeenCalledWith({
+      object_type: 'invoice',
+      provider: 'moneyforward',
+    });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('export not ready: channel_disabled');
+    expect(text).toContain('details: shadow_mode=true');
   });
 
   it('validates export_records channel and selection args', async () => {

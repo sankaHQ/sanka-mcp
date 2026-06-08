@@ -310,6 +310,19 @@ const CHANNELS_OUTPUT_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
+        properties: {
+          channel_id: { type: 'string' },
+          provider: { type: 'string' },
+          channel_name: { type: 'string' },
+          export_ready: { type: 'boolean' },
+          export_blocker_reason: { type: ['string', 'null'] as any },
+          export_blocker_reasons: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          shadow_mode: { type: 'boolean' },
+          rollout_stage: { type: 'string' },
+        },
         additionalProperties: true,
       },
     },
@@ -397,9 +410,74 @@ const buildJobSummary = (job: TransferJob): string => {
 const buildJobListSummary = (jobType: 'import' | 'export', count: number): string =>
   `Found ${count} ${jobType} job${count === 1 ? '' : 's'}.`;
 
+const channelString = (channel: Record<string, unknown>, key: string): string | undefined =>
+  readString(channel[key]);
+
+const channelBoolean = (channel: Record<string, unknown>, key: string): boolean | undefined =>
+  readBoolean(channel[key]);
+
+const channelReasons = (channel: Record<string, unknown>): string[] => {
+  const reasons = readStringArray(channel['export_blocker_reasons']);
+  if (reasons?.length) {
+    return reasons;
+  }
+  const reason = channelString(channel, 'export_blocker_reason');
+  return reason ? [reason] : [];
+};
+
+const fallbackChannelReasons = (channel: Record<string, unknown>): string[] => {
+  const reasons: string[] = [];
+  if (channelBoolean(channel, 'is_enabled') === false) {
+    reasons.push('channel_disabled');
+  }
+  if (channelBoolean(channel, 'outbound_pipeline_active') === false) {
+    reasons.push('outbound_pipeline_inactive');
+  }
+  return reasons;
+};
+
+const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
+  const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
+  const provider = channelString(channel, 'provider') ?? 'unknown-provider';
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const reasons = channelReasons(channel);
+  const effectiveReasons = reasons.length ? reasons : fallbackChannelReasons(channel);
+  const primaryReason = effectiveReasons[0];
+  const secondaryReasons = effectiveReasons.slice(1).filter((reason) => reason !== 'shadow_mode');
+  const status =
+    exportReady === true ? 'export ready'
+    : primaryReason ?
+      `export not ready: ${primaryReason}${
+        secondaryReasons.length ? ` (also ${secondaryReasons.join(', ')})` : ''
+      }`
+    : 'export readiness unknown';
+  const details: string[] = [];
+  if (channelBoolean(channel, 'shadow_mode') === true) {
+    details.push('shadow_mode=true');
+  }
+  const rolloutStage = channelString(channel, 'rollout_stage');
+  if (rolloutStage) {
+    details.push(`rollout_stage=${rolloutStage}`);
+  }
+  return `${name} (${provider}, ${channelID}): ${status}${
+    details.length ? `; details: ${details.join(', ')}` : ''
+  }`;
+};
+
 const buildChannelListSummary = (response: IntegrationChannelsListResponse): string => {
   const count = response.channels?.length ?? 0;
-  return `Found ${count} integration channel${count === 1 ? '' : 's'}.`;
+  const channels = (response.channels ?? []).filter(
+    (channel): channel is Record<string, unknown> =>
+      Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+  );
+  if (!channels.length) {
+    return `Found ${count} integration channel${count === 1 ? '' : 's'}.`;
+  }
+  return [
+    `Found ${count} integration channel${count === 1 ? '' : 's'}.`,
+    ...channels.map(buildChannelSummaryLine),
+  ].join('\n');
 };
 
 export const uploadImportFileTool: McpTool = {
@@ -753,7 +831,7 @@ export const listIntegrationChannelsTool: McpTool = {
     name: 'list_integration_channels',
     title: 'List integration channels',
     description:
-      'List connected integration channels available for a public export flow. Use this before export_records when the user does not already know the destination channel_id.',
+      'List connected integration channels available for a public export flow. Use this before export_records when the user does not already know the destination channel_id. Use export_ready and export_blocker_reason as the primary readiness signal; shadow_mode is diagnostic detail.',
     inputSchema: INTEGRATION_CHANNELS_INPUT_SCHEMA,
     outputSchema: CHANNELS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
