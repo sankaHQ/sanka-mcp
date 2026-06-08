@@ -856,7 +856,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/preview', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -914,7 +914,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
       body: {
         workflow_type: 'invoice_export',
         source_record: {
@@ -934,6 +934,64 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       run_id: 'freee-run-1',
       workflow_type: 'invoice_export',
+      status: 'completed',
+    });
+  });
+
+  it('starts MoneyForward invoice export workflows through the accounting runtime', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'moneyforward-run-1',
+        workflow_type: 'invoice_export',
+        target_system: 'moneyforward',
+        status: 'completed',
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'moneyforward',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-27'],
+          moneyforward_channel_id: 'moneyforward-channel-1',
+        },
+        idempotency_key: 'invoice-export:moneyforward:invoice-27',
+        language: 'en',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/v1/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'moneyforward',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-27'],
+          moneyforward_channel_id: 'moneyforward-channel-1',
+        },
+        idempotency_key: 'invoice-export:moneyforward:invoice-27',
+        language: 'en',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'moneyforward-run-1',
+      workflow_type: 'invoice_export',
+      target_system: 'moneyforward',
       status: 'completed',
     });
   });

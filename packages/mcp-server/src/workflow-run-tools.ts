@@ -66,8 +66,13 @@ const WORKFLOW_TYPE_SCHEMA = {
 };
 
 const DIRECT_CRM_INVOICE_WORKFLOW_TYPE = 'deal_to_invoice';
+const INVOICE_EXPORT_WORKFLOW_TYPE = 'invoice_export';
 const DIRECT_CRM_INVOICE_LOCK_MESSAGE =
   'Direct CRM deal_to_invoice is disabled. Tell the user Sanka must first create or reuse a Sanka Order so billing can be generated correctly, ask for confirmation, then use workflow_type=deal_to_order before creating invoices or subscriptions from the Order.';
+const V2_WORKFLOW_RUN_PREVIEW_PATH = '/api/v2/public/workflow-runs/preview';
+const V2_WORKFLOW_RUN_START_PATH = '/api/v2/public/workflow-runs/start';
+const V1_PUBLIC_WORKFLOW_RUN_PREVIEW_PATH = '/v1/public/workflow-runs/preview';
+const V1_PUBLIC_WORKFLOW_RUN_START_PATH = '/v1/public/workflow-runs/start';
 
 const WORKFLOW_LANGUAGE_SCHEMA = {
   type: 'string' as const,
@@ -607,6 +612,13 @@ const postWorkflowRunEndpoint = async ({
   return workflowResult(response, summary);
 };
 
+const workflowRunPathFor = (workflowType: string, operation: 'preview' | 'start'): string => {
+  if (workflowType === INVOICE_EXPORT_WORKFLOW_TYPE) {
+    return operation === 'preview' ? V1_PUBLIC_WORKFLOW_RUN_PREVIEW_PATH : V1_PUBLIC_WORKFLOW_RUN_START_PATH;
+  }
+  return operation === 'preview' ? V2_WORKFLOW_RUN_PREVIEW_PATH : V2_WORKFLOW_RUN_START_PATH;
+};
+
 export const resolveRecordTool: McpTool = {
   metadata: {
     resource: 'workflow-runs',
@@ -713,7 +725,7 @@ export const previewWorkflowTool: McpTool = {
     }
     return postWorkflowRunEndpoint({
       reqContext,
-      path: '/api/v2/public/workflow-runs/preview',
+      path: workflowRunPathFor(workflowType, 'preview'),
       body: {
         workflow_type: workflowType,
         source_record: sourceRecord,
@@ -765,7 +777,7 @@ export const startWorkflowTool: McpTool = {
     const language = readWorkflowLanguage(args, options);
     return postWorkflowRunEndpoint({
       reqContext,
-      path: '/api/v2/public/workflow-runs/start',
+      path: workflowRunPathFor(workflowType, 'start'),
       body: {
         workflow_type: workflowType,
         source_record: sourceRecord,
