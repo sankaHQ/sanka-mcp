@@ -250,9 +250,14 @@ describe('public transfer MCP tools', () => {
       object_type: 'deal',
       provider: 'hubspot',
     });
-    expect(result.structuredContent).toEqual({
-      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true }],
+    expect(result.structuredContent).toMatchObject({
+      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true, is_export_blocked: false }],
       message: 'OK',
+      requested_object_type: 'deal',
+      requested_provider: 'hubspot',
+      has_export_ready_channel: true,
+      export_ready_count: 1,
+      blocked_count: 0,
     });
     const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
     expect(text).toContain('export ready');
@@ -297,12 +302,90 @@ describe('public transfer MCP tools', () => {
     });
 
     expect(listChannels).toHaveBeenCalledWith({
-      object_type: 'invoice',
       provider: 'moneyforward',
     });
+    expect(result.structuredContent).toMatchObject({
+      channels: [
+        {
+          channel_id: 'mf-1',
+          provider: 'moneyforward',
+          export_ready: false,
+          is_export_blocked: true,
+          export_blocker_reason: 'shadow_mode',
+          export_blocker_reasons: [
+            'shadow_mode',
+            'rollout_stage_shadow',
+            'channel_disabled',
+            'outbound_pipeline_inactive',
+            'object_map_missing',
+          ],
+        },
+      ],
+      requested_object_type: 'invoice',
+      requested_provider: 'moneyforward',
+      has_export_ready_channel: false,
+      export_ready_count: 0,
+      blocked_count: 1,
+      blocked_by_shadow_mode: true,
+    });
     const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('export not ready: channel_disabled');
+    expect(text).toContain('No export-ready moneyforward channel is available for invoice exports');
+    expect(text).toContain('Do not call export_records or start_workflow');
+    expect(text).toContain('internal rollout state');
+    expect(text).toContain('export not ready: shadow_mode');
     expect(text).toContain('details: shadow_mode=true');
+  });
+
+  it('adds export blockers from raw accounting channel flags', async () => {
+    const listChannels = jest.fn().mockResolvedValue({
+      channels: [
+        {
+          channel_id: 'mf-raw',
+          provider: 'moneyforward',
+          is_enabled: false,
+          outbound_pipeline_active: false,
+          shadow_mode: true,
+          rollout_stage: 'shadow',
+        },
+      ],
+      message: 'OK',
+    });
+
+    const result = await listIntegrationChannelsTool.handler({
+      reqContext: {
+        client: {
+          public: { integrations: { listChannels } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'invoice',
+        provider: 'moneyforward',
+      },
+    });
+
+    expect(listChannels).toHaveBeenCalledWith({
+      provider: 'moneyforward',
+    });
+    expect(result.structuredContent).toMatchObject({
+      channels: [
+        {
+          channel_id: 'mf-raw',
+          export_ready: false,
+          is_export_blocked: true,
+          export_blocker_reason: 'shadow_mode',
+          export_blocker_reasons: [
+            'shadow_mode',
+            'rollout_stage_shadow',
+            'channel_disabled',
+            'outbound_pipeline_inactive',
+          ],
+        },
+      ],
+      has_export_ready_channel: false,
+      blocked_by_shadow_mode: true,
+    });
   });
 
   it('validates export_records channel and selection args', async () => {

@@ -159,7 +159,8 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type you plan to export.',
+      description:
+        'Object type you plan to export. For invoice/accounting exports, the MCP server queries accounting-capable channels without forwarding object_type=invoice to the backend channel-list endpoint.',
       enum: ['deal', 'invoice'],
       default: 'deal',
     },
@@ -320,12 +321,21 @@ const CHANNELS_OUTPUT_SCHEMA = {
             type: 'array',
             items: { type: 'string' },
           },
+          is_export_blocked: { type: 'boolean' },
+          readiness_guidance: { type: 'string' },
           shadow_mode: { type: 'boolean' },
           rollout_stage: { type: 'string' },
         },
         additionalProperties: true,
       },
     },
+    requested_object_type: { type: 'string' },
+    requested_provider: { type: 'string' },
+    has_export_ready_channel: { type: 'boolean' },
+    export_ready_count: { type: 'integer' },
+    blocked_count: { type: 'integer' },
+    blocked_by_shadow_mode: { type: 'boolean' },
+    readiness_guidance: { type: 'string' },
     message: { type: 'string' },
   },
   required: ['channels', 'message'],
@@ -364,6 +374,17 @@ const readPlainRecord = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) ?
     (value as Record<string, unknown>)
   : undefined;
+
+const ACCOUNTING_EXPORT_PROVIDERS = new Set(['freee', 'moneyforward']);
+
+const CHANNEL_REASON_PRIORITY = [
+  'shadow_mode',
+  'rollout_stage_shadow',
+  'channel_disabled',
+  'outbound_pipeline_inactive',
+  'object_map_missing',
+  'export_not_ready',
+];
 
 const readColumnMappings = (value: unknown): ImportCreateParams['column_mappings'] | undefined => {
   if (!Array.isArray(value)) {
@@ -427,6 +448,12 @@ const channelReasons = (channel: Record<string, unknown>): string[] => {
 
 const fallbackChannelReasons = (channel: Record<string, unknown>): string[] => {
   const reasons: string[] = [];
+  if (channelBoolean(channel, 'shadow_mode') === true) {
+    reasons.push('shadow_mode');
+  }
+  if (channelString(channel, 'rollout_stage')?.toLowerCase() === 'shadow') {
+    reasons.push('rollout_stage_shadow');
+  }
   if (channelBoolean(channel, 'is_enabled') === false) {
     reasons.push('channel_disabled');
   }
@@ -436,17 +463,149 @@ const fallbackChannelReasons = (channel: Record<string, unknown>): string[] => {
   return reasons;
 };
 
+const uniqueChannelReasons = (reasons: string[]): string[] => {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const reason of reasons) {
+    const trimmed = reason.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+
+  return normalized.sort((left, right) => {
+    const leftIndex = CHANNEL_REASON_PRIORITY.indexOf(left);
+    const rightIndex = CHANNEL_REASON_PRIORITY.indexOf(right);
+    const leftRank = leftIndex === -1 ? CHANNEL_REASON_PRIORITY.length : leftIndex;
+    const rightRank = rightIndex === -1 ? CHANNEL_REASON_PRIORITY.length : rightIndex;
+    return leftRank - rightRank;
+  });
+};
+
+const effectiveChannelReasons = (channel: Record<string, unknown>): string[] => {
+  const explicitReasons = channelReasons(channel);
+  const fallbackReasons = fallbackChannelReasons(channel);
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const reasons = uniqueChannelReasons([...explicitReasons, ...fallbackReasons]);
+  if (exportReady === false && !reasons.length) {
+    return ['export_not_ready'];
+  }
+  return reasons;
+};
+
+const buildBlockedChannelGuidance = (reasons: string[]): string => {
+  const base = 'Do not call export_records or start_workflow with this blocked channel_id.';
+  if (reasons.includes('shadow_mode') || reasons.includes('rollout_stage_shadow')) {
+    return `${base} Shadow mode is an internal rollout state; report that accounting invoice export is not available from MCP yet unless the API returns an explicit user_action.`;
+  }
+  return `${base} Report the export blocker reason to the user and wait for the channel to become export_ready.`;
+};
+
+const normalizeChannelReadiness = (channel: Record<string, unknown>): Record<string, unknown> => {
+  const reasons = effectiveChannelReasons(channel);
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const isBlocked = exportReady === false || reasons.length > 0;
+  if (!isBlocked) {
+    return {
+      ...channel,
+      ...(exportReady === true ? { export_ready: true, is_export_blocked: false } : {}),
+    };
+  }
+
+  const blockerReasons = reasons.length ? reasons : ['export_not_ready'];
+  return {
+    ...channel,
+    export_ready: false,
+    export_blocker_reason: blockerReasons[0] ?? null,
+    export_blocker_reasons: blockerReasons,
+    is_export_blocked: true,
+    readiness_guidance: buildBlockedChannelGuidance(blockerReasons),
+  };
+};
+
+const normalizeIntegrationChannelParams = (
+  args: Record<string, unknown> | undefined,
+): {
+  params: IntegrationChannelsListParams;
+  requestedObjectType: string;
+  requestedProvider?: string;
+} => {
+  const requestedObjectType = readString(args?.['object_type']) || 'deal';
+  const requestedProvider = readString(args?.['provider']);
+  const isAccountingProvider = requestedProvider ? ACCOUNTING_EXPORT_PROVIDERS.has(requestedProvider) : false;
+  const params: IntegrationChannelsListParams = {};
+
+  if (requestedProvider) {
+    params.provider = requestedProvider;
+  }
+
+  if (requestedObjectType !== 'invoice' && !isAccountingProvider) {
+    params.object_type = requestedObjectType;
+  }
+
+  return {
+    params,
+    requestedObjectType,
+    ...(requestedProvider ? { requestedProvider } : {}),
+  };
+};
+
+const normalizeIntegrationChannelResponse = (
+  response: IntegrationChannelsListResponse,
+  context: { requestedObjectType: string; requestedProvider?: string },
+): IntegrationChannelsListResponse & Record<string, unknown> => {
+  const channels = (response.channels ?? [])
+    .filter(
+      (channel): channel is Record<string, unknown> =>
+        Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+    )
+    .map(normalizeChannelReadiness);
+  const exportReadyCount = channels.filter(
+    (channel) =>
+      channelBoolean(channel, 'export_ready') === true &&
+      channelBoolean(channel, 'is_export_blocked') !== true,
+  ).length;
+  const blockedCount = channels.filter(
+    (channel) => channelBoolean(channel, 'is_export_blocked') === true,
+  ).length;
+  const blockedByShadowMode = channels.some((channel) =>
+    effectiveChannelReasons(channel).some(
+      (reason) => reason === 'shadow_mode' || reason === 'rollout_stage_shadow',
+    ),
+  );
+  const readinessGuidance =
+    blockedCount > 0 && exportReadyCount === 0 ?
+      blockedByShadowMode ?
+        'No export-ready accounting channel is available. Shadow mode is an internal rollout state; do not call export_records or start_workflow unless the API returns an explicit user_action.'
+      : 'No export-ready channel is available. Do not call export_records or start_workflow with blocked channel ids.'
+    : exportReadyCount > 0 ? 'At least one channel is export_ready.'
+    : 'Export channel readiness is unknown.';
+
+  return {
+    ...response,
+    channels,
+    requested_object_type: context.requestedObjectType,
+    ...(context.requestedProvider ? { requested_provider: context.requestedProvider } : {}),
+    has_export_ready_channel: exportReadyCount > 0,
+    export_ready_count: exportReadyCount,
+    blocked_count: blockedCount,
+    blocked_by_shadow_mode: blockedByShadowMode,
+    readiness_guidance: readinessGuidance,
+  };
+};
+
 const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
   const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
   const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
   const provider = channelString(channel, 'provider') ?? 'unknown-provider';
   const exportReady = channelBoolean(channel, 'export_ready');
-  const reasons = channelReasons(channel);
-  const effectiveReasons = reasons.length ? reasons : fallbackChannelReasons(channel);
+  const effectiveReasons = effectiveChannelReasons(channel);
   const primaryReason = effectiveReasons[0];
-  const secondaryReasons = effectiveReasons.slice(1).filter((reason) => reason !== 'shadow_mode');
+  const secondaryReasons = effectiveReasons.slice(1);
   const status =
-    exportReady === true ? 'export ready'
+    exportReady === true && channelBoolean(channel, 'is_export_blocked') !== true ? 'export ready'
     : primaryReason ?
       `export not ready: ${primaryReason}${
         secondaryReasons.length ? ` (also ${secondaryReasons.join(', ')})` : ''
@@ -474,10 +633,26 @@ const buildChannelListSummary = (response: IntegrationChannelsListResponse): str
   if (!channels.length) {
     return `Found ${count} integration channel${count === 1 ? '' : 's'}.`;
   }
-  return [
-    `Found ${count} integration channel${count === 1 ? '' : 's'}.`,
-    ...channels.map(buildChannelSummaryLine),
-  ].join('\n');
+  const responseMetadata = response as unknown as Record<string, unknown>;
+  const requestedProvider = readString(responseMetadata['requested_provider']);
+  const requestedObjectType = readString(responseMetadata['requested_object_type']);
+  const exportReadyCount = readNumber(responseMetadata['export_ready_count']);
+  const blockedCount = readNumber(responseMetadata['blocked_count']);
+  const blockedByShadowMode = readBoolean(responseMetadata['blocked_by_shadow_mode']);
+  const header: string[] = [`Found ${count} integration channel${count === 1 ? '' : 's'}.`];
+  if ((exportReadyCount ?? 0) === 0 && (blockedCount ?? 0) > 0) {
+    const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
+    const objectLabel = requestedObjectType ? `${requestedObjectType} ` : '';
+    header.push(
+      `No export-ready ${providerLabel}channel is available for ${objectLabel}exports. Do not call export_records or start_workflow with blocked channel ids.`,
+    );
+    if (blockedByShadowMode) {
+      header.push(
+        'Shadow mode is an internal rollout state; report that accounting invoice export is not available from MCP yet unless the API returns an explicit user_action.',
+      );
+    }
+  }
+  return [...header, ...channels.map(buildChannelSummaryLine)].join('\n');
 };
 
 export const uploadImportFileTool: McpTool = {
@@ -831,7 +1006,7 @@ export const listIntegrationChannelsTool: McpTool = {
     name: 'list_integration_channels',
     title: 'List integration channels',
     description:
-      'List connected integration channels available for a public export flow. Use this before export_records when the user does not already know the destination channel_id. Use export_ready and export_blocker_reason as the primary readiness signal; shadow_mode is diagnostic detail.',
+      'List connected integration channels available for a public export flow. Use this before export_records or invoice_export start_workflow when the user does not already know the destination channel_id. For invoice/accounting exports, object_type="invoice" is accepted as MCP input but is not forwarded to the backend channel-list endpoint. Treat export_ready=false, is_export_blocked=true, export_blocker_reason(s), shadow_mode=true, rollout_stage="shadow", or outbound_pipeline_active=false as hard blockers; do not call export_records or start_workflow with blocked channel ids.',
     inputSchema: INTEGRATION_CHANNELS_INPUT_SCHEMA,
     outputSchema: CHANNELS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -851,19 +1026,17 @@ export const listIntegrationChannelsTool: McpTool = {
       return authError;
     }
 
-    const params: IntegrationChannelsListParams = {
-      object_type: readString(args?.['object_type']) || 'deal',
-    };
-    const provider = readString(args?.['provider']);
-    if (provider) {
-      params.provider = provider;
-    }
+    const { params, requestedObjectType, requestedProvider } = normalizeIntegrationChannelParams(args);
 
     const response: IntegrationChannelsListResponse =
       await reqContext.client.public.integrations.listChannels(params);
+    const normalizedResponse = normalizeIntegrationChannelResponse(response, {
+      requestedObjectType,
+      ...(requestedProvider ? { requestedProvider } : {}),
+    });
     return {
-      content: [{ type: 'text', text: buildChannelListSummary(response) }],
-      structuredContent: response as unknown as Record<string, unknown>,
+      content: [{ type: 'text', text: buildChannelListSummary(normalizedResponse) }],
+      structuredContent: normalizedResponse,
     };
   },
 };
