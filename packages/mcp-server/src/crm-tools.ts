@@ -31,7 +31,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from a connected HubSpot/Salesforce integration. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from connected integrations. freee/MoneyForward integration scope maps companies to accounting partners. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
@@ -43,8 +43,8 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or with scope="sanka" to filter Sanka records linked to that provider.',
-    enum: ['hubspot', 'salesforce'],
+      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or provider="freee"/"moneyforward" with companies to inspect accounting partners.',
+    enum: ['freee', 'hubspot', 'moneyforward', 'salesforce'],
   },
   channel_id: {
     type: 'string',
@@ -83,8 +83,8 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Integration mutations support HubSpot and Salesforce for companies, contacts, and deals where the API allows them.',
-    enum: ['hubspot', 'salesforce'],
+      'Connected integration provider for target="integration" or target="both". Integration mutations support HubSpot/Salesforce where the API allows them; freee/MoneyForward are limited to company delete where companies map to accounting partners.',
+    enum: ['freee', 'hubspot', 'moneyforward', 'salesforce'],
   },
   channel_id: {
     type: 'string',
@@ -94,7 +94,7 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies"/"contacts"/"deals" or Salesforce "Account"/"Contact"/"Opportunity". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies"/"contacts"/"deals", Salesforce "Account"/"Contact"/"Opportunity", or freee/MoneyForward "partners". Usually omit it.',
   },
   dry_run: {
     type: 'boolean',
@@ -818,15 +818,17 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
   properties: {
     company_id: {
       type: 'string',
-      description: 'Company identifier to delete.',
+      description:
+        'Company identifier to delete. For target=integration with provider=freee/moneyforward/salesforce, pass the provider record id here or in external_id.',
     },
     ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
-      description: 'Optional explicit external id lookup override.',
+      description:
+        'Optional explicit external id lookup override. For provider=freee/moneyforward this is the accounting partner id; for provider=salesforce this is the Salesforce record id.',
     },
   },
-  required: ['company_id'],
+  required: [],
 };
 
 const CONTACT_MUTATION_INPUT_PROPERTIES = {
@@ -9186,9 +9188,16 @@ const readIntegrationScope = (value: unknown): 'sanka' | 'integration' | undefin
   return undefined;
 };
 
-const readIntegrationProvider = (value: unknown): 'hubspot' | 'salesforce' | undefined => {
+const readIntegrationProvider = (
+  value: unknown,
+): 'freee' | 'hubspot' | 'moneyforward' | 'salesforce' | undefined => {
   const provider = readString(value);
-  if (provider === 'hubspot' || provider === 'salesforce') {
+  if (
+    provider === 'freee' ||
+    provider === 'hubspot' ||
+    provider === 'moneyforward' ||
+    provider === 'salesforce'
+  ) {
     return provider;
   }
   return undefined;
@@ -9198,6 +9207,7 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
   const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
   const provider = readIntegrationProvider(args?.['provider']);
+  const legacyProvider = provider === 'freee' || provider === 'moneyforward' ? undefined : provider;
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const search = readString(args?.['search']);
@@ -9209,7 +9219,7 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
     limit: readNumber(args?.['limit'], 10),
     page: readNumber(args?.['page'], 1),
     ...(scope ? { scope } : undefined),
-    ...(provider ? { provider } : undefined),
+    ...(legacyProvider ? { provider: legacyProvider } : undefined),
     ...(channelID ? { channel_id: channelID } : undefined),
     ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     ...(referenceID ? { reference_id: referenceID } : undefined),
@@ -9320,7 +9330,9 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
 };
 
 const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => {
-  const companyID = readString(args?.['company_id']);
+  const externalID = readString(args?.['external_id']);
+  const target = readString(args?.['target']);
+  const companyID = readString(args?.['company_id']) ?? (target === 'integration' ? externalID : undefined);
   const params: Record<string, unknown> = {};
   assignStringFields(params, args, [
     'channel_id',
@@ -11447,7 +11459,10 @@ const validateAndNormalizePropertyMutationRouting = (params: Record<string, unkn
     return '`target` must be "sanka", "integration", or "both".';
   }
   if (providerRaw && !provider) {
-    return '`provider` must be "hubspot" or "salesforce".';
+    return '`provider` must be "hubspot" or "salesforce" for property mutations.';
+  }
+  if (provider === 'freee' || provider === 'moneyforward') {
+    return '`provider` must be "hubspot" or "salesforce" for property mutations.';
   }
   if (provider) {
     params['provider'] = provider;
@@ -13801,7 +13816,7 @@ export const crmListCompaniesTool: McpTool = {
     name: 'list_companies',
     title: 'List companies',
     description:
-      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts, while scope=integration with provider=salesforce lists live Salesforce Accounts.',
+      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts; scope=integration with provider=salesforce lists live Salesforce Accounts; scope=integration with provider=freee or provider=moneyforward lists live accounting partners as companies.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13918,7 +13933,7 @@ export const crmCreateCompanyTool: McpTool = {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync. freee/MoneyForward partner creation is handled by invoice_export, not this tool.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13973,7 +13988,7 @@ export const crmUpdateCompanyTool: McpTool = {
     name: 'update_company',
     title: 'Update company',
     description:
-      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
+      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. freee/MoneyForward partner updates are not supported here. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14034,7 +14049,7 @@ export const crmDeleteCompanyTool: McpTool = {
     name: 'delete_company',
     title: 'Delete company',
     description:
-      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce only with dry_run/governance for provider-side archive/delete checks.',
+      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce to delete a Salesforce record by external_id, or provider=freee/provider=moneyforward to delete an accounting partner by external_id. Always run dry_run=true first and set confirm=true only after explicit approval.',
     inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14056,7 +14071,9 @@ export const crmDeleteCompanyTool: McpTool = {
 
     const { companyID, params } = buildCompanyDeleteParams(args);
     if (!companyID) {
-      return asErrorResult('`company_id` is required.');
+      return asErrorResult(
+        '`company_id` is required unless target="integration" and `external_id` is provided.',
+      );
     }
 
     const response = (await reqContext.client.public.companies.delete(
