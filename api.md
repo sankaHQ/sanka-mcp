@@ -16,7 +16,7 @@ Types:
 
 Methods:
 
-- <code title="post /v1/score">client.score.<a href="./src/resources/score.ts">create</a>({ ...params }) -> ScoreCreateResponse</code>
+- <code title="post /api/v2/score">client.score.<a href="./src/resources/score.ts">create</a>({ ...params }) -> ScoreCreateResponse</code>
 
 # Public
 

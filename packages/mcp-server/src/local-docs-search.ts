@@ -95,7 +95,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
   },
   {
     name: 'create',
-    endpoint: '/v1/score',
+    endpoint: '/api/v2/score',
     httpMethod: 'post',
     summary: 'Score Company or Deal Data',
     description: 'Score Company or Deal Data',
@@ -105,7 +105,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     response:
       '{ data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }; message: string; ctx_id?: string; }',
     markdown:
-      "## create\n\n`client.score.create(object_type: string, record_id: string, score_model_id?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/score`\n\nScore Company or Deal Data\n\n### Parameters\n\n- `object_type: string`\n\n- `record_id: string`\n\n- `score_model_id?: string`\n\n### Returns\n\n- `{ data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }; message: string; ctx_id?: string; }`\n\n  - `data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }`\n  - `message: string`\n  - `ctx_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst score = await client.score.create({ object_type: 'object_type', record_id: '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e' });\n\nconsole.log(score);\n```",
+      "## create\n\n`client.score.create(object_type: string, record_id: string, score_model_id?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/score`\n\nScore Company or Deal Data\n\n### Parameters\n\n- `object_type: string`\n\n- `record_id: string`\n\n- `score_model_id?: string`\n\n### Returns\n\n- `{ data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }; message: string; ctx_id?: string; }`\n\n  - `data: { algorithm_key: string; algorithm_version: string; band: string; input_hash: string; object_type: string; output_hash: string; record_id: string; score: number; snapshot_id: string; dimensions?: object[]; explanation?: string; reasons?: object[]; score_model_id?: string; score_model_name?: string; score_model_version?: number; }`\n  - `message: string`\n  - `ctx_id?: string`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst score = await client.score.create({ object_type: 'object_type', record_id: '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e' });\n\nconsole.log(score);\n```",
   },
   {
     name: 'list',
