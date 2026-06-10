@@ -25,14 +25,11 @@ const transactionFromV2Record = (record: V2ObjectRecord): TransactionSchema => {
   });
 };
 
-const canUseV2InventoryTransactionUpdate = (params: InventoryTransactionUpdateParams): boolean =>
-  params.inventoryExternalId == null;
-
 const inventoryTransactionUpdateProperties = (
   params: InventoryTransactionUpdateParams,
 ): Record<string, unknown> => {
   const {
-    inventoryExternalId: _inventoryExternalID,
+    inventoryExternalId,
     inventoryId,
     inventoryType,
     transactionType,
@@ -41,9 +38,9 @@ const inventoryTransactionUpdateProperties = (
     useUnitValue,
     ...rest
   } = params;
-  void _inventoryExternalID;
   return compactProperties({
     ...rest,
+    inventory_external_id: inventoryExternalId,
     inventory_id: inventoryId,
     inventory_type: inventoryType,
     transaction_type: transactionType,
@@ -90,17 +87,14 @@ export class InventoryTransactions extends APIResource {
     body: InventoryTransactionUpdateParams,
     options?: RequestOptions,
   ): APIPromise<TransactionResponse> {
-    if (canUseV2InventoryTransactionUpdate(body)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/inventory-transactions/${transactionID}`, {
-          body: { properties: inventoryTransactionUpdateProperties(body) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<TransactionResponse>(envelope, 'transaction_id', 'updated'),
-        );
-    }
-    return this._client.put(path`/v1/public/inventory-transactions/${transactionID}`, { body, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/inventory-transactions/${transactionID}`, {
+        body: { properties: inventoryTransactionUpdateProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<TransactionResponse>(envelope, 'transaction_id', 'updated'),
+      );
   }
 
   /**

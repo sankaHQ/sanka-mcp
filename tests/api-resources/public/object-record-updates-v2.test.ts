@@ -74,7 +74,7 @@ describe('public object-record updates on V2', () => {
     ]);
   });
 
-  test('uses V2 create and update routes for scalar meter mutations', async () => {
+  test('uses V2 create and update routes for meter relation mutations', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -86,9 +86,13 @@ describe('public object-record updates on V2', () => {
         if (method === 'POST') {
           expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
             properties: {
+              company_external_id: 'COMPANY-EXT',
               company_id: 'company-1',
+              contact_external_id: 'CONTACT-EXT',
               external_id: 'METER-EXT',
+              item_external_id: 'ITEM-EXT',
               item_id: 'item-1',
+              subscription_external_id: 'SUBSCRIPTION-EXT',
               usage: 42,
               usage_at: '2026-05-20T01:00:00Z',
               usage_status: 'active',
@@ -97,9 +101,13 @@ describe('public object-record updates on V2', () => {
         } else {
           expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
             properties: {
+              company_external_id: 'COMPANY-EXT',
               company_id: 'company-1',
+              contact_external_id: 'CONTACT-EXT',
               external_id: 'METER-EXT',
+              item_external_id: 'ITEM-EXT',
               item_id: 'item-1',
+              subscription_external_id: 'SUBSCRIPTION-EXT',
               usage: 43,
               usage_at: '2026-05-21T01:00:00Z',
               usage_status: 'active',
@@ -117,9 +125,13 @@ describe('public object-record updates on V2', () => {
 
     await expect(
       client.public.meters.create({
+        companyExternalId: 'COMPANY-EXT',
         companyId: 'company-1',
+        contactExternalId: 'CONTACT-EXT',
         externalId: 'METER-EXT',
+        itemExternalId: 'ITEM-EXT',
         itemId: 'item-1',
+        subscriptionExternalId: 'SUBSCRIPTION-EXT',
         usage: 42,
         usageAt: '2026-05-20T01:00:00Z',
         usageStatus: 'active',
@@ -134,8 +146,12 @@ describe('public object-record updates on V2', () => {
     await expect(
       client.public.meters.update('meter-1', {
         externalId: 'METER-EXT',
+        companyExternalId: 'COMPANY-EXT',
         companyId: 'company-1',
+        contactExternalId: 'CONTACT-EXT',
+        itemExternalId: 'ITEM-EXT',
         itemId: 'item-1',
+        subscriptionExternalId: 'SUBSCRIPTION-EXT',
         usage: 43,
         usageAt: '2026-05-21T01:00:00Z',
         usageStatus: 'active',

@@ -20,9 +20,6 @@ import {
 const inventoryFromV2Record = (record: V2ObjectRecord): ShopTurboInventory =>
   legacyObjectRecordFromV2<ShopTurboInventory>(record, 'inventory_id');
 
-const canUseV2InventoryMutation = (params: InventoryCreateParams | InventoryUpdateParams): boolean =>
-  params.itemExternalId == null && params.itemId == null;
-
 const inventoryMutationProperties = (
   params: InventoryCreateParams | InventoryUpdateParams,
 ): { externalID: string | null; properties: Record<string, unknown> } => {
@@ -36,8 +33,6 @@ const inventoryMutationProperties = (
     warehouseId,
     ...rest
   } = params;
-  void itemExternalId;
-  void itemId;
   return {
     externalID: externalId ?? null,
     properties: compactProperties({
@@ -45,6 +40,8 @@ const inventoryMutationProperties = (
       ...rest,
       ...(initialValue !== undefined ? { initial_value: initialValue } : undefined),
       ...(inventoryStatus !== undefined ? { inventory_status: inventoryStatus } : undefined),
+      ...(itemExternalId !== undefined ? { item_external_id: itemExternalId } : undefined),
+      ...(itemId !== undefined ? { item_id: itemId } : undefined),
       ...(unitPrice !== undefined ? { unit_price: unitPrice } : undefined),
       ...(warehouseId !== undefined ? { warehouse_id: warehouseId } : undefined),
     }),
@@ -56,18 +53,15 @@ export class Inventories extends APIResource {
    * Create Inventory
    */
   create(body: InventoryCreateParams, options?: RequestOptions): APIPromise<InventoryResponse> {
-    if (canUseV2InventoryMutation(body)) {
-      const { externalID, properties } = inventoryMutationProperties(body);
-      return this._client
-        .v2Post<V2ObjectRecord>('/inventories', {
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<InventoryResponse>(envelope, 'inventory_id', 'created', externalID),
-        );
-    }
-    return this._client.post('/v1/public/inventories', { body, ...options });
+    const { externalID, properties } = inventoryMutationProperties(body);
+    return this._client
+      .v2Post<V2ObjectRecord>('/inventories', {
+        body: { properties },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<InventoryResponse>(envelope, 'inventory_id', 'created', externalID),
+      );
   }
 
   /**
@@ -100,19 +94,16 @@ export class Inventories extends APIResource {
     body: InventoryUpdateParams,
     options?: RequestOptions,
   ): APIPromise<InventoryResponse> {
-    if (canUseV2InventoryMutation(body)) {
-      const { externalID, properties } = inventoryMutationProperties(body);
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/inventories/${inventoryID}`, {
-          query: { external_id: externalID },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<InventoryResponse>(envelope, 'inventory_id', 'updated', externalID),
-        );
-    }
-    return this._client.put(path`/v1/public/inventories/${inventoryID}`, { body, ...options });
+    const { externalID, properties } = inventoryMutationProperties(body);
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/inventories/${inventoryID}`, {
+        query: { external_id: externalID },
+        body: { properties },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<InventoryResponse>(envelope, 'inventory_id', 'updated', externalID),
+      );
   }
 
   /**

@@ -32,6 +32,8 @@ describe('public inventory resource on V2', () => {
               external_id: 'INV-EXT',
               initial_value: 5,
               inventory_status: 'available',
+              item_external_id: 'ITEM-EXT',
+              item_id: 'item-1',
               name: 'Sensor kit stock',
               unit_price: 1200,
               warehouse_id: 'warehouse-1',
@@ -44,6 +46,8 @@ describe('public inventory resource on V2', () => {
             properties: {
               external_id: 'INV-EXT',
               inventory_status: 'available',
+              item_external_id: 'ITEM-EXT',
+              item_id: 'item-1',
               name: 'Updated sensor kit stock',
             },
           });
@@ -75,6 +79,8 @@ describe('public inventory resource on V2', () => {
         externalId: 'INV-EXT',
         initialValue: 5,
         inventoryStatus: 'available',
+        itemExternalId: 'ITEM-EXT',
+        itemId: 'item-1',
         name: 'Sensor kit stock',
         unitPrice: 1200,
         warehouseId: 'warehouse-1',
@@ -90,6 +96,8 @@ describe('public inventory resource on V2', () => {
       client.public.inventories.update('inventory-1', {
         externalId: 'INV-EXT',
         inventoryStatus: 'available',
+        itemExternalId: 'ITEM-EXT',
+        itemId: 'item-1',
         name: 'Updated sensor kit stock',
       }),
     ).resolves.toEqual({

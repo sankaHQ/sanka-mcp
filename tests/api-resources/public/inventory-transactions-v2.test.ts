@@ -32,6 +32,7 @@ describe('public inventory transaction resource on V2', () => {
         if (method === 'PATCH') {
           expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
             properties: {
+              inventory_external_id: 'INV-EXT',
               inventory_id: 'inventory-1',
               transaction_amount: 5,
               transaction_type: 'in',
@@ -71,6 +72,7 @@ describe('public inventory transaction resource on V2', () => {
     ]);
     await expect(
       client.public.inventoryTransactions.update('transaction-1', {
+        inventoryExternalId: 'INV-EXT',
         inventoryId: 'inventory-1',
         transactionAmount: 5,
         transactionType: 'in',
