@@ -33,7 +33,7 @@ describe('incentive tools', () => {
       args: { period: '2026-01', status: 'approved', page: 2, limit: 1 },
     });
 
-    expect(get).toHaveBeenCalledWith('/v1/public/incentives', {
+    expect(get).toHaveBeenCalledWith('/api/v2/public/incentives', {
       query: {
         limit: 1,
         page: 2,
@@ -83,7 +83,7 @@ describe('incentive tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/incentives/plans', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/incentives/plans', {
       body: {
         name: 'Partner commission',
         base_event: 'invoice_paid',
@@ -126,7 +126,7 @@ describe('incentive tools', () => {
       args: { period: '2026-01', plan_id: 'plan-1' },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/incentives/calculate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/incentives/calculate', {
       body: {
         period: '2026-01',
         plan_id: 'plan-1',

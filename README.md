@@ -72,7 +72,7 @@ that OAuth `client_id` in its authorization server metadata.
 Local Sanka prerequisites:
 
 - `app.localhost:8000` serves `/oauth/authorize` and `/api/v1/oauth/token`
-- `api.localhost:8000` serves `/api/v1/public/*`
+- `api.localhost:8000` serves `/api/v2/public/*`
 - create the OAuth app/client in Sanka first:
   - first-party: `/manage/oauth`
   - third-party: `/:wsid/developers/oauth`

@@ -74,8 +74,8 @@ the backend checked the user's workspace/object permissions. A separate
 not for the default hosted MCP user connection.
 
 Related routing issue: default Sanka-local create/update calls must stay on V2.
-If the client sends `target=sanka`, the SDK must not fall back to legacy
-`/v1/public/*` routes. Claude's `create_company` 404 reproduced this class of
+If the client sends `target=sanka`, the SDK must not fall back to legacy public
+API routes. Claude's `create_company` 404 reproduced this class of
 issue because `target=sanka` plus no `external_id` selected the legacy create
 path even though the tool metadata advertised `/api/v2/companies`.
 
