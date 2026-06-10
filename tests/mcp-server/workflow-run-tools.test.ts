@@ -1273,7 +1273,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/cpq/quote-readiness/salesforce/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/cpq/quote-readiness/salesforce/preview', {
       body: {
         source_record: {
           source_system: 'salesforce',
@@ -1340,7 +1340,7 @@ describe('workflow run MCP tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/cpq/quote-readiness/salesforce/preview', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/cpq/quote-readiness/salesforce/preview', {
       body: {
         source_record: {
           source_system: 'sanka',

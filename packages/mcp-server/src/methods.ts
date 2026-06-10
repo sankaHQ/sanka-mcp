@@ -494,13 +494,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.payments.listAllocations',
     fullyQualifiedName: 'public.payments.listAllocations',
     httpMethod: 'get',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.updateAllocations',
     fullyQualifiedName: 'public.payments.updateAllocations',
     httpMethod: 'put',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.update',
@@ -620,7 +620,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.inventoryTransactions.create',
     fullyQualifiedName: 'public.inventoryTransactions.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/inventory-transactions',
+    httpPath: '/api/v2/public/inventory-transactions',
   },
   {
     clientCallName: 'client.public.inventoryTransactions.retrieve',

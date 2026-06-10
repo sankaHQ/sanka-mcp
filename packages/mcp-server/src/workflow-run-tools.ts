@@ -710,7 +710,7 @@ export const previewWorkflowTool: McpTool = {
       }
       return postWorkflowRunEndpoint({
         reqContext,
-        path: '/v1/public/cpq/quote-readiness/salesforce/preview',
+        path: '/api/v2/public/cpq/quote-readiness/salesforce/preview',
         body,
         summary: 'Previewed Salesforce quote readiness',
       });

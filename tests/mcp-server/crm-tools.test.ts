@@ -1013,7 +1013,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'companies',
         mode: 'dedupe_candidates',
@@ -1062,7 +1062,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -1111,7 +1111,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'deals',
         provider: 'hubspot',
@@ -1151,7 +1151,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -1194,7 +1194,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/custom-objects/records', {
       body: {
         external_object_type: 'activity',
         data: { Subject: 'Kickoff meeting' },
@@ -1234,7 +1234,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/custom-objects/records/row-1', {
       body: {
         data: { subject: 'Customer kickoff updated' },
       },
@@ -1267,7 +1267,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/custom-objects/records/row-1/archive', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/custom-objects/records/row-1/archive', {
       body: {},
     });
     expect(result.content[0]).toEqual(
@@ -1303,7 +1303,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -2161,7 +2161,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -3025,7 +3025,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'deals',
         scope: 'integration',
@@ -4859,7 +4859,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/email', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/email', {
       body: {
         action: 'schedule',
         to: ['finance@example.com'],
@@ -5178,7 +5178,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(del).toHaveBeenCalledWith('/v1/public/invoices/invoice-1/permanent-delete', {
+    expect(del).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/permanent-delete', {
       query: { external_id: 'INV-1', confirm: true },
     });
     expect(result.structuredContent).toMatchObject({
@@ -5321,7 +5321,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('lists payment allocations', async () => {
-    const listAllocations = jest.fn().mockResolvedValue({
+    const get = jest.fn().mockResolvedValue({
       payment: {
         id_rcp: 301,
         allocated_amount: 150,
@@ -5334,9 +5334,7 @@ describe('ChatGPT CRM tools', () => {
     const result = await crmListPaymentAllocationsTool.handler({
       reqContext: {
         client: {
-          public: {
-            payments: { listAllocations },
-          },
+          get,
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -5344,14 +5342,12 @@ describe('ChatGPT CRM tools', () => {
       args: { payment_id: '301', external_id: 'PAY-301', language: 'ja' },
     });
 
-    expect(listAllocations).toHaveBeenCalledWith(
-      '301',
-      {
+    expect(get).toHaveBeenCalledWith('/api/v2/public/payments/301/allocations', {
+      query: {
         external_id: 'PAY-301',
         'Accept-Language': 'ja',
       },
-      undefined,
-    );
+    });
     expect(result.structuredContent).toEqual({
       payment: {
         id_rcp: 301,
@@ -5364,7 +5360,7 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('updates payment allocations', async () => {
-    const updateAllocations = jest.fn().mockResolvedValue({
+    const put = jest.fn().mockResolvedValue({
       payment: {
         id_rcp: 301,
         allocated_amount: 150,
@@ -5377,9 +5373,7 @@ describe('ChatGPT CRM tools', () => {
     const result = await crmUpdatePaymentAllocationsTool.handler({
       reqContext: {
         client: {
-          public: {
-            payments: { updateAllocations },
-          },
+          put,
         } as any,
         auth: oauthContext(),
         toolProfile: 'full',
@@ -5399,11 +5393,12 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(updateAllocations).toHaveBeenCalledWith(
-      '301',
-      {
+    expect(put).toHaveBeenCalledWith('/api/v2/public/payments/301/allocations', {
+      query: {
         external_id: 'PAY-301',
         'Accept-Language': 'ja',
+      },
+      body: {
         allocations: [
           {
             invoice_id: '1147',
@@ -5413,8 +5408,7 @@ describe('ChatGPT CRM tools', () => {
           },
         ],
       },
-      undefined,
-    );
+    });
     expect(result.structuredContent).toEqual({
       payment: {
         id_rcp: 301,
@@ -6115,7 +6109,7 @@ describe('ChatGPT CRM tools', () => {
         language: 'en',
       },
     });
-    expect(get).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+    expect(get).toHaveBeenCalledWith('/api/v2/public/disbursements/disbursement-1/allocations', {
       query: {
         external_id: 'DSB-1',
         'Accept-Language': 'en',
@@ -6133,7 +6127,7 @@ describe('ChatGPT CRM tools', () => {
         notes: 'Receipt allocation',
       },
     });
-    expect(post).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/disbursements/disbursement-1/allocations', {
       query: {},
       body: {
         payable_type: 'expense',
@@ -6152,10 +6146,13 @@ describe('ChatGPT CRM tools', () => {
         amount: 150,
       },
     });
-    expect(patch).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
-      query: {},
-      body: { amount: 150 },
-    });
+    expect(patch).toHaveBeenCalledWith(
+      '/api/v2/public/disbursements/disbursement-1/allocations/allocation-1',
+      {
+        query: {},
+        body: { amount: 150 },
+      },
+    );
     expect(updateResult.structuredContent).toEqual({
       ...allocationPayload,
       allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
@@ -6168,7 +6165,7 @@ describe('ChatGPT CRM tools', () => {
         allocation_id: 'allocation-1',
       },
     });
-    expect(del).toHaveBeenCalledWith('/v1/public/disbursements/disbursement-1/allocations/allocation-1', {
+    expect(del).toHaveBeenCalledWith('/api/v2/public/disbursements/disbursement-1/allocations/allocation-1', {
       query: {},
     });
     expect(deleteResult.structuredContent).toEqual({
@@ -9227,7 +9224,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { limit: 5, search: 'NM', language: 'ja' },
     });
-    expect(get).toHaveBeenNthCalledWith(1, '/v1/public/employees', {
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/public/employees', {
       query: { limit: 5, page: 1, search: 'NM', language: 'ja' },
     });
     expect(employeeResult.structuredContent?.['results']).toEqual([
@@ -9250,7 +9247,7 @@ describe('ChatGPT CRM tools', () => {
         absence_type: 'pto',
       },
     });
-    expect(post).toHaveBeenNthCalledWith(1, '/v1/public/absences', {
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v2/public/absences', {
       body: {
         worker_id: 'worker-1',
         start_date: '2026-05-22',
@@ -9266,7 +9263,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { limit: 5, search: 'Daily' },
     });
-    expect(get).toHaveBeenNthCalledWith(2, '/v1/public/attendance-records', {
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/public/attendance-records', {
       query: { limit: 5, page: 1, search: 'Daily' },
     });
     expect(attendanceResult.structuredContent?.['results']).toEqual([
@@ -9282,7 +9279,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { period: '2026-04', pay_date: '2026-04-30' },
     });
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/public/payroll/runs/calculate', {
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v2/public/payroll/runs/calculate', {
       body: { period: '2026-04', pay_date: '2026-04-30' },
     });
     expect(payrollResult.structuredContent).toMatchObject({
@@ -9293,7 +9290,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { run_id: 'run-1', notes: 'Monthly payroll journal' },
     });
-    expect(post).toHaveBeenNthCalledWith(3, '/v1/public/payroll/runs/run-1/journal-entry', {
+    expect(post).toHaveBeenNthCalledWith(3, '/api/v2/public/payroll/runs/run-1/journal-entry', {
       query: {},
       body: { notes: 'Monthly payroll journal' },
     });
@@ -9321,7 +9318,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenLastCalledWith('/v1/public/payroll/runs/run-1/payslips/pdf', {
+    expect(get).toHaveBeenLastCalledWith('/api/v2/public/payroll/runs/run-1/payslips/pdf', {
       query: {
         result_id: 'result-1',
         language: 'ja',

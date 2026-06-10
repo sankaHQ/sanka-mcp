@@ -11,7 +11,7 @@ const makeTool = (overrides: Partial<McpTool> = {}): McpTool =>
       operation: 'write',
       tags: ['crm', 'deals'],
       httpMethod: 'put',
-      httpPath: '/v1/public/deals/{case_id}',
+      httpPath: '/api/v2/public/deals/{case_id}',
       operationId: 'public.deals.update',
     },
     tool: {
@@ -148,7 +148,7 @@ describe('normalizeToolCallResult', () => {
           operation: 'read',
           tags: ['crm', 'deals'],
           httpMethod: 'get',
-          httpPath: '/v1/public/deals/{case_id}',
+          httpPath: '/api/v2/public/deals/{case_id}',
           operationId: 'public.deals.retrieve',
         },
         tool: {
