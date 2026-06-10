@@ -24945,7 +24945,7 @@ export const crmProspectCompaniesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'prospecting'],
     httpMethod: 'post',
-    httpPath: '/v1/prospect/companies',
+    httpPath: '/api/v2/prospect/companies',
     operationId: 'prospect.companies.create',
   },
   tool: {
