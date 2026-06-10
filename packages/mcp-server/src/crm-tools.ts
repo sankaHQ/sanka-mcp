@@ -9510,10 +9510,34 @@ const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
 
 const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
   const runID = readString(args?.['run_id']);
-  const params = buildWorkspaceQuery(args);
+  const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['result_id', 'employee_id', 'language']);
   return { runID, params };
 };
+
+// V2 payroll routes scope the workspace from X-Workspace-Code, so workspace_id
+// args are not forwarded. Responses are normalized back to the V1 payload shape
+// the tool output schemas were written against.
+const readPayrollV2Meta = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['meta']) ?? {};
+
+const legacyPayrollListPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const data = readRecord(payload['data']) ?? {};
+  const items = Array.isArray(data['items']) ? data['items'] : [];
+  return {
+    data: items,
+    employee_options: data['employee_options'] ?? [],
+    count: readNumber(data['count'], items.length),
+    message: 'OK',
+    ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
+  };
+};
+
+const legacyPayrollRecordPayload = (payload: Record<string, unknown>): Record<string, unknown> => ({
+  data: readRecord(payload['data']) ?? {},
+  message: 'OK',
+  ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
+});
 
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
@@ -9585,7 +9609,7 @@ const buildPayrollProfileBody = (args: Record<string, unknown> | undefined) => {
 };
 
 const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) => {
-  const params = buildWorkspaceQuery(args);
+  const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['period']);
   return params;
 };
@@ -15477,7 +15501,7 @@ export const crmListPayrollProfilesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/payroll/profiles',
     operationId: 'public.payroll.profiles.list',
   },
   tool: {
@@ -15499,18 +15523,20 @@ export const crmListPayrollProfilesTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const params = buildWorkspaceQuery(args);
+    const params: Record<string, unknown> = {};
     assignStringFields(params, args, ['employee_id']);
-    const payload = (await reqContext.client.get('/v1/public/payroll/profiles', {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollListPayload(
+      (await reqContext.client.get('/api/v2/payroll/profiles', {
+        query: params,
+      })) as Record<string, unknown>,
+    );
     const data = readDataArray(payload);
     return buildListResult({
       label: 'payroll profiles',
       payload: {
         count: readNumber(payload['count'], data.length),
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} payroll profiles.`,
+        message: `Returned ${data.length} payroll profiles.`,
         page: 1,
         total: readNumber(payload['count'], data.length),
       },
@@ -15525,7 +15551,7 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/payroll/profiles',
     operationId: 'public.payroll.profiles.upsert',
   },
   tool: {
@@ -15551,9 +15577,11 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     if (!employeeID) {
       return asErrorResult('`employee_id` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/profiles', {
-      body: buildPayrollProfileBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post('/api/v2/payroll/profiles', {
+        body: buildPayrollProfileBody(args),
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15577,7 +15605,7 @@ export const crmListPayrollRunsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs',
+    httpPath: '/api/v2/payroll/runs',
     operationId: 'public.payroll.runs.list',
   },
   tool: {
@@ -15599,16 +15627,18 @@ export const crmListPayrollRunsTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const payload = (await reqContext.client.get('/v1/public/payroll/runs', {
-      query: buildPayrollRunListParams(args),
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollListPayload(
+      (await reqContext.client.get('/api/v2/payroll/runs', {
+        query: buildPayrollRunListParams(args),
+      })) as Record<string, unknown>,
+    );
     const data = readDataArray(payload);
     return buildListResult({
       label: 'payroll runs',
       payload: {
         count: readNumber(payload['count'], data.length),
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} payroll runs.`,
+        message: `Returned ${data.length} payroll runs.`,
         page: 1,
         total: readNumber(payload['count'], data.length),
       },
@@ -15623,7 +15653,7 @@ export const crmGetPayrollRunTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}',
+    httpPath: '/api/v2/payroll/runs/{run_id}',
     operationId: 'public.payroll.runs.retrieve',
   },
   tool: {
@@ -15649,9 +15679,12 @@ export const crmGetPayrollRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}`, {
-      query: buildWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollRecordPayload(
+      (await reqContext.client.get(`/api/v2/payroll/runs/${encodeURIComponent(runID)}`)) as Record<
+        string,
+        unknown
+      >,
+    );
     const data = readPayloadDataRecord(payload);
     const run = readRecord(data['run']) ?? data;
     return {
@@ -15667,7 +15700,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    httpPath: '/api/v2/payroll/runs/{run_id}/payslips/pdf',
     operationId: 'public.payroll.runs.payslips.downloadPDF',
   },
   tool: {
@@ -15695,7 +15728,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = await reqContext.client
-      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+      .get(`/api/v2/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
         query: params,
       })
       .asResponse();
@@ -15709,7 +15742,7 @@ export const crmCalculatePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/calculate',
+    httpPath: '/api/v2/payroll/runs/calculate',
     operationId: 'public.payroll.runs.calculate',
   },
   tool: {
@@ -15734,9 +15767,11 @@ export const crmCalculatePayrollRunTool: McpTool = {
     if (!readString(args?.['period'])) {
       return asErrorResult('`period` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/runs/calculate', {
-      body: buildPayrollRunCalculateBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post('/api/v2/payroll/runs/calculate', {
+        body: buildPayrollRunCalculateBody(args),
+      })) as Record<string, unknown>,
+    );
     const data = readPayloadDataRecord(response);
     const run = readRecord(data['run']) ?? data;
     return {
@@ -15812,7 +15847,7 @@ export const crmApprovePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/{run_id}/approve',
+    httpPath: '/api/v2/payroll/runs/{run_id}/approve',
     operationId: 'public.payroll.runs.approve',
   },
   tool: {
@@ -15838,12 +15873,12 @@ export const crmApprovePayrollRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const response = (await reqContext.client.post(
-      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/approve`,
-      {
-        query: buildWorkspaceQuery(args),
-      },
-    )) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post(`/api/v2/payroll/runs/${encodeURIComponent(runID)}/approve`)) as Record<
+        string,
+        unknown
+      >,
+    );
     const data = readPayloadDataRecord(response);
     const run = readRecord(data['run']) ?? data;
     return {

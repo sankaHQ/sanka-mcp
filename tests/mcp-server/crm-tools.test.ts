@@ -9196,6 +9196,7 @@ describe('ChatGPT CRM tools', () => {
         message: 'created',
       })
       .mockResolvedValueOnce({
+        success: true,
         data: {
           run: {
             id: 'run-1',
@@ -9204,7 +9205,7 @@ describe('ChatGPT CRM tools', () => {
           },
           results: [],
         },
-        message: 'OK',
+        meta: { ctx_id: 'ctx-payroll-calc' },
       })
       .mockResolvedValueOnce({
         data: {
@@ -9282,11 +9283,13 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { period: '2026-04', pay_date: '2026-04-30' },
     });
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/public/payroll/runs/calculate', {
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v2/payroll/runs/calculate', {
       body: { period: '2026-04', pay_date: '2026-04-30' },
     });
     expect(payrollResult.structuredContent).toMatchObject({
       data: { run: { id: 'run-1', period: '2026-04' } },
+      message: 'OK',
+      ctx_id: 'ctx-payroll-calc',
     });
 
     const payrollJournalResult = await crmCreatePayrollJournalEntryTool.handler({
@@ -9321,7 +9324,7 @@ describe('ChatGPT CRM tools', () => {
       },
     });
 
-    expect(get).toHaveBeenLastCalledWith('/v1/public/payroll/runs/run-1/payslips/pdf', {
+    expect(get).toHaveBeenLastCalledWith('/api/v2/payroll/runs/run-1/payslips/pdf', {
       query: {
         result_id: 'result-1',
         language: 'ja',
@@ -9334,6 +9337,134 @@ describe('ChatGPT CRM tools', () => {
       download_complete: true,
       content_base64_available: true,
       content_base64: pdfBytes.toString('base64'),
+    });
+  });
+
+  it('normalizes V2 payroll envelopes back to the legacy tool payload shape', async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'profile-1',
+              employee_id: 'worker-1',
+              employee_name: 'NM',
+              pay_type: 'monthly',
+              base_salary: 300000,
+              jurisdiction_country_code: 'JP',
+            },
+          ],
+          employee_options: [{ id: 'worker-1', label: 'NM' }],
+          count: 1,
+        },
+        meta: { ctx_id: 'ctx-profiles' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [{ id: 'run-1', period: '2026-04', status: 'calculated' }],
+          count: 1,
+        },
+        meta: { ctx_id: 'ctx-runs' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          run: { id: 'run-1', period: '2026-04', status: 'calculated' },
+          results: [{ id: 'result-1', employee_id: 'worker-1', net_pay: 250000 }],
+        },
+        meta: { ctx_id: 'ctx-run-detail' },
+      });
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          id: 'profile-1',
+          employee_id: 'worker-1',
+          pay_type: 'monthly',
+          base_salary: 300000,
+        },
+        meta: { ctx_id: 'ctx-upsert' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          run: { id: 'run-1', period: '2026-04', status: 'approved' },
+          results: [],
+        },
+        meta: { ctx_id: 'ctx-approve' },
+      });
+
+    const reqContext = {
+      client: { get, post } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const profilesResult = await crmListPayrollProfilesTool.handler({
+      reqContext,
+      args: { employee_id: 'worker-1', workspace_id: 'ws-1' },
+    });
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/payroll/profiles', {
+      query: { employee_id: 'worker-1' },
+    });
+    expect(profilesResult.structuredContent).toMatchObject({
+      count: 1,
+      total: 1,
+      results: [{ id: 'profile-1', employee_name: 'NM' }],
+    });
+
+    const runsResult = await crmListPayrollRunsTool.handler({
+      reqContext,
+      args: { period: '2026-04', workspace_id: 'ws-1' },
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/payroll/runs', {
+      query: { period: '2026-04' },
+    });
+    expect(runsResult.structuredContent).toMatchObject({
+      count: 1,
+      results: [{ id: 'run-1', period: '2026-04' }],
+    });
+
+    const runDetailResult = await crmGetPayrollRunTool.handler({
+      reqContext,
+      args: { run_id: 'run-1', workspace_id: 'ws-1' },
+    });
+    expect(get).toHaveBeenNthCalledWith(3, '/api/v2/payroll/runs/run-1');
+    expect(runDetailResult.structuredContent).toMatchObject({
+      data: {
+        run: { id: 'run-1' },
+        results: [{ id: 'result-1', net_pay: 250000 }],
+      },
+      message: 'OK',
+      ctx_id: 'ctx-run-detail',
+    });
+
+    const upsertResult = await crmUpsertPayrollProfileTool.handler({
+      reqContext,
+      args: { employee_id: 'worker-1', pay_type: 'monthly', base_salary: 300000 },
+    });
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v2/payroll/profiles', {
+      body: { employee_id: 'worker-1', pay_type: 'monthly', base_salary: 300000 },
+    });
+    expect(upsertResult.structuredContent).toMatchObject({
+      data: { id: 'profile-1', employee_id: 'worker-1' },
+      message: 'OK',
+      ctx_id: 'ctx-upsert',
+    });
+
+    const approveResult = await crmApprovePayrollRunTool.handler({
+      reqContext,
+      args: { run_id: 'run-1', workspace_id: 'ws-1' },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/api/v2/payroll/runs/run-1/approve');
+    expect(approveResult.structuredContent).toMatchObject({
+      data: { run: { id: 'run-1', status: 'approved' } },
+      message: 'OK',
+      ctx_id: 'ctx-approve',
     });
   });
 
