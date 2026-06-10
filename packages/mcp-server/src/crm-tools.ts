@@ -9485,15 +9485,17 @@ const buildPagedWorkspaceParams = (args: Record<string, unknown> | undefined, de
 };
 
 const buildAbsenceListParams = (args: Record<string, unknown> | undefined) => {
-  const result = buildPagedWorkspaceParams(args, 10);
-  assignStringFields(result.params, args, [
+  const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 10)));
+  const page = Math.max(1, readNumber(args?.['page'], 1));
+  const params: Record<string, unknown> = { page, page_size: limit };
+  assignStringFields(params, args, [
     'worker_id',
     'status',
     'usage_status',
     'start_date_from',
     'start_date_to',
   ]);
-  return result;
+  return { limit, page, params };
 };
 
 const buildEmployeeListParams = (args: Record<string, unknown> | undefined) => {
@@ -9539,6 +9541,28 @@ const legacyPayrollRecordPayload = (payload: Record<string, unknown>): Record<st
   ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
 });
 
+// V2 HR object routes (absences, attendance-records, incentives) follow the same
+// X-Workspace-Code scoping and envelope conventions as payroll above.
+const legacyV2RecordPayload = (payload: Record<string, unknown>): Record<string, unknown> => ({
+  data: readRecord(payload['data']) ?? {},
+  message: 'OK',
+  ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
+});
+
+const readV2ListItems = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = readRecord(payload['data']) ?? {};
+  const items = data['items'];
+  return Array.isArray(items) ? items.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const readV2ListMeta = (payload: Record<string, unknown>, fallbackPage: number) => {
+  const data = readRecord(payload['data']) ?? {};
+  return {
+    page: readNumber(data['page'], fallbackPage),
+    total: readNumber(data['total'], 0),
+  };
+};
+
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -9555,9 +9579,15 @@ const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => 
 };
 
 const buildAttendanceRecordListParams = (args: Record<string, unknown> | undefined) => {
-  const result = buildPagedWorkspaceParams(args, 10);
-  assignStringFields(result.params, args, ['search', 'usage_status', 'sort']);
-  return result;
+  const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 10)));
+  const page = Math.max(1, readNumber(args?.['page'], 1));
+  const params: Record<string, unknown> = { page, page_size: limit };
+  assignStringFields(params, args, ['usage_status']);
+  const search = readString(args?.['search']);
+  if (search) {
+    params['q'] = search;
+  }
+  return { limit, page, params };
 };
 
 const buildAttendanceRecordMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -9655,8 +9685,6 @@ const buildRecordMutationSummary = ({
 };
 
 const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => {
-  const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
   const rawLimit = readNumber(args?.['limit'], 25);
   const rawPage = readNumber(args?.['page'], 1);
   const limit = Math.max(1, Math.min(100, rawLimit));
@@ -9674,34 +9702,19 @@ const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => 
     'sort',
     'sort_direction',
   ]);
-  if (workspaceID) {
-    params['workspace_id'] = workspaceID;
-  }
-  if (language) {
-    params['Accept-Language'] = language;
-  }
   return { limit, page, params };
 };
 
-const buildIncentivePlanListParams = (args: Record<string, unknown> | undefined) => {
-  const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
-  return {
-    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(language ? { 'Accept-Language': language } : undefined),
-  };
+const buildIncentivePlanListParams = (_args: Record<string, unknown> | undefined) => {
+  return {};
 };
 
 const buildIncentiveCompanyOptionsParams = (args: Record<string, unknown> | undefined) => {
-  const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
   const q = readString(args?.['q']);
   const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 30)));
   return {
     limit,
     ...(q ? { q } : undefined),
-    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
 
@@ -15005,7 +15018,7 @@ export const crmListAbsencesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'get',
-    httpPath: '/v1/public/absences',
+    httpPath: '/api/v2/absences',
     operationId: 'public.absences.list',
   },
   tool: {
@@ -15030,18 +15043,19 @@ export const crmListAbsencesTool: McpTool = {
     }
 
     const { limit, page, params } = buildAbsenceListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/absences', {
+    const payload = (await reqContext.client.get('/api/v2/absences', {
       query: params,
     })) as Record<string, unknown>;
-    const data = readDataArray(payload).slice(0, limit);
+    const data = readV2ListItems(payload).slice(0, limit);
+    const meta = readV2ListMeta(payload, page);
     return buildListResult({
       label: 'absences',
       payload: {
         count: data.length,
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} absences.`,
-        page: readNumber(payload['page'], page),
-        total: readNumber(payload['total'], data.length),
+        message: `Returned ${data.length} absences.`,
+        page: meta.page,
+        total: Math.max(meta.total, data.length),
       },
       previewKeys: ['absence_id', 'absence_type', 'status', 'worker_name', 'start_date', 'end_date'],
     });
@@ -15054,7 +15068,7 @@ export const crmGetAbsenceTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'get',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpPath: '/api/v2/absences/{absence_id}',
     operationId: 'public.absences.retrieve',
   },
   tool: {
@@ -15080,14 +15094,15 @@ export const crmGetAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
-      query: buildWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const payload = (await reqContext.client.get(
+      `/api/v2/absences/${encodeURIComponent(absenceID)}`,
+    )) as Record<string, unknown>;
+    const record = readPayloadDataRecord(payload);
     return {
       content: [
-        { type: 'text', text: `Loaded absence ${payload['absence_id'] ?? payload['id'] ?? absenceID}.` },
+        { type: 'text', text: `Loaded absence ${record['absence_id'] ?? record['id'] ?? absenceID}.` },
       ],
-      structuredContent: payload,
+      structuredContent: legacyV2RecordPayload(payload),
     };
   },
 };
@@ -15098,7 +15113,7 @@ export const crmCreateAbsenceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'post',
-    httpPath: '/v1/public/absences',
+    httpPath: '/api/v2/absences',
     operationId: 'public.absences.create',
   },
   tool: {
@@ -15120,9 +15135,11 @@ export const crmCreateAbsenceTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const response = (await reqContext.client.post('/v1/public/absences', {
-      body: buildAbsenceMutationBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.post('/api/v2/absences', {
+        body: buildAbsenceMutationBody(args),
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15145,8 +15162,8 @@ export const crmUpdateAbsenceTool: McpTool = {
     resource: 'absences',
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/absences/{absence_id}',
     operationId: 'public.absences.update',
   },
   tool: {
@@ -15172,9 +15189,11 @@ export const crmUpdateAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const response = (await reqContext.client.put(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
-      body: buildAbsenceMutationBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.patch(`/api/v2/absences/${encodeURIComponent(absenceID)}`, {
+        body: buildAbsenceMutationBody(args),
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15198,7 +15217,7 @@ export const crmDeleteAbsenceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpPath: '/api/v2/absences/{absence_id}',
     operationId: 'public.absences.delete',
   },
   tool: {
@@ -15224,9 +15243,12 @@ export const crmDeleteAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const response = (await reqContext.client.delete(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
-      query: buildWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.delete(`/api/v2/absences/${encodeURIComponent(absenceID)}`)) as Record<
+        string,
+        unknown
+      >,
+    );
     return {
       content: [
         {
@@ -15250,7 +15272,7 @@ export const crmListAttendanceRecordsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'get',
-    httpPath: '/v1/public/attendance-records',
+    httpPath: '/api/v2/attendance-records',
     operationId: 'public.attendanceRecords.list',
   },
   tool: {
@@ -15274,18 +15296,19 @@ export const crmListAttendanceRecordsTool: McpTool = {
       return authError;
     }
     const { limit, page, params } = buildAttendanceRecordListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/attendance-records', {
+    const payload = (await reqContext.client.get('/api/v2/attendance-records', {
       query: params,
     })) as Record<string, unknown>;
-    const data = readDataArray(payload).slice(0, limit);
+    const data = readV2ListItems(payload).slice(0, limit);
+    const meta = readV2ListMeta(payload, page);
     return buildListResult({
       label: 'attendance records',
       payload: {
         count: data.length,
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} attendance records.`,
-        page: readNumber(payload['page'], page),
-        total: readNumber(payload['total'], data.length),
+        message: `Returned ${data.length} attendance records.`,
+        page: meta.page,
+        total: Math.max(meta.total, data.length),
       },
       previewKeys: ['track_id', 'external_id', 'name', 'status', 'start_time', 'duration'],
     });
@@ -15298,7 +15321,7 @@ export const crmGetAttendanceRecordTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'get',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpPath: '/api/v2/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.retrieve',
   },
   tool: {
@@ -15325,14 +15348,19 @@ export const crmGetAttendanceRecordTool: McpTool = {
       return asErrorResult('`attendance_record_id` is required.');
     }
     const payload = (await reqContext.client.get(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
-      {
-        query: buildWorkspaceQuery(args),
-      },
+      `/api/v2/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
     )) as Record<string, unknown>;
+    const record = readPayloadDataRecord(payload);
     return {
-      content: [{ type: 'text', text: `Loaded attendance record ${payload['track_id'] ?? payload['id']}.` }],
-      structuredContent: payload,
+      content: [
+        {
+          type: 'text',
+          text: `Loaded attendance record ${
+            record['attendance_record_id'] ?? record['track_id'] ?? record['id'] ?? attendanceRecordID
+          }.`,
+        },
+      ],
+      structuredContent: legacyV2RecordPayload(payload),
     };
   },
 };
@@ -15343,7 +15371,7 @@ export const crmCreateAttendanceRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'post',
-    httpPath: '/v1/public/attendance-records',
+    httpPath: '/api/v2/attendance-records',
     operationId: 'public.attendanceRecords.create',
   },
   tool: {
@@ -15365,9 +15393,11 @@ export const crmCreateAttendanceRecordTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const response = (await reqContext.client.post('/v1/public/attendance-records', {
-      body: buildAttendanceRecordMutationBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.post('/api/v2/attendance-records', {
+        body: buildAttendanceRecordMutationBody(args),
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15390,8 +15420,8 @@ export const crmUpdateAttendanceRecordTool: McpTool = {
     resource: 'attendance_records',
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.update',
   },
   tool: {
@@ -15417,12 +15447,11 @@ export const crmUpdateAttendanceRecordTool: McpTool = {
     if (!attendanceRecordID) {
       return asErrorResult('`attendance_record_id` is required.');
     }
-    const response = (await reqContext.client.put(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
-      {
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.patch(`/api/v2/attendance-records/${encodeURIComponent(attendanceRecordID)}`, {
         body: buildAttendanceRecordMutationBody(args),
-      },
-    )) as Record<string, unknown>;
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15446,7 +15475,7 @@ export const crmDeleteAttendanceRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpPath: '/api/v2/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.delete',
   },
   tool: {
@@ -15472,12 +15501,11 @@ export const crmDeleteAttendanceRecordTool: McpTool = {
     if (!attendanceRecordID) {
       return asErrorResult('`attendance_record_id` is required.');
     }
-    const response = (await reqContext.client.delete(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
-      {
-        query: buildWorkspaceQuery(args),
-      },
-    )) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.delete(
+        `/api/v2/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      )) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -15899,7 +15927,7 @@ export const crmListIncentivesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives',
+    httpPath: '/api/v2/incentives',
     operationId: 'public.incentives.list',
   },
   tool: {
@@ -15926,15 +15954,14 @@ export const crmListIncentivesTool: McpTool = {
       return authError;
     }
 
-    const { limit, params } = buildIncentiveListParams(args);
-    const { data: incentives, response } = await reqContext.client
-      .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
-        query: params,
-      })
-      .withResponse();
-    const results = incentives.slice(0, limit).map((incentive) => incentive as Record<string, unknown>);
-    const total = readHeaderNumber(response.headers, 'x-sanka-total') ?? incentives.length;
-    const page = readHeaderNumber(response.headers, 'x-sanka-page') ?? Number(params['page'] ?? 1);
+    const { limit, page: requestedPage, params } = buildIncentiveListParams(args);
+    const payload = (await reqContext.client.get('/api/v2/incentives', {
+      query: params,
+    })) as Record<string, unknown>;
+    const results = readV2ListItems(payload).slice(0, limit);
+    const meta = readV2ListMeta(payload, requestedPage);
+    const total = Math.max(meta.total, results.length);
+    const page = meta.page;
 
     return buildListResult({
       label: 'incentives',
@@ -15956,7 +15983,7 @@ export const crmListIncentivePlansTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives/plans',
+    httpPath: '/api/v2/incentives/plans',
     operationId: 'public.incentives.plans.list',
   },
   tool: {
@@ -15982,9 +16009,11 @@ export const crmListIncentivePlansTool: McpTool = {
       return authError;
     }
 
-    const plans = (await reqContext.client.get('/v1/public/incentives/plans', {
-      query: buildIncentivePlanListParams(args),
-    })) as Array<Record<string, unknown>>;
+    const plans = readV2ListItems(
+      (await reqContext.client.get('/api/v2/incentives/plans', {
+        query: buildIncentivePlanListParams(args),
+      })) as Record<string, unknown>,
+    );
 
     return buildListResult({
       label: 'incentive plans',
@@ -16006,7 +16035,7 @@ export const crmListIncentiveCompanyOptionsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance', 'companies'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives/company-options',
+    httpPath: '/api/v2/incentives/company-options',
     operationId: 'public.incentives.companyOptions.list',
   },
   tool: {
@@ -16032,9 +16061,11 @@ export const crmListIncentiveCompanyOptionsTool: McpTool = {
       return authError;
     }
 
-    const companies = (await reqContext.client.get('/v1/public/incentives/company-options', {
-      query: buildIncentiveCompanyOptionsParams(args),
-    })) as Array<Record<string, unknown>>;
+    const companies = readV2ListItems(
+      (await reqContext.client.get('/api/v2/incentives/company-options', {
+        query: buildIncentiveCompanyOptionsParams(args),
+      })) as Record<string, unknown>,
+    );
 
     return buildListResult({
       label: 'incentive company options',
@@ -16056,7 +16087,7 @@ export const crmCreateIncentivePlanTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/plans',
+    httpPath: '/api/v2/incentives/plans',
     operationId: 'public.incentives.plans.create',
   },
   tool: {
@@ -16100,10 +16131,11 @@ export const crmCreateIncentivePlanTool: McpTool = {
       return asErrorResult('`effective_from` is required.');
     }
 
-    const response = (await reqContext.client.post('/v1/public/incentives/plans', {
-      body,
-      query: buildIncentiveWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.post('/api/v2/incentives/plans', {
+        body,
+      })) as Record<string, unknown>,
+    );
 
     return {
       content: [
@@ -16120,7 +16152,7 @@ export const crmCalculateIncentivesTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/calculate',
+    httpPath: '/api/v2/incentives/calculate',
     operationId: 'public.incentives.calculate',
   },
   tool: {
@@ -16155,10 +16187,11 @@ export const crmCalculateIncentivesTool: McpTool = {
       body['dry_run'] = true;
     }
 
-    const response = (await reqContext.client.post('/v1/public/incentives/calculate', {
-      body,
-      query: buildIncentiveWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const response = legacyV2RecordPayload(
+      (await reqContext.client.post('/api/v2/incentives/calculate', {
+        body,
+      })) as Record<string, unknown>,
+    );
     const data = readRecord(response['data']) ?? {};
     const summary = readRecord(data['summary']) ?? {};
     const storedCount = typeof summary['stored_count'] === 'number' ? summary['stored_count'] : 0;
@@ -16186,7 +16219,7 @@ export const crmApproveIncentivesTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/approve-bulk',
+    httpPath: '/api/v2/incentives/approve-bulk',
     operationId: 'public.incentives.approve',
   },
   tool: {
@@ -16218,16 +16251,18 @@ export const crmApproveIncentivesTool: McpTool = {
       return asErrorResult('`incentive_id` or `ids` is required.');
     }
 
-    const query = buildIncentiveWorkspaceQuery(args);
     const response =
       ids.length > 0 ?
-        ((await reqContext.client.post('/v1/public/incentives/approve-bulk', {
-          body: { ids },
-          query,
-        })) as Record<string, unknown>)
-      : ((await reqContext.client.post(`/v1/public/incentives/${incentiveID}/approve`, {
-          query,
-        })) as Record<string, unknown>);
+        legacyV2RecordPayload(
+          (await reqContext.client.post('/api/v2/incentives/approve-bulk', {
+            body: { ids },
+          })) as Record<string, unknown>,
+        )
+      : legacyV2RecordPayload(
+          (await reqContext.client.post(
+            `/api/v2/incentives/${encodeURIComponent(incentiveID ?? '')}/approve`,
+          )) as Record<string, unknown>,
+        );
 
     return {
       content: [
@@ -16244,7 +16279,7 @@ export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives',
+    httpPath: '/api/v2/incentives',
     operationId: 'public.incentives.paymentNotice.generate',
   },
   tool: {
@@ -16280,23 +16315,18 @@ export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
     const payeeCompanyID = readString(args?.['payee_company_id']);
     const payeeCompanyName = readString(args?.['payee_company_name']);
     const status = readString(args?.['status']);
-    const workspaceID = readString(args?.['workspace_id']);
-    const language = readString(args?.['language']);
     const rows: Array<Record<string, unknown>> = [];
 
     for (const period of periods) {
-      const { data: incentives } = await reqContext.client
-        .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
-          query: {
-            period,
-            limit: 100,
-            page: 1,
-            ...(status ? { status } : undefined),
-            ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-            ...(language ? { 'Accept-Language': language } : undefined),
-          },
-        })
-        .withResponse();
+      const payload = (await reqContext.client.get('/api/v2/incentives', {
+        query: {
+          period,
+          limit: 100,
+          page: 1,
+          ...(status ? { status } : undefined),
+        },
+      })) as Record<string, unknown>;
+      const incentives = readV2ListItems(payload);
       rows.push(
         ...incentives.filter((row) => {
           if (!payeeCompanyID) {
