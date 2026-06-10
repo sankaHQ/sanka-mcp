@@ -46,10 +46,12 @@ describe('workflow run MCP tools', () => {
     expect(getWorkflowRunTool.metadata.httpPath).toBe('/api/v2/public/workflow-runs/{run_id}');
   });
 
-  it('keeps order-first, handoff, freee sync, revenue summaries, and commission reports inside generic workflow tools', () => {
+  it('keeps order-first, handoff, accounting sync, revenue summaries, and commission reports inside generic workflow tools', () => {
     const toolNames = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
     const workflowTypeSchema = (previewWorkflowTool.tool.inputSchema as any).properties.workflow_type;
     const workflowTypes = workflowTypeSchema.enum as string[];
+    const previewOptions = (previewWorkflowTool.tool.inputSchema as any).properties.options.properties;
+    const startOptions = (startWorkflowTool.tool.inputSchema as any).properties.options.properties;
 
     expect(workflowTypes).toContain('deal_to_order');
     expect(workflowTypes).toContain('deal_to_subscription');
@@ -63,6 +65,8 @@ describe('workflow run MCP tools', () => {
     expect(workflowTypes).toContain('revenue_control_summary');
     expect(workflowTypes).toContain('sales_incentive_commission');
     expect(workflowTypes).not.toContain('deal_to_invoice');
+    expect(previewOptions.allow_recreate_moneyforward_draft).toEqual({ type: 'boolean' });
+    expect(startOptions.allow_recreate_moneyforward_draft).toEqual({ type: 'boolean' });
     expect((startWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
     expect((previewWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
     expect(toolNames).not.toContain('create_order_from_hubspot_deal');
