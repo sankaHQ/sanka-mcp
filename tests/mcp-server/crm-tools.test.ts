@@ -9171,29 +9171,31 @@ describe('ChatGPT CRM tools', () => {
         message: 'OK',
       })
       .mockResolvedValueOnce({
-        data: [
-          {
-            id: 'att-1',
-            track_id: 1,
-            name: 'Daily attendance',
-            status: 'stop',
-          },
-        ],
-        page: 1,
-        total: 1,
-        count: 1,
-        message: 'OK',
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'att-1',
+              track_id: 1,
+              name: 'Daily attendance',
+              status: 'stop',
+            },
+          ],
+          page: 1,
+          total: 1,
+        },
+        meta: { ctx_id: 'ctx-attendance-list' },
       });
     const post = jest
       .fn()
       .mockResolvedValueOnce({
+        success: true,
         data: {
           id: 'absence-1',
           absence_id: 1,
           status: 'submitted',
         },
-        status: 'created',
-        message: 'created',
+        meta: { ctx_id: 'ctx-absence-create' },
       })
       .mockResolvedValueOnce({
         success: true,
@@ -9251,7 +9253,7 @@ describe('ChatGPT CRM tools', () => {
         absence_type: 'pto',
       },
     });
-    expect(post).toHaveBeenNthCalledWith(1, '/v1/public/absences', {
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v2/absences', {
       body: {
         worker_id: 'worker-1',
         start_date: '2026-05-22',
@@ -9267,8 +9269,8 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: { limit: 5, search: 'Daily' },
     });
-    expect(get).toHaveBeenNthCalledWith(2, '/v1/public/attendance-records', {
-      query: { limit: 5, page: 1, search: 'Daily' },
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/attendance-records', {
+      query: { page: 1, page_size: 5, q: 'Daily' },
     });
     expect(attendanceResult.structuredContent?.['results']).toEqual([
       {
