@@ -271,6 +271,48 @@ describe('public object-record updates on V2', () => {
     expect(calls).toEqual(['PATCH http://localhost:5000/api/v2/expenses/expense-1?external_id=EXP-EXT']);
   });
 
+  test('preserves uploaded expense attachments in V2 PATCH properties', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
+          properties: {
+            attachment_file: { files: [{ file_id: 'file-1' }] },
+            company_external_id: 'vendor-ext-1',
+            status: 'submitted',
+          },
+        });
+        return envelope({
+          id: 'expense-1',
+          record_id: '9001',
+          object_type: 'expense',
+          properties: { status: 'submitted' },
+        });
+      },
+    });
+
+    await expect(
+      client.public.expenses.update('expense-1', {
+        attachment_file: { files: [{ file_id: 'file-1' }] },
+        company_external_id: 'vendor-ext-1',
+        external_id: 'EXP-EXT',
+        status: 'submitted',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      status: 'updated',
+      expense_id: 'expense-1',
+      external_id: 'EXP-EXT',
+      ctx_id: 'ctx-test',
+    });
+
+    expect(calls).toEqual(['PATCH http://localhost:5000/api/v2/expenses/expense-1?external_id=EXP-EXT']);
+  });
+
   test('uses V2 PATCH for scalar bill updates', async () => {
     const calls: string[] = [];
     const client = new Sanka({

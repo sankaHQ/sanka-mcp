@@ -90,11 +90,14 @@ the MCP server.
 The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 - `auth_status`: read-only CRM auth readiness check
-- `list_private_messages`: read-only private inbox review for the authenticated user
-- `sync_private_messages`: pull the latest private inbox threads into Sanka
-- `get_private_message_thread`: load one private inbox thread and its history
-- `reply_private_message_thread`: send a reply on a private inbox thread
-- `archive_private_message_thread`: archive a private inbox thread
+- `list_workspace_messages`: read shared workspace/integration inbox threads from connected channels; prefer this for Sanka-connected Gmail, `/conversation`, Contact Conversation, shared inbox, group inbox, and workspace inbox
+- `sync_workspace_messages`: pull latest shared workspace/integration inbox threads into Sanka; prefer this for connected Gmail integration inbox requests
+- `get_workspace_message_thread`: load one shared workspace/integration inbox thread and its history/body
+- `list_private_messages`: read-only private/personal account-level inbox review for the authenticated user only
+- `sync_private_messages`: pull latest private/personal account-level inbox threads into Sanka only
+- `get_private_message_thread`: load one private/personal account-level inbox thread and its history
+- `reply_private_message_thread`: send a reply on a private/personal account-level inbox thread
+- `archive_private_message_thread`: archive a private/personal account-level inbox thread
 - `list_companies`: read-only company search
 - `get_company`: load a single company
 - `create_company`: create or upsert a company by external reference

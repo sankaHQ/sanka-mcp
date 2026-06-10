@@ -56,6 +56,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_workspace_messages');
+    expect(toolNames).toContain('sync_workspace_messages');
+    expect(toolNames).toContain('get_workspace_message_thread');
     expect(toolNames).toContain('list_associations');
     expect(toolNames).toContain('create_association');
     expect(toolNames).toContain('delete_association');
@@ -168,6 +171,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_expenses');
     expect(toolNames).toContain('get_expense');
     expect(toolNames).toContain('upload_expense_attachment');
+    expect(toolNames).toContain('start_expense_attachment_upload');
+    expect(toolNames).toContain('append_expense_attachment_upload_chunk');
+    expect(toolNames).toContain('finish_expense_attachment_upload');
     expect(toolNames).toContain('upload_order_attachment');
     expect(toolNames).toContain('upload_purchase_order_attachment');
     expect(toolNames).toContain('upload_estimate_attachment');
@@ -216,6 +222,10 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_property');
     expect(toolNames).toContain('update_property');
     expect(toolNames).toContain('delete_property');
+    expect(toolNames).toContain('create_approval_request');
+    expect(toolNames).toContain('list_record_approvals');
+    expect(toolNames).toContain('approve_record_approval');
+    expect(toolNames).toContain('reject_record_approval');
     expect(toolNames).toContain('list_approval_rules');
     expect(toolNames).toContain('get_approval_rule_options');
     expect(toolNames).toContain('upsert_approval_rule');
@@ -280,6 +290,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('get_private_message_thread');
     expect(toolNames).toContain('reply_private_message_thread');
     expect(toolNames).toContain('archive_private_message_thread');
+    expect(toolNames).toContain('list_workspace_messages');
+    expect(toolNames).toContain('sync_workspace_messages');
+    expect(toolNames).toContain('get_workspace_message_thread');
     expect(toolNames).toContain('list_associations');
     expect(toolNames).toContain('create_association');
     expect(toolNames).toContain('delete_association');
@@ -392,6 +405,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_expenses');
     expect(toolNames).toContain('get_expense');
     expect(toolNames).toContain('upload_expense_attachment');
+    expect(toolNames).toContain('start_expense_attachment_upload');
+    expect(toolNames).toContain('append_expense_attachment_upload_chunk');
+    expect(toolNames).toContain('finish_expense_attachment_upload');
     expect(toolNames).toContain('upload_order_attachment');
     expect(toolNames).toContain('upload_purchase_order_attachment');
     expect(toolNames).toContain('upload_estimate_attachment');
@@ -472,6 +488,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_workspace_messages');
+    expect(instructions).toContain('sync_workspace_messages');
+    expect(instructions).toContain('get_workspace_message_thread');
     expect(instructions).toContain('list_associations');
     expect(instructions).toContain('create_association');
     expect(instructions).toContain('delete_association');
@@ -592,6 +611,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('start_expense_attachment_upload');
+    expect(instructions).toContain('append_expense_attachment_upload_chunk');
+    expect(instructions).toContain('finish_expense_attachment_upload');
     expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_order_attachment');
     expect(instructions).toContain('upload_purchase_order_attachment');
@@ -664,6 +686,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('get_private_message_thread');
     expect(instructions).toContain('reply_private_message_thread');
     expect(instructions).toContain('archive_private_message_thread');
+    expect(instructions).toContain('list_workspace_messages');
+    expect(instructions).toContain('sync_workspace_messages');
+    expect(instructions).toContain('get_workspace_message_thread');
     expect(instructions).toContain('list_associations');
     expect(instructions).toContain('create_association');
     expect(instructions).toContain('delete_association');
@@ -777,6 +802,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_expenses');
     expect(instructions).toContain('get_expense');
     expect(instructions).toContain('upload_expense_attachment');
+    expect(instructions).toContain('start_expense_attachment_upload');
+    expect(instructions).toContain('append_expense_attachment_upload_chunk');
+    expect(instructions).toContain('finish_expense_attachment_upload');
     expect(instructions).toContain('upload_bill_attachment');
     expect(instructions).toContain('upload_order_attachment');
     expect(instructions).toContain('upload_purchase_order_attachment');

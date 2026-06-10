@@ -110,4 +110,40 @@ describe('record URL enrichment', () => {
       },
     ]);
   });
+
+  it('does not enrich child rows when the parent payload is an integration result', () => {
+    const result = enrichRecordUrlsForToolResult({
+      result: {
+        content: [{ type: 'text', text: 'Found 1 deals.' }],
+        structuredContent: {
+          scope: 'integration',
+          provider: 'hubspot',
+          external_object_type: 'deals',
+          data_origin: 'integration',
+          source_of_truth: 'hubspot',
+          results: [
+            {
+              id: '60556921488',
+              external_id: '60556921488',
+              name: 'Mirai Cloud - SearchOS Enterprise',
+              url: 'https://app.hubspot.com/contacts/90249835/record/0-3/60556921488',
+            },
+          ],
+        },
+      },
+      resource: 'deals',
+      reqContext,
+      args: { language: 'ja' },
+    });
+
+    expect(result.structuredContent?.['results']).toEqual([
+      {
+        id: '60556921488',
+        external_id: '60556921488',
+        name: 'Mirai Cloud - SearchOS Enterprise',
+        url: 'https://app.hubspot.com/contacts/90249835/record/0-3/60556921488',
+      },
+    ]);
+    expect(result.content?.[0]).toEqual({ type: 'text', text: 'Found 1 deals.' });
+  });
 });

@@ -10,12 +10,14 @@ import {
 import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { browserUseTool } from './browser-use-tools';
+import { getCapabilityGuidanceTool } from './capability-guidance-tools';
 import { codeTool } from './code-tool';
 import {
   crmArchiveCustomObjectRecordTool,
   crmArchivePrivateMessageThreadTool,
   crmAggregateRecordsTool,
   crmApplyCompanyPriceTableItemsTool,
+  crmApproveRecordApprovalTool,
   crmApprovePayrollRunTool,
   crmApproveIncentivesTool,
   crmCancelCalendarAttendanceTool,
@@ -24,6 +26,7 @@ import {
   crmCreateCalendarAttendanceTool,
   crmCreateAssociationTool,
   crmCreateCompanyTool,
+  crmCreateApprovalRequestTool,
   crmCreateContactTool,
   crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
@@ -123,6 +126,7 @@ import {
   crmGetDisbursementTool,
   crmGetSlipTool,
   crmGetPrivateMessageThreadTool,
+  crmGetWorkspaceMessageThreadTool,
   crmGetApprovalRuleOptionsTool,
   crmGetDeliveryRuleOptionsTool,
   crmGetLockRuleOptionsTool,
@@ -165,7 +169,9 @@ import {
   crmListDisbursementsTool,
   crmListSlipsTool,
   crmListPrivateMessagesTool,
+  crmListWorkspaceMessagesTool,
   crmListObjectSchemasTool,
+  crmListRecordApprovalsTool,
   crmListApprovalRulesTool,
   crmListDeliveryRulesTool,
   crmListLockRulesTool,
@@ -180,10 +186,12 @@ import {
   crmQueryRecordsTool,
   crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
+  crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
   crmSendInvoiceEmailTool,
   crmSyncPrivateMessagesTool,
+  crmSyncWorkspaceMessagesTool,
   crmSwitchWorkspaceTool,
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
@@ -222,6 +230,9 @@ import {
   crmCalculatePayrollRunTool,
   crmUpdateViewTool,
   crmUploadExpenseAttachmentTool,
+  crmStartExpenseAttachmentUploadTool,
+  crmAppendExpenseAttachmentUploadChunkTool,
+  crmFinishExpenseAttachmentUploadTool,
 } from './crm-tools';
 import { demoGenerateTool, integrationSyncPushTool } from './demo-tools';
 import docsSearchTool from './docs-search-tool';
@@ -241,6 +252,8 @@ import {
   listExportJobsTool,
   listImportJobsTool,
   listIntegrationChannelsTool,
+  retryExportJobTool,
+  retryImportJobTool,
   uploadImportFileTool,
 } from './transfer-tools';
 import {
@@ -249,6 +262,7 @@ import {
   resolveRecordTool,
   startWorkflowTool,
 } from './workflow-run-tools';
+import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
@@ -566,6 +580,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     includedTools.push(docsSearchTool);
   }
   includedTools.push(
+    getCapabilityGuidanceTool,
     crmConnectSankaTool,
     crmAuthStatusTool,
     crmCurrentWorkspaceTool,
@@ -577,6 +592,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmGetPrivateMessageThreadTool,
     crmReplyPrivateMessageThreadTool,
     crmArchivePrivateMessageThreadTool,
+    crmListWorkspaceMessagesTool,
+    crmSyncWorkspaceMessagesTool,
+    crmGetWorkspaceMessageThreadTool,
     crmQueryRecordsTool,
     crmAggregateRecordsTool,
     crmCreateCustomObjectRecordTool,
@@ -605,6 +623,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmUpdateDealTool,
     crmDeleteDealTool,
     crmListDealPipelinesTool,
+    createWorkflowTool,
+    updateWorkflowTool,
+    runWorkflowTool,
     resolveRecordTool,
     previewWorkflowTool,
     startWorkflowTool,
@@ -725,6 +746,9 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmListExpensesTool,
     crmGetExpenseTool,
     crmUploadExpenseAttachmentTool,
+    crmStartExpenseAttachmentUploadTool,
+    crmAppendExpenseAttachmentUploadChunkTool,
+    crmFinishExpenseAttachmentUploadTool,
     crmCreateExpenseTool,
     crmUpdateExpenseTool,
     crmDeleteExpenseTool,
@@ -756,6 +780,10 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmGenerateIncentivePaymentNoticeTool,
     crmListObjectSchemasTool,
     crmMutateObjectSchemaTool,
+    crmCreateApprovalRequestTool,
+    crmListRecordApprovalsTool,
+    crmApproveRecordApprovalTool,
+    crmRejectRecordApprovalTool,
     crmListApprovalRulesTool,
     crmGetApprovalRuleOptionsTool,
     crmUpsertApprovalRuleTool,
@@ -785,11 +813,13 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     getImportJobTool,
     listImportJobsTool,
     cancelImportJobTool,
+    retryImportJobTool,
     listIntegrationChannelsTool,
     exportRecordsTool,
     getExportJobTool,
     listExportJobsTool,
     cancelExportJobTool,
+    retryExportJobTool,
     demoGenerateTool,
     integrationSyncPushTool,
     browserUseTool,

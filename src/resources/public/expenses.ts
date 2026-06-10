@@ -23,49 +23,59 @@ import {
 const expenseFromV2Record = (record: V2ObjectRecord): Expense =>
   legacyObjectRecordFromV2<Expense>(record, 'id_pm');
 
-const expenseUpdateProperties = (params: ExpenseUpdateParams): Record<string, unknown> => {
+const expenseMutationProperties = (
+  params: ExpenseCreateParams | ExpenseUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> => {
   const {
     amount,
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
-    external_id: _externalID,
+    external_id: rawExternalID,
     reimburse_date,
     status,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
+  const external_id = options.includeExternalID ? rawExternalID : undefined;
   return compactProperties({
     amount,
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
+    external_id,
     reimburse_date,
     status,
   });
 };
-
-const canUseV2ExpenseUpdate = (params: ExpenseUpdateParams, properties: Record<string, unknown>): boolean =>
-  params.attachment_file == null &&
-  params.company_external_id == null &&
-  params.contact_external_id == null &&
-  Object.keys(properties).length > 0;
 
 export class Expenses extends APIResource {
   /**
    * Create Expense
    */
   create(body: ExpenseCreateParams, options?: RequestOptions): APIPromise<PublicExpenseResponse> {
-    return this._client.post('/v1/public/expenses', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/expenses', {
+        body: { properties: expenseMutationProperties(body, { includeExternalID: true }) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicExpenseResponse>(
+          envelope,
+          'expense_id',
+          'created',
+          body.external_id,
+        ),
+      );
   }
 
   /**
@@ -100,24 +110,20 @@ export class Expenses extends APIResource {
     params: ExpenseUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicExpenseResponse> {
-    const properties = expenseUpdateProperties(params);
-    if (canUseV2ExpenseUpdate(params, properties)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/expenses/${expenseID}`, {
-          query: { external_id: params.external_id },
-          body: { properties },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<PublicExpenseResponse>(
-            envelope,
-            'expense_id',
-            'updated',
-            params.external_id,
-          ),
-        );
-    }
-    return this._client.put(path`/v1/public/expenses/${expenseID}`, { body: params, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/expenses/${expenseID}`, {
+        query: { external_id: params.external_id },
+        body: { properties: expenseMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<PublicExpenseResponse>(
+          envelope,
+          'expense_id',
+          'updated',
+          params.external_id,
+        ),
+      );
   }
 
   /**

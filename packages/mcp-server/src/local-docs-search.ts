@@ -189,6 +189,49 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/v1/public/account-messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.' });\n\nconsole.log(response);\n```",
   },
   {
+    name: 'list',
+    endpoint: '/api/v2/workspace/messages',
+    httpMethod: 'get',
+    summary: 'List Workspace Messages',
+    description:
+      'List shared workspace/integration inbox threads from connected channels. Prefer for Sanka-connected Gmail, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox.',
+    stainlessPath: '(resource) public.workspaceMessages > (method) list',
+    qualified: 'client.public.workspaceMessages.list',
+    params: ['status?: string;', "'Accept-Language'?: string;"],
+    response: '{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## list\n\n`client.public.workspaceMessages.list(status?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**get** `/api/v2/workspace/messages`\n\nList shared workspace/integration inbox threads from connected channels. Prefer for Sanka-connected Gmail, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox.\n\n### Parameters\n\n- `status?: string`\n\n- `'Accept-Language'?: string`\n\n### Example\n\n```typescript\nconst response = await client.public.workspaceMessages.list({ status: 'active' });\n```",
+  },
+  {
+    name: 'sync',
+    endpoint: '/api/v2/workspace/messages/sync',
+    httpMethod: 'post',
+    summary: 'Sync Workspace Messages',
+    description:
+      'Pull latest shared workspace/integration inbox messages from connected channels. Prefer for Sanka-connected Gmail, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox.',
+    stainlessPath: '(resource) public.workspaceMessages > (method) sync',
+    qualified: 'client.public.workspaceMessages.sync',
+    params: ['channel_id?: string;', 'status?: string;', "'Accept-Language'?: string;"],
+    response: '{ data: { channels: object[]; threads: object[]; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## sync\n\n`client.public.workspaceMessages.sync(channel_id?: string, status?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/workspace/messages/sync`\n\nPull latest shared workspace/integration inbox messages from connected channels. Prefer for Sanka-connected Gmail, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox.\n\n### Example\n\n```typescript\nconst response = await client.public.workspaceMessages.sync({ channel_id: 'channel_id' });\n```",
+  },
+  {
+    name: 'retrieve',
+    endpoint: '/api/v2/workspace/messages/threads/{thread_id}',
+    httpMethod: 'get',
+    summary: 'Get Workspace Message Thread',
+    description:
+      'Load one shared workspace/integration inbox thread, including message history/body. Use for /conversation and integration-linked Gmail threads.',
+    stainlessPath: '(resource) public.workspaceMessages.threads > (method) retrieve',
+    qualified: 'client.public.workspaceMessages.threads.retrieve',
+    params: ['thread_id: string;', "'Accept-Language'?: string;"],
+    response:
+      '{ data: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; open_in_web_url: string; can_reply: boolean; reply_target?: string; messages: object[]; last_message_at?: string; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## retrieve\n\n`client.public.workspaceMessages.threads.retrieve(thread_id: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**get** `/api/v2/workspace/messages/threads/{thread_id}`\n\nLoad one shared workspace/integration inbox thread, including message history/body. Use for /conversation and integration-linked Gmail threads.\n\n### Example\n\n```typescript\nconst response = await client.public.workspaceMessages.threads.retrieve('thread_id');\n```",
+  },
+  {
     name: 'create',
     endpoint: '/v1/public/orders',
     httpMethod: 'post',

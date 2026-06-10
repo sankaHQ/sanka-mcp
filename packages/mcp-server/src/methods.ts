@@ -65,6 +65,24 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/me/messages/threads/{thread_id}/reply',
   },
   {
+    clientCallName: 'client.public.workspaceMessages.list',
+    fullyQualifiedName: 'public.workspaceMessages.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages',
+  },
+  {
+    clientCallName: 'client.public.workspaceMessages.sync',
+    fullyQualifiedName: 'public.workspaceMessages.sync',
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/sync',
+  },
+  {
+    clientCallName: 'client.public.workspaceMessages.threads.retrieve',
+    fullyQualifiedName: 'public.workspaceMessages.threads.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}',
+  },
+  {
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',
@@ -116,7 +134,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.orders.bulkCreate',
     fullyQualifiedName: 'public.orders.bulkCreate',
     httpMethod: 'post',
-    httpPath: '/v1/public/orders/bulk',
+    httpPath: '/api/v2/orders/bulk',
   },
   {
     clientCallName: 'client.public.tasks.create',
@@ -320,7 +338,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.subscriptions.create',
     fullyQualifiedName: 'public.subscriptions.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/subscriptions',
+    httpPath: '/api/v2/subscriptions',
   },
   {
     clientCallName: 'client.public.subscriptions.retrieve',
@@ -350,7 +368,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.estimates.create',
     fullyQualifiedName: 'public.estimates.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/estimates',
+    httpPath: '/api/v2/estimates',
   },
   {
     clientCallName: 'client.public.estimates.retrieve',
@@ -392,7 +410,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.invoices.create',
     fullyQualifiedName: 'public.invoices.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices',
+    httpPath: '/api/v2/invoices',
   },
   {
     clientCallName: 'client.public.invoices.retrieve',
@@ -440,25 +458,25 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.associations.list',
     fullyQualifiedName: 'public.associations.list',
     httpMethod: 'get',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
   },
   {
     clientCallName: 'client.public.associations.create',
     fullyQualifiedName: 'public.associations.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
   },
   {
     clientCallName: 'client.public.associations.delete',
     fullyQualifiedName: 'public.associations.delete',
     httpMethod: 'delete',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
   },
   {
     clientCallName: 'client.public.payments.create',
     fullyQualifiedName: 'public.payments.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/payments',
+    httpPath: '/api/v2/payments',
   },
   {
     clientCallName: 'client.public.payments.retrieve',
@@ -506,7 +524,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.expenses.create',
     fullyQualifiedName: 'public.expenses.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/expenses',
+    httpPath: '/api/v2/expenses',
   },
   {
     clientCallName: 'client.public.expenses.retrieve',
@@ -704,7 +722,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.purchaseOrders.create',
     fullyQualifiedName: 'public.purchaseOrders.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/purchase-orders',
+    httpPath: '/api/v2/purchase-orders',
   },
   {
     clientCallName: 'client.public.purchaseOrders.retrieve',
@@ -746,7 +764,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.slips.create',
     fullyQualifiedName: 'public.slips.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/slips',
+    httpPath: '/api/v2/revenues',
   },
   {
     clientCallName: 'client.public.slips.retrieve',
@@ -782,7 +800,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.bills.create',
     fullyQualifiedName: 'public.bills.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/bills',
+    httpPath: '/api/v2/bills',
   },
   {
     clientCallName: 'client.public.bills.retrieve',
@@ -818,7 +836,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.disbursements.create',
     fullyQualifiedName: 'public.disbursements.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/disbursements',
+    httpPath: '/api/v2/disbursements',
   },
   {
     clientCallName: 'client.public.disbursements.retrieve',
@@ -890,7 +908,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.workflows.createOrUpdate',
     fullyQualifiedName: 'public.workflows.createOrUpdate',
     httpMethod: 'post',
-    httpPath: '/v1/public/workflows',
+    httpPath: '/api/v2/public/workflows',
+  },
+  {
+    clientCallName: 'client.public.workflows.update',
+    fullyQualifiedName: 'public.workflows.update',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/public/workflows/{workflow_ref}',
   },
   {
     clientCallName: 'client.public.workflows.listActions',
@@ -908,7 +932,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.workflows.run',
     fullyQualifiedName: 'public.workflows.run',
     httpMethod: 'post',
-    httpPath: '/v1/public/workflows/{workflow_ref}/run',
+    httpPath: '/api/v2/public/workflows/{workflow_ref}/run',
   },
   {
     clientCallName: 'client.public.calendar.bootstrap',

@@ -46,8 +46,9 @@ const IMPORT_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type to import. Currently supports only "item".',
-      enum: ['item'],
+      description:
+        'Object type to import. Use "item" for CSV file imports or "order" to import HubSpot deals as Sanka Orders.',
+      enum: ['item', 'order'],
       default: 'item',
     },
     file_id: {
@@ -56,9 +57,29 @@ const IMPORT_INPUT_SCHEMA = {
     },
     source_kind: {
       type: 'string',
-      description: 'Import source kind. Currently supports only "file".',
-      enum: ['file'],
+      description:
+        'Import source kind. Use "file" for item CSV or "integration" for HubSpot deal-to-order imports.',
+      enum: ['file', 'integration'],
       default: 'file',
+    },
+    provider: {
+      type: 'string',
+      description: 'Source provider for integration imports. Required when object_type="order".',
+      enum: ['hubspot'],
+    },
+    channel_id: {
+      type: 'string',
+      description: 'Optional source integration channel id for HubSpot deal imports.',
+    },
+    record_ids: {
+      type: 'array',
+      description: 'HubSpot Deal ids to import as Sanka Orders when source_kind="integration".',
+      items: { type: 'string' },
+    },
+    source_record: {
+      type: 'object',
+      description: 'Optional source record reference for a single integration import.',
+      additionalProperties: true,
     },
     file_format: {
       type: 'string',
@@ -97,11 +118,10 @@ const IMPORT_INPUT_SCHEMA = {
     },
     dry_run: {
       type: 'boolean',
-      description: 'Reserved for future validation-only imports. Currently unsupported by the API.',
+      description: 'Validate the import without creating or updating records.',
       default: false,
     },
   },
-  required: ['file_id'],
 };
 
 const JOB_LOOKUP_INPUT_SCHEMA = {
@@ -120,8 +140,8 @@ const IMPORT_LIST_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Optional filter. Currently supports only "item".',
-      enum: ['item'],
+      description: 'Optional import job filter.',
+      enum: ['item', 'order'],
       default: 'item',
     },
     limit: {
@@ -139,14 +159,16 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type you plan to export. Currently supports only "deal".',
-      enum: ['deal'],
+      description:
+        'Object type you plan to export. For invoice/accounting exports, this tool can return accounting channel_id candidates, but preview_workflow/start_workflow invoice_export determines actual export readiness.',
+      enum: ['deal', 'invoice'],
       default: 'deal',
     },
     provider: {
       type: 'string',
-      description: 'Optional destination provider filter.',
-      enum: ['hubspot'],
+      description:
+        'Optional destination provider filter. MoneyForward/freee are accounting invoice_export channel candidates, not public export_records readiness checks.',
+      enum: ['hubspot', 'freee', 'moneyforward'],
       default: 'hubspot',
     },
   },
@@ -157,21 +179,26 @@ const EXPORT_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type to export. Currently supports only "deal".',
-      enum: ['deal'],
+      description: 'Object type to export. Use "deal" for HubSpot or "invoice" for accounting draft exports.',
+      enum: ['deal', 'invoice'],
       default: 'deal',
     },
     destination_kind: {
       type: 'string',
-      description: 'Destination kind. Currently supports only "integration".',
-      enum: ['integration'],
+      description: 'Destination kind. Use "integration" for deals or "accounting" for invoice exports.',
+      enum: ['integration', 'accounting'],
       default: 'integration',
     },
     provider: {
       type: 'string',
-      description: 'Destination provider. Currently supports only "hubspot".',
-      enum: ['hubspot'],
+      description: 'Destination provider.',
+      enum: ['hubspot', 'freee', 'moneyforward'],
       default: 'hubspot',
+    },
+    target_system: {
+      type: 'string',
+      description: 'Accounting target system for invoice exports. Alias of provider.',
+      enum: ['freee', 'moneyforward'],
     },
     channel_id: {
       type: 'string',
@@ -202,7 +229,7 @@ const EXPORT_INPUT_SCHEMA = {
     },
     dry_run: {
       type: 'boolean',
-      description: 'Reserved for future validation-only exports. Currently unsupported by the API.',
+      description: 'Validate the export selection without enqueuing outbound sync events.',
       default: false,
     },
   },
@@ -249,6 +276,35 @@ const JOB_LIST_OUTPUT_SCHEMA = {
   required: ['jobs', 'message'],
 };
 
+const EXPORT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description: 'Optional export job filter.',
+      enum: ['deal', 'invoice'],
+      default: 'deal',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of jobs to return.',
+      minimum: 1,
+      maximum: 200,
+      default: 50,
+    },
+  },
+};
+
+const JOB_RETRY_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    job: JOB_OUTPUT_SCHEMA,
+    retry_of_job_id: { type: 'string' },
+    message: { type: ['string', 'null'] as any },
+  },
+  required: ['job', 'retry_of_job_id'],
+};
+
 const CHANNELS_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -256,9 +312,36 @@ const CHANNELS_OUTPUT_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
+        properties: {
+          channel_id: { type: 'string' },
+          provider: { type: 'string' },
+          channel_name: { type: 'string' },
+          export_ready: { type: 'boolean' },
+          export_blocker_reason: { type: ['string', 'null'] as any },
+          export_blocker_reasons: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          is_export_blocked: { type: 'boolean' },
+          invoice_export_channel_id: { type: 'string' },
+          accounting_invoice_export_candidate: { type: 'boolean' },
+          invoice_export_readiness_signal: { type: 'string' },
+          readiness_guidance: { type: 'string' },
+          shadow_mode: { type: 'boolean' },
+          rollout_stage: { type: 'string' },
+        },
         additionalProperties: true,
       },
     },
+    requested_object_type: { type: 'string' },
+    requested_provider: { type: 'string' },
+    has_export_ready_channel: { type: 'boolean' },
+    export_ready_count: { type: 'integer' },
+    blocked_count: { type: 'integer' },
+    blocked_by_shadow_mode: { type: 'boolean' },
+    readiness_guidance: { type: 'string' },
+    channel_usage: { type: 'string' },
+    recommended_workflow_type: { type: 'string' },
     message: { type: 'string' },
   },
   required: ['channels', 'message'],
@@ -292,6 +375,22 @@ const readStringArray = (value: unknown): string[] | undefined => {
   );
   return result.length > 0 ? result : undefined;
 };
+
+const readPlainRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value) ?
+    (value as Record<string, unknown>)
+  : undefined;
+
+const ACCOUNTING_EXPORT_PROVIDERS = new Set(['freee', 'moneyforward']);
+
+const CHANNEL_REASON_PRIORITY = [
+  'shadow_mode',
+  'rollout_stage_shadow',
+  'channel_disabled',
+  'outbound_pipeline_inactive',
+  'object_map_missing',
+  'export_not_ready',
+];
 
 const readColumnMappings = (value: unknown): ImportCreateParams['column_mappings'] | undefined => {
   if (!Array.isArray(value)) {
@@ -338,9 +437,300 @@ const buildJobSummary = (job: TransferJob): string => {
 const buildJobListSummary = (jobType: 'import' | 'export', count: number): string =>
   `Found ${count} ${jobType} job${count === 1 ? '' : 's'}.`;
 
+const channelString = (channel: Record<string, unknown>, key: string): string | undefined =>
+  readString(channel[key]);
+
+const channelBoolean = (channel: Record<string, unknown>, key: string): boolean | undefined =>
+  readBoolean(channel[key]);
+
+const channelReasons = (channel: Record<string, unknown>): string[] => {
+  const reasons = readStringArray(channel['export_blocker_reasons']);
+  if (reasons?.length) {
+    return reasons;
+  }
+  const reason = channelString(channel, 'export_blocker_reason');
+  return reason ? [reason] : [];
+};
+
+const fallbackChannelReasons = (channel: Record<string, unknown>): string[] => {
+  const reasons: string[] = [];
+  if (channelBoolean(channel, 'shadow_mode') === true) {
+    reasons.push('shadow_mode');
+  }
+  if (channelString(channel, 'rollout_stage')?.toLowerCase() === 'shadow') {
+    reasons.push('rollout_stage_shadow');
+  }
+  if (channelBoolean(channel, 'is_enabled') === false) {
+    reasons.push('channel_disabled');
+  }
+  if (channelBoolean(channel, 'outbound_pipeline_active') === false) {
+    reasons.push('outbound_pipeline_inactive');
+  }
+  return reasons;
+};
+
+const uniqueChannelReasons = (reasons: string[]): string[] => {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const reason of reasons) {
+    const trimmed = reason.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+
+  return normalized.sort((left, right) => {
+    const leftIndex = CHANNEL_REASON_PRIORITY.indexOf(left);
+    const rightIndex = CHANNEL_REASON_PRIORITY.indexOf(right);
+    const leftRank = leftIndex === -1 ? CHANNEL_REASON_PRIORITY.length : leftIndex;
+    const rightRank = rightIndex === -1 ? CHANNEL_REASON_PRIORITY.length : rightIndex;
+    return leftRank - rightRank;
+  });
+};
+
+const effectiveChannelReasons = (channel: Record<string, unknown>): string[] => {
+  const explicitReasons = channelReasons(channel);
+  const fallbackReasons = fallbackChannelReasons(channel);
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const reasons = uniqueChannelReasons([...explicitReasons, ...fallbackReasons]);
+  if (exportReady === false && !reasons.length) {
+    return ['export_not_ready'];
+  }
+  return reasons;
+};
+
+const buildBlockedChannelGuidance = (reasons: string[]): string => {
+  const base = 'Do not call export_records or start_workflow with this blocked channel_id.';
+  if (reasons.includes('shadow_mode') || reasons.includes('rollout_stage_shadow')) {
+    return `${base} Shadow mode is an internal rollout state; report that accounting invoice export is not available from MCP yet unless the API returns an explicit user_action.`;
+  }
+  return `${base} Report the export blocker reason to the user and wait for the channel to become export_ready.`;
+};
+
+const normalizeChannelReadiness = (channel: Record<string, unknown>): Record<string, unknown> => {
+  const reasons = effectiveChannelReasons(channel);
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const isBlocked = exportReady === false || reasons.length > 0;
+  if (!isBlocked) {
+    return {
+      ...channel,
+      ...(exportReady === true ? { export_ready: true, is_export_blocked: false } : {}),
+    };
+  }
+
+  const blockerReasons = reasons.length ? reasons : ['export_not_ready'];
+  return {
+    ...channel,
+    export_ready: false,
+    export_blocker_reason: blockerReasons[0] ?? null,
+    export_blocker_reasons: blockerReasons,
+    is_export_blocked: true,
+    readiness_guidance: buildBlockedChannelGuidance(blockerReasons),
+  };
+};
+
+const normalizeIntegrationChannelParams = (
+  args: Record<string, unknown> | undefined,
+): {
+  params: IntegrationChannelsListParams;
+  requestedObjectType: string;
+  requestedProvider?: string;
+} => {
+  const requestedObjectType = readString(args?.['object_type']) || 'deal';
+  const requestedProvider = readString(args?.['provider']);
+  const isAccountingProvider = requestedProvider ? ACCOUNTING_EXPORT_PROVIDERS.has(requestedProvider) : false;
+  const params: IntegrationChannelsListParams = {};
+
+  if (requestedProvider) {
+    params.provider = requestedProvider;
+  }
+
+  if (requestedObjectType !== 'invoice' && !isAccountingProvider) {
+    params.object_type = requestedObjectType;
+  }
+
+  return {
+    params,
+    requestedObjectType,
+    ...(requestedProvider ? { requestedProvider } : {}),
+  };
+};
+
+const normalizeIntegrationChannelResponse = (
+  response: IntegrationChannelsListResponse,
+  context: { requestedObjectType: string; requestedProvider?: string },
+): IntegrationChannelsListResponse & Record<string, unknown> => {
+  const channels = (response.channels ?? [])
+    .filter(
+      (channel): channel is Record<string, unknown> =>
+        Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+    )
+    .map(normalizeChannelReadiness);
+  const exportReadyCount = channels.filter(
+    (channel) =>
+      channelBoolean(channel, 'export_ready') === true &&
+      channelBoolean(channel, 'is_export_blocked') !== true,
+  ).length;
+  const blockedCount = channels.filter(
+    (channel) => channelBoolean(channel, 'is_export_blocked') === true,
+  ).length;
+  const blockedByShadowMode = channels.some((channel) =>
+    effectiveChannelReasons(channel).some(
+      (reason) => reason === 'shadow_mode' || reason === 'rollout_stage_shadow',
+    ),
+  );
+  const readinessGuidance =
+    blockedCount > 0 && exportReadyCount === 0 ?
+      blockedByShadowMode ?
+        'No export-ready accounting channel is available. Shadow mode is an internal rollout state; do not call export_records or start_workflow unless the API returns an explicit user_action.'
+      : 'No export-ready channel is available. Do not call export_records or start_workflow with blocked channel ids.'
+    : exportReadyCount > 0 ? 'At least one channel is export_ready.'
+    : 'Export channel readiness is unknown.';
+
+  return {
+    ...response,
+    channels,
+    requested_object_type: context.requestedObjectType,
+    ...(context.requestedProvider ? { requested_provider: context.requestedProvider } : {}),
+    has_export_ready_channel: exportReadyCount > 0,
+    export_ready_count: exportReadyCount,
+    blocked_count: blockedCount,
+    blocked_by_shadow_mode: blockedByShadowMode,
+    readiness_guidance: readinessGuidance,
+  };
+};
+
+const isAccountingInvoiceChannelRequest = (context: {
+  requestedObjectType: string;
+  requestedProvider?: string;
+}): boolean =>
+  context.requestedObjectType === 'invoice' ||
+  (context.requestedProvider ? ACCOUNTING_EXPORT_PROVIDERS.has(context.requestedProvider) : false);
+
+const normalizeAccountingInvoiceExportChannel = (
+  channel: Record<string, unknown>,
+): Record<string, unknown> => {
+  const {
+    export_ready: _exportReady,
+    export_blocker_reason: _exportBlockerReason,
+    export_blocker_reasons: _exportBlockerReasons,
+    ...rest
+  } = channel;
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id');
+  return {
+    ...rest,
+    ...(channelID ? { channel_id: channelID, invoice_export_channel_id: channelID } : {}),
+    accounting_invoice_export_candidate: true,
+    is_export_blocked: false,
+    invoice_export_readiness_signal: 'preview_or_start_workflow',
+    readiness_guidance:
+      'Use this channel_id as the accounting channel for preview_workflow/start_workflow with workflow_type=invoice_export. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active flags from this channel-list endpoint as MoneyForward/freee invoice_export blockers; preview_workflow/start_workflow returns the actual accounting export blockers.',
+  };
+};
+
+const normalizeAccountingInvoiceChannelResponse = (
+  response: IntegrationChannelsListResponse,
+  context: { requestedObjectType: string; requestedProvider?: string },
+): IntegrationChannelsListResponse & Record<string, unknown> => {
+  const channels = (response.channels ?? [])
+    .filter(
+      (channel): channel is Record<string, unknown> =>
+        Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+    )
+    .map(normalizeAccountingInvoiceExportChannel);
+  return {
+    ...response,
+    channels,
+    requested_object_type: context.requestedObjectType,
+    ...(context.requestedProvider ? { requested_provider: context.requestedProvider } : {}),
+    channel_usage: 'accounting_invoice_export_channel_candidates',
+    recommended_workflow_type: 'invoice_export',
+    has_export_ready_channel: channels.length > 0,
+    export_ready_count: channels.length,
+    blocked_count: 0,
+    blocked_by_shadow_mode: false,
+    readiness_guidance:
+      'For MoneyForward/freee invoice exports, list_integration_channels only discovers accounting channel_id candidates. Use preview_workflow/start_workflow with workflow_type=invoice_export, target_system, sync_scope, invoice ids, and the selected channel_id; do not block on integration-sync shadow/outbound flags from this endpoint.',
+  };
+};
+
+const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
+  const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
+  const provider = channelString(channel, 'provider') ?? 'unknown-provider';
+  const exportReady = channelBoolean(channel, 'export_ready');
+  const effectiveReasons = effectiveChannelReasons(channel);
+  const primaryReason = effectiveReasons[0];
+  const secondaryReasons = effectiveReasons.slice(1);
+  const status =
+    exportReady === true && channelBoolean(channel, 'is_export_blocked') !== true ? 'export ready'
+    : primaryReason ?
+      `export not ready: ${primaryReason}${
+        secondaryReasons.length ? ` (also ${secondaryReasons.join(', ')})` : ''
+      }`
+    : 'export readiness unknown';
+  const details: string[] = [];
+  if (channelBoolean(channel, 'shadow_mode') === true) {
+    details.push('shadow_mode=true');
+  }
+  const rolloutStage = channelString(channel, 'rollout_stage');
+  if (rolloutStage) {
+    details.push(`rollout_stage=${rolloutStage}`);
+  }
+  return `${name} (${provider}, ${channelID}): ${status}${
+    details.length ? `; details: ${details.join(', ')}` : ''
+  }`;
+};
+
+const buildAccountingInvoiceChannelSummaryLine = (channel: Record<string, unknown>): string => {
+  const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
+  const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
+  const provider = channelString(channel, 'provider') ?? 'unknown-provider';
+  return `${name} (${provider}, ${channelID}): accounting invoice_export channel candidate. Use this channel_id with preview_workflow/start_workflow; integration-sync shadow/outbound flags are not invoice_export readiness blockers.`;
+};
+
 const buildChannelListSummary = (response: IntegrationChannelsListResponse): string => {
   const count = response.channels?.length ?? 0;
-  return `Found ${count} integration channel${count === 1 ? '' : 's'}.`;
+  const channels = (response.channels ?? []).filter(
+    (channel): channel is Record<string, unknown> =>
+      Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
+  );
+  if (!channels.length) {
+    return `Found ${count} integration channel${count === 1 ? '' : 's'}.`;
+  }
+  const responseMetadata = response as unknown as Record<string, unknown>;
+  const requestedProvider = readString(responseMetadata['requested_provider']);
+  const requestedObjectType = readString(responseMetadata['requested_object_type']);
+  const exportReadyCount = readNumber(responseMetadata['export_ready_count']);
+  const blockedCount = readNumber(responseMetadata['blocked_count']);
+  const blockedByShadowMode = readBoolean(responseMetadata['blocked_by_shadow_mode']);
+  const channelUsage = readString(responseMetadata['channel_usage']);
+  if (channelUsage === 'accounting_invoice_export_channel_candidates') {
+    const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
+    return [
+      `Found ${count} ${providerLabel}accounting channel candidate${
+        count === 1 ? '' : 's'
+      } for invoice_export.`,
+      'Use preview_workflow/start_workflow with workflow_type=invoice_export to check and run MoneyForward/freee invoice export. Do not block on integration-sync shadow/outbound flags from this channel-list endpoint.',
+      ...channels.map(buildAccountingInvoiceChannelSummaryLine),
+    ].join('\n');
+  }
+  const header: string[] = [`Found ${count} integration channel${count === 1 ? '' : 's'}.`];
+  if ((exportReadyCount ?? 0) === 0 && (blockedCount ?? 0) > 0) {
+    const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
+    const objectLabel = requestedObjectType ? `${requestedObjectType} ` : '';
+    header.push(
+      `No export-ready ${providerLabel}channel is available for ${objectLabel}exports. Do not call export_records or start_workflow with blocked channel ids.`,
+    );
+    if (blockedByShadowMode) {
+      header.push(
+        'Shadow mode is an internal rollout state; report that accounting invoice export is not available from MCP yet unless the API returns an explicit user_action.',
+      );
+    }
+  }
+  return [...header, ...channels.map(buildChannelSummaryLine)].join('\n');
 };
 
 export const uploadImportFileTool: McpTool = {
@@ -422,7 +812,7 @@ export const importRecordsTool: McpTool = {
     name: 'import_records',
     title: 'Import records',
     description:
-      'Create a public import job from an uploaded file. Use upload_import_file first to obtain a file_id. Currently supports item CSV imports.',
+      'Create a public import job. Use upload_import_file first for item CSV imports, or pass HubSpot Deal ids with object_type="order" and source_kind="integration" to create Sanka Orders.',
     inputSchema: IMPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -442,19 +832,41 @@ export const importRecordsTool: McpTool = {
       return authError;
     }
 
-    const fileId = readString(args?.['file_id']);
-    if (!fileId) {
-      return asErrorResult('`file_id` is required.');
-    }
+    const objectType = readString(args?.['object_type']) || 'item';
+    const sourceKind = readString(args?.['source_kind']) || (objectType === 'order' ? 'integration' : 'file');
 
     const body: ImportCreateParams = {
-      object_type: readString(args?.['object_type']) || 'item',
-      file_id: fileId,
-      source_kind: readString(args?.['source_kind']) || 'file',
+      object_type: objectType,
+      source_kind: sourceKind,
       file_format: readString(args?.['file_format']) || 'csv',
-      operation: readString(args?.['operation']) || 'upsert',
+      operation: readString(args?.['operation']) || (objectType === 'order' ? 'create' : 'upsert'),
       mapping_mode: readString(args?.['mapping_mode']) || 'auto',
     };
+    const fileId = readString(args?.['file_id']);
+    if (sourceKind === 'file') {
+      if (!fileId) {
+        return asErrorResult('`file_id` is required for file imports.');
+      }
+      body.file_id = fileId;
+    }
+    if (sourceKind === 'integration') {
+      const recordIds = readStringArray(args?.['record_ids']);
+      const sourceRecord = readPlainRecord(args?.['source_record']);
+      if (!recordIds && !sourceRecord) {
+        return asErrorResult('Provide `record_ids` or `source_record` for integration imports.');
+      }
+      body.provider = readString(args?.['provider']) || 'hubspot';
+      const channelId = readString(args?.['channel_id']);
+      if (channelId) {
+        body.channel_id = channelId;
+      }
+      if (recordIds) {
+        body.record_ids = recordIds;
+      }
+      if (sourceRecord) {
+        body.source_record = sourceRecord;
+      }
+    }
     const keyField = readString(args?.['key_field']);
     if (keyField) {
       body.key_field = keyField;
@@ -614,6 +1026,51 @@ export const cancelImportJobTool: McpTool = {
   },
 };
 
+export const retryImportJobTool: McpTool = {
+  metadata: {
+    resource: 'imports',
+    operation: 'write',
+    tags: ['imports'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/imports/{job_id}/retry',
+    operationId: 'public.imports.retry',
+  },
+  tool: {
+    name: 'retry_import_job',
+    title: 'Retry import job',
+    description: 'Retry a failed, canceled, or otherwise terminal import job.',
+    inputSchema: JOB_LOOKUP_INPUT_SCHEMA,
+    outputSchema: JOB_RETRY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Retry import job',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Retry import job',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const jobId = readString(args?.['job_id']);
+    if (!jobId) {
+      return asErrorResult('`job_id` is required.');
+    }
+
+    const response = await reqContext.client.public.imports.retry(jobId);
+    return {
+      content: [{ type: 'text', text: `Retried import job ${jobId}. ${buildJobSummary(response.job)}` }],
+      structuredContent: response as unknown as Record<string, unknown>,
+    };
+  },
+};
+
 export const listIntegrationChannelsTool: McpTool = {
   metadata: {
     resource: 'integrations',
@@ -627,7 +1084,7 @@ export const listIntegrationChannelsTool: McpTool = {
     name: 'list_integration_channels',
     title: 'List integration channels',
     description:
-      'List connected integration channels available for a public export flow. Use this before export_records when the user does not already know the destination channel_id.',
+      'List connected integration channels available for a public export flow. Use this before export_records for HubSpot deal exports. For MoneyForward/freee invoice_export workflows, use this only to discover accounting channel_id candidates when needed; preview_workflow/start_workflow with workflow_type=invoice_export determines actual accounting export readiness. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active fields from this endpoint as MoneyForward/freee invoice_export blockers.',
     inputSchema: INTEGRATION_CHANNELS_INPUT_SCHEMA,
     outputSchema: CHANNELS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -647,19 +1104,21 @@ export const listIntegrationChannelsTool: McpTool = {
       return authError;
     }
 
-    const params: IntegrationChannelsListParams = {
-      object_type: readString(args?.['object_type']) || 'deal',
-    };
-    const provider = readString(args?.['provider']);
-    if (provider) {
-      params.provider = provider;
-    }
+    const { params, requestedObjectType, requestedProvider } = normalizeIntegrationChannelParams(args);
 
     const response: IntegrationChannelsListResponse =
       await reqContext.client.public.integrations.listChannels(params);
+    const channelContext = {
+      requestedObjectType,
+      ...(requestedProvider ? { requestedProvider } : {}),
+    };
+    const normalizedResponse =
+      isAccountingInvoiceChannelRequest(channelContext) ?
+        normalizeAccountingInvoiceChannelResponse(response, channelContext)
+      : normalizeIntegrationChannelResponse(response, channelContext);
     return {
-      content: [{ type: 'text', text: buildChannelListSummary(response) }],
-      structuredContent: response as unknown as Record<string, unknown>,
+      content: [{ type: 'text', text: buildChannelListSummary(normalizedResponse) }],
+      structuredContent: normalizedResponse,
     };
   },
 };
@@ -677,7 +1136,7 @@ export const exportRecordsTool: McpTool = {
     name: 'export_records',
     title: 'Export records',
     description:
-      'Create a public export job for Sanka records. Currently supports exporting deals to a HubSpot integration channel.',
+      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For invoice accounting sync to freee, MoneyForward, Xero, or QuickBooks, use preview_workflow/start_workflow with workflow_type=invoice_export instead.',
     inputSchema: EXPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -711,13 +1170,32 @@ export const exportRecordsTool: McpTool = {
       return asErrorResult('`record_ids` and `workspace_scope` are mutually exclusive.');
     }
 
+    const objectType = readString(args?.['object_type']) || 'deal';
+    const destinationKind =
+      readString(args?.['destination_kind']) || (objectType === 'invoice' ? 'accounting' : 'integration');
+    const targetSystem = readString(args?.['target_system']);
+    if (targetSystem && objectType !== 'invoice') {
+      return asErrorResult('`target_system` is only supported when `object_type="invoice"`.');
+    }
+    let provider = readString(args?.['provider']) || (objectType === 'invoice' ? 'freee' : 'hubspot');
+    if (objectType === 'invoice' && targetSystem) {
+      provider = targetSystem;
+    }
+    if (objectType === 'invoice' && destinationKind === 'accounting') {
+      return asErrorResult(
+        'Invoice accounting exports must use preview_workflow/start_workflow with workflow_type=invoice_export. export_records uses generic export jobs and must not be used for freee, MoneyForward, Xero, or QuickBooks invoice sync.',
+      );
+    }
     const body: ExportCreateParams = {
-      object_type: readString(args?.['object_type']) || 'deal',
-      destination_kind: readString(args?.['destination_kind']) || 'integration',
-      provider: readString(args?.['provider']) || 'hubspot',
+      object_type: objectType,
+      destination_kind: destinationKind,
+      provider,
       channel_id: channelId,
-      operation: readString(args?.['operation']) || 'update',
+      operation: readString(args?.['operation']) || (objectType === 'invoice' ? 'create' : 'update'),
     };
+    if (targetSystem) {
+      body.target_system = targetSystem;
+    }
     if (recordIds) {
       body.record_ids = recordIds;
     }
@@ -799,7 +1277,7 @@ export const listExportJobsTool: McpTool = {
     name: 'list_export_jobs',
     title: 'List export jobs',
     description: 'List recent public export jobs for the authenticated workspace context.',
-    inputSchema: IMPORT_LIST_INPUT_SCHEMA,
+    inputSchema: EXPORT_LIST_INPUT_SCHEMA,
     outputSchema: JOB_LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
@@ -875,6 +1353,51 @@ export const cancelExportJobTool: McpTool = {
     return {
       content: [{ type: 'text', text: buildJobSummary(job) }],
       structuredContent: job as unknown as Record<string, unknown>,
+    };
+  },
+};
+
+export const retryExportJobTool: McpTool = {
+  metadata: {
+    resource: 'exports',
+    operation: 'write',
+    tags: ['exports'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/exports/{job_id}/retry',
+    operationId: 'public.exports.retry',
+  },
+  tool: {
+    name: 'retry_export_job',
+    title: 'Retry export job',
+    description: 'Retry a failed, canceled, or otherwise terminal export job.',
+    inputSchema: JOB_LOOKUP_INPUT_SCHEMA,
+    outputSchema: JOB_RETRY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Retry export job',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Retry export job',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const jobId = readString(args?.['job_id']);
+    if (!jobId) {
+      return asErrorResult('`job_id` is required.');
+    }
+
+    const response = await reqContext.client.public.exports.retry(jobId);
+    return {
+      content: [{ type: 'text', text: `Retried export job ${jobId}. ${buildJobSummary(response.job)}` }],
+      structuredContent: response as unknown as Record<string, unknown>,
     };
   },
 };

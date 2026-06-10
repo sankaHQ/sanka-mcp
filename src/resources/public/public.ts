@@ -21,6 +21,21 @@ import {
   AccountMessageThreadRetrieveParams,
   Threads,
 } from './account-messages/account-messages';
+import * as WorkspaceMessagesAPI from './workspace-messages/workspace-messages';
+import {
+  WorkspaceMessageChannel,
+  WorkspaceMessageListParams,
+  WorkspaceMessages,
+  WorkspaceMessagesData,
+  WorkspaceMessagesResponse,
+  WorkspaceMessageSyncParams,
+  WorkspaceMessageThread,
+  WorkspaceMessageThreadDetail,
+  WorkspaceMessageThreadDetailResponse,
+  WorkspaceMessageThreadMessage,
+  WorkspaceMessageThreadRetrieveParams,
+  Threads as WorkspaceMessageThreads,
+} from './workspace-messages/workspace-messages';
 import * as AssociationsAPI from './associations';
 import {
   Association,
@@ -154,6 +169,7 @@ import {
   Imports,
   TransferColumnMapping,
   TransferJob,
+  TransferJobRetryResponse,
   TransferJobSummary,
   TransferUploadFileResponse,
 } from './imports';
@@ -400,6 +416,9 @@ import {
 
 export class Public extends APIResource {
   accountMessages: AccountMessagesAPI.AccountMessages = new AccountMessagesAPI.AccountMessages(this._client);
+  workspaceMessages: WorkspaceMessagesAPI.WorkspaceMessages = new WorkspaceMessagesAPI.WorkspaceMessages(
+    this._client,
+  );
   associations: AssociationsAPI.Associations = new AssociationsAPI.Associations(this._client);
   imports: ImportsAPI.Imports = new ImportsAPI.Imports(this._client);
   exports: ExportsAPI.Exports = new ExportsAPI.Exports(this._client);
@@ -434,6 +453,7 @@ export class Public extends APIResource {
 }
 
 Public.AccountMessages = AccountMessages;
+Public.WorkspaceMessages = WorkspaceMessages;
 Public.Associations = Associations;
 Public.Imports = Imports;
 Public.Exports = Exports;
@@ -489,6 +509,21 @@ export declare namespace Public {
   };
 
   export {
+    WorkspaceMessages as WorkspaceMessages,
+    type WorkspaceMessageChannel as WorkspaceMessageChannel,
+    type WorkspaceMessageThread as WorkspaceMessageThread,
+    type WorkspaceMessagesData as WorkspaceMessagesData,
+    type WorkspaceMessagesResponse as WorkspaceMessagesResponse,
+    type WorkspaceMessageListParams as WorkspaceMessageListParams,
+    type WorkspaceMessageSyncParams as WorkspaceMessageSyncParams,
+    type WorkspaceMessageThreadMessage as WorkspaceMessageThreadMessage,
+    type WorkspaceMessageThreadDetail as WorkspaceMessageThreadDetail,
+    type WorkspaceMessageThreadDetailResponse as WorkspaceMessageThreadDetailResponse,
+    type WorkspaceMessageThreadRetrieveParams as WorkspaceMessageThreadRetrieveParams,
+    type WorkspaceMessageThreads as WorkspaceMessageThreads,
+  };
+
+  export {
     Associations as Associations,
     type AssociationObjectRef as AssociationObjectRef,
     type AssociationLabel as AssociationLabel,
@@ -510,6 +545,7 @@ export declare namespace Public {
     type ImportUploadFileParams as ImportUploadFileParams,
     type TransferColumnMapping as TransferColumnMapping,
     type TransferJob as TransferJob,
+    type TransferJobRetryResponse as TransferJobRetryResponse,
     type TransferJobSummary as TransferJobSummary,
     type TransferUploadFileResponse as TransferUploadFileResponse,
   };

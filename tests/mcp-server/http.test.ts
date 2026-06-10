@@ -483,6 +483,9 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"get_private_message_thread"');
     expect(text).toContain('"name":"reply_private_message_thread"');
     expect(text).toContain('"name":"archive_private_message_thread"');
+    expect(text).toContain('"name":"list_workspace_messages"');
+    expect(text).toContain('"name":"sync_workspace_messages"');
+    expect(text).toContain('"name":"get_workspace_message_thread"');
     expect(text).toContain('"name":"list_companies"');
     expect(text).toContain('"name":"get_company"');
     expect(text).toContain('"name":"create_company"');
@@ -639,6 +642,33 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
     expect(response.headers.get('www-authenticate')).not.toContain('scope=');
     expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_companies'));
+  });
+
+  it('accepts receipt-sized JSON-RPC payloads before authentication preflight', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 18,
+        method: 'tools/call',
+        params: {
+          name: 'append_expense_attachment_upload_chunk',
+          arguments: {
+            upload_token: 'upload-token',
+            offset: 0,
+            content_base64: 'A'.repeat(150_000),
+          },
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'append_expense_attachment_upload_chunk'));
   });
 
   it('returns an OAuth challenge for reply_private_message_thread when authentication is missing', async () => {

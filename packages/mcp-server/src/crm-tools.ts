@@ -6,6 +6,12 @@ import {
   storeBinaryDownload,
 } from './binary-download-store';
 import {
+  appendBinaryUploadChunk,
+  BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+  finishBinaryUpload,
+  startBinaryUpload,
+} from './binary-upload-store';
+import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -25,7 +31,7 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   scope: {
     type: 'string',
     description:
-      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from a connected HubSpot/Salesforce integration. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
+      'Data scope. Use "sanka" for records stored in Sanka, or "integration" to read live records from connected integrations. freee/MoneyForward integration scope maps companies to accounting partners. Do not fall back to Sanka records when an integration read returns unavailable_reason unless the user asks for synced Sanka records.',
     enum: ['sanka', 'integration'],
     default: 'sanka',
   },
@@ -37,8 +43,8 @@ const INTEGRATION_RECORD_SCOPE_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or with scope="sanka" to filter Sanka records linked to that provider.',
-    enum: ['hubspot', 'salesforce'],
+      'Connected integration provider. Use with scope="integration" for live HubSpot/Salesforce data, or provider="freee"/"moneyforward" with companies to inspect accounting partners.',
+    enum: ['freee', 'hubspot', 'moneyforward', 'salesforce'],
   },
   channel_id: {
     type: 'string',
@@ -77,8 +83,8 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Integration mutations support HubSpot and Salesforce for companies, contacts, and deals where the API allows them.',
-    enum: ['hubspot', 'salesforce'],
+      'Connected integration provider for target="integration" or target="both". Integration mutations support HubSpot/Salesforce where the API allows them; freee/MoneyForward are limited to company delete where companies map to accounting partners.',
+    enum: ['freee', 'hubspot', 'moneyforward', 'salesforce'],
   },
   channel_id: {
     type: 'string',
@@ -88,7 +94,7 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   external_object_type: {
     type: 'string',
     description:
-      'Optional provider object type override, for example HubSpot "companies"/"contacts"/"deals" or Salesforce "Account"/"Contact"/"Opportunity". Usually omit it.',
+      'Optional provider object type override, for example HubSpot "companies"/"contacts"/"deals", Salesforce "Account"/"Contact"/"Opportunity", or freee/MoneyForward "partners". Usually omit it.',
   },
   dry_run: {
     type: 'boolean',
@@ -208,7 +214,7 @@ const RECORD_QUERY_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
+        'Record object to query. Supports companies, contacts, deals, and Sanka custom object rows. This does not fetch HubSpot deal line items or deal associations; use preview_workflow for HubSpot Deal line items. For custom object rows, set object_type="custom_objects" and custom_object/custom_object_slug to the custom object slug/internal key or id.',
       enum: [
         'companies',
         'company',
@@ -812,15 +818,17 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
   properties: {
     company_id: {
       type: 'string',
-      description: 'Company identifier to delete.',
+      description:
+        'Company identifier to delete. For target=integration with provider=freee/moneyforward/salesforce, pass the provider record id here or in external_id.',
     },
     ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
-      description: 'Optional explicit external id lookup override.',
+      description:
+        'Optional explicit external id lookup override. For provider=freee/moneyforward this is the accounting partner id; for provider=salesforce this is the Salesforce record id.',
     },
   },
-  required: ['company_id'],
+  required: [],
 };
 
 const CONTACT_MUTATION_INPUT_PROPERTIES = {
@@ -966,7 +974,8 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
   },
   attachment_file_ids: {
     type: 'array',
-    description: 'Optional uploaded expense attachment file IDs to bind to the expense.',
+    description:
+      'Optional uploaded expense attachment file IDs to bind to the expense. Upload receipt or invoice files with upload_expense_attachment first, then pass the returned file_id values here.',
     items: {
       type: 'string',
     },
@@ -1821,7 +1830,8 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     },
     content_base64: {
       type: 'string',
-      description: 'Base64-encoded file content. Data URLs are also accepted.',
+      description:
+        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB.',
     },
     mime_type: {
       type: 'string',
@@ -1829,6 +1839,146 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     },
   },
   required: ['filename', 'content_base64'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    filename: {
+      type: 'string',
+      description: 'Attachment filename to preserve in Sanka.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type. Defaults to application/octet-stream.',
+    },
+    content_base64_length: {
+      type: 'number',
+      description:
+        'Optional total base64 character length. Pass this when known so finish_expense_attachment_upload can detect missing chunks.',
+      minimum: 1,
+    },
+    byte_length: {
+      type: 'number',
+      description:
+        'Optional original byte length. Pass this when known so finish_expense_attachment_upload can verify the decoded file size.',
+      minimum: 1,
+    },
+  },
+  required: ['filename'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: {
+      type: 'string',
+      description: 'Opaque token returned by start_expense_attachment_upload.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for upload_token.',
+    },
+    offset: {
+      type: 'number',
+      description:
+        'Base64 character offset for this chunk. Start at 0, then use next_offset from the previous append result.',
+      minimum: 0,
+      default: 0,
+    },
+    content_base64: {
+      type: 'string',
+      description:
+        'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
+    },
+  },
+  required: ['content_base64'],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: {
+      type: 'string',
+      description: 'Opaque token returned by start_expense_attachment_upload.',
+    },
+    token: {
+      type: 'string',
+      description: 'Alias for upload_token.',
+    },
+  },
+};
+
+const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: { type: 'string' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+    next_offset: { type: 'number' },
+    completion_status: { type: 'string' },
+    required_next_tool: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: [
+    'upload_token',
+    'chunk_size',
+    'expires_at',
+    'next_offset',
+    'completion_status',
+    'required_next_tool',
+    'next_action',
+  ],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    upload_token: { type: 'string' },
+    filename: { type: 'string' },
+    mime_type: { type: 'string' },
+    content_base64_offset: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    expected_content_base64_length: { type: 'number' },
+    expected_byte_length: { type: 'number' },
+    next_offset: { type: 'number' },
+    done: { type: 'boolean' },
+    chunk_size: { type: 'number' },
+    expires_at: { type: 'string' },
+    completion_status: { type: 'string' },
+    required_next_tool: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: [
+    'upload_token',
+    'filename',
+    'mime_type',
+    'content_base64_offset',
+    'content_base64_length',
+    'next_offset',
+    'done',
+    'chunk_size',
+    'expires_at',
+    'completion_status',
+    'next_action',
+  ],
+};
+
+const EXPENSE_CHUNKED_UPLOAD_FINISH_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    file_id: { type: 'string' },
+    id: { type: 'string' },
+    filename: { type: 'string' },
+    url: { type: 'string' },
+    relative_path: { type: 'string' },
+    byte_length: { type: 'number' },
+    content_base64_length: { type: 'number' },
+    completion_status: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  required: ['ok', 'file_id', 'filename', 'completion_status', 'next_action'],
 };
 
 const LIST_OUTPUT_SCHEMA = {
@@ -1864,7 +2014,8 @@ const PRIVATE_MESSAGE_LIST_INPUT_SCHEMA = {
   properties: {
     status: {
       type: 'string',
-      description: 'Optional private-inbox thread status filter. Defaults to `active` on the API side.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox thread status filter. Do not use for Sanka workspace Gmail integrations, /conversation, or shared inbox threads.',
     },
     language: {
       type: 'string',
@@ -1878,11 +2029,13 @@ const PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA = {
   properties: {
     channel_id: {
       type: 'string',
-      description: 'Optional private inbox channel id to sync. Omit to sync all account-level channels.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox channel id to sync. Do not use for integration-linked Gmail, /conversation, or shared workspace inbox channels.',
     },
     status: {
       type: 'string',
-      description: 'Optional private-inbox thread status filter to return after sync.',
+      description:
+        'Optional authenticated-user private/personal account-level inbox thread status filter to return after sync.',
     },
     language: {
       type: 'string',
@@ -1896,7 +2049,8 @@ const PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA = {
   properties: {
     thread_id: {
       type: 'string',
-      description: 'Private inbox thread identifier.',
+      description:
+        'Authenticated-user private/personal account-level inbox thread identifier. Not a /conversation shared workspace thread.',
     },
     language: {
       type: 'string',
@@ -1911,11 +2065,13 @@ const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
   properties: {
     thread_id: {
       type: 'string',
-      description: 'Private inbox thread identifier.',
+      description:
+        'Authenticated-user private/personal account-level inbox thread identifier. Not a /conversation shared workspace thread.',
     },
     body: {
       type: 'string',
-      description: 'Reply body to send on the private message thread.',
+      description:
+        'Reply body to send on an authenticated-user private/personal account-level message thread.',
     },
     language: {
       type: 'string',
@@ -2040,6 +2196,116 @@ const PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA = {
   required: ['message', 'thread_id', 'has_unread'],
 };
 
+const WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    status: {
+      type: 'string',
+      description:
+        'Optional shared workspace/integration inbox thread status filter. Use for Sanka-connected Gmail, integration inbox, /conversation, shared inbox, group inbox, and Contact Conversation threads. Defaults to `active` on the API side.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    channel_id: {
+      type: 'string',
+      description:
+        'Optional shared workspace/integration inbox channel id to sync. Use for Sanka-connected Gmail, integration inbox, /conversation, shared inbox, group inbox, and Contact Conversation channels. Omit to sync all supported workspace channels.',
+    },
+    status: {
+      type: 'string',
+      description: 'Optional shared workspace/integration inbox thread status filter to return after sync.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+};
+
+const WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    thread_id: {
+      type: 'string',
+      description:
+        'Shared workspace/integration inbox thread identifier from /conversation, Contact Conversation, or integration-linked Gmail.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['thread_id'],
+};
+
+const WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA.properties,
+    status: { type: 'string' },
+    assignee_id: { type: 'integer' },
+    assignee_username: { type: 'string' },
+    assignee_display_name: { type: 'string' },
+  },
+  required: PRIVATE_MESSAGE_THREAD_OUTPUT_SCHEMA.required,
+};
+
+const WORKSPACE_MESSAGES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    channels: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_CHANNEL_OUTPUT_SCHEMA,
+    },
+    threads: {
+      type: 'array',
+      items: WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA,
+    },
+  },
+  required: ['message', 'channels', 'threads'],
+};
+
+const WORKSPACE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    ...WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA.properties,
+    open_in_web_url: { type: 'string' },
+    can_reply: { type: 'boolean' },
+    reply_target: { type: 'string' },
+    messages: {
+      type: 'array',
+      items: PRIVATE_MESSAGE_THREAD_MESSAGE_OUTPUT_SCHEMA,
+    },
+  },
+  required: [
+    'message',
+    'id',
+    'title',
+    'counterparty',
+    'preview',
+    'channel_id',
+    'channel_label',
+    'has_unread',
+    'message_type',
+    'message_count',
+    'open_in_web_url',
+    'can_reply',
+    'messages',
+  ],
+};
+
 const EXPENSE_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -2080,7 +2346,7 @@ const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
     status: { type: 'string' },
     ctx_id: { type: 'string' },
     expense_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -2444,14 +2710,24 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   target: {
     type: 'string',
     description:
-      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka.',
+      'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to mutate integration first and then Sanka. If provider is supplied and target is omitted, the MCP routes to "integration"; provider with target="sanka" is rejected.',
     enum: ['sanka', 'integration', 'both'],
     default: 'sanka',
+  },
+  scope: {
+    type: 'string',
+    description: 'Alias for target. If set to "integration", MCP routes the mutation to the connected CRM.',
+    enum: ['sanka', 'integration'],
+  },
+  source: {
+    type: 'string',
+    description: 'Alias for scope. Prefer target for property mutations.',
+    enum: ['sanka', 'integration'],
   },
   provider: {
     type: 'string',
     description:
-      'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+      'Connected integration provider for target="integration" or target="both". Supplying provider prevents a Sanka-only property mutation. Supports HubSpot and Salesforce property definitions.',
     enum: ['hubspot', 'salesforce'],
   },
   channel_id: {
@@ -2701,7 +2977,7 @@ const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
     conditions: RULE_CONDITIONS_PROPERTY,
     approver_user_ids: {
       type: 'array',
-      description: 'Sanka UserManagement ids that can approve this rule.',
+      description: 'Sanka user ids that can approve this rule.',
       items: { type: 'string' },
     },
     worker_scope_type: {
@@ -2718,6 +2994,79 @@ const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
     order: { type: 'integer', description: 'Rule display/evaluation order.', default: 0 },
   },
   required: ['object', 'name'],
+};
+
+const APPROVAL_REQUEST_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    record_id: {
+      type: 'string',
+      description: 'Sanka record UUID to request approval for.',
+    },
+    approver_user_ids: {
+      type: 'array',
+      description: 'Sanka user ids that can approve this request.',
+      items: { type: 'string' },
+    },
+    title: {
+      type: 'string',
+      description: 'Approval request title shown to approvers.',
+    },
+    description: {
+      type: 'string',
+      description: 'Optional approval request description.',
+    },
+    block_targets: {
+      type: 'array',
+      description:
+        'Actions to block until this request is approved, for example status_transition, send, download, convert, crud_update, or document_download.',
+      items: { type: 'string' },
+    },
+    requested_action: {
+      type: 'string',
+      description: 'Optional machine-readable action label, such as approve_estimate or send_invoice.',
+    },
+    idempotency_key: {
+      type: 'string',
+      description: 'Optional idempotency key to avoid creating duplicate approval requests.',
+    },
+  },
+  required: ['object', 'record_id', 'approver_user_ids'],
+};
+
+const RECORD_APPROVAL_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    record_id: {
+      type: 'string',
+      description: 'Sanka record UUID whose approval requests should be listed.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of approval requests to show in the MCP response.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
+  },
+  required: ['object', 'record_id'],
+};
+
+const RECORD_APPROVAL_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    history_id: {
+      type: 'string',
+      description: 'WorkflowHistory UUID for the approval request to approve or reject.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['history_id'],
 };
 
 const RULE_DELETE_INPUT_SCHEMA = {
@@ -2904,14 +3253,24 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     target: {
       type: 'string',
       description:
-        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka.',
+        'Mutation destination. Use "sanka" for Sanka custom properties, "integration" for the connected CRM only, or "both" to delete integration first and then Sanka. If provider is supplied and target is omitted, the MCP routes to "integration"; provider with target="sanka" is rejected.',
       enum: ['sanka', 'integration', 'both'],
       default: 'sanka',
+    },
+    scope: {
+      type: 'string',
+      description: 'Alias for target. If set to "integration", MCP routes the delete to the connected CRM.',
+      enum: ['sanka', 'integration'],
+    },
+    source: {
+      type: 'string',
+      description: 'Alias for scope. Prefer target for property mutations.',
+      enum: ['sanka', 'integration'],
     },
     provider: {
       type: 'string',
       description:
-        'Connected integration provider for target="integration" or target="both". Supports HubSpot and Salesforce property definitions.',
+        'Connected integration provider for target="integration" or target="both". Supplying provider prevents a Sanka-only property mutation. Supports HubSpot and Salesforce property definitions.',
       enum: ['hubspot', 'salesforce'],
     },
     channel_id: {
@@ -3274,22 +3633,22 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    company_id: { type: 'string' },
-    external_id: { type: 'string' },
-    target: { type: 'string' },
-    provider: { type: 'string' },
-    channel_id: { type: 'string' },
-    channel_name: { type: 'string' },
-    external_object_type: { type: 'string' },
-    operation: { type: 'string' },
-    dry_run: { type: 'boolean' },
-    sync_state: { type: 'object' },
-    remote: { type: 'object' },
-    data_origin: { type: 'string' },
-    source_of_truth: { type: 'string' },
-    unavailable_reason: { type: 'string' },
-    message: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    company_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    data_origin: { type: ['string', 'null'] as any },
+    source_of_truth: { type: ['string', 'null'] as any },
+    unavailable_reason: { type: ['string', 'null'] as any },
+    message: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3314,9 +3673,25 @@ const CONTACT_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    contact_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    contact_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    warnings: {
+      type: ['array', 'null'] as any,
+      items: { type: 'string' },
+    },
+    message: { type: ['string', 'null'] as any },
+    data_origin: { type: ['string', 'null'] as any },
+    source_of_truth: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3326,9 +3701,9 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    ctx_id: { type: 'string' },
-    case_id: { type: 'string' },
-    external_id: { type: 'string' },
+    ctx_id: { type: ['string', 'null'] as any },
+    case_id: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
     record_preview: {
       type: ['object', 'null'] as any,
       additionalProperties: true,
@@ -3337,6 +3712,20 @@ const DEAL_MUTATION_OUTPUT_SCHEMA = {
       type: ['object', 'null'] as any,
       additionalProperties: true,
     },
+    target: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    operation: { type: ['string', 'null'] as any },
+    dry_run: { type: ['boolean', 'null'] as any },
+    remote: { type: ['object', 'null'] as any, additionalProperties: true },
+    sync_state: { type: ['object', 'null'] as any, additionalProperties: true },
+    warnings: {
+      type: ['array', 'null'] as any,
+      items: { type: 'string' },
+    },
+    message: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -3382,6 +3771,14 @@ const PROPERTY_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     object: { type: 'string' },
     property_id: { type: 'string' },
+    target: { type: 'string' },
+    provider: { type: ['string', 'null'] as any },
+    channel_id: { type: ['string', 'null'] as any },
+    channel_name: { type: ['string', 'null'] as any },
+    external_id: { type: ['string', 'null'] as any },
+    external_object_type: { type: ['string', 'null'] as any },
+    dry_run: { type: 'boolean' },
+    remote: { type: 'object', additionalProperties: true },
   },
   required: ['ok', 'status', 'ctx_id', 'object', 'property_id'],
 };
@@ -3525,7 +3922,7 @@ const ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['order_id'],
@@ -3716,25 +4113,14 @@ const TASK_DELETE_INPUT_SCHEMA = {
   required: ['task_id'],
 };
 
-const ORDER_OUTPUT_SCHEMA = {
+const V2_RECORD_DETAIL_OUTPUT_SCHEMA = {
   type: 'object' as const,
-  properties: {
-    id: { type: 'string' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    order_at: { type: 'string' },
-    company_id: { type: 'string' },
-    contact_id: { type: 'string' },
-    currency: { type: 'string' },
-    delivery_status: { type: 'string' },
-    number_item: { type: 'integer' },
-    order_id: { type: 'integer' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: ['id', 'created_at', 'updated_at', 'order_at'],
+  properties: {},
+  additionalProperties: true,
+  required: [],
 };
+
+const ORDER_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -3747,7 +4133,7 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
     permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
     job_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     order_id: { type: 'string' },
     order_number: { type: 'integer' },
     verification: { type: 'object' },
@@ -3756,7 +4142,7 @@ const ORDER_MUTATION_OUTPUT_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          external_id: { type: 'string' },
+          external_id: { type: ['string', 'null'] as any },
           status: { type: 'string' },
           errors: {
             type: 'array',
@@ -3888,7 +4274,7 @@ const PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['purchase_order_id'],
@@ -3930,22 +4316,7 @@ const PURCHASE_ORDER_LIST_INPUT_SCHEMA = {
   },
 };
 
-const PURCHASE_ORDER_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    date: { type: 'string' },
-    id_po: { type: 'integer' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: ['created_at', 'updated_at'],
-};
+const PURCHASE_ORDER_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -3953,7 +4324,7 @@ const PURCHASE_ORDER_MUTATION_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     purchase_order_id: { type: 'string' },
     advisories: {
       type: ['array', 'null'] as any,
@@ -3968,7 +4339,7 @@ const TASK_OUTPUT_SCHEMA = {
   properties: {
     id: { type: 'string' },
     task_id: { type: 'integer' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     title: { type: 'string' },
     description: { type: 'string' },
     status: { type: 'string' },
@@ -3991,7 +4362,7 @@ const TASK_MUTATION_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     task_id: { type: 'string' },
   },
   required: ['ok', 'status'],
@@ -4122,7 +4493,7 @@ const ESTIMATE_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['estimate_id'],
@@ -4164,23 +4535,7 @@ const ESTIMATE_LIST_INPUT_SCHEMA = {
   },
 };
 
-const ESTIMATE_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_est: { type: 'integer' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: ['created_at', 'updated_at'],
-};
+const ESTIMATE_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -4188,7 +4543,7 @@ const ESTIMATE_MUTATION_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     estimate_id: { type: 'string' },
     advisories: {
       type: ['array', 'null'] as any,
@@ -4429,7 +4784,7 @@ const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['invoice_id'],
@@ -4984,7 +5339,7 @@ const PAYMENT_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['payment_id'],
@@ -5148,7 +5503,7 @@ const SLIP_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['slip_id'],
@@ -5550,34 +5905,7 @@ const DISBURSEMENT_ALLOCATION_DELETE_INPUT_SCHEMA = {
   required: ['disbursement_id', 'allocation_id'],
 };
 
-const INVOICE_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id: { type: 'string' },
-    app_url: { type: 'string' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    days_overdue: { type: 'integer' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_inv: { type: 'integer' },
-    outstanding_balance: { type: 'number' },
-    paid_amount: { type: 'number' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    status_key: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-    workspace_code: { type: 'string' },
-    line_items: {
-      type: 'array',
-      items: { type: 'object' },
-    },
-  },
-  required: ['created_at', 'updated_at'],
-};
+const INVOICE_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const INVOICE_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5589,7 +5917,7 @@ const INVOICE_MUTATION_OUTPUT_SCHEMA = {
     usage_status_label: { type: 'string' },
     permanently_deleted: { type: 'boolean' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     invoice_id: { type: 'string' },
     id_inv: { type: 'integer' },
     verification: { type: 'object' },
@@ -5621,24 +5949,7 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
   required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
 };
 
-const SLIP_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_slip: { type: 'integer' },
-    slip_type: { type: 'string' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-  },
-  required: ['created_at', 'updated_at'],
-};
+const SLIP_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const SLIP_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5646,30 +5957,13 @@ const SLIP_MUTATION_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     slip_id: { type: 'string' },
   },
   required: ['ok', 'status'],
 };
 
-const BILL_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    created_at: { type: 'string' },
-    amount: { type: 'number' },
-    amount_without_tax: { type: 'number' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    due_date: { type: 'string' },
-    id_bill: { type: 'integer' },
-    issued_date: { type: 'string' },
-    payment_date: { type: 'string' },
-    status: { type: 'string' },
-    updated_at: { type: 'string' },
-  },
-  required: ['created_at'],
-};
+const BILL_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const BILL_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -5678,7 +5972,7 @@ const BILL_MUTATION_OUTPUT_SCHEMA = {
     status: { type: 'string' },
     bill_id: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -5711,7 +6005,7 @@ const DISBURSEMENT_MUTATION_OUTPUT_SCHEMA = {
     status: { type: 'string' },
     ctx_id: { type: 'string' },
     disbursement_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
   },
   required: ['ok', 'status'],
 };
@@ -5947,7 +6241,7 @@ const TICKET_MUTATION_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     ticket_id: { type: 'string' },
   },
   required: ['ok', 'status'],
@@ -6231,6 +6525,27 @@ const SEARCHABLE_WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA = {
   },
 };
 
+const OBJECT_RECORD_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...SEARCHABLE_WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA.properties,
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    sort: {
+      type: 'string',
+      description: 'Sort field, optionally prefixed with "-" for descending order.',
+    },
+    view_id: {
+      type: 'string',
+      description: 'Optional saved view identifier.',
+    },
+  },
+};
+
 const ITEM_MUTATION_INPUT_PROPERTIES = {
   external_id: {
     type: 'string',
@@ -6334,7 +6649,7 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     item_id: { type: 'string' },
     ctx_id: { type: 'string' },
   },
@@ -6548,7 +6863,7 @@ const SUBSCRIPTION_DELETE_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     subscription_id: { type: 'string' },
     ctx_id: { type: 'string' },
   },
@@ -6894,6 +7209,104 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
   };
 };
 
+const buildWorkspaceMessageListParams = (args: Record<string, unknown> | undefined) => {
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildWorkspaceMessageSyncParams = (args: Record<string, unknown> | undefined) => {
+  const channelID = readString(args?.['channel_id']);
+  const status = readString(args?.['status']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(channelID ? { channel_id: channelID } : undefined),
+    ...(status ? { status } : undefined),
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildWorkspaceMessageThreadLanguageParams = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+
+  return {
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const flattenWorkspaceMessagesPayload = (payload: Record<string, unknown>) => {
+  const data = readRecord(payload['data']);
+  const channels =
+    Array.isArray(data?.['channels']) ? (data['channels'] as Array<Record<string, unknown>>) : [];
+  const threads = Array.isArray(data?.['threads']) ? (data['threads'] as Array<Record<string, unknown>>) : [];
+
+  return {
+    message: readString(payload['message']) ?? 'ok',
+    ctx_id: readString(payload['ctx_id']) ?? undefined,
+    channels,
+    threads,
+  };
+};
+
+const buildWorkspaceMessagesResult = ({
+  action,
+  payload,
+}: {
+  action: 'Loaded' | 'Synced';
+  payload: Record<string, unknown>;
+}): ToolCallResult => {
+  const flattened = flattenWorkspaceMessagesPayload(payload);
+  const unreadThreads = flattened.threads.reduce((total, thread) => {
+    return total + (readBoolean(thread['has_unread']) ? 1 : 0);
+  }, 0);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `${action} ${flattened.threads.length} shared workspace message thread${
+          flattened.threads.length === 1 ? '' : 's'
+        } across ${flattened.channels.length} channel${flattened.channels.length === 1 ? '' : 's'}${
+          unreadThreads > 0 ? `, ${unreadThreads} unread` : ''
+        }.`,
+      },
+    ],
+    structuredContent: flattened,
+  };
+};
+
+const buildWorkspaceMessageThreadResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const title = readString(data['title']);
+  const messages = Array.isArray(data['messages']) ? data['messages'] : [];
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          title ?
+            `Loaded shared workspace message thread "${title}" with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`
+          : `Loaded shared workspace message thread with ${messages.length} message${
+              messages.length === 1 ? '' : 's'
+            }.`,
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
 const PAYMENT_DELETE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -6909,30 +7322,14 @@ const PAYMENT_DELETE_INPUT_SCHEMA = {
   required: ['payment_id'],
 };
 
-const PAYMENT_OUTPUT_SCHEMA = {
-  type: 'object' as const,
-  properties: {
-    id_rcp: { type: 'integer' },
-    company_name: { type: 'string' },
-    contact_name: { type: 'string' },
-    currency: { type: 'string' },
-    entry_type: { type: 'string' },
-    start_date: { type: 'string' },
-    status: { type: 'string' },
-    total_price: { type: 'number' },
-    total_price_without_tax: { type: 'number' },
-    created_at: { type: 'string' },
-    updated_at: { type: 'string' },
-  },
-  required: ['created_at', 'updated_at'],
-};
+const PAYMENT_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
 
 const PAYMENT_MUTATION_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     payment_id: { type: 'string' },
     ctx_id: { type: 'string' },
   },
@@ -7093,7 +7490,7 @@ const LOCATION_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     location_id: { type: 'string' },
     ctx_id: { type: 'string' },
   },
@@ -7221,7 +7618,7 @@ const INVENTORY_MUTATION_OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean' },
     status: { type: 'string' },
-    external_id: { type: 'string' },
+    external_id: { type: ['string', 'null'] as any },
     inventory_id: { type: 'string' },
     inventory_record_id: { type: 'string' },
     ctx_id: { type: 'string' },
@@ -7539,6 +7936,11 @@ const readString = (value: unknown): string | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const DOCUMENT_PDF_DEFAULT_LANGUAGE = 'ja';
+
+const readDocumentPDFLanguage = (args: Record<string, unknown> | undefined): string =>
+  readString(args?.['language']) ?? DOCUMENT_PDF_DEFAULT_LANGUAGE;
+
 const readBoolean = (value: unknown): boolean | undefined => {
   if (typeof value === 'boolean') {
     return value;
@@ -7651,6 +8053,16 @@ const readRecord = (value: unknown): Record<string, unknown> | undefined => {
 
 const STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT = 10;
 const STRUCTURED_TEXT_PREVIEW_MAX_CHARS = 12000;
+const LIST_SUMMARY_PRIMARY_DISPLAY_KEYS = new Set([
+  'name',
+  'title',
+  'label',
+  'display_name',
+  'display_label',
+  'internal_name',
+  'description',
+  'subject',
+]);
 
 const buildStructuredTextPreview = (label: string, value: unknown): string | undefined => {
   const json = JSON.stringify(value, null, 2);
@@ -7662,6 +8074,69 @@ const buildStructuredTextPreview = (label: string, value: unknown): string | und
   const body = truncated ? `${json.slice(0, STRUCTURED_TEXT_PREVIEW_MAX_CHARS)}\n...truncated...` : json;
   return `${label}:\n${body}`;
 };
+
+const readListPreviewValue = (
+  row: Record<string, unknown>,
+  keys: string[],
+  predicate: (key: string) => boolean = () => true,
+): string | undefined => {
+  for (const key of keys) {
+    if (!predicate(key)) {
+      continue;
+    }
+    const value = row[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return undefined;
+};
+
+const buildListModelContextPreview = ({
+  label,
+  payload,
+}: {
+  label: string;
+  payload: {
+    scope?: string | null;
+    provider?: string | null;
+    channel_id?: string | null;
+    channel_name?: string | null;
+    external_object_type?: string | null;
+    data_origin?: string | null;
+    source_of_truth?: string | null;
+    sync_state?: Record<string, unknown> | null;
+    unavailable_reason?: string | null;
+    next_cursor?: string | null;
+    count: number;
+    data: Array<Record<string, unknown>>;
+    message: string;
+    page: number;
+    total: number;
+    permission?: string | null;
+  };
+}): string | undefined =>
+  buildStructuredTextPreview(`${label} model context`, {
+    ...(payload.scope ? { scope: payload.scope } : undefined),
+    ...(payload.provider ? { provider: payload.provider } : undefined),
+    ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
+    ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
+    ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
+    ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
+    ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
+    ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
+    ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
+    ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
+    ...(payload.permission ? { permission: payload.permission } : undefined),
+    count: payload.count,
+    total: payload.total,
+    page: payload.page,
+    message: payload.message,
+    results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
+  });
 
 const unwrapV2EnvelopeRecord = (
   payload: Record<string, unknown>,
@@ -8021,21 +8496,19 @@ const buildListSummary = ({
   const preview = rows
     .slice(0, 3)
     .map((row) => {
+      const primaryDisplayValue = readListPreviewValue(row, previewKeys, (key) =>
+        LIST_SUMMARY_PRIMARY_DISPLAY_KEYS.has(key),
+      );
+      if (primaryDisplayValue) {
+        return primaryDisplayValue;
+      }
+
       const safeRecordLabel = buildSafeRecordLabel({ entity: label, payload: row });
       if (safeRecordLabel) {
         return safeRecordLabel;
       }
 
-      for (const key of previewKeys) {
-        const value = row[key];
-        if (typeof value === 'string' && value.trim().length > 0) {
-          return value.trim();
-        }
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          return String(value);
-        }
-      }
-      return null;
+      return readListPreviewValue(row, previewKeys) ?? null;
     })
     .filter((value): value is string => Boolean(value));
 
@@ -8113,7 +8586,7 @@ const buildListResult = ({
   label,
   payload,
   previewKeys,
-  includeStructuredTextPreview = false,
+  includeStructuredTextPreview = true,
 }: {
   label: string;
   payload: {
@@ -8133,19 +8606,14 @@ const buildListResult = ({
     page: number;
     total: number;
     permission?: string | null;
+    hasBlockingPending?: boolean;
+    rules?: unknown[];
   };
   previewKeys?: string[];
   includeStructuredTextPreview?: boolean;
 }): ToolCallResult => {
   const structuredTextPreview =
-    includeStructuredTextPreview ?
-      buildStructuredTextPreview(`${label} results preview`, {
-        count: payload.count,
-        total: payload.total,
-        page: payload.page,
-        results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
-      })
-    : undefined;
+    includeStructuredTextPreview ? buildListModelContextPreview({ label, payload }) : undefined;
   const summaryInput =
     previewKeys ?
       {
@@ -8347,10 +8815,6 @@ const shouldUseLegacyRecordRoute = (
   body: Record<string, unknown>,
   action: 'query' | 'aggregate',
 ): boolean => {
-  const scope = readLowerString(body['scope']);
-  if (scope === 'integration') {
-    return true;
-  }
   if (readString(body['mode'])) {
     return true;
   }
@@ -8724,9 +9188,16 @@ const readIntegrationScope = (value: unknown): 'sanka' | 'integration' | undefin
   return undefined;
 };
 
-const readIntegrationProvider = (value: unknown): 'hubspot' | 'salesforce' | undefined => {
+const readIntegrationProvider = (
+  value: unknown,
+): 'freee' | 'hubspot' | 'moneyforward' | 'salesforce' | undefined => {
   const provider = readString(value);
-  if (provider === 'hubspot' || provider === 'salesforce') {
+  if (
+    provider === 'freee' ||
+    provider === 'hubspot' ||
+    provider === 'moneyforward' ||
+    provider === 'salesforce'
+  ) {
     return provider;
   }
   return undefined;
@@ -8736,6 +9207,7 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   const referenceID = readString(args?.['reference_id']);
   const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
   const provider = readIntegrationProvider(args?.['provider']);
+  const legacyProvider = provider === 'freee' || provider === 'moneyforward' ? undefined : provider;
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const search = readString(args?.['search']);
@@ -8747,7 +9219,7 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
     limit: readNumber(args?.['limit'], 10),
     page: readNumber(args?.['page'], 1),
     ...(scope ? { scope } : undefined),
-    ...(provider ? { provider } : undefined),
+    ...(legacyProvider ? { provider: legacyProvider } : undefined),
     ...(channelID ? { channel_id: channelID } : undefined),
     ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     ...(referenceID ? { reference_id: referenceID } : undefined),
@@ -8762,7 +9234,13 @@ const hasCompanyRecordRoutingArgs = (args: Record<string, unknown> | undefined):
   if (!args) {
     return false;
   }
-  return Boolean(readStringArray(args['select']).length);
+  return Boolean(
+    readIntegrationScope(args['scope'] ?? args['source']) ||
+      readIntegrationProvider(args['provider']) ||
+      readString(args['channel_id'] ?? args['channelId']) ||
+      readString(args['external_object_type'] ?? args['externalObjectType']) ||
+      readStringArray(args['select']).length,
+  );
 };
 
 const hasDealRecordRoutingArgs = (args: Record<string, unknown> | undefined): boolean => {
@@ -8852,7 +9330,9 @@ const buildCompanyMutationBody = (args: Record<string, unknown> | undefined) => 
 };
 
 const buildCompanyDeleteParams = (args: Record<string, unknown> | undefined) => {
-  const companyID = readString(args?.['company_id']);
+  const externalID = readString(args?.['external_id']);
+  const target = readString(args?.['target']);
+  const companyID = readString(args?.['company_id']) ?? (target === 'integration' ? externalID : undefined);
   const params: Record<string, unknown> = {};
   assignStringFields(params, args, [
     'channel_id',
@@ -9030,10 +9510,34 @@ const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
 
 const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
   const runID = readString(args?.['run_id']);
-  const params = buildWorkspaceQuery(args);
+  const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['result_id', 'employee_id', 'language']);
   return { runID, params };
 };
+
+// V2 payroll routes scope the workspace from X-Workspace-Code, so workspace_id
+// args are not forwarded. Responses are normalized back to the V1 payload shape
+// the tool output schemas were written against.
+const readPayrollV2Meta = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['meta']) ?? {};
+
+const legacyPayrollListPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const data = readRecord(payload['data']) ?? {};
+  const items = Array.isArray(data['items']) ? data['items'] : [];
+  return {
+    data: items,
+    employee_options: data['employee_options'] ?? [],
+    count: readNumber(data['count'], items.length),
+    message: 'OK',
+    ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
+  };
+};
+
+const legacyPayrollRecordPayload = (payload: Record<string, unknown>): Record<string, unknown> => ({
+  data: readRecord(payload['data']) ?? {},
+  message: 'OK',
+  ctx_id: readString(readPayrollV2Meta(payload)['ctx_id']) ?? null,
+});
 
 const buildAbsenceMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
@@ -9105,7 +9609,7 @@ const buildPayrollProfileBody = (args: Record<string, unknown> | undefined) => {
 };
 
 const buildPayrollRunListParams = (args: Record<string, unknown> | undefined) => {
-  const params = buildWorkspaceQuery(args);
+  const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['period']);
   return params;
 };
@@ -9826,7 +10330,7 @@ const buildOrderDownloadPDFParams = (args: Record<string, unknown> | undefined) 
   const orderID = readString(args?.['order_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     orderID,
@@ -10047,7 +10551,7 @@ const buildPurchaseOrderDownloadPDFParams = (args: Record<string, unknown> | und
   const purchaseOrderID = readString(args?.['purchase_order_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     purchaseOrderID,
@@ -10548,7 +11052,7 @@ const buildEstimateDownloadPDFParams = (args: Record<string, unknown> | undefine
   const estimateID = readString(args?.['estimate_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     estimateID,
@@ -10578,7 +11082,7 @@ const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined
   const invoiceID = readString(args?.['invoice_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     invoiceID,
@@ -10643,7 +11147,7 @@ const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined
   const paymentID = readString(args?.['payment_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     paymentID,
@@ -10659,7 +11163,7 @@ const buildSlipDownloadPDFParams = (args: Record<string, unknown> | undefined) =
   const slipID = readString(args?.['slip_id']);
   const externalID = readString(args?.['external_id']);
   const templateSelect = readString(args?.['template_select']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
 
   return {
     slipID,
@@ -10919,6 +11423,8 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     'name',
     'number_format',
     'provider',
+    'scope',
+    'source',
     'target',
     'type',
   ]);
@@ -10960,13 +11466,49 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
       .filter((option): option is Record<string, unknown> => Boolean(option));
   }
 
+  const scope = readLowerString(body['scope'] ?? body['source']);
+  if (scope === 'integration' && !readString(body['target'])) {
+    body['target'] = 'integration';
+  }
+
   return body;
+};
+
+const validateAndNormalizePropertyMutationRouting = (params: Record<string, unknown>): string | undefined => {
+  const target = readString(params['target']);
+  const providerRaw = readString(params['provider']);
+  const provider = readIntegrationProvider(providerRaw);
+
+  if (target && target !== 'sanka' && target !== 'integration' && target !== 'both') {
+    return '`target` must be "sanka", "integration", or "both".';
+  }
+  if (providerRaw && !provider) {
+    return '`provider` must be "hubspot" or "salesforce" for property mutations.';
+  }
+  if (provider === 'freee' || provider === 'moneyforward') {
+    return '`provider` must be "hubspot" or "salesforce" for property mutations.';
+  }
+  if (provider) {
+    params['provider'] = provider;
+    if (!target) {
+      params['target'] = 'integration';
+      return undefined;
+    }
+    if (target === 'sanka') {
+      return '`provider` cannot be used with target="sanka"; omit `provider` for Sanka custom properties or use target="integration"/"both".';
+    }
+  }
+  if (!provider && (target === 'integration' || target === 'both')) {
+    return '`provider` is required when target is "integration" or "both".';
+  }
+  return undefined;
 };
 
 const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const objectName = readString(args?.['object_name']);
   const propertyRef = readString(args?.['property_ref']);
-  const target = readString(args?.['target']);
+  const scope = readLowerString(args?.['scope'] ?? args?.['source']);
+  const target = readString(args?.['target']) ?? (scope === 'integration' ? 'integration' : undefined);
   const provider = readIntegrationProvider(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
@@ -10986,31 +11528,6 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
       ...(confirm !== undefined ? { confirm } : undefined),
     },
   };
-};
-
-const hasIntegrationPropertyQueryHints = (params: Record<string, unknown>): boolean => {
-  const scope = readLowerString(params['scope'] ?? params['source']);
-  return Boolean(
-    scope === 'integration' ||
-      readString(params['provider']) ||
-      readString(params['channel_id'] ?? params['channelId']) ||
-      readString(params['external_object_type'] ?? params['externalObjectType']),
-  );
-};
-
-const hasIntegrationPropertyMutationHints = (payload: Record<string, unknown>): boolean => {
-  const target = readLowerString(payload['target']);
-  return Boolean(
-    (target && target !== 'sanka') ||
-      readString(payload['provider']) ||
-      readString(payload['channel_id'] ?? payload['channelId']) ||
-      readString(payload['external_object_type'] ?? payload['externalObjectType']),
-  );
-};
-
-const legacyPropertyPath = (objectName: string, propertyRef?: string): string => {
-  const base = `/v1/public/properties/${encodeURIComponent(objectName)}`;
-  return propertyRef ? `${base}/${encodeURIComponent(propertyRef)}` : base;
 };
 
 const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
@@ -11069,6 +11586,43 @@ const buildApprovalRuleBody = (args: Record<string, unknown> | undefined) => {
     body['worker_ids'] = workerIDs;
   }
   return { objectName, body };
+};
+
+const buildApprovalRequestBody = (args: Record<string, unknown> | undefined) => {
+  const objectName = readRuleObjectName(args);
+  const body: Record<string, unknown> = {};
+  if (objectName) {
+    body['object'] = objectName;
+  }
+  const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+  if (recordID) {
+    body['record_id'] = recordID;
+  }
+  assignStringFields(body, args, ['title', 'description', 'requested_action', 'idempotency_key', 'language']);
+  const approverUserIDs = readStringArray(args?.['approver_user_ids']);
+  if (approverUserIDs.length > 0) {
+    body['approver_user_ids'] = approverUserIDs;
+  }
+  const blockTargets = readStringArray(args?.['block_targets']);
+  if (blockTargets.length > 0) {
+    body['block_targets'] = blockTargets;
+  }
+  return { objectName, recordID, body };
+};
+
+const buildRecordApprovalsQuery = (args: Record<string, unknown> | undefined) => {
+  const { objectName, params } = buildRuleSettingsQuery(args);
+  const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
+  if (recordID) {
+    params['record_id'] = recordID;
+  }
+  return { objectName, recordID, params };
+};
+
+const buildApprovalMutationQuery = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {};
+  assignStringFields(params, args, ['workspace_id']);
+  return params;
 };
 
 const buildLockRuleBody = (args: Record<string, unknown> | undefined) => {
@@ -11175,6 +11729,51 @@ const buildRuleSettingsMutationResult = (
           payload: readRecord(data['rule']) ?? data,
           idKeys: ['id'],
         }),
+      },
+    ],
+    structuredContent: data,
+  };
+};
+
+const unwrapApprovalRequestEnvelope = (payload: Record<string, unknown>): Record<string, unknown> =>
+  readRecord(payload['data']) ?? payload;
+
+const approvalRequestRowsFromPayload = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const rows = data['approvalRequests'];
+  return Array.isArray(rows) ? rows.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+};
+
+const buildRecordApprovalsListResult = (payload: Record<string, unknown>, limit: number): ToolCallResult => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const rows = approvalRequestRowsFromPayload(payload).slice(0, limit);
+  return buildListResult({
+    label: 'record approvals',
+    payload: {
+      count: rows.length,
+      data: rows,
+      message: readString(data['message']) ?? `Returned ${rows.length} record approvals.`,
+      page: 1,
+      total: approvalRequestRowsFromPayload(payload).length,
+      hasBlockingPending: Boolean(data['hasBlockingPending']),
+      rules: Array.isArray(data['rules']) ? data['rules'] : [],
+    },
+    previewKeys: ['title', 'status', 'source', 'historyId'],
+  });
+};
+
+const buildApprovalRequestMutationResult = (
+  action: 'created' | 'approved' | 'rejected',
+  payload: Record<string, unknown>,
+): ToolCallResult => {
+  const data = unwrapApprovalRequestEnvelope(payload);
+  const approvalRequest = readRecord(data['approvalRequest']) ?? data;
+  const title = readString(approvalRequest['title']) ?? readString(data['historyId']) ?? 'approval request';
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Approval request ${action}: ${title}.`,
       },
     ],
     structuredContent: data,
@@ -11526,6 +12125,18 @@ const normalizeObjectSchemaMutationPayload = (payload: Record<string, unknown>):
   };
 };
 
+const normalizeV2MutationEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
 const normalizeV2ListEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown>[] => {
   const envelope = unwrapV2EnvelopeRecord(payload);
   const value = envelope ? envelope.data : payload['data'];
@@ -11632,6 +12243,20 @@ const buildSearchableWorkspaceLanguageListParams = (args: Record<string, unknown
   };
 };
 
+const buildObjectRecordListParams = (args: Record<string, unknown> | undefined) => {
+  const result = buildPagedWorkspaceParams(args, 10);
+  const language = readString(args?.['language']);
+  const viewID = readString(args?.['view_id'] ?? args?.['view']);
+  assignStringFields(result.params, args, ['search', 'sort']);
+  if (viewID) {
+    result.params['view_id'] = viewID;
+  }
+  if (language) {
+    result.params['Accept-Language'] = language;
+  }
+  return result;
+};
+
 const buildItemRetrieveParams = (args: Record<string, unknown> | undefined) => {
   const itemID = readString(args?.['item_id']);
   const externalID = readString(args?.['external_id']);
@@ -11642,6 +12267,45 @@ const buildItemRetrieveParams = (args: Record<string, unknown> | undefined) => {
       ...(externalID ? { external_id: externalID } : undefined),
     },
   };
+};
+
+const recordMatchesAnyID = (
+  record: Record<string, unknown>,
+  ids: Array<string | undefined>,
+  keys: readonly string[],
+): boolean => {
+  const expected = new Set(ids.filter((id): id is string => Boolean(id)).map((id) => id.toLowerCase()));
+  if (expected.size === 0) {
+    return false;
+  }
+  return keys.some((key) => {
+    const value = record[key];
+    return (
+      (typeof value === 'string' || typeof value === 'number') && expected.has(String(value).toLowerCase())
+    );
+  });
+};
+
+const findInventoryFallbackFromList = async ({
+  reqContext,
+  args,
+  inventoryID,
+}: {
+  reqContext: McpRequestContext;
+  args: Record<string, unknown> | undefined;
+  inventoryID: string;
+}): Promise<Record<string, unknown> | undefined> => {
+  const fallbackArgs = {
+    ...(args ?? {}),
+    limit: 100,
+  };
+  const { params } = buildObjectRecordListParams(fallbackArgs);
+  const inventories = await reqContext.client.public.inventories.list(params, undefined);
+  const rows = inventories.map((inventory) => inventory as unknown as Record<string, unknown>);
+  const externalID = readString(args?.['external_id']);
+  return rows.find((row) =>
+    recordMatchesAnyID(row, [inventoryID, externalID], ['id', 'inventory_id', 'record_id', 'external_id']),
+  );
 };
 
 const buildItemMutationBody = (args: Record<string, unknown> | undefined) => {
@@ -13012,7 +13676,7 @@ export const crmListAssociationsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'associations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.list',
   },
   tool: {
@@ -13059,7 +13723,7 @@ export const crmCreateAssociationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'associations'],
     httpMethod: 'post',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.create',
   },
   tool: {
@@ -13112,7 +13776,7 @@ export const crmDeleteAssociationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'associations'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/associations',
+    httpPath: '/api/v2/public/associations',
     operationId: 'public.associations.delete',
   },
   tool: {
@@ -13176,7 +13840,7 @@ export const crmListCompaniesTool: McpTool = {
     name: 'list_companies',
     title: 'List companies',
     description:
-      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts, while scope=integration with provider=salesforce lists live Salesforce Accounts.',
+      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts; scope=integration with provider=salesforce lists live Salesforce Accounts; scope=integration with provider=freee or provider=moneyforward lists live accounting partners as companies.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13293,7 +13957,7 @@ export const crmCreateCompanyTool: McpTool = {
     name: 'create_company',
     title: 'Create company',
     description:
-      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync.',
+      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync. freee/MoneyForward partner creation is handled by invoice_export, not this tool.',
     inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13348,7 +14012,7 @@ export const crmUpdateCompanyTool: McpTool = {
     name: 'update_company',
     title: 'Update company',
     description:
-      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
+      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. freee/MoneyForward partner updates are not supported here. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
     inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13409,7 +14073,7 @@ export const crmDeleteCompanyTool: McpTool = {
     name: 'delete_company',
     title: 'Delete company',
     description:
-      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce only with dry_run/governance for provider-side archive/delete checks.',
+      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce to delete a Salesforce record by external_id, or provider=freee/provider=moneyforward to delete an accounting partner by external_id. Always run dry_run=true first and set confirm=true only after explicit approval.',
     inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
     outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13431,7 +14095,9 @@ export const crmDeleteCompanyTool: McpTool = {
 
     const { companyID, params } = buildCompanyDeleteParams(args);
     if (!companyID) {
-      return asErrorResult('`company_id` is required.');
+      return asErrorResult(
+        '`company_id` is required unless target="integration" and `external_id` is provided.',
+      );
     }
 
     const response = (await reqContext.client.public.companies.delete(
@@ -13854,7 +14520,7 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
     name: 'upload_expense_attachment',
     title: 'Upload expense attachment',
     description:
-      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded file content, then use the returned file_id in create_expense or update_expense.',
+      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded original file content, then use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
     inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
     outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -13902,20 +14568,247 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
   },
 };
 
+export const crmStartExpenseAttachmentUploadTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    operationId: 'public.expenses.startChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'start_expense_attachment_upload',
+    title: 'Start expense attachment upload',
+    description:
+      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append chunks, then finish to receive a file_id for create_expense or update_expense.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Start expense attachment upload',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Start expense attachment upload',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const filename = readString(args?.['filename']);
+    if (!filename) {
+      return asErrorResult('`filename` is required.');
+    }
+
+    const upload = startBinaryUpload({
+      filename,
+      mimeType: readString(args?.['mime_type']),
+      expectedBase64Length:
+        typeof args?.['content_base64_length'] === 'number' ? args['content_base64_length'] : undefined,
+      expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Started chunked expense attachment upload for ${filename}.`,
+        },
+      ],
+      structuredContent: {
+        upload_token: upload.uploadToken,
+        chunk_size: upload.chunkSize,
+        expires_at: upload.expiresAt,
+        next_offset: upload.nextOffset,
+        completion_status: 'requires_chunks',
+        required_next_tool: 'append_expense_attachment_upload_chunk',
+        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks of about ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+      },
+    };
+  },
+};
+
+export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    operationId: 'public.expenses.appendChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'append_expense_attachment_upload_chunk',
+    title: 'Append expense attachment upload chunk',
+    description:
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Append expense attachment upload chunk',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Append expense attachment upload chunk',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
+    if (!uploadToken) {
+      return asErrorResult('`upload_token` is required.');
+    }
+    const contentBase64 = readString(args?.['content_base64']);
+    if (!contentBase64) {
+      return asErrorResult('`content_base64` is required.');
+    }
+
+    const chunk = appendBinaryUploadChunk({
+      uploadToken,
+      contentBase64,
+      offset: typeof args?.['offset'] === 'number' ? args['offset'] : undefined,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!chunk.ok) {
+      return asErrorResult(chunk.message);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Appended ${chunk.nextOffset - chunk.contentBase64Offset} base64 characters for ${
+            chunk.filename
+          }.`,
+        },
+      ],
+      structuredContent: {
+        upload_token: uploadToken,
+        filename: chunk.filename,
+        mime_type: chunk.mimeType,
+        content_base64_offset: chunk.contentBase64Offset,
+        content_base64_length: chunk.contentBase64Length,
+        ...(chunk.expectedBase64Length !== undefined ?
+          { expected_content_base64_length: chunk.expectedBase64Length }
+        : undefined),
+        ...(chunk.expectedByteLength !== undefined ?
+          { expected_byte_length: chunk.expectedByteLength }
+        : undefined),
+        next_offset: chunk.nextOffset,
+        done: chunk.done,
+        chunk_size: chunk.chunkSize,
+        expires_at: chunk.expiresAt,
+        completion_status: chunk.done ? 'chunks_received' : 'requires_next_chunk',
+        ...(chunk.done ?
+          { required_next_tool: 'finish_expense_attachment_upload' }
+        : { required_next_tool: 'append_expense_attachment_upload_chunk' }),
+        next_action:
+          chunk.done ?
+            'Call finish_expense_attachment_upload with this upload_token to upload the assembled file to Sanka and receive a file_id.'
+          : 'Call append_expense_attachment_upload_chunk again with next_offset and the next content_base64 chunk.',
+      },
+    };
+  },
+};
+
+export const crmFinishExpenseAttachmentUploadTool: McpTool = {
+  metadata: {
+    resource: 'expenses',
+    operation: 'write',
+    tags: ['crm', 'expenses'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/expenses/files',
+    operationId: 'public.expenses.finishChunkedAttachmentUpload',
+  },
+  tool: {
+    name: 'finish_expense_attachment_upload',
+    title: 'Finish expense attachment upload',
+    description:
+      'Finish a chunked expense attachment upload, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for create_expense or update_expense.',
+    inputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA,
+    outputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Finish expense attachment upload',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Finish expense attachment upload',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
+    if (!uploadToken) {
+      return asErrorResult('`upload_token` is required.');
+    }
+
+    const assembled = finishBinaryUpload({
+      uploadToken,
+      sessionId: reqContext.mcpSessionId,
+    });
+    if (!assembled.ok) {
+      return asErrorResult(assembled.message);
+    }
+
+    const file = new File([assembled.buffer], assembled.filename, {
+      type: assembled.mimeType,
+    });
+    const response = (await reqContext.client.public.expenses.uploadAttachment(
+      { file },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded expense attachment ${readString(response['filename']) || assembled.filename}.`,
+        },
+      ],
+      structuredContent: {
+        ...response,
+        filename: readString(response['filename']) || assembled.filename,
+        byte_length: assembled.byteLength,
+        content_base64_length: assembled.contentBase64Length,
+        completion_status: 'uploaded',
+        next_action:
+          'Pass structuredContent.file_id in attachment_file_ids when calling create_expense or update_expense.',
+      },
+    };
+  },
+};
+
 export const crmCreateExpenseTool: McpTool = {
   metadata: {
     resource: 'expenses',
     operation: 'write',
     tags: ['crm', 'expenses'],
     httpMethod: 'post',
-    httpPath: '/v1/public/expenses',
+    httpPath: '/api/v2/expenses',
     operationId: 'public.expenses.create',
   },
   tool: {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+      'Create an expense in Sanka. When a receipt or invoice is required, call upload_expense_attachment first and attach uploaded file ids with `attachment_file_ids` in the same create call. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14608,7 +15501,7 @@ export const crmListPayrollProfilesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/payroll/profiles',
     operationId: 'public.payroll.profiles.list',
   },
   tool: {
@@ -14630,18 +15523,20 @@ export const crmListPayrollProfilesTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const params = buildWorkspaceQuery(args);
+    const params: Record<string, unknown> = {};
     assignStringFields(params, args, ['employee_id']);
-    const payload = (await reqContext.client.get('/v1/public/payroll/profiles', {
-      query: params,
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollListPayload(
+      (await reqContext.client.get('/api/v2/payroll/profiles', {
+        query: params,
+      })) as Record<string, unknown>,
+    );
     const data = readDataArray(payload);
     return buildListResult({
       label: 'payroll profiles',
       payload: {
         count: readNumber(payload['count'], data.length),
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} payroll profiles.`,
+        message: `Returned ${data.length} payroll profiles.`,
         page: 1,
         total: readNumber(payload['count'], data.length),
       },
@@ -14656,7 +15551,7 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/payroll/profiles',
     operationId: 'public.payroll.profiles.upsert',
   },
   tool: {
@@ -14682,9 +15577,11 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     if (!employeeID) {
       return asErrorResult('`employee_id` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/profiles', {
-      body: buildPayrollProfileBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post('/api/v2/payroll/profiles', {
+        body: buildPayrollProfileBody(args),
+      })) as Record<string, unknown>,
+    );
     return {
       content: [
         {
@@ -14708,7 +15605,7 @@ export const crmListPayrollRunsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs',
+    httpPath: '/api/v2/payroll/runs',
     operationId: 'public.payroll.runs.list',
   },
   tool: {
@@ -14730,16 +15627,18 @@ export const crmListPayrollRunsTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const payload = (await reqContext.client.get('/v1/public/payroll/runs', {
-      query: buildPayrollRunListParams(args),
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollListPayload(
+      (await reqContext.client.get('/api/v2/payroll/runs', {
+        query: buildPayrollRunListParams(args),
+      })) as Record<string, unknown>,
+    );
     const data = readDataArray(payload);
     return buildListResult({
       label: 'payroll runs',
       payload: {
         count: readNumber(payload['count'], data.length),
         data,
-        message: readString(payload['message']) ?? `Returned ${data.length} payroll runs.`,
+        message: `Returned ${data.length} payroll runs.`,
         page: 1,
         total: readNumber(payload['count'], data.length),
       },
@@ -14754,7 +15653,7 @@ export const crmGetPayrollRunTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}',
+    httpPath: '/api/v2/payroll/runs/{run_id}',
     operationId: 'public.payroll.runs.retrieve',
   },
   tool: {
@@ -14780,9 +15679,12 @@ export const crmGetPayrollRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}`, {
-      query: buildWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const payload = legacyPayrollRecordPayload(
+      (await reqContext.client.get(`/api/v2/payroll/runs/${encodeURIComponent(runID)}`)) as Record<
+        string,
+        unknown
+      >,
+    );
     const data = readPayloadDataRecord(payload);
     const run = readRecord(data['run']) ?? data;
     return {
@@ -14798,7 +15700,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    httpPath: '/api/v2/payroll/runs/{run_id}/payslips/pdf',
     operationId: 'public.payroll.runs.payslips.downloadPDF',
   },
   tool: {
@@ -14826,7 +15728,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = await reqContext.client
-      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+      .get(`/api/v2/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
         query: params,
       })
       .asResponse();
@@ -14840,7 +15742,7 @@ export const crmCalculatePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/calculate',
+    httpPath: '/api/v2/payroll/runs/calculate',
     operationId: 'public.payroll.runs.calculate',
   },
   tool: {
@@ -14865,9 +15767,11 @@ export const crmCalculatePayrollRunTool: McpTool = {
     if (!readString(args?.['period'])) {
       return asErrorResult('`period` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/runs/calculate', {
-      body: buildPayrollRunCalculateBody(args),
-    })) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post('/api/v2/payroll/runs/calculate', {
+        body: buildPayrollRunCalculateBody(args),
+      })) as Record<string, unknown>,
+    );
     const data = readPayloadDataRecord(response);
     const run = readRecord(data['run']) ?? data;
     return {
@@ -14943,7 +15847,7 @@ export const crmApprovePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/{run_id}/approve',
+    httpPath: '/api/v2/payroll/runs/{run_id}/approve',
     operationId: 'public.payroll.runs.approve',
   },
   tool: {
@@ -14969,12 +15873,12 @@ export const crmApprovePayrollRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const response = (await reqContext.client.post(
-      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/approve`,
-      {
-        query: buildWorkspaceQuery(args),
-      },
-    )) as Record<string, unknown>;
+    const response = legacyPayrollRecordPayload(
+      (await reqContext.client.post(`/api/v2/payroll/runs/${encodeURIComponent(runID)}/approve`)) as Record<
+        string,
+        unknown
+      >,
+    );
     const data = readPayloadDataRecord(response);
     const run = readRecord(data['run']) ?? data;
     return {
@@ -16244,7 +17148,7 @@ export const crmPermanentDeleteOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'orders'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/orders/{order_id}/permanent-delete',
+    httpPath: '/api/v2/orders/{order_id}/permanent-delete',
     operationId: 'public.orders.permanentDelete',
   },
   tool: {
@@ -16279,10 +17183,20 @@ export const crmPermanentDeleteOrderTool: McpTool = {
       return asErrorResult('`confirm=true` is required for permanent delete.');
     }
 
-    const response = (await reqContext.client.delete(
-      `/v1/public/orders/${encodeURIComponent(orderID)}/permanent-delete`,
-      { query: { ...params, confirm: true } },
-    )) as Record<string, unknown>;
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Delete<Record<string, unknown>>(
+        `/orders/${encodeURIComponent(orderID)}/permanent-delete`,
+        { query: { ...params, confirm: true } },
+      )) as unknown as Record<string, unknown>,
+    );
+    const responseMeta = readRecord(response['meta']);
+    const operation = readString(response['operation']) ?? readString(responseMeta?.['operation']);
+    const deletionPayload = {
+      ok: true,
+      permanently_deleted: true,
+      ...(operation ? { operation } : undefined),
+      ...response,
+    };
     const verification = await buildPermanentDeleteVerification({
       entity: 'order',
       id: orderID,
@@ -16292,7 +17206,7 @@ export const crmPermanentDeleteOrderTool: McpTool = {
           unknown
         >,
     });
-    const payload = { ...response, verification };
+    const payload = { ...deletionPayload, verification };
 
     return {
       content: [
@@ -16512,7 +17426,7 @@ export const crmCreatePurchaseOrderTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'purchase-orders'],
     httpMethod: 'post',
-    httpPath: '/v1/public/purchase-orders',
+    httpPath: '/api/v2/purchase-orders',
     operationId: 'public.purchaseOrders.create',
   },
   tool: {
@@ -17186,7 +18100,7 @@ export const crmCreateEstimateTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'estimates'],
     httpMethod: 'post',
-    httpPath: '/v1/public/estimates',
+    httpPath: '/api/v2/estimates',
     operationId: 'public.estimates.create',
   },
   tool: {
@@ -17370,7 +18284,7 @@ export const crmListPrivateMessagesTool: McpTool = {
     name: 'list_private_messages',
     title: 'List private messages',
     description:
-      'Review the authenticated user private inbox in Sanka. This covers account-level inbox threads, not the shared group inbox.',
+      'Review ONLY the authenticated user private/personal account-level inbox in Sanka. Do not use for Sanka-connected Gmail integrations, workspace integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, or workspace inbox; use list_workspace_messages for those.',
     inputSchema: PRIVATE_MESSAGE_LIST_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17415,7 +18329,7 @@ export const crmSyncPrivateMessagesTool: McpTool = {
     name: 'sync_private_messages',
     title: 'Sync private messages',
     description:
-      'Pull the latest private inbox messages into Sanka for the authenticated user account-level inbox.',
+      'Pull latest messages ONLY for the authenticated user private/personal account-level inbox. Do not use for Sanka-connected Gmail integrations, workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox; use sync_workspace_messages for those.',
     inputSchema: PRIVATE_MESSAGE_SYNC_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17460,7 +18374,7 @@ export const crmGetPrivateMessageThreadTool: McpTool = {
     name: 'get_private_message_thread',
     title: 'Get private message thread',
     description:
-      'Load one private inbox thread from Sanka, including message history and reply metadata for the authenticated user.',
+      'Load one authenticated user private/personal account-level inbox thread, including message history and reply metadata. Do not use for /conversation or shared workspace inbox threads; use get_workspace_message_thread for those.',
     inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17508,7 +18422,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     name: 'reply_private_message_thread',
     title: 'Reply private message thread',
     description:
-      'Send a reply on a private inbox thread in Sanka. This is for the authenticated user account-level inbox, not the shared group inbox.',
+      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17560,7 +18474,8 @@ export const crmArchivePrivateMessageThreadTool: McpTool = {
   tool: {
     name: 'archive_private_message_thread',
     title: 'Archive private message thread',
-    description: 'Archive a private inbox thread in Sanka for the authenticated user account-level inbox.',
+    description:
+      'Archive an authenticated user private/personal account-level inbox thread in Sanka. Do not use for /conversation or shared workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_THREAD_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17595,6 +18510,144 @@ export const crmArchivePrivateMessageThreadTool: McpTool = {
       action: 'Updated',
       payload,
     });
+  },
+};
+
+export const crmListWorkspaceMessagesTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages',
+    operationId: 'public.workspaceMessages.list',
+  },
+  tool: {
+    name: 'list_workspace_messages',
+    title: 'List workspace messages',
+    description:
+      'Review shared workspace/integration inbox threads in Sanka. Prefer this for Sanka-connected Gmail, Gmail integrations, integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox. This is not the authenticated user private/personal inbox.',
+    inputSchema: WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List workspace messages',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List workspace messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.list(
+      buildWorkspaceMessageListParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessagesResult({
+      action: 'Loaded',
+      payload,
+    });
+  },
+};
+
+export const crmSyncWorkspaceMessagesTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/sync',
+    operationId: 'public.workspaceMessages.sync',
+  },
+  tool: {
+    name: 'sync_workspace_messages',
+    title: 'Sync workspace messages',
+    description:
+      'Pull latest shared workspace/integration inbox messages into Sanka from integration-linked channels such as Gmail. Prefer this for "Sanka-connected Gmail", Gmail integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox requests.',
+    inputSchema: WORKSPACE_MESSAGE_SYNC_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Sync workspace messages',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Sync workspace messages',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.sync(
+      buildWorkspaceMessageSyncParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessagesResult({
+      action: 'Synced',
+      payload,
+    });
+  },
+};
+
+export const crmGetWorkspaceMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'read',
+    tags: ['crm', 'messages'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}',
+    operationId: 'public.workspaceMessages.threads.retrieve',
+  },
+  tool: {
+    name: 'get_workspace_message_thread',
+    title: 'Get workspace message thread',
+    description:
+      'Load one shared workspace/integration inbox thread from Sanka, including message history/body. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal account inbox threads.',
+    inputSchema: WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGE_THREAD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get workspace message thread',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get workspace message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.threads.retrieve(
+      threadID,
+      buildWorkspaceMessageThreadLanguageParams(args),
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessageThreadResult(payload);
   },
 };
 export const crmListInvoicesTool: McpTool = {
@@ -18581,7 +19634,7 @@ export const crmCreateInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices',
+    httpPath: '/api/v2/invoices',
     operationId: 'public.invoices.create',
   },
   tool: {
@@ -18700,7 +19753,7 @@ export const crmActivateInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices/{invoice_id}/activate',
+    httpPath: '/api/v2/invoices/{invoice_id}/activate',
     operationId: 'public.invoices.activate',
   },
   tool: {
@@ -18731,10 +19784,20 @@ export const crmActivateInvoiceTool: McpTool = {
       return asErrorResult('`invoice_id` is required.');
     }
 
-    const response = (await reqContext.client.post(
-      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/activate`,
-      { query: params },
-    )) as Record<string, unknown>;
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/invoices/${encodeURIComponent(invoiceID)}/activate`,
+        { query: params },
+      )) as unknown as Record<string, unknown>,
+    );
+    const responseMeta = readRecord(response['meta']);
+    const operation = readString(response['operation']) ?? readString(responseMeta?.['operation']);
+    const activationPayload = {
+      ok: true,
+      ...(operation ? { operation } : { operation: 'activate' }),
+      invoice_id: readString(response['invoice_id']) ?? readString(response['id']) ?? invoiceID,
+      ...response,
+    };
     const verification = await buildLifecycleVerification({
       entity: 'invoice',
       id: invoiceID,
@@ -18746,7 +19809,7 @@ export const crmActivateInvoiceTool: McpTool = {
           unknown
         >,
     });
-    const payload = { ...response, verification };
+    const payload = { ...activationPayload, verification };
 
     return {
       content: [
@@ -19055,7 +20118,7 @@ export const crmCreateSlipTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'slips'],
     httpMethod: 'post',
-    httpPath: '/v1/public/slips',
+    httpPath: '/api/v2/revenues',
     operationId: 'public.slips.create',
   },
   tool: {
@@ -19442,7 +20505,7 @@ export const crmCreateBillTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'bills'],
     httpMethod: 'post',
-    httpPath: '/v1/public/bills',
+    httpPath: '/api/v2/bills',
     operationId: 'public.bills.create',
   },
   tool: {
@@ -19729,7 +20792,7 @@ export const crmCreateDisbursementTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements'],
     httpMethod: 'post',
-    httpPath: '/v1/public/disbursements',
+    httpPath: '/api/v2/disbursements',
     operationId: 'public.disbursements.create',
   },
   tool: {
@@ -20679,10 +21742,7 @@ export const crmListPropertiesTool: McpTool = {
       return asErrorResult('`object_name` is required.');
     }
 
-    const properties =
-      hasIntegrationPropertyQueryHints(params) ?
-        readArrayPayload(await reqContext.client.get(legacyPropertyPath(objectName), { query: params }))
-      : await reqContext.client.public.properties.list(objectName, params, undefined);
+    const properties = await reqContext.client.public.properties.list(objectName, params, undefined);
     const results = properties
       .slice(0, limit)
       .map((property) => property as unknown as Record<string, unknown>);
@@ -20741,18 +21801,11 @@ export const crmGetPropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const property =
-      hasIntegrationPropertyQueryHints(params) ?
-        readPayloadDataRecord(
-          (await reqContext.client.get(legacyPropertyPath(objectName, propertyRef), {
-            query: params,
-          })) as Record<string, unknown>,
-        )
-      : ((await reqContext.client.public.properties.retrieve(
-          propertyRef,
-          params as { object_name: string; workspace_id?: string; 'Accept-Language'?: string },
-          undefined,
-        )) as unknown as Record<string, unknown>);
+    const property = (await reqContext.client.public.properties.retrieve(
+      propertyRef,
+      params as { object_name: string; workspace_id?: string; 'Accept-Language'?: string },
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20783,7 +21836,7 @@ export const crmCreatePropertyTool: McpTool = {
     name: 'create_property',
     title: 'Create property',
     description:
-      'Create a custom property for a Sanka object family such as orders, companies, or deals. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
+      'Create a custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20809,12 +21862,16 @@ export const crmCreatePropertyTool: McpTool = {
     }
 
     const body = buildPropertyMutationBody(args);
-    const response = (hasIntegrationPropertyMutationHints(body) ?
-      await reqContext.client.post(legacyPropertyPath(objectName), { body })
-    : await reqContext.client.public.properties.create(objectName, body, undefined)) as unknown as Record<
-      string,
-      unknown
-    >;
+    const routingError = validateAndNormalizePropertyMutationRouting(body);
+    if (routingError) {
+      return asErrorResult(routingError);
+    }
+
+    const response = (await reqContext.client.public.properties.create(
+      objectName,
+      body,
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20845,7 +21902,8 @@ export const crmUpdatePropertyTool: McpTool = {
   tool: {
     name: 'update_property',
     title: 'Update property',
-    description: 'Update an existing custom property in Sanka.',
+    description:
+      'Update an existing custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
     inputSchema: PROPERTY_UPDATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20875,16 +21933,19 @@ export const crmUpdatePropertyTool: McpTool = {
     }
 
     const body = buildPropertyMutationBody(args);
-    const response = (hasIntegrationPropertyMutationHints(body) ?
-      await reqContext.client.put(legacyPropertyPath(objectName, propertyRef), { body })
-    : await reqContext.client.public.properties.update(
-        propertyRef,
-        {
-          object_name: objectName,
-          ...body,
-        },
-        undefined,
-      )) as unknown as Record<string, unknown>;
+    const routingError = validateAndNormalizePropertyMutationRouting(body);
+    if (routingError) {
+      return asErrorResult(routingError);
+    }
+
+    const response = (await reqContext.client.public.properties.update(
+      propertyRef,
+      {
+        object_name: objectName,
+        ...body,
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20915,7 +21976,8 @@ export const crmDeletePropertyTool: McpTool = {
   tool: {
     name: 'delete_property',
     title: 'Delete property',
-    description: 'Delete a custom property in Sanka for the specified object family.',
+    description:
+      'Delete a custom property in Sanka or a connected CRM for the specified object family. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
     inputSchema: PROPERTY_DELETE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -20943,21 +22005,24 @@ export const crmDeletePropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const response = (hasIntegrationPropertyMutationHints(params) ?
-      await reqContext.client.delete(legacyPropertyPath(objectName, propertyRef), { query: params })
-    : await reqContext.client.public.properties.delete(
-        propertyRef,
-        params as {
-          object_name: string;
-          target?: string;
-          provider?: string;
-          channel_id?: string;
-          external_object_type?: string;
-          dry_run?: boolean;
-          confirm?: boolean;
-        },
-        undefined,
-      )) as unknown as Record<string, unknown>;
+    const routingError = validateAndNormalizePropertyMutationRouting(params);
+    if (routingError) {
+      return asErrorResult(routingError);
+    }
+
+    const response = (await reqContext.client.public.properties.delete(
+      propertyRef,
+      params as {
+        object_name: string;
+        target?: string;
+        provider?: string;
+        channel_id?: string;
+        external_object_type?: string;
+        dry_run?: boolean;
+        confirm?: boolean;
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
 
     return {
       content: [
@@ -20975,6 +22040,162 @@ export const crmDeletePropertyTool: McpTool = {
     };
   },
 };
+
+const APPROVAL_REQUEST_PATH = '/api/v2/approval-requests';
+
+export const crmCreateApprovalRequestTool: McpTool = {
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'write',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'post',
+    httpPath: APPROVAL_REQUEST_PATH,
+    operationId: 'public.approval-requests.create',
+  },
+  tool: {
+    name: 'create_approval_request',
+    title: 'Create approval request',
+    description:
+      'Create an ad hoc approval request for a Sanka record. Use this when a specific estimate, invoice, expense, or other supported record needs approval even if no approval rule exists.',
+    inputSchema: APPROVAL_REQUEST_CREATE_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create approval request',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create approval request' });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, recordID, body } = buildApprovalRequestBody(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    if (readStringArray(args?.['approver_user_ids']).length === 0) {
+      return asErrorResult('`approver_user_ids` is required.');
+    }
+    const query = buildApprovalMutationQuery(args);
+    const response = (await reqContext.client.post(APPROVAL_REQUEST_PATH, {
+      body,
+      ...(Object.keys(query).length > 0 ? { query } : undefined),
+    })) as Record<string, unknown>;
+    return buildApprovalRequestMutationResult('created', response);
+  },
+};
+
+export const crmListRecordApprovalsTool: McpTool = {
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'read',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'get',
+    httpPath: APPROVAL_REQUEST_PATH,
+    operationId: 'public.approval-requests.list',
+  },
+  tool: {
+    name: 'list_record_approvals',
+    title: 'List record approvals',
+    description:
+      'List approval rules and ad hoc approval requests currently associated with one Sanka record.',
+    inputSchema: RECORD_APPROVAL_LIST_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List record approvals',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List record approvals' });
+    if (authError) {
+      return authError;
+    }
+    const { objectName, recordID, params } = buildRecordApprovalsQuery(args);
+    if (!objectName) {
+      return asErrorResult('`object` is required.');
+    }
+    if (!recordID) {
+      return asErrorResult('`record_id` is required.');
+    }
+    const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
+    const payload = (await reqContext.client.get(APPROVAL_REQUEST_PATH, { query: params })) as Record<
+      string,
+      unknown
+    >;
+    return buildRecordApprovalsListResult(payload, limit);
+  },
+};
+
+const createRecordApprovalDecisionTool = ({
+  name,
+  title,
+  decision,
+}: {
+  name: string;
+  title: string;
+  decision: 'approve' | 'reject';
+}): McpTool => ({
+  metadata: {
+    resource: 'approval-requests',
+    operation: 'write',
+    tags: ['crm', 'approvals'],
+    httpMethod: 'post',
+    httpPath: `${APPROVAL_REQUEST_PATH}/{history_id}/${decision}`,
+    operationId: `public.approval-requests.${decision}`,
+  },
+  tool: {
+    name,
+    title,
+    description: `${title} by WorkflowHistory UUID. The authenticated user must be one of the assigned approvers.`,
+    inputSchema: RECORD_APPROVAL_MUTATION_INPUT_SCHEMA,
+    outputSchema: RULE_SETTINGS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title,
+      readOnlyHint: false,
+      destructiveHint: decision === 'reject',
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: title });
+    if (authError) {
+      return authError;
+    }
+    const historyID = readString(args?.['history_id'] ?? args?.['historyId']);
+    if (!historyID) {
+      return asErrorResult('`history_id` is required.');
+    }
+    const query = buildApprovalMutationQuery(args);
+    const response = (await reqContext.client.post(
+      `${APPROVAL_REQUEST_PATH}/${encodeURIComponent(historyID)}/${decision}`,
+      Object.keys(query).length > 0 ? { query } : {},
+    )) as Record<string, unknown>;
+    return buildApprovalRequestMutationResult(decision === 'approve' ? 'approved' : 'rejected', response);
+  },
+});
+
+export const crmApproveRecordApprovalTool: McpTool = createRecordApprovalDecisionTool({
+  name: 'approve_record_approval',
+  title: 'Approve record approval',
+  decision: 'approve',
+});
+
+export const crmRejectRecordApprovalTool: McpTool = createRecordApprovalDecisionTool({
+  name: 'reject_record_approval',
+  title: 'Reject record approval',
+  decision: 'reject',
+});
 
 export const crmListApprovalRulesTool: McpTool = createRuleSettingsListTool({
   name: 'list_approval_rules',
@@ -21368,8 +22589,9 @@ export const crmListItemsTool: McpTool = {
   tool: {
     name: 'list_items',
     title: 'List items',
-    description: 'Review items in Sanka.',
-    inputSchema: WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA,
+    description:
+      'Review items in Sanka. Use `search` to find a named item instead of query_records or broad full-list scans.',
+    inputSchema: OBJECT_RECORD_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
@@ -21388,7 +22610,7 @@ export const crmListItemsTool: McpTool = {
       return authError;
     }
 
-    const { limit, params } = buildWorkspaceLanguageListParams(args);
+    const { limit, page, params } = buildObjectRecordListParams(args);
     const items = await reqContext.client.public.items.list(params, undefined);
     const results = items.slice(0, limit).map((item) => item as unknown as Record<string, unknown>);
 
@@ -21398,7 +22620,7 @@ export const crmListItemsTool: McpTool = {
         count: results.length,
         data: results,
         message: `Returned ${results.length} of ${items.length} items.`,
-        page: 1,
+        page,
         total: items.length,
       },
       previewKeys: ['name', 'item_id', 'id'],
@@ -21775,7 +22997,7 @@ export const crmCreateSubscriptionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'subscriptions'],
     httpMethod: 'post',
-    httpPath: '/v1/public/subscriptions',
+    httpPath: '/api/v2/subscriptions',
     operationId: 'public.subscriptions.create',
   },
   tool: {
@@ -22232,7 +23454,7 @@ export const crmCreatePaymentTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'payments'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payments',
+    httpPath: '/api/v2/payments',
     operationId: 'public.payments.create',
   },
   tool: {
@@ -22721,8 +23943,9 @@ export const crmListInventoriesTool: McpTool = {
   tool: {
     name: 'list_inventories',
     title: 'List inventories',
-    description: 'Review inventories in Sanka.',
-    inputSchema: WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA,
+    description:
+      'Review inventories in Sanka. Use `search` for item or inventory names and prefer list rows for availability fields such as total_inventory, available, committed, unavailable, and item_ids.',
+    inputSchema: OBJECT_RECORD_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
@@ -22741,7 +23964,7 @@ export const crmListInventoriesTool: McpTool = {
       return authError;
     }
 
-    const { limit, params } = buildWorkspaceLanguageListParams(args);
+    const { limit, page, params } = buildObjectRecordListParams(args);
     const inventories = await reqContext.client.public.inventories.list(params, undefined);
     const results = inventories
       .slice(0, limit)
@@ -22753,10 +23976,10 @@ export const crmListInventoriesTool: McpTool = {
         count: results.length,
         data: results,
         message: `Returned ${results.length} of ${inventories.length} inventories.`,
-        page: 1,
+        page,
         total: inventories.length,
       },
-      previewKeys: ['name', 'inventory_id', 'id'],
+      previewKeys: ['name', 'inventory_id', 'id', 'total_inventory', 'available'],
     });
   },
 };
@@ -22798,11 +24021,37 @@ export const crmGetInventoryTool: McpTool = {
       return asErrorResult('`inventory_id` is required.');
     }
 
-    const inventory = (await reqContext.client.public.inventories.retrieve(
-      inventoryID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    let inventory: Record<string, unknown>;
+    try {
+      inventory = (await reqContext.client.public.inventories.retrieve(
+        inventoryID,
+        params,
+        undefined,
+      )) as unknown as Record<string, unknown>;
+    } catch (error) {
+      let fallback: Record<string, unknown> | undefined;
+      try {
+        fallback = await findInventoryFallbackFromList({ reqContext, args, inventoryID });
+      } catch (fallbackError) {
+        const detailMessage =
+          error instanceof Error && error.message ? ` Detail error: ${error.message}` : '';
+        const fallbackMessage =
+          fallbackError instanceof Error && fallbackError.message ?
+            ` Fallback list error: ${fallbackError.message}`
+          : '';
+        return asErrorResult(`Unable to load inventory ${inventoryID}.${detailMessage}${fallbackMessage}`);
+      }
+      if (!fallback) {
+        const message = error instanceof Error && error.message ? ` ${error.message}` : '';
+        return asErrorResult(`Unable to load inventory ${inventoryID}.${message}`);
+      }
+      inventory = {
+        ...fallback,
+        detail_fetch_status: 'fallback_from_list',
+        detail_fetch_note:
+          'The inventory detail endpoint failed, so this result was recovered from list_inventories.',
+      };
+    }
 
     return {
       content: [
@@ -23033,8 +24282,9 @@ export const crmListInventoryTransactionsTool: McpTool = {
   tool: {
     name: 'list_inventory_transactions',
     title: 'List inventory transactions',
-    description: 'Review inventory transactions in Sanka.',
-    inputSchema: WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA,
+    description:
+      'Review inventory transactions in Sanka. Use `search`, `limit`, and `page` to keep inventory checks narrow.',
+    inputSchema: OBJECT_RECORD_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
@@ -23053,7 +24303,7 @@ export const crmListInventoryTransactionsTool: McpTool = {
       return authError;
     }
 
-    const { limit, params } = buildWorkspaceLanguageListParams(args);
+    const { limit, page, params } = buildObjectRecordListParams(args);
     const transactions = await reqContext.client.public.inventoryTransactions.list(params, undefined);
     const results = transactions
       .slice(0, limit)
@@ -23065,7 +24315,7 @@ export const crmListInventoryTransactionsTool: McpTool = {
         count: results.length,
         data: results,
         message: `Returned ${results.length} of ${transactions.length} inventory transactions.`,
-        page: 1,
+        page,
         total: transactions.length,
       },
       previewKeys: ['transaction_id', 'inventory_id', 'id'],

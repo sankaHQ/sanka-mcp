@@ -5,7 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { V2PdfData, buildV2PdfRequest, unwrapV2PdfResponse } from '../../internal/v2';
+import { buildV2PdfRequest } from '../../internal/v2';
 import {
   V2LifecycleData,
   V2ObjectRecord,
@@ -21,14 +21,7 @@ import { PublicLineItem } from './line-items';
 
 const slipFromV2Record = (record: V2ObjectRecord): Slip => legacyObjectRecordFromV2<Slip>(record, 'id_slip');
 
-const canUseV2SlipUpdate = (body: SlipUpdateParams): boolean =>
-  body.company_external_id == null &&
-  body.contact_external_id == null &&
-  body.tax_inclusive == null &&
-  body.tax_option == null &&
-  body.tax_rate == null;
-
-const slipUpdateProperties = (body: SlipUpdateParams): Record<string, unknown> => {
+const slipMutationProperties = (body: SlipCreateParams | SlipUpdateParams): Record<string, unknown> => {
   const {
     company_external_id: _companyExternalID,
     company_id,
@@ -70,7 +63,11 @@ export class Slips extends APIResource {
    * Create Slip
    */
   create(body: SlipCreateParams, options?: RequestOptions): APIPromise<SlipResponse> {
-    return this._client.post('/v1/public/slips', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/revenues', { body: { properties: slipMutationProperties(body) }, ...options })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<SlipResponse>(envelope, 'slip_id', 'created', body.external_id),
+      );
   }
 
   /**
@@ -102,18 +99,15 @@ export class Slips extends APIResource {
    */
   update(slipID: string, body: SlipUpdateParams, options?: RequestOptions): APIPromise<SlipResponse> {
     const { external_id } = body;
-    if (canUseV2SlipUpdate(body)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/revenues/${slipID}`, {
-          query: { external_id },
-          body: { properties: slipUpdateProperties(body) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) =>
-          legacyMutationResponseFromV2<SlipResponse>(envelope, 'slip_id', 'updated', external_id),
-        );
-    }
-    return this._client.put(path`/v1/public/slips/${slipID}`, { body, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/revenues/${slipID}`, {
+        query: { external_id },
+        body: { properties: slipMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<SlipResponse>(envelope, 'slip_id', 'updated', external_id),
+      );
   }
 
   /**
@@ -168,29 +162,16 @@ export class Slips extends APIResource {
     params: SlipDownloadPDFParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<Response> {
-    const { acceptLanguage, externalID, query } = buildV2PdfRequest(params);
-    if (externalID != null) {
-      const { 'Accept-Language': v1AcceptLanguage, ...v1Query } = params ?? {};
-      return this._client.get(path`/v1/public/slips/${slipID}/pdf`, {
-        query: v1Query,
-        ...options,
-        __binaryResponse: true,
-        headers: buildHeaders([
-          { ...(v1AcceptLanguage != null ? { 'Accept-Language': v1AcceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }) as APIPromise<Response>;
-    }
-    return unwrapV2PdfResponse(
-      this._client.v2Get<V2PdfData>(path`/revenues/${slipID}/pdf`, {
-        query,
-        ...options,
-        headers: buildHeaders([
-          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      }),
-    );
+    const { acceptLanguage, query } = buildV2PdfRequest(params);
+    return this._client.get<Response>(this._client.v2Path(path`/revenues/${slipID}/pdf`), {
+      query,
+      ...options,
+      __binaryResponse: true,
+      headers: buildHeaders([
+        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+        options?.headers,
+      ]),
+    });
   }
 }
 

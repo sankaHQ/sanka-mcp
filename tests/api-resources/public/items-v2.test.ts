@@ -55,7 +55,7 @@ describe('public item resource on V2', () => {
         if (method === 'DELETE') {
           return envelope({ id: 'item-1', record_id: '1001', usage_status: 'archived' });
         }
-        if (requestURL.endsWith('/api/v2/items')) {
+        if (requestURL.includes('/api/v2/items?')) {
           return envelope({ items: [record], page: 1, page_size: 50, total: 1 });
         }
         return envelope(record);
@@ -67,9 +67,17 @@ describe('public item resource on V2', () => {
       item_id: 1001,
       name: 'Starter kit',
     });
-    await expect(client.public.items.list()).resolves.toEqual([
-      expect.objectContaining({ id: 'item-1', item_id: 1001 }),
-    ]);
+    await expect(
+      client.public.items.list({
+        limit: 5,
+        page: 2,
+        search: 'Starter',
+        sort: 'name',
+        view_id: 'view-1',
+        workspace_id: 'ws-1',
+        'Accept-Language': 'ja',
+      }),
+    ).resolves.toEqual([expect.objectContaining({ id: 'item-1', item_id: 1001 })]);
     await expect(
       client.public.items.create({
         externalId: 'ITEM-EXT',
@@ -111,7 +119,7 @@ describe('public item resource on V2', () => {
 
     expect(calls).toEqual([
       'GET http://localhost:5000/api/v2/items/item-1?external_id=ITEM-EXT',
-      'GET http://localhost:5000/api/v2/items',
+      'GET http://localhost:5000/api/v2/items?limit=5&page=2&search=Starter&sort=name&view_id=view-1&workspace_id=ws-1',
       'POST http://localhost:5000/api/v2/items',
       'PATCH http://localhost:5000/api/v2/items/item-1?external_id=ITEM-EXT',
       'DELETE http://localhost:5000/api/v2/items/item-1?external_id=ITEM-EXT',

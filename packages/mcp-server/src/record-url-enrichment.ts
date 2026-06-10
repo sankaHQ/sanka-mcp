@@ -56,6 +56,16 @@ const RESOURCE_ID_KEYS: Record<string, string[]> = {
 
 type JsonRecord = Record<string, unknown>;
 
+type RecordEnrichmentMetadata = {
+  dataOrigin?: string;
+  externalObjectType?: string;
+  provider?: string;
+  scope?: string;
+  source?: string;
+  sourceOfTruth?: string;
+  target?: string;
+};
+
 export function enrichRecordUrlsForToolResult({
   result,
   resource,
@@ -92,19 +102,26 @@ export function enrichRecordUrlsForToolResult({
   };
 }
 
-function enrichPayload(payload: JsonRecord, context: EnrichmentContext): JsonRecord {
-  const enriched = enrichRecord(payload, context);
+function enrichPayload(
+  payload: JsonRecord,
+  context: EnrichmentContext,
+  inheritedMetadata: RecordEnrichmentMetadata = {},
+): JsonRecord {
+  const enriched = enrichRecord(payload, context, inheritedMetadata);
+  const childMetadata = mergeRecordMetadata(inheritedMetadata, enriched);
   for (const key of ['data', 'results', 'created']) {
     const value = enriched[key];
     if (Array.isArray(value)) {
-      enriched[key] = value.map((item) => (isJsonRecord(item) ? enrichRecord(item, context) : item));
+      enriched[key] = value.map((item) =>
+        isJsonRecord(item) ? enrichRecord(item, context, childMetadata) : item,
+      );
     } else if (isJsonRecord(value)) {
-      enriched[key] = enrichRecord(value, context);
+      enriched[key] = enrichRecord(value, context, childMetadata);
     }
   }
   const resultValue = enriched['result'];
   if (isJsonRecord(resultValue)) {
-    enriched['result'] = enrichPayload(resultValue, context);
+    enriched['result'] = enrichPayload(resultValue, context, childMetadata);
   }
   return enriched;
 }
@@ -117,8 +134,12 @@ type EnrichmentContext = {
   workspaceCode: string;
 };
 
-function enrichRecord(record: JsonRecord, context: EnrichmentContext): JsonRecord {
-  if (!shouldEnrichRecord(record)) {
+function enrichRecord(
+  record: JsonRecord,
+  context: EnrichmentContext,
+  inheritedMetadata: RecordEnrichmentMetadata = {},
+): JsonRecord {
+  if (!shouldEnrichRecord(record, inheritedMetadata)) {
     return record;
   }
   const recordId = readRecordId(record, context.resource);
@@ -132,14 +153,47 @@ function enrichRecord(record: JsonRecord, context: EnrichmentContext): JsonRecor
   };
 }
 
-function shouldEnrichRecord(record: JsonRecord): boolean {
-  const scope = readString(record['scope']) || readString(record['source']);
-  if (scope === 'integration') {
+function shouldEnrichRecord(record: JsonRecord, inheritedMetadata: RecordEnrichmentMetadata): boolean {
+  const metadata = mergeRecordMetadata(inheritedMetadata, record);
+  if (isIntegrationMetadata(metadata)) {
     return false;
   }
   const provider = readString(record['provider']);
   const externalObjectType = readString(record['external_object_type']);
   return !(provider && externalObjectType && !readString(record['id']));
+}
+
+function mergeRecordMetadata(
+  inherited: RecordEnrichmentMetadata,
+  record: JsonRecord,
+): RecordEnrichmentMetadata {
+  return {
+    ...inherited,
+    ...compactMetadata({
+      dataOrigin: readLowerString(record['data_origin']),
+      externalObjectType: readString(record['external_object_type']),
+      provider: readLowerString(record['provider']),
+      scope: readLowerString(record['scope']),
+      source: readLowerString(record['source']),
+      sourceOfTruth: readLowerString(record['source_of_truth']),
+      target: readLowerString(record['target']),
+    }),
+  };
+}
+
+function compactMetadata(metadata: Record<string, string | undefined>): RecordEnrichmentMetadata {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => value !== undefined),
+  ) as RecordEnrichmentMetadata;
+}
+
+function isIntegrationMetadata(metadata: RecordEnrichmentMetadata): boolean {
+  return (
+    metadata.scope === 'integration' ||
+    metadata.source === 'integration' ||
+    metadata.dataOrigin === 'integration' ||
+    metadata.target === 'integration'
+  );
 }
 
 function buildRecordAppUrl(context: EnrichmentContext, recordId: string): string {
@@ -235,6 +289,10 @@ function readString(value: unknown): string | undefined {
     return String(value);
   }
   return undefined;
+}
+
+function readLowerString(value: unknown): string | undefined {
+  return readString(value)?.toLowerCase();
 }
 
 function isJsonRecord(value: unknown): value is JsonRecord {

@@ -22,6 +22,20 @@ export {
   type Threads,
 } from './account-messages/index';
 export {
+  WorkspaceMessages,
+  type WorkspaceMessageChannel,
+  type WorkspaceMessageListParams,
+  type WorkspaceMessagesData,
+  type WorkspaceMessagesResponse,
+  type WorkspaceMessageSyncParams,
+  type WorkspaceMessageThread,
+  type WorkspaceMessageThreadDetail,
+  type WorkspaceMessageThreadDetailResponse,
+  type WorkspaceMessageThreadMessage,
+  type WorkspaceMessageThreadRetrieveParams,
+  type Threads as WorkspaceMessageThreads,
+} from './workspace-messages/index';
+export {
   Associations,
   type AssociationObjectRef,
   type AssociationLabel,
@@ -151,6 +165,7 @@ export {
   type ImportUploadFileParams,
   type TransferColumnMapping,
   type TransferJob,
+  type TransferJobRetryResponse,
   type TransferJobSummary,
   type TransferUploadFileResponse,
 } from './imports';

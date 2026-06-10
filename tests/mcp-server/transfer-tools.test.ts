@@ -8,6 +8,8 @@ import {
   listExportJobsTool,
   listImportJobsTool,
   listIntegrationChannelsTool,
+  retryExportJobTool,
+  retryImportJobTool,
   uploadImportFileTool,
 } from '../../packages/mcp-server/src/transfer-tools';
 
@@ -30,11 +32,13 @@ describe('public transfer MCP tools', () => {
       getImportJobTool,
       listImportJobsTool,
       cancelImportJobTool,
+      retryImportJobTool,
       listIntegrationChannelsTool,
       exportRecordsTool,
       getExportJobTool,
       listExportJobsTool,
       cancelExportJobTool,
+      retryExportJobTool,
     ]) {
       expect(tool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     }
@@ -46,11 +50,13 @@ describe('public transfer MCP tools', () => {
     expect(getImportJobTool.metadata.httpPath).toBe('/api/v2/imports/{job_id}');
     expect(listImportJobsTool.metadata.httpPath).toBe('/api/v2/imports');
     expect(cancelImportJobTool.metadata.httpPath).toBe('/api/v2/imports/{job_id}/cancel');
+    expect(retryImportJobTool.metadata.httpPath).toBe('/api/v2/imports/{job_id}/retry');
     expect(listIntegrationChannelsTool.metadata.httpPath).toBe('/api/v2/integrations/channels');
     expect(exportRecordsTool.metadata.httpPath).toBe('/api/v2/exports');
     expect(getExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}');
     expect(listExportJobsTool.metadata.httpPath).toBe('/api/v2/exports');
     expect(cancelExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}/cancel');
+    expect(retryExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}/retry');
   });
 
   it('returns a reauth challenge for upload_import_file without authentication', async () => {
@@ -175,9 +181,55 @@ describe('public transfer MCP tools', () => {
     expect(result.structuredContent?.['job_id']).toBe('imp-1');
   });
 
+  it('creates an integration import job for HubSpot deals to Sanka Orders', async () => {
+    const create = jest.fn().mockResolvedValue({
+      job_id: 'imp-order-1',
+      job_type: 'import',
+      object_type: 'order',
+      status: 'dry_run',
+      mode: 'create',
+      started_async: false,
+      source_kind: 'integration',
+      provider: 'hubspot',
+      channel_id: 'chan-1',
+      summary: { processed: 1, succeeded: 1, failed: 0, total: 1, created_record_ids: [] },
+    });
+
+    const result = await importRecordsTool.handler({
+      reqContext: {
+        client: {
+          public: { imports: { create } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'order',
+        source_kind: 'integration',
+        provider: 'hubspot',
+        channel_id: 'chan-1',
+        record_ids: ['deal-1'],
+        dry_run: true,
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      object_type: 'order',
+      source_kind: 'integration',
+      file_format: 'csv',
+      operation: 'create',
+      mapping_mode: 'auto',
+      provider: 'hubspot',
+      channel_id: 'chan-1',
+      record_ids: ['deal-1'],
+      dry_run: true,
+    });
+    expect(result.structuredContent?.['job_id']).toBe('imp-order-1');
+  });
+
   it('lists integration channels for exports', async () => {
     const listChannels = jest.fn().mockResolvedValue({
-      channels: [{ channel_id: 'chan-1', provider: 'hubspot' }],
+      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true }],
       message: 'OK',
     });
 
@@ -198,10 +250,142 @@ describe('public transfer MCP tools', () => {
       object_type: 'deal',
       provider: 'hubspot',
     });
-    expect(result.structuredContent).toEqual({
-      channels: [{ channel_id: 'chan-1', provider: 'hubspot' }],
+    expect(result.structuredContent).toMatchObject({
+      channels: [{ channel_id: 'chan-1', provider: 'hubspot', export_ready: true, is_export_blocked: false }],
+      message: 'OK',
+      requested_object_type: 'deal',
+      requested_provider: 'hubspot',
+      has_export_ready_channel: true,
+      export_ready_count: 1,
+      blocked_count: 0,
+    });
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('export ready');
+  });
+
+  it('summarizes accounting channels as invoice_export candidates instead of blockers', async () => {
+    const listChannels = jest.fn().mockResolvedValue({
+      channels: [
+        {
+          channel_id: 'mf-1',
+          channel_name: 'MoneyForward - Mr.Search JA',
+          provider: 'moneyforward',
+          is_enabled: false,
+          outbound_pipeline_active: false,
+          shadow_mode: true,
+          rollout_stage: 'shadow',
+          export_ready: false,
+          export_blocker_reason: 'channel_disabled',
+          export_blocker_reasons: [
+            'channel_disabled',
+            'outbound_pipeline_inactive',
+            'object_map_missing',
+            'shadow_mode',
+          ],
+        },
+      ],
       message: 'OK',
     });
+
+    const result = await listIntegrationChannelsTool.handler({
+      reqContext: {
+        client: {
+          public: { integrations: { listChannels } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'invoice',
+        provider: 'moneyforward',
+      },
+    });
+
+    expect(listChannels).toHaveBeenCalledWith({
+      provider: 'moneyforward',
+    });
+    expect(result.structuredContent).toMatchObject({
+      channels: [
+        {
+          channel_id: 'mf-1',
+          invoice_export_channel_id: 'mf-1',
+          provider: 'moneyforward',
+          accounting_invoice_export_candidate: true,
+          is_export_blocked: false,
+          invoice_export_readiness_signal: 'preview_or_start_workflow',
+        },
+      ],
+      requested_object_type: 'invoice',
+      requested_provider: 'moneyforward',
+      channel_usage: 'accounting_invoice_export_channel_candidates',
+      recommended_workflow_type: 'invoice_export',
+      has_export_ready_channel: true,
+      export_ready_count: 1,
+      blocked_count: 0,
+      blocked_by_shadow_mode: false,
+    });
+    const channel = (result.structuredContent?.['channels'] as Array<Record<string, unknown>>)[0];
+    expect(channel).not.toHaveProperty('export_blocker_reason');
+    expect(channel).not.toHaveProperty('export_blocker_reasons');
+    expect(channel).not.toHaveProperty('export_ready');
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 1 moneyforward accounting channel candidate for invoice_export');
+    expect(text).toContain('Use preview_workflow/start_workflow with workflow_type=invoice_export');
+    expect(text).toContain('not invoice_export readiness blockers');
+    expect(text).toContain('accounting invoice_export channel candidate');
+    expect(text).not.toContain('No export-ready');
+    expect(text).not.toContain('export not ready');
+  });
+
+  it('does not convert raw accounting channel flags into invoice_export blockers', async () => {
+    const listChannels = jest.fn().mockResolvedValue({
+      channels: [
+        {
+          channel_id: 'mf-raw',
+          provider: 'moneyforward',
+          is_enabled: false,
+          outbound_pipeline_active: false,
+          shadow_mode: true,
+          rollout_stage: 'shadow',
+        },
+      ],
+      message: 'OK',
+    });
+
+    const result = await listIntegrationChannelsTool.handler({
+      reqContext: {
+        client: {
+          public: { integrations: { listChannels } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'invoice',
+        provider: 'moneyforward',
+      },
+    });
+
+    expect(listChannels).toHaveBeenCalledWith({
+      provider: 'moneyforward',
+    });
+    expect(result.structuredContent).toMatchObject({
+      channels: [
+        {
+          channel_id: 'mf-raw',
+          invoice_export_channel_id: 'mf-raw',
+          accounting_invoice_export_candidate: true,
+          is_export_blocked: false,
+          invoice_export_readiness_signal: 'preview_or_start_workflow',
+        },
+      ],
+      has_export_ready_channel: true,
+      blocked_by_shadow_mode: false,
+    });
+    const channel = (result.structuredContent?.['channels'] as Array<Record<string, unknown>>)[0];
+    expect(channel).not.toHaveProperty('export_blocker_reason');
+    expect(channel).not.toHaveProperty('export_blocker_reasons');
+    expect(channel).not.toHaveProperty('export_ready');
   });
 
   it('validates export_records channel and selection args', async () => {
@@ -234,6 +418,57 @@ describe('public transfer MCP tools', () => {
       },
     });
     expect(missingSelection.isError).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects invoice accounting export jobs and directs callers to invoice_export workflow', async () => {
+    const create = jest.fn();
+
+    const result = await exportRecordsTool.handler({
+      reqContext: {
+        client: {
+          public: { exports: { create } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'invoice',
+        destination_kind: 'accounting',
+        provider: 'hubspot',
+        target_system: 'moneyforward',
+        channel_id: 'chan-mf',
+        record_ids: ['invoice-1'],
+        dry_run: true,
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('workflow_type=invoice_export');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects target_system on non-invoice exports', async () => {
+    const create = jest.fn();
+
+    const result = await exportRecordsTool.handler({
+      reqContext: {
+        client: {
+          public: { exports: { create } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'deal',
+        target_system: 'moneyforward',
+        channel_id: 'chan-1',
+        record_ids: ['deal-1'],
+      },
+    });
+
+    expect(result.isError).toBe(true);
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -275,6 +510,17 @@ describe('public transfer MCP tools', () => {
       status: 'canceled',
       summary: {},
     });
+    const retryImport = jest.fn().mockResolvedValue({
+      job: {
+        job_id: 'imp-3',
+        job_type: 'import',
+        object_type: 'item',
+        status: 'pending',
+        summary: {},
+      },
+      retry_of_job_id: 'imp-1',
+      message: 'Import job retried.',
+    });
     const retrieveExport = jest.fn().mockResolvedValue({
       job_id: 'exp-1',
       job_type: 'export',
@@ -293,6 +539,17 @@ describe('public transfer MCP tools', () => {
       status: 'canceled',
       summary: {},
     });
+    const retryExport = jest.fn().mockResolvedValue({
+      job: {
+        job_id: 'exp-3',
+        job_type: 'export',
+        object_type: 'deal',
+        status: 'pending',
+        summary: {},
+      },
+      retry_of_job_id: 'exp-2',
+      message: 'Export job retried.',
+    });
 
     const client = {
       public: {
@@ -300,12 +557,14 @@ describe('public transfer MCP tools', () => {
           retrieve: retrieveImport,
           list: listImports,
           cancel: cancelImport,
+          retry: retryImport,
         },
         exports: {
           create,
           retrieve: retrieveExport,
           list: listExports,
           cancel: cancelExport,
+          retry: retryExport,
         },
       },
     } as any;
@@ -345,6 +604,12 @@ describe('public transfer MCP tools', () => {
     });
     expect(cancelImport).toHaveBeenCalledWith('imp-1');
 
+    await retryImportJobTool.handler({
+      reqContext: { client, auth: oauthContext(), toolProfile: 'full' },
+      args: { job_id: 'imp-1' },
+    });
+    expect(retryImport).toHaveBeenCalledWith('imp-1');
+
     await getExportJobTool.handler({
       reqContext: { client, auth: oauthContext(), toolProfile: 'full' },
       args: { job_id: 'exp-1' },
@@ -362,5 +627,11 @@ describe('public transfer MCP tools', () => {
       args: { job_id: 'exp-2' },
     });
     expect(cancelExport).toHaveBeenCalledWith('exp-2');
+
+    await retryExportJobTool.handler({
+      reqContext: { client, auth: oauthContext(), toolProfile: 'full' },
+      args: { job_id: 'exp-2' },
+    });
+    expect(retryExport).toHaveBeenCalledWith('exp-2');
   });
 });

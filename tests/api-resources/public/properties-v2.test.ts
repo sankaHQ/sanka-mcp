@@ -92,4 +92,63 @@ describe('public properties resource on V2', () => {
       { url: 'http://localhost:5000/api/v2/properties/orders/priority', method: 'DELETE' },
     ]);
   });
+
+  test('preserves integration routing metadata when V2 mutation response omits it', async () => {
+    const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        const method = init?.method ?? 'GET';
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url: String(url), method, body });
+        return envelope({
+          ok: true,
+          status: 'created',
+          object: 'contacts',
+          property_id: 'test',
+        });
+      },
+    });
+
+    await expect(
+      client.public.properties.create('contacts', {
+        target: 'integration',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'contacts',
+        external_id: 'test',
+        name: 'Test',
+        type: 'text',
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: 'created',
+      object: 'contacts',
+      property_id: 'test',
+      target: 'integration',
+      provider: 'hubspot',
+      channel_id: 'channel-1',
+      external_object_type: 'contacts',
+      external_id: 'test',
+      ctx_id: 'ctx-test',
+    });
+
+    expect(calls).toEqual([
+      {
+        url: 'http://localhost:5000/api/v2/properties/contacts',
+        method: 'POST',
+        body: {
+          target: 'integration',
+          provider: 'hubspot',
+          channel_id: 'channel-1',
+          external_object_type: 'contacts',
+          external_id: 'test',
+          name: 'Test',
+          type: 'text',
+        },
+      },
+    ]);
+  });
 });
