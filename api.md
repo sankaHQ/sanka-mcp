@@ -6,7 +6,7 @@ Types:
 
 Methods:
 
-- <code title="post /v1/enrich">client.enrich.<a href="./src/resources/enrich.ts">create</a>({ ...params }) -> EnrichCreateResponse</code>
+- <code title="post /api/v2/enrich">client.enrich.<a href="./src/resources/enrich.ts">create</a>({ ...params }) -> EnrichCreateResponse</code>
 
 # Score
 
@@ -16,7 +16,7 @@ Types:
 
 Methods:
 
-- <code title="post /v1/score">client.score.<a href="./src/resources/score.ts">create</a>({ ...params }) -> ScoreCreateResponse</code>
+- <code title="post /api/v2/score">client.score.<a href="./src/resources/score.ts">create</a>({ ...params }) -> ScoreCreateResponse</code>
 
 # Public
 

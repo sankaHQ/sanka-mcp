@@ -20,40 +20,33 @@ import {
 const meterFromV2Record = (record: V2ObjectRecord): CommerceMeter =>
   legacyObjectRecordFromV2<CommerceMeter>(record, 'meter_id');
 
-const canUseV2MeterUpdate = (params: MeterUpdateParams): boolean =>
-  params.external_id == null &&
-  params.externalId == null &&
-  params.companyExternalId == null &&
-  params.contactExternalId == null &&
-  params.itemExternalId == null &&
-  params.subscriptionExternalId == null;
+const meterMutationExternalID = (params: MeterCreateParams | MeterUpdateParams): string | null =>
+  'external_id' in params ? params.external_id ?? params.externalId ?? null : params.externalId ?? null;
 
-const meterUpdateProperties = (params: MeterUpdateParams): Record<string, unknown> => {
+const meterMutationProperties = (params: MeterCreateParams | MeterUpdateParams): Record<string, unknown> => {
   const {
-    external_id: _externalID,
-    externalId: _bodyExternalID,
-    companyExternalId: _companyExternalID,
+    externalId,
+    companyExternalId,
     companyId,
-    contactExternalId: _contactExternalID,
+    contactExternalId,
     contactId,
-    itemExternalId: _itemExternalID,
+    itemExternalId,
     itemId,
-    subscriptionExternalId: _subscriptionExternalID,
+    subscriptionExternalId,
     subscriptionId,
     usage,
     usageAt,
     usageStatus,
   } = params;
-  void _externalID;
-  void _bodyExternalID;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _itemExternalID;
-  void _subscriptionExternalID;
   return compactProperties({
+    ...(externalId !== undefined ? { external_id: externalId } : undefined),
+    company_external_id: companyExternalId,
     company_id: companyId,
+    contact_external_id: contactExternalId,
     contact_id: contactId,
+    item_external_id: itemExternalId,
     item_id: itemId,
+    subscription_external_id: subscriptionExternalId,
     subscription_id: subscriptionId,
     usage,
     usage_at: usageAt,
@@ -66,7 +59,15 @@ export class Meters extends APIResource {
    * Create Meter
    */
   create(body: MeterCreateParams, options?: RequestOptions): APIPromise<Meter> {
-    return this._client.post('/v1/public/meters', { body, ...options });
+    const externalID = meterMutationExternalID(body);
+    return this._client
+      .v2Post<V2ObjectRecord>('/meters', {
+        body: { properties: meterMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Meter>(envelope, 'meter_id', 'created', externalID),
+      );
   }
 
   /**
@@ -97,16 +98,16 @@ export class Meters extends APIResource {
    * Update Meter
    */
   update(meterID: string, params: MeterUpdateParams, options?: RequestOptions): APIPromise<Meter> {
-    const { external_id, ...body } = params;
-    if (canUseV2MeterUpdate(params)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/meters/${meterID}`, {
-          body: { properties: meterUpdateProperties(params) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) => legacyMutationResponseFromV2<Meter>(envelope, 'meter_id', 'updated'));
-    }
-    return this._client.put(path`/v1/public/meters/${meterID}`, { query: { external_id }, body, ...options });
+    const externalID = meterMutationExternalID(params);
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/meters/${meterID}`, {
+        query: { external_id: externalID },
+        body: { properties: meterMutationProperties(params) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<Meter>(envelope, 'meter_id', 'updated', externalID),
+      );
   }
 
   /**

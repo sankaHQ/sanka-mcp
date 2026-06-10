@@ -3,13 +3,24 @@
 import { APIResource } from '../core/resource';
 import { APIPromise } from '../core/api-promise';
 import { RequestOptions } from '../internal/request-options';
+import { V2Envelope, unwrapV2Data } from '../internal/v2';
+
+const wrapV2EnrichEnvelope = (
+  promise: APIPromise<V2Envelope<EnrichCreateResponse.Data>>,
+): APIPromise<EnrichCreateResponse> => {
+  return promise._thenUnwrap((envelope) => ({
+    data: unwrapV2Data(envelope),
+    message: 'Company enrichment completed',
+    ctx_id: envelope.meta.ctx_id ?? null,
+  }));
+};
 
 export class Enrich extends APIResource {
   /**
    * Enrich Company Data
    */
   create(body: EnrichCreateParams, options?: RequestOptions): APIPromise<EnrichCreateResponse> {
-    return this._client.post('/v1/enrich', { body, ...options });
+    return wrapV2EnrichEnvelope(this._client.post('/api/v2/enrich', { body, ...options }));
   }
 }
 

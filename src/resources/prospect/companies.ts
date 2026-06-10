@@ -3,6 +3,17 @@
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
 import { RequestOptions } from '../../internal/request-options';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+
+const wrapV2ProspectCompaniesEnvelope = (
+  promise: APIPromise<V2Envelope<ProspectCompaniesCreateResponse.Data>>,
+): APIPromise<ProspectCompaniesCreateResponse> => {
+  return promise._thenUnwrap((envelope) => ({
+    data: unwrapV2Data(envelope),
+    message: 'Company prospecting completed',
+    ctx_id: envelope.meta.ctx_id ?? null,
+  }));
+};
 
 export class ProspectCompanies extends APIResource {
   /**
@@ -12,7 +23,9 @@ export class ProspectCompanies extends APIResource {
     body: ProspectCompaniesCreateParams,
     options?: RequestOptions,
   ): APIPromise<ProspectCompaniesCreateResponse> {
-    return this._client.post('/v1/prospect/companies', { body, ...options });
+    return wrapV2ProspectCompaniesEnvelope(
+      this._client.post('/api/v2/prospect/companies', { body, ...options }),
+    );
   }
 }
 

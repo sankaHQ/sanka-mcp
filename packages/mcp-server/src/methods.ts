@@ -14,13 +14,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.enrich.create',
     fullyQualifiedName: 'enrich.create',
     httpMethod: 'post',
-    httpPath: '/v1/enrich',
+    httpPath: '/api/v2/enrich',
   },
   {
     clientCallName: 'client.prospect.companies.create',
     fullyQualifiedName: 'prospect.companies.create',
     httpMethod: 'post',
-    httpPath: '/v1/prospect/companies',
+    httpPath: '/api/v2/prospect/companies',
   },
   {
     clientCallName: 'client.score.create',
@@ -494,13 +494,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.payments.listAllocations',
     fullyQualifiedName: 'public.payments.listAllocations',
     httpMethod: 'get',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.updateAllocations',
     fullyQualifiedName: 'public.payments.updateAllocations',
     httpMethod: 'put',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.update',
@@ -560,7 +560,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.inventories.create',
     fullyQualifiedName: 'public.inventories.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/inventories',
+    httpPath: '/api/v2/inventories',
   },
   {
     clientCallName: 'client.public.inventories.retrieve',
@@ -571,8 +571,8 @@ export const sdkMethods: SdkMethod[] = [
   {
     clientCallName: 'client.public.inventories.update',
     fullyQualifiedName: 'public.inventories.update',
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventories/{inventory_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventories/{inventory_id}',
   },
   {
     clientCallName: 'client.public.inventories.list',
@@ -620,7 +620,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.inventoryTransactions.create',
     fullyQualifiedName: 'public.inventoryTransactions.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/inventory-transactions',
+    httpPath: '/api/v2/public/inventory-transactions',
   },
   {
     clientCallName: 'client.public.inventoryTransactions.retrieve',
@@ -631,8 +631,8 @@ export const sdkMethods: SdkMethod[] = [
   {
     clientCallName: 'client.public.inventoryTransactions.update',
     fullyQualifiedName: 'public.inventoryTransactions.update',
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
   },
   {
     clientCallName: 'client.public.inventoryTransactions.list',
@@ -644,13 +644,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.inventoryTransactions.delete',
     fullyQualifiedName: 'public.inventoryTransactions.delete',
     httpMethod: 'delete',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
   },
   {
     clientCallName: 'client.public.meters.create',
     fullyQualifiedName: 'public.meters.create',
     httpMethod: 'post',
-    httpPath: '/v1/public/meters',
+    httpPath: '/api/v2/meters',
   },
   {
     clientCallName: 'client.public.meters.retrieve',

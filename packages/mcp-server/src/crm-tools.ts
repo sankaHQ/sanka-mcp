@@ -8811,33 +8811,10 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
 
 const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
 
-const shouldUseLegacyRecordRoute = (
-  body: Record<string, unknown>,
-  action: 'query' | 'aggregate',
-): boolean => {
-  if (readString(body['mode'])) {
-    return true;
-  }
-  if (action === 'aggregate') {
-    const groupBy = readStringArray(body['group_by'] ?? body['groupBy']);
-    if (groupBy.length > 0) {
-      return true;
-    }
-    const metrics = readStringArray(body['metrics']);
-    if (metrics.some((metric) => metric !== 'count')) {
-      return true;
-    }
-  }
-  return false;
-};
+const recordQueryPathForBody = (_body: Record<string, unknown>): string => '/api/v2/public/records/query';
 
-const recordQueryPathForBody = (body: Record<string, unknown>): string =>
-  shouldUseLegacyRecordRoute(body, 'query') ? '/v1/public/records/query' : '/api/v2/records/query';
-
-const recordAggregatePathForBody = (body: Record<string, unknown>): string =>
-  shouldUseLegacyRecordRoute(body, 'aggregate') ?
-    '/v1/public/records/aggregate'
-  : '/api/v2/records/aggregate';
+const recordAggregatePathForBody = (_body: Record<string, unknown>): string =>
+  '/api/v2/public/records/aggregate';
 
 const buildCustomObjectRecordMutationBody = (
   args: Record<string, unknown> | undefined,
@@ -9604,7 +9581,12 @@ const buildPayrollJournalEntryBody = (args: Record<string, unknown> | undefined)
 
 const readDataArray = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
   const data = payload['data'];
-  return Array.isArray(data) ? data.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+  if (Array.isArray(data)) {
+    return data.map((row) => readRecord(row) ?? {}).filter(Boolean);
+  }
+  const dataRecord = readRecord(data);
+  const items = dataRecord ? dataRecord['items'] : undefined;
+  return Array.isArray(items) ? items.map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
 };
 
 const readPayloadDataRecord = (payload: Record<string, unknown>): Record<string, unknown> => {
@@ -13497,7 +13479,7 @@ export const crmCreateCustomObjectRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/records/custom-objects/records',
+    httpPath: '/api/v2/public/records/custom-objects/records',
     operationId: 'public.records.custom_objects.create',
   },
   tool: {
@@ -13529,7 +13511,7 @@ export const crmCreateCustomObjectRecordTool: McpTool = {
       return asErrorResult('`custom_object` or `custom_object_slug` is required.');
     }
 
-    const payload = (await reqContext.client.post('/v1/public/records/custom-objects/records', {
+    const payload = (await reqContext.client.post('/api/v2/public/records/custom-objects/records', {
       body,
     })) as Record<string, unknown>;
 
@@ -13547,7 +13529,7 @@ export const crmUpdateCustomObjectRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/records/custom-objects/records/{record_id}',
+    httpPath: '/api/v2/public/records/custom-objects/records/{record_id}',
     operationId: 'public.records.custom_objects.update',
   },
   tool: {
@@ -13581,9 +13563,12 @@ export const crmUpdateCustomObjectRecordTool: McpTool = {
     const body = buildCustomObjectRecordMutationBody(args);
     delete body['external_object_type'];
 
-    const payload = (await reqContext.client.post(`/v1/public/records/custom-objects/records/${recordID}`, {
-      body,
-    })) as Record<string, unknown>;
+    const payload = (await reqContext.client.post(
+      `/api/v2/public/records/custom-objects/records/${recordID}`,
+      {
+        body,
+      },
+    )) as Record<string, unknown>;
 
     return buildCustomObjectRecordMutationResult({
       toolName: 'update_custom_object_record',
@@ -13599,7 +13584,7 @@ export const crmArchiveCustomObjectRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm'],
     httpMethod: 'post',
-    httpPath: '/v1/public/records/custom-objects/records/{record_id}/archive',
+    httpPath: '/api/v2/public/records/custom-objects/records/{record_id}/archive',
     operationId: 'public.records.custom_objects.archive',
   },
   tool: {
@@ -13632,7 +13617,7 @@ export const crmArchiveCustomObjectRecordTool: McpTool = {
     }
 
     const payload = (await reqContext.client.post(
-      `/v1/public/records/custom-objects/records/${recordID}/archive`,
+      `/api/v2/public/records/custom-objects/records/${recordID}/archive`,
       {
         body: {},
       },
@@ -14931,7 +14916,7 @@ export const crmListEmployeesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'employees'],
     httpMethod: 'get',
-    httpPath: '/v1/public/employees',
+    httpPath: '/api/v2/public/employees',
     operationId: 'public.employees.list',
   },
   tool: {
@@ -14956,7 +14941,7 @@ export const crmListEmployeesTool: McpTool = {
     }
 
     const { limit, page, params } = buildEmployeeListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/employees', {
+    const payload = (await reqContext.client.get('/api/v2/public/employees', {
       query: params,
     })) as Record<string, unknown>;
     const data = readDataArray(payload).slice(0, limit);
@@ -14981,7 +14966,7 @@ export const crmListAbsencesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'get',
-    httpPath: '/v1/public/absences',
+    httpPath: '/api/v2/public/absences',
     operationId: 'public.absences.list',
   },
   tool: {
@@ -15006,7 +14991,7 @@ export const crmListAbsencesTool: McpTool = {
     }
 
     const { limit, page, params } = buildAbsenceListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/absences', {
+    const payload = (await reqContext.client.get('/api/v2/public/absences', {
       query: params,
     })) as Record<string, unknown>;
     const data = readDataArray(payload).slice(0, limit);
@@ -15030,7 +15015,7 @@ export const crmGetAbsenceTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'get',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpPath: '/api/v2/public/absences/{absence_id}',
     operationId: 'public.absences.retrieve',
   },
   tool: {
@@ -15056,7 +15041,7 @@ export const crmGetAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
+    const payload = (await reqContext.client.get(`/api/v2/public/absences/${encodeURIComponent(absenceID)}`, {
       query: buildWorkspaceQuery(args),
     })) as Record<string, unknown>;
     return {
@@ -15074,7 +15059,7 @@ export const crmCreateAbsenceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'post',
-    httpPath: '/v1/public/absences',
+    httpPath: '/api/v2/public/absences',
     operationId: 'public.absences.create',
   },
   tool: {
@@ -15096,7 +15081,7 @@ export const crmCreateAbsenceTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const response = (await reqContext.client.post('/v1/public/absences', {
+    const response = (await reqContext.client.post('/api/v2/public/absences', {
       body: buildAbsenceMutationBody(args),
     })) as Record<string, unknown>;
     return {
@@ -15122,7 +15107,7 @@ export const crmUpdateAbsenceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'put',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpPath: '/api/v2/public/absences/{absence_id}',
     operationId: 'public.absences.update',
   },
   tool: {
@@ -15148,9 +15133,12 @@ export const crmUpdateAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const response = (await reqContext.client.put(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
-      body: buildAbsenceMutationBody(args),
-    })) as Record<string, unknown>;
+    const response = (await reqContext.client.put(
+      `/api/v2/public/absences/${encodeURIComponent(absenceID)}`,
+      {
+        body: buildAbsenceMutationBody(args),
+      },
+    )) as Record<string, unknown>;
     return {
       content: [
         {
@@ -15174,7 +15162,7 @@ export const crmDeleteAbsenceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'absences'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/absences/{absence_id}',
+    httpPath: '/api/v2/public/absences/{absence_id}',
     operationId: 'public.absences.delete',
   },
   tool: {
@@ -15200,9 +15188,12 @@ export const crmDeleteAbsenceTool: McpTool = {
     if (!absenceID) {
       return asErrorResult('`absence_id` is required.');
     }
-    const response = (await reqContext.client.delete(`/v1/public/absences/${encodeURIComponent(absenceID)}`, {
-      query: buildWorkspaceQuery(args),
-    })) as Record<string, unknown>;
+    const response = (await reqContext.client.delete(
+      `/api/v2/public/absences/${encodeURIComponent(absenceID)}`,
+      {
+        query: buildWorkspaceQuery(args),
+      },
+    )) as Record<string, unknown>;
     return {
       content: [
         {
@@ -15226,7 +15217,7 @@ export const crmListAttendanceRecordsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'get',
-    httpPath: '/v1/public/attendance-records',
+    httpPath: '/api/v2/public/attendance-records',
     operationId: 'public.attendanceRecords.list',
   },
   tool: {
@@ -15250,7 +15241,7 @@ export const crmListAttendanceRecordsTool: McpTool = {
       return authError;
     }
     const { limit, page, params } = buildAttendanceRecordListParams(args);
-    const payload = (await reqContext.client.get('/v1/public/attendance-records', {
+    const payload = (await reqContext.client.get('/api/v2/public/attendance-records', {
       query: params,
     })) as Record<string, unknown>;
     const data = readDataArray(payload).slice(0, limit);
@@ -15274,7 +15265,7 @@ export const crmGetAttendanceRecordTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'get',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpPath: '/api/v2/public/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.retrieve',
   },
   tool: {
@@ -15301,7 +15292,7 @@ export const crmGetAttendanceRecordTool: McpTool = {
       return asErrorResult('`attendance_record_id` is required.');
     }
     const payload = (await reqContext.client.get(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      `/api/v2/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
       {
         query: buildWorkspaceQuery(args),
       },
@@ -15319,7 +15310,7 @@ export const crmCreateAttendanceRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'post',
-    httpPath: '/v1/public/attendance-records',
+    httpPath: '/api/v2/public/attendance-records',
     operationId: 'public.attendanceRecords.create',
   },
   tool: {
@@ -15341,7 +15332,7 @@ export const crmCreateAttendanceRecordTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const response = (await reqContext.client.post('/v1/public/attendance-records', {
+    const response = (await reqContext.client.post('/api/v2/public/attendance-records', {
       body: buildAttendanceRecordMutationBody(args),
     })) as Record<string, unknown>;
     return {
@@ -15367,7 +15358,7 @@ export const crmUpdateAttendanceRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'put',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpPath: '/api/v2/public/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.update',
   },
   tool: {
@@ -15394,7 +15385,7 @@ export const crmUpdateAttendanceRecordTool: McpTool = {
       return asErrorResult('`attendance_record_id` is required.');
     }
     const response = (await reqContext.client.put(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      `/api/v2/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
       {
         body: buildAttendanceRecordMutationBody(args),
       },
@@ -15422,7 +15413,7 @@ export const crmDeleteAttendanceRecordTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'attendance_records'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/attendance-records/{attendance_record_id}',
+    httpPath: '/api/v2/public/attendance-records/{attendance_record_id}',
     operationId: 'public.attendanceRecords.delete',
   },
   tool: {
@@ -15449,7 +15440,7 @@ export const crmDeleteAttendanceRecordTool: McpTool = {
       return asErrorResult('`attendance_record_id` is required.');
     }
     const response = (await reqContext.client.delete(
-      `/v1/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
+      `/api/v2/public/attendance-records/${encodeURIComponent(attendanceRecordID)}`,
       {
         query: buildWorkspaceQuery(args),
       },
@@ -15477,7 +15468,7 @@ export const crmListPayrollProfilesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/public/payroll/profiles',
     operationId: 'public.payroll.profiles.list',
   },
   tool: {
@@ -15501,7 +15492,7 @@ export const crmListPayrollProfilesTool: McpTool = {
     }
     const params = buildWorkspaceQuery(args);
     assignStringFields(params, args, ['employee_id']);
-    const payload = (await reqContext.client.get('/v1/public/payroll/profiles', {
+    const payload = (await reqContext.client.get('/api/v2/public/payroll/profiles', {
       query: params,
     })) as Record<string, unknown>;
     const data = readDataArray(payload);
@@ -15525,7 +15516,7 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/profiles',
+    httpPath: '/api/v2/public/payroll/profiles',
     operationId: 'public.payroll.profiles.upsert',
   },
   tool: {
@@ -15551,7 +15542,7 @@ export const crmUpsertPayrollProfileTool: McpTool = {
     if (!employeeID) {
       return asErrorResult('`employee_id` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/profiles', {
+    const response = (await reqContext.client.post('/api/v2/public/payroll/profiles', {
       body: buildPayrollProfileBody(args),
     })) as Record<string, unknown>;
     return {
@@ -15577,7 +15568,7 @@ export const crmListPayrollRunsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs',
+    httpPath: '/api/v2/public/payroll/runs',
     operationId: 'public.payroll.runs.list',
   },
   tool: {
@@ -15599,7 +15590,7 @@ export const crmListPayrollRunsTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const payload = (await reqContext.client.get('/v1/public/payroll/runs', {
+    const payload = (await reqContext.client.get('/api/v2/public/payroll/runs', {
       query: buildPayrollRunListParams(args),
     })) as Record<string, unknown>;
     const data = readDataArray(payload);
@@ -15623,7 +15614,7 @@ export const crmGetPayrollRunTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}',
+    httpPath: '/api/v2/public/payroll/runs/{run_id}',
     operationId: 'public.payroll.runs.retrieve',
   },
   tool: {
@@ -15649,7 +15640,7 @@ export const crmGetPayrollRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const payload = (await reqContext.client.get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}`, {
+    const payload = (await reqContext.client.get(`/api/v2/public/payroll/runs/${encodeURIComponent(runID)}`, {
       query: buildWorkspaceQuery(args),
     })) as Record<string, unknown>;
     const data = readPayloadDataRecord(payload);
@@ -15667,7 +15658,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payroll/runs/{run_id}/payslips/pdf',
+    httpPath: '/api/v2/public/payroll/runs/{run_id}/payslips/pdf',
     operationId: 'public.payroll.runs.payslips.downloadPDF',
   },
   tool: {
@@ -15695,7 +15686,7 @@ export const crmDownloadPayrollPayslipPDFTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = await reqContext.client
-      .get(`/v1/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
+      .get(`/api/v2/public/payroll/runs/${encodeURIComponent(runID)}/payslips/pdf`, {
         query: params,
       })
       .asResponse();
@@ -15709,7 +15700,7 @@ export const crmCalculatePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/calculate',
+    httpPath: '/api/v2/public/payroll/runs/calculate',
     operationId: 'public.payroll.runs.calculate',
   },
   tool: {
@@ -15734,7 +15725,7 @@ export const crmCalculatePayrollRunTool: McpTool = {
     if (!readString(args?.['period'])) {
       return asErrorResult('`period` is required.');
     }
-    const response = (await reqContext.client.post('/v1/public/payroll/runs/calculate', {
+    const response = (await reqContext.client.post('/api/v2/public/payroll/runs/calculate', {
       body: buildPayrollRunCalculateBody(args),
     })) as Record<string, unknown>;
     const data = readPayloadDataRecord(response);
@@ -15757,7 +15748,7 @@ export const crmCreatePayrollJournalEntryTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll', 'journals'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/{run_id}/journal-entry',
+    httpPath: '/api/v2/public/payroll/runs/{run_id}/journal-entry',
     operationId: 'public.payroll.runs.journalEntry.create',
   },
   tool: {
@@ -15785,7 +15776,7 @@ export const crmCreatePayrollJournalEntryTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = (await reqContext.client.post(
-      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/journal-entry`,
+      `/api/v2/public/payroll/runs/${encodeURIComponent(runID)}/journal-entry`,
       {
         query: buildWorkspaceQuery(args),
         body: buildPayrollJournalEntryBody(args),
@@ -15812,7 +15803,7 @@ export const crmApprovePayrollRunTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'hr', 'payroll'],
     httpMethod: 'post',
-    httpPath: '/v1/public/payroll/runs/{run_id}/approve',
+    httpPath: '/api/v2/public/payroll/runs/{run_id}/approve',
     operationId: 'public.payroll.runs.approve',
   },
   tool: {
@@ -15839,7 +15830,7 @@ export const crmApprovePayrollRunTool: McpTool = {
       return asErrorResult('`run_id` is required.');
     }
     const response = (await reqContext.client.post(
-      `/v1/public/payroll/runs/${encodeURIComponent(runID)}/approve`,
+      `/api/v2/public/payroll/runs/${encodeURIComponent(runID)}/approve`,
       {
         query: buildWorkspaceQuery(args),
       },
@@ -15864,7 +15855,7 @@ export const crmListIncentivesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives',
+    httpPath: '/api/v2/public/incentives',
     operationId: 'public.incentives.list',
   },
   tool: {
@@ -15892,14 +15883,14 @@ export const crmListIncentivesTool: McpTool = {
     }
 
     const { limit, params } = buildIncentiveListParams(args);
-    const { data: incentives, response } = await reqContext.client
-      .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
-        query: params,
-      })
-      .withResponse();
+    const payload = (await reqContext.client.get('/api/v2/public/incentives', {
+      query: params,
+    })) as Record<string, unknown>;
+    const incentives = readDataArray(payload);
+    const dataRecord = readPayloadDataRecord(payload);
     const results = incentives.slice(0, limit).map((incentive) => incentive as Record<string, unknown>);
-    const total = readHeaderNumber(response.headers, 'x-sanka-total') ?? incentives.length;
-    const page = readHeaderNumber(response.headers, 'x-sanka-page') ?? Number(params['page'] ?? 1);
+    const total = readNumber(dataRecord['total'], incentives.length);
+    const page = readNumber(dataRecord['page'], Number(params['page'] ?? 1));
 
     return buildListResult({
       label: 'incentives',
@@ -15921,7 +15912,7 @@ export const crmListIncentivePlansTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives/plans',
+    httpPath: '/api/v2/public/incentives/plans',
     operationId: 'public.incentives.plans.list',
   },
   tool: {
@@ -15947,9 +15938,10 @@ export const crmListIncentivePlansTool: McpTool = {
       return authError;
     }
 
-    const plans = (await reqContext.client.get('/v1/public/incentives/plans', {
+    const payload = (await reqContext.client.get('/api/v2/public/incentives/plans', {
       query: buildIncentivePlanListParams(args),
-    })) as Array<Record<string, unknown>>;
+    })) as Record<string, unknown>;
+    const plans = readDataArray(payload);
 
     return buildListResult({
       label: 'incentive plans',
@@ -15971,7 +15963,7 @@ export const crmListIncentiveCompanyOptionsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance', 'companies'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives/company-options',
+    httpPath: '/api/v2/public/incentives/company-options',
     operationId: 'public.incentives.companyOptions.list',
   },
   tool: {
@@ -15997,9 +15989,10 @@ export const crmListIncentiveCompanyOptionsTool: McpTool = {
       return authError;
     }
 
-    const companies = (await reqContext.client.get('/v1/public/incentives/company-options', {
+    const payload = (await reqContext.client.get('/api/v2/public/incentives/company-options', {
       query: buildIncentiveCompanyOptionsParams(args),
-    })) as Array<Record<string, unknown>>;
+    })) as Record<string, unknown>;
+    const companies = readDataArray(payload);
 
     return buildListResult({
       label: 'incentive company options',
@@ -16021,7 +16014,7 @@ export const crmCreateIncentivePlanTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/plans',
+    httpPath: '/api/v2/public/incentives/plans',
     operationId: 'public.incentives.plans.create',
   },
   tool: {
@@ -16065,7 +16058,7 @@ export const crmCreateIncentivePlanTool: McpTool = {
       return asErrorResult('`effective_from` is required.');
     }
 
-    const response = (await reqContext.client.post('/v1/public/incentives/plans', {
+    const response = (await reqContext.client.post('/api/v2/public/incentives/plans', {
       body,
       query: buildIncentiveWorkspaceQuery(args),
     })) as Record<string, unknown>;
@@ -16085,7 +16078,7 @@ export const crmCalculateIncentivesTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/calculate',
+    httpPath: '/api/v2/public/incentives/calculate',
     operationId: 'public.incentives.calculate',
   },
   tool: {
@@ -16120,7 +16113,7 @@ export const crmCalculateIncentivesTool: McpTool = {
       body['dry_run'] = true;
     }
 
-    const response = (await reqContext.client.post('/v1/public/incentives/calculate', {
+    const response = (await reqContext.client.post('/api/v2/public/incentives/calculate', {
       body,
       query: buildIncentiveWorkspaceQuery(args),
     })) as Record<string, unknown>;
@@ -16151,7 +16144,7 @@ export const crmApproveIncentivesTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'post',
-    httpPath: '/v1/public/incentives/approve-bulk',
+    httpPath: '/api/v2/public/incentives/approve-bulk',
     operationId: 'public.incentives.approve',
   },
   tool: {
@@ -16186,11 +16179,11 @@ export const crmApproveIncentivesTool: McpTool = {
     const query = buildIncentiveWorkspaceQuery(args);
     const response =
       ids.length > 0 ?
-        ((await reqContext.client.post('/v1/public/incentives/approve-bulk', {
+        ((await reqContext.client.post('/api/v2/public/incentives/approve-bulk', {
           body: { ids },
           query,
         })) as Record<string, unknown>)
-      : ((await reqContext.client.post(`/v1/public/incentives/${incentiveID}/approve`, {
+      : ((await reqContext.client.post(`/api/v2/public/incentives/${incentiveID}/approve`, {
           query,
         })) as Record<string, unknown>);
 
@@ -16209,7 +16202,7 @@ export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'incentives', 'finance'],
     httpMethod: 'get',
-    httpPath: '/v1/public/incentives',
+    httpPath: '/api/v2/public/incentives',
     operationId: 'public.incentives.paymentNotice.generate',
   },
   tool: {
@@ -16250,18 +16243,17 @@ export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
     const rows: Array<Record<string, unknown>> = [];
 
     for (const period of periods) {
-      const { data: incentives } = await reqContext.client
-        .get<Array<Record<string, unknown>>>('/v1/public/incentives', {
-          query: {
-            period,
-            limit: 100,
-            page: 1,
-            ...(status ? { status } : undefined),
-            ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-            ...(language ? { 'Accept-Language': language } : undefined),
-          },
-        })
-        .withResponse();
+      const payload = (await reqContext.client.get('/api/v2/public/incentives', {
+        query: {
+          period,
+          limit: 100,
+          page: 1,
+          ...(status ? { status } : undefined),
+          ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+          ...(language ? { 'Accept-Language': language } : undefined),
+        },
+      })) as Record<string, unknown>;
+      const incentives = readDataArray(payload);
       rows.push(
         ...incentives.filter((row) => {
           if (!payeeCompanyID) {
@@ -19500,7 +19492,7 @@ export const crmSendInvoiceEmailTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices', 'messages'],
     httpMethod: 'post',
-    httpPath: '/v1/public/invoices/{invoice_id}/email',
+    httpPath: '/api/v2/public/invoices/{invoice_id}/email',
     operationId: 'public.invoices.email',
   },
   tool: {
@@ -19533,7 +19525,7 @@ export const crmSendInvoiceEmailTool: McpTool = {
     }
     const { body, query } = buildInvoiceEmailBody(args);
     const response = (await reqContext.client.post(
-      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/email`,
+      `/api/v2/public/invoices/${encodeURIComponent(invoiceID)}/email`,
       {
         body,
         query,
@@ -19864,7 +19856,7 @@ export const crmPermanentDeleteInvoiceTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'invoices'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/invoices/{invoice_id}/permanent-delete',
+    httpPath: '/api/v2/public/invoices/{invoice_id}/permanent-delete',
     operationId: 'public.invoices.permanentDelete',
   },
   tool: {
@@ -19900,7 +19892,7 @@ export const crmPermanentDeleteInvoiceTool: McpTool = {
     }
 
     const response = (await reqContext.client.delete(
-      `/v1/public/invoices/${encodeURIComponent(invoiceID)}/permanent-delete`,
+      `/api/v2/public/invoices/${encodeURIComponent(invoiceID)}/permanent-delete`,
       { query: { ...params, confirm: true } },
     )) as Record<string, unknown>;
     const verification = await buildPermanentDeleteVerification({
@@ -20932,7 +20924,7 @@ export const crmListDisbursementAllocationsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'disbursements', 'allocations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    httpPath: '/api/v2/public/disbursements/{disbursement_id}/allocations',
     operationId: 'public.disbursements.listAllocations',
   },
   tool: {
@@ -20964,7 +20956,7 @@ export const crmListDisbursementAllocationsTool: McpTool = {
     }
 
     const response = (await reqContext.client.get(
-      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
       { query: params },
     )) as Record<string, unknown>;
 
@@ -20986,7 +20978,7 @@ export const crmCreateDisbursementAllocationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements', 'allocations'],
     httpMethod: 'post',
-    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations',
+    httpPath: '/api/v2/public/disbursements/{disbursement_id}/allocations',
     operationId: 'public.disbursements.createAllocation',
   },
   tool: {
@@ -21019,7 +21011,7 @@ export const crmCreateDisbursementAllocationTool: McpTool = {
     }
 
     const response = (await reqContext.client.post(
-      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
+      `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
       {
         query: params,
         body: buildDisbursementAllocationBody(args),
@@ -21044,7 +21036,7 @@ export const crmUpdateDisbursementAllocationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements', 'allocations'],
     httpMethod: 'patch',
-    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    httpPath: '/api/v2/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
     operationId: 'public.disbursements.updateAllocation',
   },
   tool: {
@@ -21079,7 +21071,7 @@ export const crmUpdateDisbursementAllocationTool: McpTool = {
     }
 
     const response = (await reqContext.client.patch(
-      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+      `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
         allocationID,
       )}`,
       {
@@ -21106,7 +21098,7 @@ export const crmDeleteDisbursementAllocationTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'disbursements', 'allocations'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
+    httpPath: '/api/v2/public/disbursements/{disbursement_id}/allocations/{allocation_id}',
     operationId: 'public.disbursements.deleteAllocation',
   },
   tool: {
@@ -21141,7 +21133,7 @@ export const crmDeleteDisbursementAllocationTool: McpTool = {
     }
 
     const response = (await reqContext.client.delete(
-      `/v1/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
+      `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations/${encodeURIComponent(
         allocationID,
       )}`,
       { query: params },
@@ -23297,7 +23289,7 @@ export const crmListPaymentAllocationsTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'payments', 'allocations'],
     httpMethod: 'get',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
     operationId: 'public.payments.listAllocations',
   },
   tool: {
@@ -23328,11 +23320,12 @@ export const crmListPaymentAllocationsTool: McpTool = {
       return asErrorResult('`payment_id` is required.');
     }
 
-    const response = (await reqContext.client.public.payments.listAllocations(
-      paymentID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const response = (await reqContext.client.get(
+      `/api/v2/public/payments/${encodeURIComponent(paymentID)}/allocations`,
+      {
+        query: params,
+      },
+    )) as Record<string, unknown>;
 
     return {
       content: [
@@ -23352,7 +23345,7 @@ export const crmUpdatePaymentAllocationsTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'payments', 'allocations'],
     httpMethod: 'put',
-    httpPath: '/v1/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
     operationId: 'public.payments.updateAllocations',
   },
   tool: {
@@ -23384,21 +23377,22 @@ export const crmUpdatePaymentAllocationsTool: McpTool = {
       return asErrorResult('`payment_id` is required.');
     }
 
-    const response = (await reqContext.client.public.payments.updateAllocations(
-      paymentID,
+    const response = (await reqContext.client.put(
+      `/api/v2/public/payments/${encodeURIComponent(paymentID)}/allocations`,
       {
-        ...params,
-        allocations: buildPaymentAllocationRows(args) as Array<{
-          invoice_id: string;
-          amount: number;
-          adjustment_amount?: number;
-          adjustment_type?: string;
-          currency?: string;
-          source?: string;
-          notes?: string;
-        }>,
+        query: params,
+        body: {
+          allocations: buildPaymentAllocationRows(args) as Array<{
+            invoice_id: string;
+            amount: number;
+            adjustment_amount?: number;
+            adjustment_type?: string;
+            currency?: string;
+            source?: string;
+            notes?: string;
+          }>,
+        },
       },
-      undefined,
     )) as unknown as Record<string, unknown>;
 
     return {
@@ -24040,7 +24034,7 @@ export const crmCreateInventoryTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'post',
-    httpPath: '/v1/public/inventories',
+    httpPath: '/api/v2/inventories',
     operationId: 'public.inventories.create',
   },
   tool: {
@@ -24106,8 +24100,8 @@ export const crmUpdateInventoryTool: McpTool = {
     resource: 'inventories',
     operation: 'write',
     tags: ['crm', 'inventories'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventories/{inventory_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventories/{inventory_id}',
     operationId: 'public.inventories.update',
   },
   tool: {
@@ -24354,7 +24348,7 @@ export const crmCreateInventoryTransactionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'post',
-    httpPath: '/v1/public/inventory-transactions',
+    httpPath: '/api/v2/public/inventory-transactions',
     operationId: 'public.inventoryTransactions.create',
   },
   tool: {
@@ -24418,8 +24412,8 @@ export const crmUpdateInventoryTransactionTool: McpTool = {
     resource: 'inventory_transactions',
     operation: 'write',
     tags: ['crm', 'inventories'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
     operationId: 'public.inventoryTransactions.update',
   },
   tool: {
@@ -24490,7 +24484,7 @@ export const crmDeleteInventoryTransactionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
     operationId: 'public.inventoryTransactions.delete',
   },
   tool: {
@@ -24945,7 +24939,7 @@ export const crmProspectCompaniesTool: McpTool = {
     operation: 'read',
     tags: ['crm', 'prospecting'],
     httpMethod: 'post',
-    httpPath: '/v1/prospect/companies',
+    httpPath: '/api/v2/prospect/companies',
     operationId: 'prospect.companies.create',
   },
   tool: {
