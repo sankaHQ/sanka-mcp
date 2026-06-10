@@ -74,23 +74,38 @@ describe('public object-record updates on V2', () => {
     ]);
   });
 
-  test('uses V2 PATCH for scalar meter updates', async () => {
+  test('uses V2 create and update routes for scalar meter mutations', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
       apiVersion: 'v2',
       baseURL: 'http://localhost:5000/',
       fetch: async (url, init) => {
-        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
-        expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
-          properties: {
-            company_id: 'company-1',
-            item_id: 'item-1',
-            usage: 42,
-            usage_at: '2026-05-20T01:00:00Z',
-            usage_status: 'active',
-          },
-        });
+        const method = String(init?.method ?? 'GET').toUpperCase();
+        calls.push(`${method} ${String(url)}`);
+        if (method === 'POST') {
+          expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
+            properties: {
+              company_id: 'company-1',
+              external_id: 'METER-EXT',
+              item_id: 'item-1',
+              usage: 42,
+              usage_at: '2026-05-20T01:00:00Z',
+              usage_status: 'active',
+            },
+          });
+        } else {
+          expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
+            properties: {
+              company_id: 'company-1',
+              external_id: 'METER-EXT',
+              item_id: 'item-1',
+              usage: 43,
+              usage_at: '2026-05-21T01:00:00Z',
+              usage_status: 'active',
+            },
+          });
+        }
         return envelope({
           id: 'meter-1',
           record_id: '6001',
@@ -101,8 +116,9 @@ describe('public object-record updates on V2', () => {
     });
 
     await expect(
-      client.public.meters.update('meter-1', {
+      client.public.meters.create({
         companyId: 'company-1',
+        externalId: 'METER-EXT',
         itemId: 'item-1',
         usage: 42,
         usageAt: '2026-05-20T01:00:00Z',
@@ -110,13 +126,32 @@ describe('public object-record updates on V2', () => {
       }),
     ).resolves.toEqual({
       ok: true,
+      status: 'created',
+      meter_id: 'meter-1',
+      external_id: 'METER-EXT',
+      ctx_id: 'ctx-test',
+    });
+    await expect(
+      client.public.meters.update('meter-1', {
+        externalId: 'METER-EXT',
+        companyId: 'company-1',
+        itemId: 'item-1',
+        usage: 43,
+        usageAt: '2026-05-21T01:00:00Z',
+        usageStatus: 'active',
+      }),
+    ).resolves.toEqual({
+      ok: true,
       status: 'updated',
       meter_id: 'meter-1',
-      external_id: null,
+      external_id: 'METER-EXT',
       ctx_id: 'ctx-test',
     });
 
-    expect(calls).toEqual(['PATCH http://localhost:5000/api/v2/meters/meter-1']);
+    expect(calls).toEqual([
+      'POST http://localhost:5000/api/v2/meters',
+      'PATCH http://localhost:5000/api/v2/meters/meter-1?external_id=METER-EXT',
+    ]);
   });
 
   test('uses V2 PATCH for scalar payment updates', async () => {

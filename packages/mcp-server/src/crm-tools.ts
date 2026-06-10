@@ -24040,7 +24040,7 @@ export const crmCreateInventoryTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'post',
-    httpPath: '/v1/public/inventories',
+    httpPath: '/api/v2/inventories',
     operationId: 'public.inventories.create',
   },
   tool: {
@@ -24106,8 +24106,8 @@ export const crmUpdateInventoryTool: McpTool = {
     resource: 'inventories',
     operation: 'write',
     tags: ['crm', 'inventories'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventories/{inventory_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventories/{inventory_id}',
     operationId: 'public.inventories.update',
   },
   tool: {
@@ -24418,8 +24418,8 @@ export const crmUpdateInventoryTransactionTool: McpTool = {
     resource: 'inventory_transactions',
     operation: 'write',
     tags: ['crm', 'inventories'],
-    httpMethod: 'put',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
     operationId: 'public.inventoryTransactions.update',
   },
   tool: {
@@ -24490,7 +24490,7 @@ export const crmDeleteInventoryTransactionTool: McpTool = {
     operation: 'write',
     tags: ['crm', 'inventories'],
     httpMethod: 'delete',
-    httpPath: '/v1/public/inventory-transactions/{transaction_id}',
+    httpPath: '/api/v2/inventory-transactions/{transaction_id}',
     operationId: 'public.inventoryTransactions.delete',
   },
   tool: {

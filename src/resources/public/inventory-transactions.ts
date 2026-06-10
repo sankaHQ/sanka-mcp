@@ -6,8 +6,12 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
 import {
+  V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  compactProperties,
+  legacyDeleteResponseFromV2,
+  legacyMutationResponseFromV2,
   legacyObjectRecordFromV2,
   unwrapV2ObjectRecord,
   unwrapV2ObjectRecordArray,
@@ -18,6 +22,34 @@ const transactionFromV2Record = (record: V2ObjectRecord): TransactionSchema => {
   return legacyObjectRecordFromV2<TransactionSchema>(record, 'transaction_id', {
     inventory_id: properties['formatted_inventory_id'] ?? properties['inventory_id'] ?? null,
     inventory_uuid: properties['inventory_id'] ?? null,
+  });
+};
+
+const canUseV2InventoryTransactionUpdate = (params: InventoryTransactionUpdateParams): boolean =>
+  params.inventoryExternalId == null;
+
+const inventoryTransactionUpdateProperties = (
+  params: InventoryTransactionUpdateParams,
+): Record<string, unknown> => {
+  const {
+    inventoryExternalId: _inventoryExternalID,
+    inventoryId,
+    inventoryType,
+    transactionType,
+    transactionAmount,
+    transactionDate,
+    useUnitValue,
+    ...rest
+  } = params;
+  void _inventoryExternalID;
+  return compactProperties({
+    ...rest,
+    inventory_id: inventoryId,
+    inventory_type: inventoryType,
+    transaction_type: transactionType,
+    transaction_amount: transactionAmount,
+    transaction_date: transactionDate,
+    use_unit_value: useUnitValue,
   });
 };
 
@@ -58,6 +90,16 @@ export class InventoryTransactions extends APIResource {
     body: InventoryTransactionUpdateParams,
     options?: RequestOptions,
   ): APIPromise<TransactionResponse> {
+    if (canUseV2InventoryTransactionUpdate(body)) {
+      return this._client
+        .v2Patch<V2ObjectRecord>(path`/inventory-transactions/${transactionID}`, {
+          body: { properties: inventoryTransactionUpdateProperties(body) },
+          ...options,
+        })
+        ._thenUnwrap((envelope) =>
+          legacyMutationResponseFromV2<TransactionResponse>(envelope, 'transaction_id', 'updated'),
+        );
+    }
     return this._client.put(path`/v1/public/inventory-transactions/${transactionID}`, { body, ...options });
   }
 
@@ -91,7 +133,9 @@ export class InventoryTransactions extends APIResource {
    * Delete Inventory Transaction
    */
   delete(transactionID: string, options?: RequestOptions): APIPromise<TransactionResponse> {
-    return this._client.delete(path`/v1/public/inventory-transactions/${transactionID}`, options);
+    return this._client
+      .v2Delete<V2LifecycleData>(path`/inventory-transactions/${transactionID}`, options)
+      ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<TransactionResponse>(envelope, 'transaction_id'));
   }
 }
 
