@@ -5322,13 +5322,16 @@ describe('ChatGPT CRM tools', () => {
 
   it('lists payment allocations', async () => {
     const get = jest.fn().mockResolvedValue({
-      payment: {
-        id_rcp: 301,
-        allocated_amount: 150,
-        unallocated_amount: 0,
+      success: true,
+      data: {
+        payment: {
+          id_rcp: 301,
+          allocated_amount: 150,
+          unallocated_amount: 0,
+        },
+        allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
       },
-      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
-      message: 'ok',
+      meta: { ctx_id: 'ctx-payment-allocation' },
     });
 
     const result = await crmListPaymentAllocationsTool.handler({
@@ -5355,19 +5358,28 @@ describe('ChatGPT CRM tools', () => {
         unallocated_amount: 0,
       },
       allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
-      message: 'ok',
+      ctx_id: 'ctx-payment-allocation',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded 1 invoice allocation for payment 301. Allocated: 150; unallocated: 0.',
+      },
+    ]);
   });
 
   it('updates payment allocations', async () => {
     const put = jest.fn().mockResolvedValue({
-      payment: {
-        id_rcp: 301,
-        allocated_amount: 150,
-        unallocated_amount: 0,
+      success: true,
+      data: {
+        payment: {
+          id_rcp: 301,
+          allocated_amount: 150,
+          unallocated_amount: 0,
+        },
+        allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
       },
-      allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
-      message: 'ok',
+      meta: { ctx_id: 'ctx-payment-allocation' },
     });
 
     const result = await crmUpdatePaymentAllocationsTool.handler({
@@ -5416,8 +5428,14 @@ describe('ChatGPT CRM tools', () => {
         unallocated_amount: 0,
       },
       allocations: [{ invoice: { id_inv: 1147 }, amount: 150 }],
-      message: 'ok',
+      ctx_id: 'ctx-payment-allocation',
     });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Updated 1 invoice allocation for payment 301. Allocated: 150; unallocated: 0.',
+      },
+    ]);
   });
 
   it('creates a payment', async () => {
@@ -6077,15 +6095,20 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
       available_payables: [],
-      message: 'OK',
     };
-    const get = jest.fn().mockResolvedValue(allocationPayload);
-    const post = jest.fn().mockResolvedValue(allocationPayload);
-    const patch = jest.fn().mockResolvedValue({
+    const allocationEnvelope = (data: typeof allocationPayload) => ({
+      success: true,
+      data,
+      meta: { ctx_id: 'ctx-disbursement-allocation' },
+    });
+    const get = jest.fn().mockResolvedValue(allocationEnvelope(allocationPayload));
+    const post = jest.fn().mockResolvedValue(allocationEnvelope(allocationPayload));
+    const updatedAllocationPayload = {
       ...allocationPayload,
       allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
-    });
-    const del = jest.fn().mockResolvedValue({
+    };
+    const patch = jest.fn().mockResolvedValue(allocationEnvelope(updatedAllocationPayload));
+    const deletedAllocationPayload = {
       ...allocationPayload,
       allocations: [],
       disbursement: {
@@ -6093,7 +6116,8 @@ describe('ChatGPT CRM tools', () => {
         allocated_amount: 0,
         unallocated_amount: 500,
       },
-    });
+    };
+    const del = jest.fn().mockResolvedValue(allocationEnvelope(deletedAllocationPayload));
 
     const reqContext = {
       client: { get, post, patch, delete: del } as any,
@@ -6115,7 +6139,16 @@ describe('ChatGPT CRM tools', () => {
         'Accept-Language': 'en',
       },
     });
-    expect(listResult.structuredContent).toEqual(allocationPayload);
+    expect(listResult.structuredContent).toEqual({
+      ...allocationPayload,
+      ctx_id: 'ctx-disbursement-allocation',
+    });
+    expect(listResult.content).toEqual([
+      {
+        type: 'text',
+        text: 'Loaded 1 disbursement payable allocation for disbursement disbursement-1. Allocated: 125; unallocated: 375.',
+      },
+    ]);
 
     const createResult = await crmCreateDisbursementAllocationTool.handler({
       reqContext,
@@ -6136,7 +6169,10 @@ describe('ChatGPT CRM tools', () => {
         notes: 'Receipt allocation',
       },
     });
-    expect(createResult.structuredContent).toEqual(allocationPayload);
+    expect(createResult.structuredContent).toEqual({
+      ...allocationPayload,
+      ctx_id: 'ctx-disbursement-allocation',
+    });
 
     const updateResult = await crmUpdateDisbursementAllocationTool.handler({
       reqContext,
@@ -6154,8 +6190,8 @@ describe('ChatGPT CRM tools', () => {
       },
     );
     expect(updateResult.structuredContent).toEqual({
-      ...allocationPayload,
-      allocations: [{ ...allocationPayload.allocations[0], amount: 150 }],
+      ...updatedAllocationPayload,
+      ctx_id: 'ctx-disbursement-allocation',
     });
 
     const deleteResult = await crmDeleteDisbursementAllocationTool.handler({
@@ -6169,13 +6205,8 @@ describe('ChatGPT CRM tools', () => {
       query: {},
     });
     expect(deleteResult.structuredContent).toEqual({
-      ...allocationPayload,
-      allocations: [],
-      disbursement: {
-        ...allocationPayload.disbursement,
-        allocated_amount: 0,
-        unallocated_amount: 500,
-      },
+      ...deletedAllocationPayload,
+      ctx_id: 'ctx-disbursement-allocation',
     });
   });
 

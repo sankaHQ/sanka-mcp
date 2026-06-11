@@ -6042,7 +6042,6 @@ const DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
     message: { type: 'string' },
     ctx_id: { type: 'string' },
   },
-  required: ['message'],
 };
 
 const TICKET_LIST_INPUT_SCHEMA = {
@@ -7379,7 +7378,6 @@ const PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
     message: { type: 'string' },
     ctx_id: { type: 'string' },
   },
-  required: ['message'],
 };
 
 const LOCATION_MUTATION_INPUT_PROPERTIES = {
@@ -12479,6 +12477,9 @@ const buildPaymentAllocationsSummary = (
     allocations.length === 1 ? '' : 's'
   } for payment ${resolvedPaymentID}.${totals}`;
 };
+
+const normalizeAllocationEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown> =>
+  normalizeV2MutationEnvelopePayload(payload);
 
 const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
@@ -20967,15 +20968,16 @@ export const crmListDisbursementAllocationsTool: McpTool = {
       `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
       { query: params },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Loaded'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Loaded'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21025,15 +21027,16 @@ export const crmCreateDisbursementAllocationTool: McpTool = {
         body: buildDisbursementAllocationBody(args),
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Created'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Created'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21087,15 +21090,16 @@ export const crmUpdateDisbursementAllocationTool: McpTool = {
         body: buildDisbursementAllocationBody(args, { partial: true }),
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Updated'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Updated'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21146,15 +21150,16 @@ export const crmDeleteDisbursementAllocationTool: McpTool = {
       )}`,
       { query: params },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Deleted'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Deleted'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -23334,15 +23339,16 @@ export const crmListPaymentAllocationsTool: McpTool = {
         query: params,
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildPaymentAllocationsSummary(response, paymentID, 'Loaded'),
+          text: buildPaymentAllocationsSummary(payload, paymentID, 'Loaded'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -23402,15 +23408,16 @@ export const crmUpdatePaymentAllocationsTool: McpTool = {
         },
       },
     )) as unknown as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildPaymentAllocationsSummary(response, paymentID, 'Updated'),
+          text: buildPaymentAllocationsSummary(payload, paymentID, 'Updated'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
