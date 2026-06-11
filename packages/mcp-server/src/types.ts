@@ -63,6 +63,18 @@ export type McpRequestContext = {
   client: Sanka;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
+  mcpProtocolVersion?: string | undefined;
+  mcpRequestEnvironment?:
+    | {
+        ipAddress?: string | undefined;
+        userAgent?: string | undefined;
+        browser?: string | undefined;
+        os?: string | undefined;
+        deviceType?: string | undefined;
+        modelProvider?: string | undefined;
+        modelName?: string | undefined;
+      }
+    | undefined;
   toolProfile?: ToolProfile | undefined;
   auth?: ResolvedClientAuth | undefined;
   downloadBaseUrl?: string | undefined;

@@ -269,6 +269,10 @@ import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './t
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
+export const SANKA_MCP_SERVER_NAME = 'sanka_api';
+export const SANKA_MCP_SERVER_VERSION =
+  process.env['SANKA_MCP_SERVER_VERSION'] || process.env['npm_package_version'] || '0.0.1';
+
 export const newMcpServer = async ({
   customInstructionsPath,
   toolProfile,
@@ -278,8 +282,8 @@ export const newMcpServer = async ({
 }) =>
   new McpServer(
     {
-      name: 'sanka_api',
-      version: '0.0.1',
+      name: SANKA_MCP_SERVER_NAME,
+      version: SANKA_MCP_SERVER_VERSION,
     },
     {
       instructions: await getInstructions({ customInstructionsPath, toolProfile }),
@@ -343,6 +347,32 @@ export async function recordMcpToolCall({
         ...(reqContext.mcpClientInfo?.version ?
           { client_version: reqContext.mcpClientInfo.version }
         : undefined),
+        ...(reqContext.mcpRequestEnvironment?.ipAddress ?
+          { source_ip_address: reqContext.mcpRequestEnvironment.ipAddress }
+        : undefined),
+        ...(reqContext.mcpRequestEnvironment?.userAgent ?
+          { source_user_agent: reqContext.mcpRequestEnvironment.userAgent }
+        : undefined),
+        ...(reqContext.mcpRequestEnvironment?.browser ?
+          { source_browser: reqContext.mcpRequestEnvironment.browser }
+        : undefined),
+        ...(reqContext.mcpRequestEnvironment?.os ?
+          { source_os: reqContext.mcpRequestEnvironment.os }
+        : undefined),
+        ...(reqContext.mcpRequestEnvironment?.deviceType ?
+          { source_device_type: reqContext.mcpRequestEnvironment.deviceType }
+        : undefined),
+        ...(reqContext.mcpProtocolVersion ?
+          { mcp_protocol_version: reqContext.mcpProtocolVersion }
+        : undefined),
+        mcp_server_name: SANKA_MCP_SERVER_NAME,
+        mcp_server_version: SANKA_MCP_SERVER_VERSION,
+        ...(reqContext.mcpRequestEnvironment?.modelProvider ?
+          { model_provider: reqContext.mcpRequestEnvironment.modelProvider }
+        : undefined),
+        ...(reqContext.mcpRequestEnvironment?.modelName ?
+          { model_name: reqContext.mcpRequestEnvironment.modelName }
+        : undefined),
         ...(error ? { error } : undefined),
       },
       headers: {
@@ -364,6 +394,8 @@ export async function initMcpServer(params: {
   mcpOptions?: McpOptions;
   mcpSessionId?: string | undefined;
   mcpClientInfo?: { name: string; version: string } | undefined;
+  mcpProtocolVersion?: string | undefined;
+  mcpRequestEnvironment?: McpRequestContext['mcpRequestEnvironment'];
   toolProfile?: ToolProfile | undefined;
   auth?: McpRequestContext['auth'];
   downloadBaseUrl?: string | undefined;
@@ -437,6 +469,8 @@ export async function initMcpServer(params: {
       client: undefined as any,
       mcpSessionId: params.mcpSessionId,
       mcpClientInfo: params.mcpClientInfo,
+      mcpProtocolVersion: params.mcpProtocolVersion,
+      mcpRequestEnvironment: params.mcpRequestEnvironment,
       toolProfile,
       auth: params.auth,
       downloadBaseUrl: params.downloadBaseUrl,
