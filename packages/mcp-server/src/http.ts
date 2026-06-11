@@ -36,6 +36,7 @@ import { resolveMissingScopes } from './tool-auth';
 import { buildToolAccessRequirements } from './tool-scope-requirements';
 import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 import { readBinaryDownloadFile } from './binary-download-store';
+import type { McpRequestContext } from './types';
 
 const DEFAULT_STREAMABLE_PATH = '/mcp';
 const DEFAULT_AUTHORIZATION_METADATA_PATH = '/.well-known/oauth-authorization-server';
@@ -156,6 +157,8 @@ const createRequestTransport = async ({
   const incomingSessionId = extractMcpSessionId(req.headers);
   const mcpSessionId = incomingSessionId || generateMcpSessionId();
   const requestMcpClientInfo = extractRequestMcpClientInfo(req) ?? inferRequestMcpClientInfo(req);
+  const requestMcpProtocolVersion = extractRequestMcpProtocolVersion(req);
+  const requestMcpEnvironment = extractRequestMcpEnvironment(req);
   if (requestMcpClientInfo) {
     rememberMcpClientInfo(mcpSessionId, requestMcpClientInfo);
   }
@@ -228,6 +231,8 @@ const createRequestTransport = async ({
     },
     mcpSessionId,
     mcpClientInfo,
+    mcpProtocolVersion: requestMcpProtocolVersion,
+    mcpRequestEnvironment: requestMcpEnvironment,
     toolProfile,
     auth: resolvedAuth,
     downloadBaseUrl: downloadBaseUrlFromResourceUrl(resourceUrl),
@@ -420,19 +425,180 @@ const extractRequestMcpClientInfo = (req: express.Request): McpClientInfo | unde
   };
 };
 
+const extractRequestMcpProtocolVersion = (req: express.Request): string | undefined => {
+  const params =
+    isObjectRecord(req.body) && isObjectRecord(req.body['params']) ? req.body['params'] : undefined;
+  const bodyVersion = typeof params?.['protocolVersion'] === 'string' ? params['protocolVersion'].trim() : '';
+  if (bodyVersion) {
+    return bodyVersion;
+  }
+  return firstHeaderToken(
+    singleHeader(req.headers['mcp-protocol-version']) ?? singleHeader(req.headers['x-mcp-protocol-version']),
+  );
+};
+
+const firstHeaderToken = (value: string | undefined): string | undefined => {
+  const normalized = value?.split(',')[0]?.trim();
+  return normalized || undefined;
+};
+
+const cleanStringValue = (value: unknown): string | undefined => {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized || undefined;
+};
+
+const readFirstMetaString = (
+  meta: Record<string, unknown> | undefined,
+  keys: string[],
+): string | undefined => {
+  if (!meta) return undefined;
+  for (const key of keys) {
+    const value = cleanStringValue(meta[key]);
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const toolCallMeta = (req: express.Request): Record<string, unknown> | undefined => {
+  if (!isObjectRecord(req.body) || req.body['method'] !== 'tools/call') return undefined;
+  const params = isObjectRecord(req.body['params']) ? req.body['params'] : undefined;
+  return params && isObjectRecord(params['_meta']) ? params['_meta'] : undefined;
+};
+
+const inferBrowserFromUserAgent = (userAgent: string | undefined): string | undefined => {
+  const value = userAgent ?? '';
+  if (!value.trim()) return undefined;
+  if (valueLooksLikeCodex(value)) return 'Codex';
+  if (valueLooksLikeClaude(value)) return 'Claude';
+  if (/\bopenai\b/i.test(value)) return 'OpenAI';
+  if (/\bchrome\//i.test(value)) return 'Chrome';
+  if (/\bfirefox\//i.test(value)) return 'Firefox';
+  if (/\bsafari\//i.test(value)) return 'Safari';
+  if (/\bcurl\//i.test(value)) return 'curl';
+  return undefined;
+};
+
+const inferOsFromUserAgent = (userAgent: string | undefined): string | undefined => {
+  const value = userAgent ?? '';
+  if (/\b(iPhone|iPad|iPod)\b/i.test(value)) return 'iOS';
+  if (/\bAndroid\b/i.test(value)) return 'Android';
+  if (/\bMacintosh\b|\bMac OS X\b/i.test(value)) return 'macOS';
+  if (/\bWindows\b/i.test(value)) return 'Windows';
+  if (/\bLinux\b/i.test(value)) return 'Linux';
+  return undefined;
+};
+
+const inferDeviceTypeFromUserAgent = (userAgent: string | undefined): string | undefined => {
+  const value = userAgent ?? '';
+  if (/\b(iPad|Tablet)\b/i.test(value)) return 'tablet';
+  if (/\b(Mobile|iPhone|Android)\b/i.test(value)) return 'mobile';
+  if (value.trim()) return 'desktop';
+  return undefined;
+};
+
+const inferModelProvider = (modelName: string | undefined): string | undefined => {
+  const normalized = modelName?.trim();
+  if (!normalized) return undefined;
+  if (/\b(claude|opus|sonnet|haiku)\b/i.test(normalized)) return 'anthropic';
+  if (/\b(gpt|openai|o\d)\b/i.test(normalized)) return 'openai';
+  return undefined;
+};
+
+const extractRequestModelInfo = (
+  req: express.Request,
+): Pick<NonNullable<McpRequestContext['mcpRequestEnvironment']>, 'modelProvider' | 'modelName'> => {
+  const meta = toolCallMeta(req);
+  const metaModel = isObjectRecord(meta?.['model']) ? meta['model'] : undefined;
+  const metaAi = isObjectRecord(meta?.['ai']) ? meta['ai'] : undefined;
+  const metaLlm = isObjectRecord(meta?.['llm']) ? meta['llm'] : undefined;
+  const modelName =
+    firstHeaderToken(
+      singleHeader(req.headers['x-sanka-ai-model']) ??
+        singleHeader(req.headers['x-openai-model']) ??
+        singleHeader(req.headers['openai-model']) ??
+        singleHeader(req.headers['x-anthropic-model']) ??
+        singleHeader(req.headers['x-claude-model']) ??
+        singleHeader(req.headers['x-ai-model']) ??
+        singleHeader(req.headers['x-model']),
+    ) ??
+    readFirstMetaString(meta, [
+      'model_name',
+      'modelName',
+      'ai_model',
+      'aiModel',
+      'llm_model',
+      'llmModel',
+      'model',
+    ]) ??
+    readFirstMetaString(metaModel, ['name', 'id', 'model_name', 'modelName']) ??
+    readFirstMetaString(metaAi, ['model', 'model_name', 'modelName']) ??
+    readFirstMetaString(metaLlm, ['model', 'model_name', 'modelName']);
+  const modelProvider =
+    firstHeaderToken(
+      singleHeader(req.headers['x-sanka-ai-provider']) ??
+        singleHeader(req.headers['x-openai-provider']) ??
+        singleHeader(req.headers['x-anthropic-provider']),
+    ) ??
+    readFirstMetaString(meta, [
+      'model_provider',
+      'modelProvider',
+      'ai_provider',
+      'aiProvider',
+      'llm_provider',
+      'llmProvider',
+      'provider',
+    ]) ??
+    readFirstMetaString(metaModel, ['provider', 'model_provider', 'modelProvider']) ??
+    readFirstMetaString(metaAi, ['provider', 'model_provider', 'modelProvider']) ??
+    readFirstMetaString(metaLlm, ['provider', 'model_provider', 'modelProvider']) ??
+    inferModelProvider(modelName);
+  return { modelName, modelProvider };
+};
+
+const extractRequestMcpEnvironment = (req: express.Request): McpRequestContext['mcpRequestEnvironment'] => {
+  const userAgent = singleHeader(req.headers['user-agent']);
+  const ipAddress =
+    firstHeaderToken(singleHeader(req.headers['fly-client-ip'])) ??
+    firstHeaderToken(singleHeader(req.headers['cf-connecting-ip'])) ??
+    firstHeaderToken(singleHeader(req.headers['true-client-ip'])) ??
+    firstHeaderToken(singleHeader(req.headers['x-real-ip'])) ??
+    firstHeaderToken(singleHeader(req.headers['x-forwarded-for'])) ??
+    firstHeaderToken(req.ip) ??
+    firstHeaderToken(req.socket.remoteAddress);
+  const modelInfo = extractRequestModelInfo(req);
+  const environment = {
+    ipAddress,
+    userAgent: userAgent?.trim() || undefined,
+    browser: inferBrowserFromUserAgent(userAgent),
+    os: inferOsFromUserAgent(userAgent),
+    deviceType: inferDeviceTypeFromUserAgent(userAgent),
+    ...modelInfo,
+  };
+  return Object.values(environment).some(Boolean) ? environment : undefined;
+};
+
 const inferRequestMcpClientInfo = (req: express.Request): McpClientInfo | undefined => {
-  const headerClientValues = [
-    singleHeader(req.headers['x-openai-client']),
-    singleHeader(req.headers['x-codex-client']),
-    singleHeader(req.headers['x-anthropic-client']),
-    singleHeader(req.headers['x-claude-client']),
-    singleHeader(req.headers['user-agent']),
-  ];
+  const openaiClient = singleHeader(req.headers['x-openai-client']);
+  const codexClient = singleHeader(req.headers['x-codex-client']);
+  const anthropicClient = singleHeader(req.headers['x-anthropic-client']);
+  const claudeClient = singleHeader(req.headers['x-claude-client']);
+  const userAgent = singleHeader(req.headers['user-agent']);
+  const headerClientValues = [openaiClient, codexClient, anthropicClient, claudeClient, userAgent];
   const codexClientValue = headerClientValues.find(valueLooksLikeCodex);
   if (codexClientValue) {
     return {
       name: 'Codex',
       version: codexClientValue,
+    };
+  }
+  if (anthropicClient || claudeClient || valueLooksLikeClaude(userAgent)) {
+    const version = [anthropicClient, claudeClient, userAgent]
+      .map((value) => cleanStringValue(value))
+      .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)
+      .join(' / ');
+    return {
+      name: 'Claude',
+      version,
     };
   }
   const claudeClientValue = headerClientValues.find(valueLooksLikeClaude);
@@ -443,6 +609,11 @@ const inferRequestMcpClientInfo = (req: express.Request): McpClientInfo | undefi
     };
   }
   return undefined;
+};
+
+export const __testing = {
+  extractRequestModelInfo,
+  inferRequestMcpClientInfo,
 };
 
 const rememberMcpClientInfo = (sessionId: string, clientInfo: McpClientInfo): void => {
