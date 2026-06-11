@@ -6897,7 +6897,8 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
   },
   status: {
     type: 'string',
-    description: 'Payment status.',
+    description:
+      'Payment status. Use paid for bank-transfer or CSV reconciliation payments that should clear invoice balances.',
   },
   currency: {
     type: 'string',
@@ -6905,11 +6906,17 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
   },
   total_price: {
     type: 'number',
-    description: 'Total payment amount.',
+    description:
+      'Total payment amount. For payment reconciliation, pass the received amount here and set status to paid.',
   },
   total_price_without_tax: {
     type: 'number',
     description: 'Total payment amount before tax.',
+  },
+  manual_price: {
+    type: 'number',
+    description:
+      'Quick-entry payment amount before tax. Use with entry_type=manual so the Sanka UI opens the payment in Quick Entry mode.',
   },
   tax_rate: {
     type: 'number',
@@ -6925,7 +6932,7 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
   },
   entry_type: {
     type: 'string',
-    description: 'Payment entry type.',
+    description: 'Payment entry type. Use manual for Quick Entry payments.',
   },
   notes: {
     type: 'string',
@@ -12494,6 +12501,7 @@ const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => 
     ['tax_rate', 'taxRate'],
     ['total_price', 'totalPrice'],
     ['total_price_without_tax', 'totalPriceWithoutTax'],
+    ['manual_price', 'manualPrice'],
   ]);
   assignPublicLineItems(body, args);
 
