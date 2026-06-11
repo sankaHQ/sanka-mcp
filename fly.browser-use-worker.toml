@@ -5,6 +5,13 @@ primary_region = "nrt"
   dockerfile = "packages/mcp-server/Dockerfile.browser-use-worker"
 
 [env]
+  LOG_ENV = "production"
+  LOG_FORMAT = "json"
+  LOG_LEVEL = "INFO"
+  LOG_SERVICE_NAME = "sanka-browser-use-worker"
+  LOG_SUPPRESS_FRAMEWORK_LOGS = "True"
+  LOG_VERBOSITY = "standard"
+  LOG_VERSION = "0.0.1"
   PORT = "8787"
   SANKA_BROWSER_USE_PROFILE_ROOT = "/data/browser-use/profiles"
   SANKA_BROWSER_USE_ARTIFACT_DIR = "/data/browser-use/artifacts"
