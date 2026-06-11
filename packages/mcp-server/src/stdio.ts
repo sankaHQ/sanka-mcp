@@ -12,5 +12,5 @@ export const launchStdioServer = async (mcpOptions: McpOptions) => {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  getLogger().info('MCP Server running on stdio');
+  getLogger().info({ event: 'mcp.server.started', transport: 'stdio' }, 'MCP Server running on stdio');
 };

@@ -11,13 +11,13 @@ async function main() {
   const options = parseOptionsOrError();
   configureLogger({
     level: options.debug ? 'debug' : 'info',
-    pretty: options.logFormat === 'pretty',
+    logFormat: options.logFormat,
   });
 
   const selectedTools = await selectToolsOrError(options);
 
   getLogger().info(
-    { tools: selectedTools.map((e) => e.tool.name) },
+    { event: 'mcp.server.starting', tools: selectedTools.map((e) => e.tool.name) },
     `MCP Server starting with ${selectedTools.length} tools`,
   );
 

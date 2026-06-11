@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { AgentBrowserClient } from './browser-use-worker/agent-browser';
 import { buildBrowserUseWorkerConfig, createBrowserUseWorkerApp } from './browser-use-worker/server';
+import { configureLogger, getLogger } from './logger';
 
 const readPort = (): number => {
   const value = process.env['PORT'] ?? process.env['SANKA_BROWSER_USE_WORKER_PORT'];
@@ -12,31 +13,37 @@ const readPort = (): number => {
 };
 
 const port = readPort();
+configureLogger({
+  level: 'info',
+  serviceName: 'sanka-browser-use-worker',
+});
 const config = buildBrowserUseWorkerConfig();
 const app = createBrowserUseWorkerApp({
   config,
   driver: new AgentBrowserClient(),
 });
+const logger = getLogger();
 
 const server = app.listen(port, () => {
-  console.log(
-    JSON.stringify({
-      message: 'sanka_browser_use_worker_started',
+  logger.info(
+    {
+      event: 'worker.started',
       port,
       auth_required: Boolean(config.workerToken),
       workflows: ['demo.hubspot.company_avatar'],
       driver: 'agent_browser',
-    }),
+    },
+    'Sanka browser-use worker started',
   );
 });
 
 const shutdown = (signal: NodeJS.Signals): void => {
   server.close((error) => {
     if (error) {
-      console.error(error);
+      logger.error({ event: 'worker.stop_failed', error }, 'Failed to stop Sanka browser-use worker');
       process.exit(1);
     }
-    console.log(JSON.stringify({ message: 'sanka_browser_use_worker_stopped', signal }));
+    logger.info({ event: 'worker.stopped', signal }, 'Sanka browser-use worker stopped');
     process.exit(0);
   });
 };

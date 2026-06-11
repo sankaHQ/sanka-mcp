@@ -4,8 +4,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
-import pino from 'pino';
-import pinoHttp from 'pino-http';
 import {
   buildOAuthWwwAuthenticateHeader,
   extractMcpSessionId,
@@ -30,6 +28,7 @@ import {
 } from './mcp-client-info';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
+import { expressErrorLogger, expressRequestLogger } from './http-logging';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { executeHandler, initMcpServer, newMcpServer, selectTools } from './server';
 import { resolveMissingScopes } from './tool-auth';
@@ -898,17 +897,6 @@ const handleStreamableRequest =
     await transportContext.transport.handleRequest(req, res, req.body);
   };
 
-const redactHeaders = (headers: Record<string, any>) => {
-  const hiddenHeaders = /auth|cookie|key|token/i;
-  const filtered = { ...headers };
-  Object.keys(filtered).forEach((key) => {
-    if (hiddenHeaders.test(key)) {
-      filtered[key] = '[REDACTED]';
-    }
-  });
-  return filtered;
-};
-
 export const streamableHTTPApp = ({
   clientOptions = {},
   mcpOptions,
@@ -920,39 +908,7 @@ export const streamableHTTPApp = ({
   app.set('query parser', 'extended');
   app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
-  app.use(
-    pinoHttp({
-      logger: getLogger(),
-      customLogLevel: (req, res) => {
-        if (res.statusCode >= 500) {
-          return 'error';
-        } else if (res.statusCode >= 400) {
-          return 'warn';
-        }
-        return 'info';
-      },
-      customSuccessMessage: function (req, res) {
-        return `Request ${req.method} to ${req.url} completed with status ${res.statusCode}`;
-      },
-      customErrorMessage: function (req, res, err) {
-        return `Request ${req.method} to ${req.url} errored with status ${res.statusCode}`;
-      },
-      serializers: {
-        req: pino.stdSerializers.wrapRequestSerializer((req) => {
-          return {
-            ...req,
-            headers: redactHeaders(req.raw.headers),
-          };
-        }),
-        res: pino.stdSerializers.wrapResponseSerializer((res) => {
-          return {
-            ...res,
-            headers: redactHeaders(res.headers),
-          };
-        }),
-      },
-    }),
-  );
+  app.use(expressRequestLogger());
 
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
@@ -1020,6 +976,7 @@ export const streamableHTTPApp = ({
     app.post(routePath, streamableHandler);
     app.delete(routePath, streamableHandler);
   }
+  app.use(expressErrorLogger());
 
   return app;
 };
@@ -1038,10 +995,19 @@ export const launchStreamableHTTPServer = async ({
   const logger = getLogger();
 
   if (typeof address === 'string') {
-    logger.info(`MCP Server running on streamable HTTP at ${address}`);
+    logger.info(
+      { event: 'mcp.server.started', address },
+      `MCP Server running on streamable HTTP at ${address}`,
+    );
   } else if (address !== null) {
-    logger.info(`MCP Server running on streamable HTTP on port ${address.port}`);
+    logger.info(
+      { event: 'mcp.server.started', port: address.port },
+      `MCP Server running on streamable HTTP on port ${address.port}`,
+    );
   } else {
-    logger.info(`MCP Server running on streamable HTTP on port ${port}`);
+    logger.info(
+      { event: 'mcp.server.started', port },
+      `MCP Server running on streamable HTTP on port ${port}`,
+    );
   }
 };

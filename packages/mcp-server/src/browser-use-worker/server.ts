@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 import express from 'express';
+import { expressErrorLogger, expressRequestLogger } from '../http-logging';
+import { getOptionalLogger, serializeError } from '../logger';
 import { runHubSpotAvatarWorkflow } from './hubspot-avatar';
 import {
   BrowserDriverClient,
@@ -227,6 +229,7 @@ export const createBrowserUseWorkerApp = ({
   const app = express();
 
   app.use(express.json({ limit: '25mb' }));
+  app.use(expressRequestLogger());
 
   app.get('/health', (_req: express.Request, res: express.Response) => {
     res.json({
@@ -269,6 +272,15 @@ export const createBrowserUseWorkerApp = ({
       res.status(httpStatusForWorkerResponse(response)).json(response);
     } catch (error) {
       const runId = makeRunId();
+      getOptionalLogger()?.error(
+        {
+          event: 'browser_use.worker_exception',
+          worker_run_id: runId,
+          workflow: payload.workflow,
+          error: serializeError(error),
+        },
+        'Browser-use worker workflow exception',
+      );
       res.status(500).json(
         workerResponse({
           confirm: payload.confirm ?? false,
@@ -282,6 +294,7 @@ export const createBrowserUseWorkerApp = ({
       );
     }
   });
+  app.use(expressErrorLogger());
 
   return app;
 };
