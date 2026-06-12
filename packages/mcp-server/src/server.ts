@@ -302,16 +302,128 @@ type ToolCallLogger = {
   warn: (message: string, ...rest: unknown[]) => void;
 };
 
-const summarizeToolError = (result: ToolCallResult): string | undefined => {
-  if (!result.isError) {
-    return undefined;
+type ToolLogRecordIds = Record<string, string | string[]>;
+
+const TOOL_LOG_SUMMARY_MAX_LENGTH = 500;
+const TOOL_LOG_RECORD_ID_MAX_ITEMS = 20;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readToolLogID = (value: unknown): string | undefined => {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text || undefined;
   }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const addToolLogRecordID = (recordIds: ToolLogRecordIds, key: string, value: unknown, asArray = false) => {
+  const id = readToolLogID(value);
+  if (!id) {
+    return;
+  }
+
+  const existing = recordIds[key];
+  if (!existing) {
+    recordIds[key] = asArray ? [id] : id;
+    return;
+  }
+
+  const values = Array.isArray(existing) ? existing : [existing];
+  if (!values.includes(id) && values.length < TOOL_LOG_RECORD_ID_MAX_ITEMS) {
+    recordIds[key] = [...values, id];
+  } else {
+    recordIds[key] = values;
+  }
+};
+
+const copyToolLogRecordIds = (recordIds: ToolLogRecordIds, source: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(source)) {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => addToolLogRecordID(recordIds, key, entry, true));
+    } else {
+      addToolLogRecordID(recordIds, key, value, key.endsWith('s'));
+    }
+  }
+};
+
+const summarizeToolResult = (result: ToolCallResult): string | undefined => {
   const text = result.content
     .map((entry) => (entry.type === 'text' ? entry.text : ''))
     .filter(Boolean)
     .join('\n')
     .trim();
-  return text ? text.slice(0, 500) : 'tool_error';
+  return text ? text.slice(0, TOOL_LOG_SUMMARY_MAX_LENGTH) : undefined;
+};
+
+const summarizeToolError = (result: ToolCallResult): string | undefined => {
+  if (!result.isError) {
+    return undefined;
+  }
+  return summarizeToolResult(result) ?? 'tool_error';
+};
+
+const extractToolLogRecordIds = (result: ToolCallResult): ToolLogRecordIds | undefined => {
+  const payload = result.structuredContent;
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+
+  const recordIds: ToolLogRecordIds = {};
+  const confirmation = isRecord(payload['confirmation']) ? payload['confirmation'] : undefined;
+  const confirmationRecordIds =
+    isRecord(confirmation?.['record_ids']) ? confirmation['record_ids'] : undefined;
+  if (confirmationRecordIds) {
+    copyToolLogRecordIds(recordIds, confirmationRecordIds);
+  }
+
+  const payment = isRecord(payload['payment']) ? payload['payment'] : undefined;
+  if (payment) {
+    addToolLogRecordID(recordIds, 'payment_id', payment['id'] ?? payment['payment_id'] ?? payment['id_rcp']);
+  }
+
+  const invoice = isRecord(payload['invoice']) ? payload['invoice'] : undefined;
+  if (invoice) {
+    addToolLogRecordID(recordIds, 'invoice_id', invoice['id'] ?? invoice['invoice_id'] ?? invoice['id_inv']);
+  }
+
+  const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
+  for (const allocation of allocations) {
+    const row = isRecord(allocation) ? allocation : undefined;
+    if (!row) {
+      continue;
+    }
+
+    addToolLogRecordID(recordIds, 'allocation_ids', row['id'] ?? row['allocation_id'], true);
+    addToolLogRecordID(recordIds, 'invoice_ids', row['invoice_id'] ?? row['id_inv'], true);
+    addToolLogRecordID(recordIds, 'payment_ids', row['payment_id'], true);
+
+    const allocationInvoice = isRecord(row['invoice']) ? row['invoice'] : undefined;
+    if (allocationInvoice) {
+      addToolLogRecordID(
+        recordIds,
+        'invoice_ids',
+        allocationInvoice['id'] ?? allocationInvoice['invoice_id'] ?? allocationInvoice['id_inv'],
+        true,
+      );
+    }
+
+    const allocationPayment = isRecord(row['payment']) ? row['payment'] : undefined;
+    if (allocationPayment) {
+      addToolLogRecordID(
+        recordIds,
+        'payment_ids',
+        allocationPayment['id'] ?? allocationPayment['payment_id'] ?? allocationPayment['id_rcp'],
+        true,
+      );
+    }
+  }
+
+  return Object.keys(recordIds).length > 0 ? recordIds : undefined;
 };
 
 export async function recordMcpToolCall({
@@ -333,7 +445,9 @@ export async function recordMcpToolCall({
     return;
   }
 
+  const resultSummary = summarizeToolResult(result);
   const error = summarizeToolError(result);
+  const recordIds = extractToolLogRecordIds(result);
   try {
     await (client as unknown as ToolCallLogClient).post('/api/v2/mcp/tool-call-log', {
       body: {
@@ -373,6 +487,8 @@ export async function recordMcpToolCall({
         ...(reqContext.mcpRequestEnvironment?.modelName ?
           { model_name: reqContext.mcpRequestEnvironment.modelName }
         : undefined),
+        ...(resultSummary ? { result_summary: resultSummary } : undefined),
+        ...(recordIds ? { record_ids: recordIds } : undefined),
         ...(error ? { error } : undefined),
       },
       headers: {
