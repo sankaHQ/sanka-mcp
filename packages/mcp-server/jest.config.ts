@@ -7,6 +7,8 @@ const config: JestConfigWithTsJest = {
     '^.+\\.(t|j)sx?$': ['@swc/jest', { sourceMaps: 'inline' }],
   },
   moduleNameMapper: {
+    '^sanka-sdk$': '<rootDir>/../../src/index.ts',
+    '^sanka-sdk/(.*)$': '<rootDir>/../../src/$1',
     '^sanka-mcp$': '<rootDir>/src/index.ts',
     '^sanka-mcp/(.*)$': '<rootDir>/src/$1',
   },

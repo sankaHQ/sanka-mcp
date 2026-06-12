@@ -88,6 +88,82 @@ describe('MCP tool call logging', () => {
     },
   );
 
+  it('records successful tool call summaries and related record IDs', async () => {
+    const post = jest.fn().mockResolvedValue({});
+    const logger = { warn: jest.fn() };
+    const tool = {
+      metadata: {
+        resource: 'payments',
+        operation: 'write',
+        tags: ['payments'],
+      },
+      tool: {
+        name: 'update_payment_allocations',
+        title: 'Update payment allocations',
+        inputSchema: { type: 'object', properties: {} },
+      },
+      handler: jest.fn(),
+    } as unknown as McpTool;
+
+    await recordMcpToolCall({
+      client: { post } as unknown as McpRequestContext['client'],
+      logger,
+      mcpTool: tool,
+      reqContext: {
+        client: { post },
+        mcpSessionId: 'codex-session-123',
+        auth: {
+          authMode: 'oauth_bearer',
+          clientOptions: {},
+          oauth: {
+            authorizationServerUrl: 'https://app.example.com',
+            resourceMetadataUrl: 'https://app.example.com/.well-known/oauth-protected-resource',
+            resourceUrl: 'https://app.example.com/mcp',
+            scopes: ['api-access'],
+          },
+        },
+      } as unknown as McpRequestContext,
+      result: {
+        content: [
+          {
+            type: 'text',
+            text: 'Payment reconciliation applied successfully (消し込み済み); allocation_applied=true.',
+          },
+        ],
+        structuredContent: {
+          payment: { id: 'payment-1', id_rcp: 17 },
+          allocations: [
+            {
+              id: 'allocation-1',
+              payment_id: 'payment-1',
+              invoice_id: 'invoice-1',
+              invoice: { id: 'invoice-1', id_inv: 31 },
+            },
+          ],
+        },
+      },
+      startedAt: Date.now(),
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/mcp/tool-call-log', {
+      body: expect.objectContaining({
+        tool_name: 'update_payment_allocations',
+        success: true,
+        result_summary:
+          'Payment reconciliation applied successfully (消し込み済み); allocation_applied=true.',
+        record_ids: {
+          payment_id: 'payment-1',
+          allocation_ids: ['allocation-1'],
+          payment_ids: ['payment-1'],
+          invoice_ids: ['invoice-1'],
+        },
+      }),
+      headers: {
+        'X-Sanka-MCP-Session-ID': 'codex-session-123',
+      },
+    });
+  });
+
   it('skips logging when the MCP session is missing', async () => {
     const post = jest.fn().mockResolvedValue({});
     const logger = { warn: jest.fn() };
@@ -177,6 +253,7 @@ describe('MCP tool call logging', () => {
       body: expect.objectContaining({
         tool_name: 'list_companies',
         success: false,
+        result_summary: 'Permission denied.',
         error: 'Permission denied.',
       }),
       headers: {

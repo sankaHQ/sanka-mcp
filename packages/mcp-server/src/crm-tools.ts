@@ -6042,7 +6042,6 @@ const DISBURSEMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
     message: { type: 'string' },
     ctx_id: { type: 'string' },
   },
-  required: ['message'],
 };
 
 const TICKET_LIST_INPUT_SCHEMA = {
@@ -7379,7 +7378,6 @@ const PAYMENT_ALLOCATIONS_OUTPUT_SCHEMA = {
     message: { type: 'string' },
     ctx_id: { type: 'string' },
   },
-  required: ['message'],
 };
 
 const LOCATION_MUTATION_INPUT_PROPERTIES = {
@@ -12459,6 +12457,8 @@ const buildPaymentAllocationsSummary = (
   paymentID: string,
   action: 'Loaded' | 'Updated',
 ) => {
+  const readAllocationReference = (value: unknown): string | undefined =>
+    readString(value) ?? (typeof value === 'number' && Number.isFinite(value) ? String(value) : undefined);
   const payment = readRecord(payload['payment']);
   const allocations = Array.isArray(payload['allocations']) ? payload['allocations'] : [];
   const resolvedPaymentID =
@@ -12474,11 +12474,34 @@ const buildPaymentAllocationsSummary = (
         typeof unallocatedAmount === 'number' ? unallocatedAmount : 0
       }.`
     : '';
-
-  return `${action} ${allocations.length} invoice allocation${
+  const summary = `${action} ${allocations.length} invoice allocation${
     allocations.length === 1 ? '' : 's'
   } for payment ${resolvedPaymentID}.${totals}`;
+
+  if (action !== 'Updated') {
+    return summary;
+  }
+
+  const invoiceIDs = allocations
+    .map((allocation) => {
+      const row = readRecord(allocation);
+      const invoice = readRecord(row?.['invoice']);
+      return (
+        readAllocationReference(row?.['invoice_id']) ??
+        readAllocationReference(row?.['id_inv']) ??
+        readAllocationReference(invoice?.['id']) ??
+        readAllocationReference(invoice?.['invoice_id']) ??
+        readAllocationReference(invoice?.['id_inv'])
+      );
+    })
+    .filter((invoiceID): invoiceID is string => Boolean(invoiceID));
+  const invoiceSummary = invoiceIDs.length > 0 ? ` Linked invoices: ${invoiceIDs.join(', ')}.` : '';
+
+  return `Payment reconciliation applied successfully (消し込み済み); allocation_applied=true. ${summary}${invoiceSummary}`;
 };
+
+const normalizeAllocationEnvelopePayload = (payload: Record<string, unknown>): Record<string, unknown> =>
+  normalizeV2MutationEnvelopePayload(payload);
 
 const buildPaymentMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
@@ -20967,15 +20990,16 @@ export const crmListDisbursementAllocationsTool: McpTool = {
       `/api/v2/public/disbursements/${encodeURIComponent(disbursementID)}/allocations`,
       { query: params },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Loaded'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Loaded'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21025,15 +21049,16 @@ export const crmCreateDisbursementAllocationTool: McpTool = {
         body: buildDisbursementAllocationBody(args),
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Created'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Created'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21087,15 +21112,16 @@ export const crmUpdateDisbursementAllocationTool: McpTool = {
         body: buildDisbursementAllocationBody(args, { partial: true }),
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Updated'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Updated'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -21146,15 +21172,16 @@ export const crmDeleteDisbursementAllocationTool: McpTool = {
       )}`,
       { query: params },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildDisbursementAllocationsSummary(response, disbursementID, 'Deleted'),
+          text: buildDisbursementAllocationsSummary(payload, disbursementID, 'Deleted'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -23334,15 +23361,16 @@ export const crmListPaymentAllocationsTool: McpTool = {
         query: params,
       },
     )) as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildPaymentAllocationsSummary(response, paymentID, 'Loaded'),
+          text: buildPaymentAllocationsSummary(payload, paymentID, 'Loaded'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
@@ -23402,15 +23430,16 @@ export const crmUpdatePaymentAllocationsTool: McpTool = {
         },
       },
     )) as unknown as Record<string, unknown>;
+    const payload = normalizeAllocationEnvelopePayload(response);
 
     return {
       content: [
         {
           type: 'text',
-          text: buildPaymentAllocationsSummary(response, paymentID, 'Updated'),
+          text: buildPaymentAllocationsSummary(payload, paymentID, 'Updated'),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
