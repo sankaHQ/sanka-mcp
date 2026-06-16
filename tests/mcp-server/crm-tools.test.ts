@@ -241,6 +241,12 @@ describe('ChatGPT CRM tools', () => {
       'Company billing_cycle and payment_cycle are standard company fields',
     );
     expect(createPropertySchema.properties.type.description).toContain('not by creating a custom property');
+    expect(createPropertySchema.properties.custom_object_slug.description).toContain(
+      'custom object slug/internal key',
+    );
+    expect(createPropertySchema.properties.custom_object.description).toContain(
+      'Alias for custom_object_slug',
+    );
     expect(crmCreatePropertyTool.tool.description).toContain(
       'Do not use this for company billing_cycle or payment_cycle',
     );
@@ -7578,6 +7584,82 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('lists custom object properties by slug', async () => {
+    const list = jest.fn().mockResolvedValue([{ id: 'prop-1', name: 'Machine Status' }]);
+
+    const result = await crmListPropertiesTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'custom_objects',
+        custom_object: 'mgs_owned_machine',
+        limit: 10,
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      'custom_objects',
+      {
+        custom_object_slug: 'mgs_owned_machine',
+      },
+      undefined,
+    );
+    expect(result.structuredContent?.['count']).toBe(1);
+  });
+
+  it('creates a custom object property by slug', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      object: 'custom_objects',
+      property_id: 'prop-1',
+      custom_object_id: 'custom-object-1',
+      ctx_id: 'ctx-custom-object',
+    });
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'custom_objects',
+        custom_object_slug: 'mgs_owned_machine',
+        name: 'Next Service Date',
+        internal_name: 'next_service_date',
+        type: 'date',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      'custom_objects',
+      {
+        custom_object_slug: 'mgs_owned_machine',
+        internal_name: 'next_service_date',
+        name: 'Next Service Date',
+        type: 'date',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      status: 'created',
+      custom_object_id: 'custom-object-1',
+      property_id: 'prop-1',
+    });
+  });
+
   it('creates an integration property with V2 mutation routing', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,
@@ -7811,7 +7893,7 @@ describe('ChatGPT CRM tools', () => {
     const update = jest.fn().mockResolvedValue({
       ok: true,
       status: 'updated',
-      object: 'orders',
+      object: 'custom_objects',
       property_id: 'prop-1',
       ctx_id: 'ctx-2',
     });
@@ -7827,8 +7909,9 @@ describe('ChatGPT CRM tools', () => {
         toolProfile: 'full',
       },
       args: {
-        object_name: 'orders',
+        object_name: 'custom_objects',
         property_ref: 'prop-1',
+        custom_object_id: 'custom-object-1',
         required_field: true,
         choice_values: ['high', 'low'],
       },
@@ -7837,7 +7920,8 @@ describe('ChatGPT CRM tools', () => {
     expect(update).toHaveBeenCalledWith(
       'prop-1',
       {
-        object_name: 'orders',
+        custom_object_id: 'custom-object-1',
+        object_name: 'custom_objects',
         required_field: true,
         choice_values: ['high', 'low'],
       },
@@ -7846,7 +7930,7 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'updated',
-      object: 'orders',
+      object: 'custom_objects',
       property_id: 'prop-1',
       ctx_id: 'ctx-2',
     });
@@ -7856,7 +7940,7 @@ describe('ChatGPT CRM tools', () => {
     const del = jest.fn().mockResolvedValue({
       ok: true,
       status: 'deleted',
-      object: 'orders',
+      object: 'custom_objects',
       property_id: 'prop-1',
       ctx_id: 'ctx-3',
     });
@@ -7872,22 +7956,24 @@ describe('ChatGPT CRM tools', () => {
         toolProfile: 'full',
       },
       args: {
-        object_name: 'orders',
+        object_name: 'custom_objects',
         property_ref: 'prop-1',
+        custom_object_slug: 'mgs_owned_machine',
       },
     });
 
     expect(del).toHaveBeenCalledWith(
       'prop-1',
       {
-        object_name: 'orders',
+        custom_object_slug: 'mgs_owned_machine',
+        object_name: 'custom_objects',
       },
       undefined,
     );
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'deleted',
-      object: 'orders',
+      object: 'custom_objects',
       property_id: 'prop-1',
       ctx_id: 'ctx-3',
     });
