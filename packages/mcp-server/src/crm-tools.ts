@@ -2706,6 +2706,22 @@ const PROPERTY_CHOICE_VALUES_SCHEMA = {
   ],
 };
 
+const PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES = {
+  custom_object_id: {
+    type: 'string',
+    description: 'Sanka custom object UUID/id when object_name is custom_objects or custom_object.',
+  },
+  custom_object_slug: {
+    type: 'string',
+    description:
+      'Sanka custom object slug/internal key when object_name is custom_objects or custom_object. Prefer this when the user named the custom object.',
+  },
+  custom_object: {
+    type: 'string',
+    description: 'Alias for custom_object_slug.',
+  },
+};
+
 const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   target: {
     type: 'string',
@@ -2745,6 +2761,7 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     description:
       'Provider property API name for integration create, for example HubSpot "customer_tier" or Salesforce "CustomerTier__c".',
   },
+  ...PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES,
   dry_run: {
     type: 'boolean',
     description:
@@ -2874,6 +2891,7 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
       description:
         'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
     },
+    ...PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES,
     search: {
       type: 'string',
       description: 'Optional provider property search text applied server-side or after provider fetch.',
@@ -3199,6 +3217,7 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
       description:
         'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
     },
+    ...PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES,
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
@@ -3283,6 +3302,7 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
       description:
         'Optional provider object type override, for example HubSpot "companies" or Salesforce "Account".',
     },
+    ...PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES,
     dry_run: {
       type: 'boolean',
       description: 'Preview the integration property delete without writing.',
@@ -11323,6 +11343,13 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const customOnly = readBoolean(args?.['custom_only']);
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const customObjectSlug = readString(
+    args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object'] ??
+      args?.['customObject'],
+  );
   const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
   const provider = readIntegrationProvider(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
@@ -11336,6 +11363,8 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
     limit,
     params: {
       ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
+      ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
+      ...(customObjectSlug ? { custom_object_slug: customObjectSlug } : undefined),
       ...(scope ? { scope } : undefined),
       ...(provider ? { provider } : undefined),
       ...(channelID ? { channel_id: channelID } : undefined),
@@ -11352,6 +11381,13 @@ const buildPropertyRetrieveParams = (args: Record<string, unknown> | undefined) 
   const propertyRef = readString(args?.['property_ref']);
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const customObjectSlug = readString(
+    args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object'] ??
+      args?.['customObject'],
+  );
   const scope = readIntegrationScope(args?.['scope'] ?? args?.['source']);
   const provider = readIntegrationProvider(args?.['provider']);
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
@@ -11362,6 +11398,8 @@ const buildPropertyRetrieveParams = (args: Record<string, unknown> | undefined) 
     propertyRef,
     params: {
       ...(objectName ? { object_name: objectName } : undefined),
+      ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
+      ...(customObjectSlug ? { custom_object_slug: customObjectSlug } : undefined),
       ...(scope ? { scope } : undefined),
       ...(provider ? { provider } : undefined),
       ...(channelID ? { channel_id: channelID } : undefined),
@@ -11405,6 +11443,20 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   const conditionalChoiceMapping = readRecord(args?.['conditional_choice_mapping']);
   const tagValues = args?.['tag_values'];
   const options = args?.['options'];
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const customObjectSlug = readString(
+    args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object'] ??
+      args?.['customObject'],
+  );
+
+  if (customObjectID) {
+    body['custom_object_id'] = customObjectID;
+  }
+  if (customObjectSlug) {
+    body['custom_object_slug'] = customObjectSlug;
+  }
 
   if (Array.isArray(choiceValues)) {
     body['choice_values'] = readStringArray(choiceValues);
@@ -11470,6 +11522,13 @@ const validateAndNormalizePropertyMutationRouting = (params: Record<string, unkn
 const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) => {
   const objectName = readString(args?.['object_name']);
   const propertyRef = readString(args?.['property_ref']);
+  const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
+  const customObjectSlug = readString(
+    args?.['custom_object_slug'] ??
+      args?.['customObjectSlug'] ??
+      args?.['custom_object'] ??
+      args?.['customObject'],
+  );
   const scope = readLowerString(args?.['scope'] ?? args?.['source']);
   const target = readString(args?.['target']) ?? (scope === 'integration' ? 'integration' : undefined);
   const provider = readIntegrationProvider(args?.['provider']);
@@ -11483,6 +11542,8 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
     propertyRef,
     params: {
       ...(objectName ? { object_name: objectName } : undefined),
+      ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
+      ...(customObjectSlug ? { custom_object_slug: customObjectSlug } : undefined),
       ...(target ? { target } : undefined),
       ...(provider ? { provider } : undefined),
       ...(channelID ? { channel_id: channelID } : undefined),
