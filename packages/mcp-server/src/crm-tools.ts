@@ -6677,6 +6677,38 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
 
 const SUBSCRIPTION_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
 
+const SUBSCRIPTION_DISCOUNT_INPUT_PROPERTIES = {
+  discount_id: {
+    type: 'string',
+    description: 'Existing registered Sanka discount id to apply at the subscription record level.',
+  },
+  discount_value: {
+    type: 'number',
+    description:
+      'Manual subscription record-level discount value. Pair with discount_number_format, for example 10 with % or 5 with USD.',
+  },
+  discount_number_format: {
+    type: 'string',
+    description:
+      'Discount format for discount_value. Use % for percentage or a currency code such as USD or JPY.',
+  },
+  discount_tax_option: {
+    type: 'string',
+    description: 'Whether the subscription discount is applied before or after tax.',
+    enum: ['pre_tax', 'post_tax'],
+  },
+  discount_mode: {
+    type: 'string',
+    description:
+      'Optional discount mode. Use free_writing_discounts for manual values or registered_discounts for discount_id.',
+    enum: ['free_writing_discounts', 'registered_discounts'],
+  },
+  clear_discount: {
+    type: 'boolean',
+    description: 'Set true on update to remove the subscription record-level discount.',
+  },
+};
+
 const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -6756,6 +6788,7 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Shipping cost tax status.',
     },
+    ...SUBSCRIPTION_DISCOUNT_INPUT_PROPERTIES,
   },
   required: ['subscription_status'],
 };
@@ -6823,6 +6856,7 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
         type: 'string',
       },
     },
+    ...SUBSCRIPTION_DISCOUNT_INPUT_PROPERTIES,
   },
   required: ['subscription_id'],
 };
@@ -12363,7 +12397,17 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
     ['start_date', 'start_date'],
     ['end_date', 'end_date'],
     ['contract_id', 'contract_id'],
+    ['discount_id', 'discount_id'],
+    ['discount_number_format', 'discount_number_format'],
+    ['discount_tax_option', 'discount_tax_option'],
+    ['discount_mode', 'discount_mode'],
   ]);
+  if (!body['discount_number_format']) {
+    const discountOption = readString(args?.['discount_option']);
+    if (discountOption) {
+      body['discount_number_format'] = discountOption;
+    }
+  }
   const contractIDs = readStringArray(args?.['contract_ids']);
   if (contractIDs.length > 0) {
     body['contract_ids'] = contractIDs;
@@ -12383,7 +12427,9 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
     ['tax', 'tax'],
     ['total_price', 'total_price'],
     ['total_price_without_tax', 'total_price_without_tax'],
+    ['discount_value', 'discount_value'],
   ]);
+  assignMappedBooleanFields(body, args, [['clear_discount', 'clear_discount']]);
 
   assignPublicLineItems(body, args, {
     targetKey: 'items',
@@ -12417,10 +12463,22 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
     'start_date',
     'end_date',
     'contract_id',
+    'discount_id',
+    'discount_number_format',
+    'discount_tax_option',
+    'discount_mode',
   ]);
+  if (!body['discount_number_format']) {
+    const discountOption = readString(args?.['discount_option']);
+    if (discountOption) {
+      body['discount_number_format'] = discountOption;
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(args ?? {}, 'contract_ids')) {
     body['contract_ids'] = readStringArray(args?.['contract_ids']);
   }
+  assignMappedNumberFields(body, args, [['discount_value', 'discount_value']]);
+  assignMappedBooleanFields(body, args, [['clear_discount', 'clear_discount']]);
 
   assignPublicLineItems(body, args, {
     targetKey: 'items',
@@ -23115,6 +23173,12 @@ export const crmCreateSubscriptionTool: McpTool = {
         total_price_without_tax?: number;
         contract_id?: string;
         contract_ids?: string[];
+        discount_id?: string;
+        discount_value?: number;
+        discount_number_format?: string;
+        discount_tax_option?: string;
+        discount_mode?: string;
+        clear_discount?: boolean;
       },
       undefined,
     )) as unknown as Record<string, unknown>;
@@ -23190,6 +23254,12 @@ export const crmUpdateSubscriptionTool: McpTool = {
         end_date?: string;
         contract_id?: string;
         contract_ids?: string[];
+        discount_id?: string;
+        discount_value?: number;
+        discount_number_format?: string;
+        discount_tax_option?: string;
+        discount_mode?: string;
+        clear_discount?: boolean;
       },
       undefined,
     )) as unknown as Record<string, unknown>;
