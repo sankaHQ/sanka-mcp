@@ -8900,6 +8900,9 @@ describe('ChatGPT CRM tools', () => {
         frequency: 1,
         frequency_time: 'months',
         currency: 'JPY',
+        discount_value: 10,
+        discount_number_format: '%',
+        discount_tax_option: 'post_tax',
         line_items: [
           {
             item_id: null,
@@ -8920,6 +8923,9 @@ describe('ChatGPT CRM tools', () => {
         frequency_time: 'months',
         start_date: '2026-06-01',
         frequency: 1,
+        discount_value: 10,
+        discount_number_format: '%',
+        discount_tax_option: 'post_tax',
         items: [
           {
             item_name: 'Launch support package',
@@ -9026,6 +9032,108 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent).toEqual({
       id: 'sub-1',
       status: 'active',
+      items: [],
+      contact_info: [],
+      created_at: '2026-04-09T00:00:00Z',
+      number_item: 1,
+    });
+  });
+
+  it('updates a subscription record discount', async () => {
+    const update = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      discount_id: 'discount-1',
+      discount_value: 5,
+      discount_number_format: 'USD',
+      discount_tax_option: 'pre_tax',
+      items: [],
+      contact_info: [],
+      created_at: '2026-04-09T00:00:00Z',
+      number_item: 1,
+    });
+
+    const result = await crmUpdateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_id: 'sub-1',
+        discount_id: 'discount-1',
+        discount_tax_option: 'pre_tax',
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'sub-1',
+      {
+        discount_id: 'discount-1',
+        discount_tax_option: 'pre_tax',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'sub-1',
+      status: 'active',
+      discount_id: 'discount-1',
+      discount_value: 5,
+      discount_number_format: 'USD',
+      discount_tax_option: 'pre_tax',
+      items: [],
+      contact_info: [],
+      created_at: '2026-04-09T00:00:00Z',
+      number_item: 1,
+    });
+  });
+
+  it('clears a subscription record discount', async () => {
+    const update = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      discount_id: null,
+      discount_value: null,
+      discount_tax_option: '',
+      items: [],
+      contact_info: [],
+      created_at: '2026-04-09T00:00:00Z',
+      number_item: 1,
+    });
+
+    const result = await crmUpdateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_id: 'sub-1',
+        clear_discount: true,
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'sub-1',
+      {
+        clear_discount: true,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'sub-1',
+      status: 'active',
+      discount_id: null,
+      discount_value: null,
+      discount_tax_option: '',
       items: [],
       contact_info: [],
       created_at: '2026-04-09T00:00:00Z',
