@@ -1,0 +1,297 @@
+name: PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, review_requested]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-agent-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.comment.id || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review pull request
+    if: >
+      github.event.sender.type != 'Bot' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      (github.event_name != 'issue_comment' || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+      TOGETHERAI_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+
+    steps:
+      - name: Skip when model provider keys are not configured
+        if: ${{ env.DEEPINFRA_API_KEY == '' && env.TOGETHERAI_API_KEY == '' }}
+        run: echo "DEEPINFRA_API_KEY and TOGETHER_API_KEY are not configured; skipping PR-Agent."
+
+      - name: Mark AI review as started
+        id: review_context
+        if: ${{ env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber =
+              context.payload.pull_request?.number ?? context.payload.issue?.number;
+
+            if (!issueNumber) {
+              core.setFailed("Unable to resolve PR number for PR-Agent run.");
+              return;
+            }
+
+            const commentBody = context.payload.comment?.body ?? "";
+            const verifyReview =
+              context.eventName === "pull_request" ||
+              commentBody.trim().startsWith("/review");
+
+            core.setOutput("pr_number", String(issueNumber));
+            core.setOutput("started_at", new Date().toISOString());
+            core.setOutput("verify_review", String(verifyReview));
+
+            try {
+              if (context.eventName === "issue_comment" && context.payload.comment?.id) {
+                await github.rest.reactions.createForIssueComment({
+                  ...context.repo,
+                  comment_id: context.payload.comment.id,
+                  content: "eyes",
+                });
+              } else {
+                await github.rest.reactions.createForIssue({
+                  ...context.repo,
+                  issue_number: issueNumber,
+                  content: "eyes",
+                });
+              }
+            } catch (error) {
+              core.warning(`Unable to add AI review reaction: ${error.message}`);
+            }
+
+      - name: Checkout repository
+        if: ${{ env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '' }}
+        uses: actions/checkout@v6
+
+      - name: Run PR-Agent with MiniMax
+        id: pr_agent_primary
+        continue-on-error: true
+        if: ${{ env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '' }}
+        uses: docker://pragent/pr-agent@sha256:28d87f1983944bb1d2c61be8367a2bee833e437a5d52ac2fa9a7324292ee3862
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPINFRA_API_KEY: ${{ env.DEEPINFRA_API_KEY }}
+          TOGETHERAI_API_KEY: ${{ env.TOGETHERAI_API_KEY }}
+          config.model: "together_ai/MiniMaxAI/MiniMax-M3"
+          config.fallback_models: '["deepinfra/XiaomiMiMo/MiMo-V2.5-Pro"]'
+          config.custom_model_max_tokens: "128000"
+          config.max_model_tokens: "32000"
+          config.large_patch_policy: "clip"
+          config.ai_timeout: "300"
+          config.reasoning_effort: "none"
+          config.response_language: "en-US"
+          pr_reviewer.require_tests_review: "true"
+          pr_reviewer.require_security_review: "true"
+          pr_reviewer.require_estimate_effort_to_review: "true"
+          pr_reviewer.num_max_findings: "5"
+          pr_reviewer.publish_output_no_suggestions: "true"
+          pr_reviewer.enable_help_text: "false"
+          pr_reviewer.extra_instructions: >
+            Review this repository as the hosted Sanka MCP server and TypeScript API client.
+            Prioritize high-signal findings only.
+            Check that MCP tools, schemas, and generated client surfaces stay aligned with the Sanka API contract and packaged plugin guidance.
+            Watch for OAuth/session exchange bugs, missing tenant/workspace scoping, unsafe tool mutations without explicit confirmation, secret/token/cookie leakage in logs or tool results, and provider workflow paths that skip preview/readiness checks.
+            For browser-use or integration handoff changes, ensure the allowlist, audit metadata, and external side effects remain tightly governed.
+            For TypeScript changes, check that focused tests, lint, and build coverage match the changed boundary.
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
+          github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review", "review_requested"]'
+
+      - name: Check MiniMax review output
+        id: primary_review_output
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.verify_review == 'true' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber = Number("${{ steps.review_context.outputs.pr_number }}");
+            const startedAtMs =
+              new Date("${{ steps.review_context.outputs.started_at }}").getTime() - 10000;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number: issueNumber,
+            });
+
+            const reviewComment = comments.find((comment) => {
+              const author = comment.user?.login ?? "";
+              const body = comment.body ?? "";
+              const updatedAtMs = new Date(comment.updated_at).getTime();
+
+              return (
+                author === "github-actions[bot]" &&
+                body.startsWith("## PR Reviewer Guide") &&
+                updatedAtMs >= startedAtMs
+              );
+            });
+
+            core.setOutput("published", String(Boolean(reviewComment)));
+
+            if (!reviewComment) {
+              core.warning("MiniMax did not publish a fresh PR-Agent review comment.");
+            }
+
+      - name: Run PR-Agent fallback with MiMo
+        id: pr_agent_fallback
+        continue-on-error: true
+        if: ${{ env.DEEPINFRA_API_KEY != '' && steps.review_context.outputs.verify_review == 'true' && (steps.pr_agent_primary.outcome == 'failure' || steps.primary_review_output.outputs.published != 'true') }}
+        uses: docker://pragent/pr-agent@sha256:28d87f1983944bb1d2c61be8367a2bee833e437a5d52ac2fa9a7324292ee3862
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPINFRA_API_KEY: ${{ env.DEEPINFRA_API_KEY }}
+          TOGETHERAI_API_KEY: ${{ env.TOGETHERAI_API_KEY }}
+          config.model: "deepinfra/XiaomiMiMo/MiMo-V2.5-Pro"
+          config.fallback_models: "[]"
+          config.custom_model_max_tokens: "128000"
+          config.max_model_tokens: "32000"
+          config.large_patch_policy: "clip"
+          config.ai_timeout: "300"
+          config.reasoning_effort: "none"
+          config.response_language: "en-US"
+          pr_reviewer.require_tests_review: "true"
+          pr_reviewer.require_security_review: "true"
+          pr_reviewer.require_estimate_effort_to_review: "true"
+          pr_reviewer.num_max_findings: "5"
+          pr_reviewer.publish_output_no_suggestions: "true"
+          pr_reviewer.enable_help_text: "false"
+          pr_reviewer.extra_instructions: >
+            Review this repository as the hosted Sanka MCP server and TypeScript API client.
+            Prioritize high-signal findings only.
+            Check that MCP tools, schemas, and generated client surfaces stay aligned with the Sanka API contract and packaged plugin guidance.
+            Watch for OAuth/session exchange bugs, missing tenant/workspace scoping, unsafe tool mutations without explicit confirmation, secret/token/cookie leakage in logs or tool results, and provider workflow paths that skip preview/readiness checks.
+            For browser-use or integration handoff changes, ensure the allowlist, audit metadata, and external side effects remain tightly governed.
+            For TypeScript changes, check that focused tests, lint, and build coverage match the changed boundary.
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
+          github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review", "review_requested"]'
+
+      - name: Report PR-Agent review output
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.verify_review == 'true' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueNumber = Number("${{ steps.review_context.outputs.pr_number }}");
+            const startedAtMs =
+              new Date("${{ steps.review_context.outputs.started_at }}").getTime() - 10000;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number: issueNumber,
+            });
+
+            const reviewComment = comments.find((comment) => {
+              const author = comment.user?.login ?? "";
+              const body = comment.body ?? "";
+              const updatedAtMs = new Date(comment.updated_at).getTime();
+
+              return (
+                author === "github-actions[bot]" &&
+                body.startsWith("## PR Reviewer Guide") &&
+                updatedAtMs >= startedAtMs
+              );
+            });
+
+            const marker = "<!-- sanka-pr-agent-status -->";
+            const statusComment = comments.find((comment) => {
+              const author = comment.user?.login ?? "";
+              return (
+                author === "github-actions[bot]" &&
+                (comment.body ?? "").includes(marker)
+              );
+            });
+            const headSha =
+              context.payload.pull_request?.head?.sha ?? process.env.GITHUB_SHA ?? "";
+            const shortSha = headSha.slice(0, 7);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            if (reviewComment) {
+              const reviewBody = reviewComment.body ?? "";
+              // The PR-Agent image is digest-pinned, so these rendered headings
+              // change only when we intentionally update the image.
+              const noMajorIssuesPattern =
+                /<strong>\s*No major issues detected\s*<\/strong>/i;
+              const recommendedFocusPattern =
+                /<strong>\s*Recommended focus areas for review\s*<\/strong>/i;
+              const hasNoMajorIssues =
+                noMajorIssuesPattern.test(reviewBody) &&
+                !recommendedFocusPattern.test(reviewBody);
+
+              if (!hasNoMajorIssues) {
+                if (statusComment) {
+                  await github.rest.issues.deleteComment({
+                    ...context.repo,
+                    comment_id: statusComment.id,
+                  });
+                }
+
+                core.info(
+                  "PR-Agent review comment was published with findings or without the pinned no-issues marker; no LGTM comment posted.",
+                );
+                return;
+              }
+
+              const body = [
+                marker,
+                "## PR-Agent review complete",
+                "",
+                `LGTM. PR-Agent reviewed commit \`${shortSha}\` and did not find major issues.`,
+                "",
+                `Review guide: ${reviewComment.html_url}`,
+              ].join("\n");
+
+              if (statusComment) {
+                await github.rest.issues.updateComment({
+                  ...context.repo,
+                  comment_id: statusComment.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: issueNumber,
+                  body,
+                });
+              }
+
+              core.info("PR-Agent found no major issues; posted a visible LGTM comment.");
+              return;
+            }
+
+            const body = [
+              marker,
+              "## PR-Agent review status",
+              "",
+              `PR-Agent started for commit \`${shortSha}\`, but neither MiniMax nor MiMo published a fresh review comment. See the [workflow run](${runUrl}) and retry with \`/review\` if needed.`,
+            ].join("\n");
+
+            if (statusComment) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: statusComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }
+
+            core.setFailed(
+              "PR-Agent did not publish a fresh review comment; posted a visible status comment instead.",
+            );
