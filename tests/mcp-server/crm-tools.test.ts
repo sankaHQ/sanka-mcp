@@ -12,7 +12,9 @@ import {
   crmAuthStatusTool,
   crmCancelCalendarAttendanceTool,
   crmCalculateIncentivesTool,
+  crmCapturePipelineSnapshotTool,
   crmCheckCalendarAvailabilityTool,
+  crmComparePipelineSnapshotsTool,
   crmCreateAssociationTool,
   crmCreateApprovalRequestTool,
   crmCreateBillTool,
@@ -97,6 +99,7 @@ import {
   crmGetLocationTool,
   crmGetOrderTool,
   crmGetPaymentTool,
+  crmGetPipelineSnapshotBatchTool,
   crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
   crmGetWorkspaceMessageThreadTool,
@@ -116,6 +119,7 @@ import {
   crmListContactsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
+  crmListPipelineSnapshotBatchesTool,
   crmListWorkspacesTool,
   crmListDisbursementAllocationsTool,
   crmListDisbursementsTool,
@@ -156,6 +160,7 @@ import {
   crmRescheduleCalendarAttendanceTool,
   crmScoreRecordTool,
   crmSendInvoiceEmailTool,
+  crmSyncPipelineSnapshotHubSpotPropertiesTool,
   crmSyncPrivateMessagesTool,
   crmSyncWorkspaceMessagesTool,
   crmSwitchWorkspaceTool,
@@ -221,6 +226,15 @@ const oauthContext = (overrides?: {
     ...(overrides?.workspace?.name ? { workspace_name: overrides.workspace.name } : undefined),
   },
 });
+
+const firstTextContent = (result: { content: unknown[] }): string => {
+  const entry = result.content
+    .map((content) => (typeof content === 'object' && content !== null ? content : undefined))
+    .find((content) => (content as Record<string, unknown> | undefined)?.['type'] === 'text') as
+    | Record<string, unknown>
+    | undefined;
+  return typeof entry?.['text'] === 'string' ? entry['text'] : '';
+};
 
 describe('ChatGPT CRM tools', () => {
   beforeEach(() => {
@@ -3403,6 +3417,218 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+  });
+
+  it('captures a HubSpot pipeline snapshot through the V2 endpoint', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        batch_id: 'batch-1',
+        source_system: 'hubspot',
+        channel_id: 'channel-1',
+        deal_count: 30,
+      },
+    });
+
+    const result = await crmCapturePipelineSnapshotTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        source_system: 'hubspot',
+        channel_id: 'channel-1',
+        limit: 30,
+        search: 'AveJapan',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/pipeline-snapshots/hubspot/capture', {
+      body: {
+        channel_id: 'channel-1',
+        search: 'AveJapan',
+        limit: 30,
+      },
+    });
+    expect(result.isError).toBeUndefined();
+    expect(firstTextContent(result)).toContain('batch-1');
+    expect(result.structuredContent).toMatchObject({
+      success: true,
+      data: {
+        batch_id: 'batch-1',
+        source_system: 'hubspot',
+      },
+    });
+  });
+
+  it('lists pipeline snapshot batches with filters', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: [
+          {
+            batch_id: 'batch-1',
+            trigger: 'hubspot_manual',
+            deal_count: 30,
+            captured_at: '2026-06-17T00:00:00Z',
+          },
+        ],
+        page: 2,
+        limit: 10,
+        total: 21,
+      },
+    });
+
+    const result = await crmListPipelineSnapshotBatchesTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        page: 2,
+        limit: 10,
+        source_system: 'hubspot',
+        pipeline_id: 'pipeline-1',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/pipeline-snapshots/batches', {
+      query: {
+        page: 2,
+        limit: 10,
+        pipeline_id: 'pipeline-1',
+        source_system: 'hubspot',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      page: 2,
+      total: 21,
+      results: [
+        {
+          batch_id: 'batch-1',
+          trigger: 'hubspot_manual',
+        },
+      ],
+    });
+  });
+
+  it('loads and compares pipeline snapshots', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        batch: { batch_id: 'batch-2', deal_count: 2 },
+        deals: [{ deal_name: 'Renewal A' }, { deal_name: 'Renewal B' }],
+      },
+    });
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        from_batch: { batch_id: 'batch-1' },
+        to_batch: { batch_id: 'batch-2' },
+        totals: {
+          amount_delta_cents: -100000,
+          weighted_delta_cents: -25000,
+        },
+        per_deal_diff: [{ deal_name: 'Renewal A', change: 'changed' }],
+      },
+    });
+
+    const detailResult = await crmGetPipelineSnapshotBatchTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        batch_id: 'batch-2',
+        pipeline_id: 'pipeline-1',
+      },
+    });
+
+    const compareResult = await crmComparePipelineSnapshotsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        from_batch_id: 'batch-1',
+        to_batch_id: 'batch-2',
+        source_system: 'hubspot',
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/pipeline-snapshots/batches/batch-2', {
+      query: { pipeline_id: 'pipeline-1' },
+    });
+    expect(post).toHaveBeenCalledWith('/api/v2/pipeline-snapshots/compare', {
+      body: {
+        from_batch_id: 'batch-1',
+        to_batch_id: 'batch-2',
+        source_system: 'hubspot',
+      },
+    });
+    expect(firstTextContent(detailResult)).toContain('batch-2');
+    expect(firstTextContent(compareResult)).toContain('amount delta -100000 cents');
+  });
+
+  it('requires confirm before writing pipeline snapshot fields to HubSpot', async () => {
+    const post = jest.fn();
+
+    const blockedResult = await crmSyncPipelineSnapshotHubSpotPropertiesTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        channel_id: 'channel-1',
+        dry_run: false,
+      },
+    });
+
+    expect(blockedResult.isError).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+
+    post.mockResolvedValue({
+      success: true,
+      data: {
+        dry_run: true,
+        attempted: 2,
+        succeeded: 0,
+        failed: 0,
+        records: [{ external_id: '123', status: 'planned' }],
+      },
+    });
+
+    const dryRunResult = await crmSyncPipelineSnapshotHubSpotPropertiesTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        channel_id: 'channel-1',
+        from_batch_id: 'batch-1',
+        to_batch_id: 'batch-2',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/pipeline-snapshots/hubspot/sync-properties', {
+      body: {
+        channel_id: 'channel-1',
+        from_batch_id: 'batch-1',
+        to_batch_id: 'batch-2',
+        limit: 500,
+        offset: 0,
+        dry_run: true,
+        confirm: false,
+      },
+    });
+    expect(firstTextContent(dryRunResult)).toContain('Previewed HubSpot snapshot property updates');
   });
 
   it('lists orders when authentication is present', async () => {
