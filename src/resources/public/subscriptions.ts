@@ -174,6 +174,14 @@ export interface SubscriptionDetail {
 
   discount_tax_option?: string | null;
 
+  discount_value?: number | null;
+
+  discount_number_format?: string | null;
+
+  discount_mode?: string | null;
+
+  clear_discount?: boolean | null;
+
   frequency?: number | null;
 
   frequency_time?: string | null;
