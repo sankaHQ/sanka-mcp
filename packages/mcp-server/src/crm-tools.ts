@@ -2672,6 +2672,163 @@ const DEAL_PIPELINES_INPUT_SCHEMA = {
   },
 };
 
+const PIPELINE_SNAPSHOT_CAPTURE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    source_system: {
+      type: 'string',
+      description: 'Snapshot source. Use "sanka" for Sanka Deal rows or "hubspot" for live HubSpot Deals.',
+      enum: ['sanka', 'hubspot'],
+      default: 'sanka',
+    },
+    channel_id: {
+      type: 'string',
+      description: 'HubSpot connected channel UUID. Required when source_system="hubspot".',
+    },
+    pipeline_id: {
+      type: 'string',
+      description: 'Optional Sanka pipeline UUID for Sanka Deal snapshots.',
+    },
+    custom_field_whitelist: {
+      type: 'array',
+      description: 'Optional Sanka Deal custom field internal names to freeze in the snapshot.',
+      items: { type: 'string' },
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum HubSpot deals to capture when source_system="hubspot".',
+      minimum: 0,
+      maximum: 10000,
+      default: 1000,
+    },
+    search: {
+      type: 'string',
+      description: 'Optional HubSpot deal search query for HubSpot snapshot capture.',
+    },
+  },
+};
+
+const PIPELINE_SNAPSHOT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    page: {
+      type: 'integer',
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 200,
+      default: 20,
+    },
+    pipeline_id: {
+      type: 'string',
+      description: 'Optional Sanka pipeline UUID filter.',
+    },
+    source_system: {
+      type: 'string',
+      description: 'Optional source filter, for example "hubspot" or "sanka".',
+    },
+  },
+};
+
+const PIPELINE_SNAPSHOT_GET_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    batch_id: {
+      type: 'string',
+      description: 'Pipeline snapshot batch UUID.',
+    },
+    pipeline_id: {
+      type: 'string',
+      description: 'Optional Sanka pipeline UUID filter for returned deal rows.',
+    },
+  },
+  required: ['batch_id'],
+};
+
+const PIPELINE_SNAPSHOT_COMPARE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    from_batch_id: {
+      type: 'string',
+      description: 'Older snapshot batch UUID. Omit with to_batch_id to compare the latest two batches.',
+    },
+    to_batch_id: {
+      type: 'string',
+      description: 'Newer snapshot batch UUID. Omit with from_batch_id to compare the latest two batches.',
+    },
+    pipeline_id: {
+      type: 'string',
+      description: 'Optional Sanka pipeline UUID filter.',
+    },
+    source_system: {
+      type: 'string',
+      description: 'Optional source filter when resolving the latest two batches, for example "hubspot".',
+    },
+  },
+};
+
+const PIPELINE_SNAPSHOT_HUBSPOT_SYNC_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    channel_id: {
+      type: 'string',
+      description: 'HubSpot connected channel UUID.',
+    },
+    from_batch_id: {
+      type: 'string',
+      description: 'Older snapshot batch UUID. Omit with to_batch_id to use the latest two HubSpot batches.',
+    },
+    to_batch_id: {
+      type: 'string',
+      description:
+        'Newer snapshot batch UUID. Omit with from_batch_id to use the latest two HubSpot batches.',
+    },
+    pipeline_id: {
+      type: 'string',
+      description: 'Optional Sanka pipeline UUID filter.',
+    },
+    source_system: {
+      type: 'string',
+      description: 'Snapshot source filter. Defaults to "hubspot".',
+      default: 'hubspot',
+    },
+    limit: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 10000,
+      default: 500,
+    },
+    offset: {
+      type: 'integer',
+      minimum: 0,
+      default: 0,
+    },
+    dry_run: {
+      type: 'boolean',
+      description: 'Preview HubSpot property updates without writing. Defaults to true.',
+      default: true,
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Required with dry_run=false after reviewing the dry-run result.',
+      default: false,
+    },
+    checked_at: {
+      type: 'string',
+      description: 'Optional ISO datetime used to populate sanka_test_snapshot_checked_at.',
+    },
+  },
+  required: ['channel_id'],
+};
+
+const PIPELINE_SNAPSHOT_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+};
+
 const DEAL_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -9618,6 +9775,132 @@ const readPayloadDataRecord = (payload: Record<string, unknown>): Record<string,
   return readRecord(payload['data']) ?? payload;
 };
 
+const readIntegerArgument = (value: unknown, fallback: number, min: number, max: number): number => {
+  const numberValue = readNumber(value, fallback);
+  return Math.max(min, Math.min(max, Math.trunc(numberValue)));
+};
+
+const readV2DataRecord = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  return readRecord(envelope?.data) ?? readPayloadDataRecord(payload);
+};
+
+const buildPipelineSnapshotCaptureBody = (args: Record<string, unknown> | undefined) => {
+  const sourceSystem = readString(args?.['source_system']) ?? 'sanka';
+  const body: Record<string, unknown> = {};
+
+  if (sourceSystem === 'hubspot') {
+    assignStringFields(body, args, ['channel_id', 'search']);
+    body['limit'] = readIntegerArgument(args?.['limit'], 1000, 0, 10000);
+    return { sourceSystem, body };
+  }
+
+  assignStringFields(body, args, ['pipeline_id']);
+  const customFieldWhitelist = readStringArray(args?.['custom_field_whitelist']);
+  if (customFieldWhitelist.length > 0) {
+    body['custom_field_whitelist'] = customFieldWhitelist;
+  }
+  return { sourceSystem, body };
+};
+
+const buildPipelineSnapshotListParams = (args: Record<string, unknown> | undefined) => {
+  const params: Record<string, unknown> = {
+    page: readIntegerArgument(args?.['page'], 1, 1, 1000000),
+    limit: readIntegerArgument(args?.['limit'], 20, 1, 200),
+  };
+  assignStringFields(params, args, ['pipeline_id', 'source_system']);
+  return params;
+};
+
+const buildPipelineSnapshotCompareBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['from_batch_id', 'to_batch_id', 'pipeline_id', 'source_system']);
+  return body;
+};
+
+const buildPipelineSnapshotHubSpotSyncBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, [
+    'channel_id',
+    'from_batch_id',
+    'to_batch_id',
+    'pipeline_id',
+    'source_system',
+    'checked_at',
+  ]);
+  body['limit'] = readIntegerArgument(args?.['limit'], 500, 0, 10000);
+  body['offset'] = readIntegerArgument(args?.['offset'], 0, 0, 1000000);
+  body['dry_run'] = readBoolean(args?.['dry_run']) ?? true;
+  body['confirm'] = readBoolean(args?.['confirm']) ?? false;
+  return body;
+};
+
+const buildPipelineSnapshotCaptureSummary = (payload: Record<string, unknown>): string => {
+  const data = readV2DataRecord(payload);
+  const batchID = readString(data['batch_id']) ?? 'unknown batch';
+  const dealCount = readNumber(data['deal_count'], 0);
+  const sourceSystem = readString(data['source_system']);
+  const sourceText = sourceSystem ? ` from ${sourceSystem}` : '';
+  return `Captured pipeline snapshot ${batchID}${sourceText} with ${dealCount} deal${
+    dealCount === 1 ? '' : 's'
+  }.`;
+};
+
+const buildPipelineSnapshotBatchSummary = (payload: Record<string, unknown>): string => {
+  const data = readV2DataRecord(payload);
+  const batch = readRecord(data['batch']) ?? data;
+  const batchID = readString(batch['batch_id']) ?? 'unknown batch';
+  const deals = Array.isArray(data['deals']) ? data['deals'] : [];
+  const dealCount = readNumber(batch['deal_count'], deals.length);
+  return `Loaded pipeline snapshot batch ${batchID} with ${dealCount} deal${dealCount === 1 ? '' : 's'}.`;
+};
+
+const buildPipelineSnapshotCompareSummary = (payload: Record<string, unknown>): string => {
+  const data = readV2DataRecord(payload);
+  const totals = readRecord(data['totals']) ?? {};
+  const fromBatch = readRecord(data['from_batch']);
+  const toBatch = readRecord(data['to_batch']);
+  const amountDelta = readNumber(totals['amount_delta_cents'], 0);
+  const weightedDelta = readNumber(totals['weighted_delta_cents'], 0);
+  const dealDiffs = Array.isArray(data['per_deal_diff']) ? data['per_deal_diff'] : [];
+  const fromBatchID = readString(fromBatch?.['batch_id']) ?? 'previous batch';
+  const toBatchID = readString(toBatch?.['batch_id']) ?? 'current batch';
+  return `Compared pipeline snapshots ${fromBatchID} -> ${toBatchID}: amount delta ${amountDelta} cents, weighted delta ${weightedDelta} cents, ${
+    dealDiffs.length
+  } changed deal${dealDiffs.length === 1 ? '' : 's'}.`;
+};
+
+const buildPipelineSnapshotHubSpotSyncSummary = (payload: Record<string, unknown>): string => {
+  const data = readV2DataRecord(payload);
+  const dryRun = readBoolean(data['dry_run']) ?? true;
+  const attempted = readNumber(data['attempted'], 0);
+  const succeeded = readNumber(data['succeeded'], 0);
+  const failed = readNumber(data['failed'], 0);
+  const action = dryRun ? 'Previewed' : 'Synced';
+  return `${action} HubSpot snapshot property updates: attempted ${attempted}, succeeded ${succeeded}, failed ${failed}.`;
+};
+
+const buildPipelineSnapshotListResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readV2DataRecord(payload);
+  const rows =
+    Array.isArray(data['data']) ? data['data'].map((row) => readRecord(row) ?? {}).filter(Boolean) : [];
+  const count = rows.length;
+  const page = readIntegerArgument(data['page'], 1, 1, 1000000);
+  const total = readNumber(data['total'], count);
+
+  return buildListResult({
+    label: 'pipeline snapshot batches',
+    payload: {
+      count,
+      data: rows,
+      message: `Returned ${count} of ${total} pipeline snapshot batches.`,
+      page,
+      total,
+    },
+    previewKeys: ['batch_id', 'trigger', 'captured_at', 'deal_count', 'pipeline_id'],
+  });
+};
+
 const buildRecordMutationSummary = ({
   entity,
   action,
@@ -16550,6 +16833,246 @@ export const crmListDealPipelinesTool: McpTool = {
       },
       previewKeys: ['name', 'internal_name'],
     });
+  },
+};
+
+export const crmCapturePipelineSnapshotTool: McpTool = {
+  metadata: {
+    resource: 'pipeline_snapshots',
+    operation: 'write',
+    tags: ['crm', 'deals', 'pipeline_snapshots'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/pipeline-snapshots/capture',
+    operationId: 'pipeline_snapshots.capture',
+  },
+  tool: {
+    name: 'capture_pipeline_snapshot',
+    title: 'Capture pipeline snapshot',
+    description:
+      'Capture a point-in-time pipeline snapshot from Sanka Deals or live HubSpot Deals. Use source_system="hubspot" with a connected channel_id for HubSpot snapshot demos.',
+    inputSchema: PIPELINE_SNAPSHOT_CAPTURE_INPUT_SCHEMA,
+    outputSchema: PIPELINE_SNAPSHOT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Capture pipeline snapshot',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Capture pipeline snapshot',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { sourceSystem, body } = buildPipelineSnapshotCaptureBody(args);
+    if (sourceSystem === 'hubspot' && !readString(body['channel_id'])) {
+      return asErrorResult('`channel_id` is required when `source_system` is "hubspot".');
+    }
+
+    const path =
+      sourceSystem === 'hubspot' ?
+        '/api/v2/pipeline-snapshots/hubspot/capture'
+      : '/api/v2/pipeline-snapshots/capture';
+    const payload = (await reqContext.client.post(path, { body })) as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildPipelineSnapshotCaptureSummary(payload) }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmListPipelineSnapshotBatchesTool: McpTool = {
+  metadata: {
+    resource: 'pipeline_snapshots',
+    operation: 'read',
+    tags: ['crm', 'deals', 'pipeline_snapshots'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/pipeline-snapshots/batches',
+    operationId: 'pipeline_snapshots.list_batches',
+  },
+  tool: {
+    name: 'list_pipeline_snapshot_batches',
+    title: 'List pipeline snapshot batches',
+    description:
+      'List captured pipeline snapshot batches. Use this before comparing snapshots when the user did not provide batch ids.',
+    inputSchema: PIPELINE_SNAPSHOT_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List pipeline snapshot batches',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List pipeline snapshot batches',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.get('/api/v2/pipeline-snapshots/batches', {
+      query: buildPipelineSnapshotListParams(args),
+    })) as Record<string, unknown>;
+
+    return buildPipelineSnapshotListResult(payload);
+  },
+};
+
+export const crmGetPipelineSnapshotBatchTool: McpTool = {
+  metadata: {
+    resource: 'pipeline_snapshots',
+    operation: 'read',
+    tags: ['crm', 'deals', 'pipeline_snapshots'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/pipeline-snapshots/batches/{batch_id}',
+    operationId: 'pipeline_snapshots.get_batch',
+  },
+  tool: {
+    name: 'get_pipeline_snapshot_batch',
+    title: 'Get pipeline snapshot batch',
+    description:
+      'Load one pipeline snapshot batch and its captured deal rows. Use this to inspect the frozen deal values behind a snapshot diff.',
+    inputSchema: PIPELINE_SNAPSHOT_GET_INPUT_SCHEMA,
+    outputSchema: PIPELINE_SNAPSHOT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get pipeline snapshot batch',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get pipeline snapshot batch',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const batchID = readString(args?.['batch_id']);
+    if (!batchID) {
+      return asErrorResult('`batch_id` is required.');
+    }
+    const pipelineID = readString(args?.['pipeline_id']);
+    const payload = (await reqContext.client.get(
+      `/api/v2/pipeline-snapshots/batches/${encodeURIComponent(batchID)}`,
+      {
+        query: pipelineID ? { pipeline_id: pipelineID } : {},
+      },
+    )) as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildPipelineSnapshotBatchSummary(payload) }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmComparePipelineSnapshotsTool: McpTool = {
+  metadata: {
+    resource: 'pipeline_snapshots',
+    operation: 'read',
+    tags: ['crm', 'deals', 'pipeline_snapshots'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/pipeline-snapshots/compare',
+    operationId: 'pipeline_snapshots.compare',
+  },
+  tool: {
+    name: 'compare_pipeline_snapshots',
+    title: 'Compare pipeline snapshots',
+    description:
+      'Compare two pipeline snapshot batches and return amount, weighted amount, stage transition, close-date, and per-deal deltas. Omit batch ids to compare the latest two matching batches.',
+    inputSchema: PIPELINE_SNAPSHOT_COMPARE_INPUT_SCHEMA,
+    outputSchema: PIPELINE_SNAPSHOT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Compare pipeline snapshots',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Compare pipeline snapshots',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = (await reqContext.client.post('/api/v2/pipeline-snapshots/compare', {
+      body: buildPipelineSnapshotCompareBody(args),
+    })) as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildPipelineSnapshotCompareSummary(payload) }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmSyncPipelineSnapshotHubSpotPropertiesTool: McpTool = {
+  metadata: {
+    resource: 'pipeline_snapshots',
+    operation: 'write',
+    tags: ['crm', 'deals', 'pipeline_snapshots', 'hubspot'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/pipeline-snapshots/hubspot/sync-properties',
+    operationId: 'pipeline_snapshots.hubspot.sync_properties',
+  },
+  tool: {
+    name: 'sync_pipeline_snapshot_hubspot_properties',
+    title: 'Sync pipeline snapshot HubSpot properties',
+    description:
+      'Write pipeline snapshot diffs into HubSpot sanka_test_* deal properties. Defaults to dry_run=true; set dry_run=false and confirm=true only after reviewing the preview.',
+    inputSchema: PIPELINE_SNAPSHOT_HUBSPOT_SYNC_INPUT_SCHEMA,
+    outputSchema: PIPELINE_SNAPSHOT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Sync pipeline snapshot HubSpot properties',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Sync pipeline snapshot HubSpot properties',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildPipelineSnapshotHubSpotSyncBody(args);
+    if (!readString(body['channel_id'])) {
+      return asErrorResult('`channel_id` is required.');
+    }
+    if (body['dry_run'] === false && body['confirm'] !== true) {
+      return asErrorResult('`confirm=true` is required when `dry_run=false`. Run a dry run first.');
+    }
+
+    const payload = (await reqContext.client.post('/api/v2/pipeline-snapshots/hubspot/sync-properties', {
+      body,
+    })) as Record<string, unknown>;
+
+    return {
+      content: [{ type: 'text', text: buildPipelineSnapshotHubSpotSyncSummary(payload) }],
+      structuredContent: payload,
+    };
   },
 };
 

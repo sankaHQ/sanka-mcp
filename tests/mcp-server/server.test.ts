@@ -82,6 +82,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('update_deal');
     expect(toolNames).toContain('delete_deal');
     expect(toolNames).toContain('list_deal_pipelines');
+    expect(toolNames).toContain('capture_pipeline_snapshot');
+    expect(toolNames).toContain('compare_pipeline_snapshots');
+    expect(toolNames).toContain('sync_pipeline_snapshot_hubspot_properties');
     expect(toolNames).toContain('list_items');
     expect(toolNames).toContain('get_item');
     expect(toolNames).toContain('create_item');
@@ -316,6 +319,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('update_deal');
     expect(toolNames).toContain('delete_deal');
     expect(toolNames).toContain('list_deal_pipelines');
+    expect(toolNames).toContain('capture_pipeline_snapshot');
+    expect(toolNames).toContain('compare_pipeline_snapshots');
+    expect(toolNames).toContain('sync_pipeline_snapshot_hubspot_properties');
     expect(toolNames).toContain('list_items');
     expect(toolNames).toContain('get_item');
     expect(toolNames).toContain('create_item');
@@ -514,6 +520,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('update_deal');
     expect(instructions).toContain('delete_deal');
     expect(instructions).toContain('list_deal_pipelines');
+    expect(instructions).toContain('capture_pipeline_snapshot');
+    expect(instructions).toContain('compare_pipeline_snapshots');
+    expect(instructions).toContain('sync_pipeline_snapshot_hubspot_properties');
     expect(instructions).toContain('list_items');
     expect(instructions).toContain('get_item');
     expect(instructions).toContain('create_item');
@@ -712,6 +721,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('update_deal');
     expect(instructions).toContain('delete_deal');
     expect(instructions).toContain('list_deal_pipelines');
+    expect(instructions).toContain('capture_pipeline_snapshot');
+    expect(instructions).toContain('compare_pipeline_snapshots');
+    expect(instructions).toContain('sync_pipeline_snapshot_hubspot_properties');
     expect(instructions).toContain('list_items');
     expect(instructions).toContain('get_item');
     expect(instructions).toContain('create_item');
