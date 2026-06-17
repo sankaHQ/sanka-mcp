@@ -49,6 +49,12 @@ const subscriptionMutationProperties = (
       'shipping_cost_tax_status' in params ? params.shipping_cost_tax_status : undefined,
     start_date: 'start_date' in params ? params.start_date : undefined,
     tax: 'tax' in params ? params.tax : undefined,
+    discount_id: 'discount_id' in params ? params.discount_id : undefined,
+    discount_value: 'discount_value' in params ? params.discount_value : undefined,
+    discount_number_format: 'discount_number_format' in params ? params.discount_number_format : undefined,
+    discount_tax_option: 'discount_tax_option' in params ? params.discount_tax_option : undefined,
+    discount_mode: 'discount_mode' in params ? params.discount_mode : undefined,
+    clear_discount: 'clear_discount' in params ? params.clear_discount : undefined,
     total_price: ('total_price' in params ? params.total_price : undefined) ?? item?.total_price,
     total_price_without_tax:
       ('total_price_without_tax' in params ? params.total_price_without_tax : undefined) ??
@@ -159,6 +165,14 @@ export interface SubscriptionDetail {
   number_item: number;
 
   currency?: string | null;
+
+  discount?: number | null;
+
+  discount_id?: string | null;
+
+  discount_option?: string | null;
+
+  discount_tax_option?: string | null;
 
   frequency?: number | null;
 
@@ -306,6 +320,18 @@ export interface SubscriptionCreateParams {
 
   currency?: string | null;
 
+  discount_id?: string | null;
+
+  discount_value?: number | null;
+
+  discount_number_format?: string | null;
+
+  discount_tax_option?: 'pre_tax' | 'post_tax' | string | null;
+
+  discount_mode?: 'free_writing_discounts' | 'registered_discounts' | string | null;
+
+  clear_discount?: boolean | null;
+
   frequency?: number | null;
 
   frequency_time?: string | null;
@@ -345,6 +371,36 @@ export interface SubscriptionUpdateParams {
    * Body param
    */
   line_items?: Array<SubscriptionItemInput> | null;
+
+  /**
+   * Body param
+   */
+  discount_id?: string | null;
+
+  /**
+   * Body param
+   */
+  discount_value?: number | null;
+
+  /**
+   * Body param
+   */
+  discount_number_format?: string | null;
+
+  /**
+   * Body param
+   */
+  discount_tax_option?: 'pre_tax' | 'post_tax' | string | null;
+
+  /**
+   * Body param
+   */
+  discount_mode?: 'free_writing_discounts' | 'registered_discounts' | string | null;
+
+  /**
+   * Body param
+   */
+  clear_discount?: boolean | null;
 
   /**
    * Body param

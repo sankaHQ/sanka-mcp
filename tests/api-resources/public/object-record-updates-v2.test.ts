@@ -633,6 +633,80 @@ describe('public object-record updates on V2', () => {
     ]);
   });
 
+  test('preserves subscription record discount fields in V2 create and update properties', async () => {
+    const calls: string[] = [];
+    const bodies: Array<unknown> = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+        return envelope({
+          id: 'subscription-1',
+          record_id: '9501',
+          object_type: 'subscription',
+          properties: {
+            contact_info: [],
+            created_at: '2026-05-30T00:00:00Z',
+            discount: 10,
+            discount_id: 'discount-1',
+            discount_option: '%',
+            discount_tax_option: 'pre_tax',
+            items: [],
+            number_item: 0,
+            status: 'active',
+          },
+        });
+      },
+    });
+
+    await client.public.subscriptions.create({
+      company_id: 'company-1',
+      items: [{ item_id: 'item-1', quantity: 1, price: 500 }],
+      subscription_status: 'active',
+      discount_value: 10,
+      discount_number_format: '%',
+      discount_tax_option: 'pre_tax',
+      discount_mode: 'free_writing_discounts',
+    });
+    await client.public.subscriptions.update('subscription-1', {
+      external_id: 'SUB-EXT',
+      discount_value: 10,
+      discount_number_format: '%',
+      discount_tax_option: 'pre_tax',
+      discount_mode: 'free_writing_discounts',
+    });
+
+    expect(calls).toEqual([
+      'POST http://localhost:5000/api/v2/subscriptions',
+      'PATCH http://localhost:5000/api/v2/subscriptions/subscription-1?external_id=SUB-EXT',
+    ]);
+    expect(bodies).toEqual([
+      {
+        properties: {
+          status: 'active',
+          company_id: 'company-1',
+          item_id: 'item-1',
+          number_item: 1,
+          discount_value: 10,
+          discount_number_format: '%',
+          discount_tax_option: 'pre_tax',
+          discount_mode: 'free_writing_discounts',
+        },
+      },
+      {
+        properties: {
+          discount_value: 10,
+          discount_number_format: '%',
+          discount_tax_option: 'pre_tax',
+          discount_mode: 'free_writing_discounts',
+        },
+      },
+    ]);
+  });
+
   test('uses V2 PATCH for scalar slip updates through revenues', async () => {
     const calls: string[] = [];
     const client = new Sanka({
