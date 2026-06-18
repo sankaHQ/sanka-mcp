@@ -19,18 +19,36 @@ import {
 const subscriptionFromV2Record = (record: V2ObjectRecord): SubscriptionDetail =>
   legacyObjectRecordFromV2<SubscriptionDetail>(record);
 
-const firstSubscriptionItem = (
+const subscriptionLineItemsForV2 = (
   params: SubscriptionCreateParams | SubscriptionUpdateParams,
-): SubscriptionItemInput | undefined => {
-  const lineItems = 'line_items' in params ? params.line_items : undefined;
-  const items = 'items' in params ? params.items : undefined;
-  return lineItems?.[0] ?? items?.[0] ?? undefined;
+): Array<Record<string, unknown>> | undefined => {
+  const source =
+    'line_items' in params && params.line_items != null ? params.line_items
+    : 'items' in params ? params.items
+    : undefined;
+  const lineItems = (source ?? []).map((item) =>
+    compactProperties({
+      line_item_id: item.line_item_id ?? item.id,
+      item_id: item.item_id ?? item.item,
+      item_external_id: item.item_external_id,
+      custom_item_name: item.custom_item_name ?? item.item_name ?? item.itemName ?? item.name,
+      quantity: item.quantity ?? item.qty ?? item.amount_item ?? item.amount,
+      unit_price: item.unit_price ?? item.unitPrice ?? item.amount_price ?? item.price,
+      tax_rate: item.tax_rate,
+      currency: item.currency,
+      total_price: item.total_price,
+      total_price_without_tax: item.total_price_without_tax,
+      custom_fields: item.line_item_properties,
+    }),
+  );
+  return lineItems.length > 0 ? lineItems : undefined;
 };
 
 const subscriptionMutationProperties = (
   params: SubscriptionCreateParams | SubscriptionUpdateParams,
 ): Record<string, unknown> => {
-  const item = firstSubscriptionItem(params);
+  const lineItems = subscriptionLineItemsForV2(params);
+  const item = lineItems?.[0] as Record<string, unknown> | undefined;
   const mutationParams = params as Partial<SubscriptionCreateParams & SubscriptionUpdateParams>;
   const contactID =
     mutationParams.contact_id ?? mutationParams.cid ?? mutationParams.customer_id ?? mutationParams.contact;
@@ -40,14 +58,15 @@ const subscriptionMutationProperties = (
     status,
     contact_id: companyID ? undefined : contactID,
     company_id: companyID,
-    item_id: item?.item_id ?? item?.item ?? item?.id,
+    item_id: item?.['item_id'],
     currency: 'currency' in params ? params.currency : undefined,
     frequency: 'frequency' in params ? params.frequency : undefined,
     frequency_time: 'frequency_time' in params ? params.frequency_time : undefined,
-    number_item: item?.quantity ?? item?.qty ?? item?.amount_item ?? item?.amount,
+    number_item: item?.['quantity'],
     shipping_cost_tax_status:
       'shipping_cost_tax_status' in params ? params.shipping_cost_tax_status : undefined,
     start_date: 'start_date' in params ? params.start_date : undefined,
+    end_date: 'end_date' in params ? params.end_date : undefined,
     tax: 'tax' in params ? params.tax : undefined,
     discount_id: 'discount_id' in params ? params.discount_id : undefined,
     discount_value: 'discount_value' in params ? params.discount_value : undefined,
@@ -55,10 +74,11 @@ const subscriptionMutationProperties = (
     discount_tax_option: 'discount_tax_option' in params ? params.discount_tax_option : undefined,
     discount_mode: 'discount_mode' in params ? params.discount_mode : undefined,
     clear_discount: 'clear_discount' in params ? params.clear_discount : undefined,
-    total_price: ('total_price' in params ? params.total_price : undefined) ?? item?.total_price,
+    line_items: lineItems,
+    total_price: ('total_price' in params ? params.total_price : undefined) ?? item?.['total_price'],
     total_price_without_tax:
       ('total_price_without_tax' in params ? params.total_price_without_tax : undefined) ??
-      item?.total_price_without_tax,
+      item?.['total_price_without_tax'],
   });
 };
 
@@ -266,6 +286,10 @@ export interface SubscriptionItemInput {
 
   item_external_id?: string | null;
 
+  line_item_id?: string | null;
+
+  custom_item_name?: string | null;
+
   amount?: number | null;
 
   amount_item?: number | null;
@@ -293,6 +317,8 @@ export interface SubscriptionItemInput {
   unitPrice?: number | null;
 
   tax_rate?: number | null;
+
+  currency?: string | null;
 
   line_item_properties?: Record<string, unknown> | null;
 }
@@ -347,6 +373,8 @@ export interface SubscriptionCreateParams {
   shipping_cost_tax_status?: string | null;
 
   start_date?: string | null;
+
+  end_date?: string | null;
 
   tax?: number | null;
 
@@ -409,6 +437,56 @@ export interface SubscriptionUpdateParams {
    * Body param
    */
   clear_discount?: boolean | null;
+
+  /**
+   * Body param
+   */
+  start_date?: string | null;
+
+  /**
+   * Body param
+   */
+  end_date?: string | null;
+
+  /**
+   * Body param
+   */
+  subscription_status?: string | null;
+
+  /**
+   * Body param
+   */
+  currency?: string | null;
+
+  /**
+   * Body param
+   */
+  frequency?: number | null;
+
+  /**
+   * Body param
+   */
+  frequency_time?: string | null;
+
+  /**
+   * Body param
+   */
+  shipping_cost_tax_status?: string | null;
+
+  /**
+   * Body param
+   */
+  tax?: number | null;
+
+  /**
+   * Body param
+   */
+  total_price?: number | null;
+
+  /**
+   * Body param
+   */
+  total_price_without_tax?: number | null;
 
   /**
    * Body param

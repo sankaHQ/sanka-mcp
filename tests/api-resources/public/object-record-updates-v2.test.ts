@@ -633,7 +633,7 @@ describe('public object-record updates on V2', () => {
     ]);
   });
 
-  test('preserves subscription record discount fields in V2 create and update properties', async () => {
+  test('preserves subscription line items and discount fields in V2 create and update properties', async () => {
     const calls: string[] = [];
     const bodies: Array<unknown> = [];
     const client = new Sanka({
@@ -664,8 +664,13 @@ describe('public object-record updates on V2', () => {
 
     await client.public.subscriptions.create({
       company_id: 'company-1',
-      items: [{ item_id: 'item-1', quantity: 1, price: 500 }],
+      items: [
+        { item_id: 'item-1', quantity: 1, price: 500, currency: 'USD' },
+        { item_id: 'item-2', quantity: 2, unit_price: 125, tax_rate: 0 },
+      ],
       subscription_status: 'active',
+      start_date: '2026-05-01',
+      end_date: '2026-05-31',
       discount_value: 10,
       discount_number_format: '%',
       discount_tax_option: 'pre_tax',
@@ -673,6 +678,7 @@ describe('public object-record updates on V2', () => {
     });
     await client.public.subscriptions.update('subscription-1', {
       external_id: 'SUB-EXT',
+      line_items: [{ item_name: 'Replacement plan', quantity: 1, unit_price: 800 }],
       discount_value: 10,
       discount_number_format: '%',
       discount_tax_option: 'pre_tax',
@@ -690,6 +696,22 @@ describe('public object-record updates on V2', () => {
           company_id: 'company-1',
           item_id: 'item-1',
           number_item: 1,
+          start_date: '2026-05-01',
+          end_date: '2026-05-31',
+          line_items: [
+            {
+              item_id: 'item-1',
+              quantity: 1,
+              unit_price: 500,
+              currency: 'USD',
+            },
+            {
+              item_id: 'item-2',
+              quantity: 2,
+              unit_price: 125,
+              tax_rate: 0,
+            },
+          ],
           discount_value: 10,
           discount_number_format: '%',
           discount_tax_option: 'pre_tax',
@@ -698,6 +720,14 @@ describe('public object-record updates on V2', () => {
       },
       {
         properties: {
+          number_item: 1,
+          line_items: [
+            {
+              custom_item_name: 'Replacement plan',
+              quantity: 1,
+              unit_price: 800,
+            },
+          ],
           discount_value: 10,
           discount_number_format: '%',
           discount_tax_option: 'pre_tax',
