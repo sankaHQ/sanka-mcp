@@ -47,14 +47,27 @@ jobs:
               return;
             }
 
+            let pullRequest = context.payload.pull_request ?? null;
+            if (!pullRequest && context.eventName === "issue_comment") {
+              const response = await github.rest.pulls.get({
+                ...context.repo,
+                pull_number: issueNumber,
+              });
+              pullRequest = response.data;
+            }
+
             const commentBody = context.payload.comment?.body ?? "";
             const verifyReview =
               context.eventName === "pull_request" ||
               commentBody.trim().startsWith("/review");
+            const headSha = pullRequest?.head?.sha ?? process.env.GITHUB_SHA ?? "";
+            const reviewable = pullRequest?.state !== "closed" && pullRequest?.merged !== true;
 
             core.setOutput("pr_number", String(issueNumber));
             core.setOutput("started_at", new Date().toISOString());
             core.setOutput("verify_review", String(verifyReview));
+            core.setOutput("head_sha", headSha);
+            core.setOutput("reviewable", String(reviewable));
 
             try {
               if (context.eventName === "issue_comment" && context.payload.comment?.id) {
@@ -75,13 +88,15 @@ jobs:
             }
 
       - name: Checkout repository
-        if: ${{ env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '' }}
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.reviewable == 'true' }}
         uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.review_context.outputs.head_sha }}
 
       - name: Run PR-Agent with MiniMax
         id: pr_agent_primary
         continue-on-error: true
-        if: ${{ env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '' }}
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.reviewable == 'true' }}
         uses: docker://pragent/pr-agent@sha256:28d87f1983944bb1d2c61be8367a2bee833e437a5d52ac2fa9a7324292ee3862
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -93,6 +108,7 @@ jobs:
           config.max_model_tokens: "32000"
           config.large_patch_policy: "clip"
           config.ai_timeout: "300"
+          config.publish_output_progress: "false"
           config.reasoning_effort: "none"
           config.response_language: "en-US"
           pr_reviewer.require_tests_review: "true"
@@ -115,7 +131,7 @@ jobs:
 
       - name: Check MiniMax review output
         id: primary_review_output
-        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.verify_review == 'true' }}
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.reviewable == 'true' && steps.review_context.outputs.verify_review == 'true' }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -148,7 +164,7 @@ jobs:
       - name: Run PR-Agent fallback with MiMo
         id: pr_agent_fallback
         continue-on-error: true
-        if: ${{ env.DEEPINFRA_API_KEY != '' && steps.review_context.outputs.verify_review == 'true' && (steps.pr_agent_primary.outcome == 'failure' || steps.primary_review_output.outputs.published != 'true') }}
+        if: ${{ env.DEEPINFRA_API_KEY != '' && steps.review_context.outputs.reviewable == 'true' && steps.review_context.outputs.verify_review == 'true' && (steps.pr_agent_primary.outcome == 'failure' || steps.primary_review_output.outputs.published != 'true') }}
         uses: docker://pragent/pr-agent@sha256:28d87f1983944bb1d2c61be8367a2bee833e437a5d52ac2fa9a7324292ee3862
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -160,6 +176,7 @@ jobs:
           config.max_model_tokens: "32000"
           config.large_patch_policy: "clip"
           config.ai_timeout: "300"
+          config.publish_output_progress: "false"
           config.reasoning_effort: "none"
           config.response_language: "en-US"
           pr_reviewer.require_tests_review: "true"
@@ -181,7 +198,7 @@ jobs:
           github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review", "review_requested"]'
 
       - name: Report PR-Agent review output
-        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.verify_review == 'true' }}
+        if: ${{ (env.DEEPINFRA_API_KEY != '' || env.TOGETHERAI_API_KEY != '') && steps.review_context.outputs.reviewable == 'true' && steps.review_context.outputs.verify_review == 'true' }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -213,10 +230,34 @@ jobs:
                 (comment.body ?? "").includes(marker)
               );
             });
+            const progressComments = comments.filter((comment) => {
+              const author = comment.user?.login ?? "";
+              const body = (comment.body ?? "").trim();
+              const updatedAtMs = new Date(comment.updated_at).getTime();
+              return (
+                author === "github-actions[bot]" &&
+                body === "Preparing review..." &&
+                updatedAtMs >= startedAtMs
+              );
+            });
             const headSha =
-              context.payload.pull_request?.head?.sha ?? process.env.GITHUB_SHA ?? "";
+              "${{ steps.review_context.outputs.head_sha }}" ||
+              context.payload.pull_request?.head?.sha ||
+              process.env.GITHUB_SHA ||
+              "";
             const shortSha = headSha.slice(0, 7);
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            for (const comment of progressComments) {
+              try {
+                await github.rest.issues.deleteComment({
+                  ...context.repo,
+                  comment_id: comment.id,
+                });
+              } catch (error) {
+                core.warning(`Unable to delete stale PR-Agent progress comment: ${error.message}`);
+              }
+            }
 
             if (reviewComment) {
               const reviewBody = reviewComment.body ?? "";
