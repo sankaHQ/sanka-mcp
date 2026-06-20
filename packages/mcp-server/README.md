@@ -126,6 +126,12 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `select_buy_offer`: select one offer snapshot per Buy request line
 - `preview_buy_approval`: preview approval requirements for selected Buy offers
 - `submit_buy_request`: submit selected Buy offers after explicit confirmation
+- `create_buy_purchase_order`: create Company/Purchase Order handoff records after confirmation
+- `get_buy_merchant_purchase`: inspect linked Company, Purchase Order, checkout, order, and Bill state
+- `prepare_buy_checkout`: prepare a manual checkout URL after confirmation
+- `confirm_buy_order`: record a user-confirmed external merchant order id
+- `create_buy_bill`: create or reuse a Bill and optionally attach uploaded evidence file ids
+- `preview_buy_accounting`: preview accounting export readiness without posting Journal entries
 - `list_orders`: read-only order search
 - `get_order`: load a single order
 - `create_order`: create an order
