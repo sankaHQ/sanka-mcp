@@ -8,6 +8,7 @@ import {
   getBuyMerchantPurchaseTool,
   listBuyRequestsTool,
   prepareBuyCheckoutTool,
+  previewBuyAccountingTool,
   previewBuyRequestTool,
   selectBuyOfferTool,
   sourceBuyRequestTool,
@@ -63,6 +64,7 @@ describe('Sanka Buy MCP tools', () => {
         'prepare_buy_checkout',
         'confirm_buy_order',
         'create_buy_bill',
+        'preview_buy_accounting',
       ]),
     );
   });
@@ -88,6 +90,9 @@ describe('Sanka Buy MCP tools', () => {
     );
     expect(createBuyBillTool.metadata.httpPath).toBe(
       '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/create-bill',
+    );
+    expect(previewBuyAccountingTool.metadata.httpPath).toBe(
+      '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/accounting-preview',
     );
   });
 
@@ -609,18 +614,88 @@ describe('Sanka Buy MCP tools', () => {
       args: {
         merchant_purchase_id: 'merchant-1',
         confirm: true,
+        evidence_files: [
+          {
+            file_id: 'upload-file-1',
+            name: 'receipt.pdf',
+            evidence_type: 'receipt',
+          },
+        ],
         idempotency_key: 'bill-1',
       },
     });
 
     expect(post).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1/create-bill', {
-      body: {},
+      body: {
+        evidence_files: [
+          {
+            file_id: 'upload-file-1',
+            name: 'receipt.pdf',
+            evidence_type: 'receipt',
+          },
+        ],
+      },
       headers: { 'Idempotency-Key': 'bill-1' },
     });
     expect(result.structuredContent).toMatchObject({
       bill_id: 'bill-1',
       purchase_order_id: 'po-1',
       ctx_id: 'ctx-bill',
+    });
+  });
+
+  it('rejects invalid Buy bill evidence before calling V2', async () => {
+    const post = jest.fn();
+
+    const result = await createBuyBillTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        confirm: true,
+        evidence_files: [{ evidence_type: 'unsupported' }],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('previews Buy accounting readiness without idempotency headers', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        merchant_purchase: { id: 'merchant-1', status: 'bill_created' },
+        ready: false,
+        blockers: ['bill_required'],
+        warnings: ['external_order_not_confirmed'],
+        evidence_file_count: null,
+        journal_entry_action: 'not_created_by_sanka_buy',
+      },
+      meta: { ctx_id: 'ctx-accounting' },
+    });
+
+    const result = await previewBuyAccountingTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        idempotency_key: 'preview-should-not-forward',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1/accounting-preview', {
+      body: {},
+    });
+    expect(result.structuredContent).toMatchObject({
+      ready: false,
+      blockers: ['bill_required'],
+      warnings: ['external_order_not_confirmed'],
+      ctx_id: 'ctx-accounting',
     });
   });
 

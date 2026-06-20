@@ -102,6 +102,26 @@ const LINE_SELECTION_SCHEMA = {
   },
 };
 
+const BILL_EVIDENCE_TYPES = ['invoice', 'receipt', 'order_confirmation', 'other'] as const;
+
+const BILL_EVIDENCE_FILE_SCHEMA = {
+  type: 'object' as const,
+  required: ['file_id'],
+  additionalProperties: false,
+  properties: {
+    file_id: {
+      type: 'string',
+      description: 'Uploaded Sanka file id to attach to the created or linked Bill.',
+    },
+    name: { type: 'string', description: 'Optional display filename for the Bill attachment.' },
+    evidence_type: {
+      type: 'string',
+      enum: BILL_EVIDENCE_TYPES,
+      default: 'receipt',
+    },
+  },
+};
+
 const SANKA_BUY_STATUS_VALUES = [
   'draft',
   'sourcing',
@@ -289,6 +309,40 @@ const buyRequestPatchBody = (args: Record<string, unknown> | undefined): Record<
         readRecord(readArg(args, 'metadata')) ?? {}
       : undefined,
   });
+
+const buyBillEvidenceFiles = (
+  args: Record<string, unknown> | undefined,
+): { error?: string; files: Record<string, unknown>[] } => {
+  const rawEvidenceFiles = readArg(args, 'evidence_files', ['evidenceFiles']);
+  if (rawEvidenceFiles === undefined) return { files: [] };
+  if (!Array.isArray(rawEvidenceFiles)) {
+    return { error: '`evidence_files` must be an array.', files: [] };
+  }
+
+  const files: Record<string, unknown>[] = [];
+  for (const [index, value] of rawEvidenceFiles.entries()) {
+    const record = readRecord(value);
+    if (!record) {
+      return { error: `evidence_files[${index}] must be an object.`, files: [] };
+    }
+    const fileID = readString(readArg(record, 'file_id', ['fileId']));
+    if (!fileID) {
+      return { error: `evidence_files[${index}].file_id is required.`, files: [] };
+    }
+    const evidenceType = readString(readArg(record, 'evidence_type', ['evidenceType'])) ?? 'receipt';
+    if (!BILL_EVIDENCE_TYPES.includes(evidenceType as (typeof BILL_EVIDENCE_TYPES)[number])) {
+      return { error: `evidence_files[${index}].evidence_type is not supported.`, files: [] };
+    }
+    files.push(
+      compactRecord({
+        file_id: fileID,
+        name: readString(readArg(record, 'name')),
+        evidence_type: evidenceType,
+      }),
+    );
+  }
+  return { files };
+};
 
 export const previewBuyRequestTool: McpTool = {
   metadata: {
@@ -1139,6 +1193,12 @@ export const createBuyBillTool: McpTool = {
           type: 'boolean',
           description: 'Must be true after the user approves Bill creation from this merchant purchase.',
         },
+        evidence_files: {
+          type: 'array',
+          items: BILL_EVIDENCE_FILE_SCHEMA,
+          description:
+            'Optional uploaded file ids for receipt, invoice, or order-confirmation evidence to attach to the Bill.',
+        },
         idempotency_key: { type: 'string' },
       },
     },
@@ -1159,10 +1219,57 @@ export const createBuyBillTool: McpTool = {
     if (readBoolean(readArg(args, 'confirm')) !== true) {
       return asErrorResult('`confirm: true` is required before creating a Bill.');
     }
+    const evidence = buyBillEvidenceFiles(args);
+    if (evidence.error) return asErrorResult(evidence.error);
+    const body = evidence.files.length ? { evidence_files: evidence.files } : {};
     const response = (await reqContext.client.post(
       `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}/create-bill`,
-      { body: {}, ...idempotencyHeaders(args) },
+      { body, ...idempotencyHeaders(args) },
     )) as Record<string, unknown>;
     return buyResult(response, 'Created Sanka Buy bill handoff');
+  },
+};
+
+export const previewBuyAccountingTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'read',
+    tags: ['buy', 'procurement', 'bill', 'accounting'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/accounting-preview',
+    operationId: 'buy.merchantPurchases.accountingPreview',
+  },
+  tool: {
+    name: 'preview_buy_accounting',
+    title: 'Preview Buy accounting',
+    description:
+      'Preview accounting export readiness for a Sanka Buy merchant purchase after Bill creation. This does not create Journal entries or accounting exports.',
+    inputSchema: {
+      type: 'object',
+      required: ['merchant_purchase_id'],
+      additionalProperties: false,
+      properties: {
+        merchant_purchase_id: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Preview Buy accounting',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Preview Buy accounting');
+    if (authError) return authError;
+    const merchantPurchaseID = readString(readArg(args, 'merchant_purchase_id', ['merchantPurchaseId']));
+    if (!merchantPurchaseID) return asErrorResult('`merchant_purchase_id` is required.');
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}/accounting-preview`,
+      { body: {} },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Previewed Sanka Buy accounting readiness');
   },
 };
