@@ -144,6 +144,18 @@ const readBoolean = (value: unknown): boolean | undefined => {
   return undefined;
 };
 
+const isSafeExternalOrderID = (value: string): boolean =>
+  /^[A-Za-z0-9][A-Za-z0-9._:#/@-]{0,127}$/.test(value);
+
+const isSafeHttpUrl = (value: string): boolean => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
 const readRecord = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) ?
     (value as Record<string, unknown>)
@@ -877,5 +889,280 @@ export const submitBuyRequestTool: McpTool = {
       { body: {}, ...idempotencyHeaders(args) },
     )) as Record<string, unknown>;
     return buyResult(response, 'Submitted Sanka Buy request');
+  },
+};
+
+export const createBuyPurchaseOrderTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'write',
+    tags: ['buy', 'procurement', 'purchase-order'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/requests/{request_id}/create-purchase-order',
+    operationId: 'buy.requests.createPurchaseOrder',
+  },
+  tool: {
+    name: 'create_buy_purchase_order',
+    title: 'Create Buy purchase order',
+    description:
+      'Create or reuse Sanka Company and Purchase Order records from an approved Sanka Buy request.',
+    inputSchema: {
+      type: 'object',
+      required: ['request_id', 'confirm'],
+      additionalProperties: false,
+      properties: {
+        request_id: { type: 'string' },
+        confirm: {
+          type: 'boolean',
+          description: 'Must be true after the user has approved downstream Company and PO creation.',
+        },
+        idempotency_key: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create Buy purchase order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Create Buy purchase order');
+    if (authError) return authError;
+    const requestID = readString(readArg(args, 'request_id', ['requestId']));
+    if (!requestID) return asErrorResult('`request_id` is required.');
+    if (readBoolean(readArg(args, 'confirm')) !== true) {
+      return asErrorResult(
+        '`confirm: true` is required after reviewing selected offers and downstream PO creation.',
+      );
+    }
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/requests/${encodeURIComponent(requestID)}/create-purchase-order`,
+      { body: {}, ...idempotencyHeaders(args) },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Created Sanka Buy purchase order handoff');
+  },
+};
+
+export const getBuyMerchantPurchaseTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'read',
+    tags: ['buy', 'procurement', 'purchase-order'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/buy/merchant-purchases/{merchant_purchase_id}',
+    operationId: 'buy.merchantPurchases.retrieve',
+  },
+  tool: {
+    name: 'get_buy_merchant_purchase',
+    title: 'Get Buy merchant purchase',
+    description:
+      'Load one Sanka Buy merchant purchase, including linked Company, Purchase Order, checkout, external order, and Bill ids when present.',
+    inputSchema: {
+      type: 'object',
+      required: ['merchant_purchase_id'],
+      additionalProperties: false,
+      properties: {
+        merchant_purchase_id: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get Buy merchant purchase',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Get Buy merchant purchase');
+    if (authError) return authError;
+    const merchantPurchaseID = readString(readArg(args, 'merchant_purchase_id', ['merchantPurchaseId']));
+    if (!merchantPurchaseID) return asErrorResult('`merchant_purchase_id` is required.');
+    const response = (await reqContext.client.get(
+      `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}`,
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Loaded Sanka Buy merchant purchase');
+  },
+};
+
+export const prepareBuyCheckoutTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'write',
+    tags: ['buy', 'procurement', 'checkout'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/prepare-checkout',
+    operationId: 'buy.merchantPurchases.prepareCheckout',
+  },
+  tool: {
+    name: 'prepare_buy_checkout',
+    title: 'Prepare Buy checkout',
+    description:
+      'Prepare a manual checkout URL for a Sanka Buy merchant purchase after Purchase Order creation. This does not complete payment.',
+    inputSchema: {
+      type: 'object',
+      required: ['merchant_purchase_id', 'confirm'],
+      additionalProperties: false,
+      properties: {
+        merchant_purchase_id: { type: 'string' },
+        confirm: {
+          type: 'boolean',
+          description: 'Must be true after the user confirms they want a manual checkout URL.',
+        },
+        idempotency_key: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Prepare Buy checkout',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Prepare Buy checkout');
+    if (authError) return authError;
+    const merchantPurchaseID = readString(readArg(args, 'merchant_purchase_id', ['merchantPurchaseId']));
+    if (!merchantPurchaseID) return asErrorResult('`merchant_purchase_id` is required.');
+    if (readBoolean(readArg(args, 'confirm')) !== true) {
+      return asErrorResult('`confirm: true` is required before preparing a checkout URL.');
+    }
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}/prepare-checkout`,
+      { body: {}, ...idempotencyHeaders(args) },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Prepared Sanka Buy checkout');
+  },
+};
+
+export const confirmBuyOrderTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'write',
+    tags: ['buy', 'procurement', 'checkout'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/confirm-order',
+    operationId: 'buy.merchantPurchases.confirmOrder',
+  },
+  tool: {
+    name: 'confirm_buy_order',
+    title: 'Confirm Buy order',
+    description: 'Record the user-confirmed external merchant order id after manual Sanka Buy checkout.',
+    inputSchema: {
+      type: 'object',
+      required: ['merchant_purchase_id', 'external_order_id', 'confirm'],
+      additionalProperties: false,
+      properties: {
+        merchant_purchase_id: { type: 'string' },
+        external_order_id: {
+          type: 'string',
+          maxLength: 128,
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._:#/@-]{0,127}$',
+        },
+        external_order_name: { type: 'string', maxLength: 128 },
+        order_url: { type: 'string', format: 'uri' },
+        confirm: {
+          type: 'boolean',
+          description: 'Must be true after the user confirms the external order id.',
+        },
+        idempotency_key: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Confirm Buy order',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Confirm Buy order');
+    if (authError) return authError;
+    const merchantPurchaseID = readString(readArg(args, 'merchant_purchase_id', ['merchantPurchaseId']));
+    if (!merchantPurchaseID) return asErrorResult('`merchant_purchase_id` is required.');
+    const externalOrderID = readString(readArg(args, 'external_order_id', ['externalOrderId']));
+    if (!externalOrderID) return asErrorResult('`external_order_id` is required.');
+    if (!isSafeExternalOrderID(externalOrderID)) {
+      return asErrorResult(
+        '`external_order_id` must be 1-128 characters and use letters, numbers, dot, underscore, colon, hash, slash, at sign, or dash.',
+      );
+    }
+    if (readBoolean(readArg(args, 'confirm')) !== true) {
+      return asErrorResult('`confirm: true` is required after confirming the external order id.');
+    }
+    const orderUrl = readString(readArg(args, 'order_url', ['orderUrl']));
+    if (orderUrl && !isSafeHttpUrl(orderUrl)) {
+      return asErrorResult('`order_url` must be an http or https URL.');
+    }
+    const body = compactRecord({
+      external_order_id: externalOrderID,
+      external_order_name: readString(readArg(args, 'external_order_name', ['externalOrderName'])),
+      order_url: orderUrl,
+    });
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}/confirm-order`,
+      { body, ...idempotencyHeaders(args) },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Confirmed Sanka Buy external order');
+  },
+};
+
+export const createBuyBillTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'write',
+    tags: ['buy', 'procurement', 'bill'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/create-bill',
+    operationId: 'buy.merchantPurchases.createBill',
+  },
+  tool: {
+    name: 'create_buy_bill',
+    title: 'Create Buy bill',
+    description:
+      'Create or reuse a draft Sanka Bill from a Sanka Buy merchant purchase with linked Company and Purchase Order.',
+    inputSchema: {
+      type: 'object',
+      required: ['merchant_purchase_id', 'confirm'],
+      additionalProperties: false,
+      properties: {
+        merchant_purchase_id: { type: 'string' },
+        confirm: {
+          type: 'boolean',
+          description: 'Must be true after the user approves Bill creation from this merchant purchase.',
+        },
+        idempotency_key: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create Buy bill',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Create Buy bill');
+    if (authError) return authError;
+    const merchantPurchaseID = readString(readArg(args, 'merchant_purchase_id', ['merchantPurchaseId']));
+    if (!merchantPurchaseID) return asErrorResult('`merchant_purchase_id` is required.');
+    if (readBoolean(readArg(args, 'confirm')) !== true) {
+      return asErrorResult('`confirm: true` is required before creating a Bill.');
+    }
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/merchant-purchases/${encodeURIComponent(merchantPurchaseID)}/create-bill`,
+      { body: {}, ...idempotencyHeaders(args) },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Created Sanka Buy bill handoff');
   },
 };
