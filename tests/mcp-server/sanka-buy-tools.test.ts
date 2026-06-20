@@ -1,8 +1,13 @@
 import { selectTools } from '../../packages/mcp-server/src/server';
 import {
   cancelBuyRequestTool,
+  confirmBuyOrderTool,
+  createBuyBillTool,
+  createBuyPurchaseOrderTool,
   createBuyRequestTool,
+  getBuyMerchantPurchaseTool,
   listBuyRequestsTool,
+  prepareBuyCheckoutTool,
   previewBuyRequestTool,
   selectBuyOfferTool,
   sourceBuyRequestTool,
@@ -53,6 +58,11 @@ describe('Sanka Buy MCP tools', () => {
         'select_buy_offer',
         'preview_buy_approval',
         'submit_buy_request',
+        'create_buy_purchase_order',
+        'get_buy_merchant_purchase',
+        'prepare_buy_checkout',
+        'confirm_buy_order',
+        'create_buy_bill',
       ]),
     );
   });
@@ -64,6 +74,21 @@ describe('Sanka Buy MCP tools', () => {
     expect(sourceBuyRequestTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/source');
     expect(selectBuyOfferTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/select-offer');
     expect(submitBuyRequestTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/submit');
+    expect(createBuyPurchaseOrderTool.metadata.httpPath).toBe(
+      '/api/v2/buy/requests/{request_id}/create-purchase-order',
+    );
+    expect(getBuyMerchantPurchaseTool.metadata.httpPath).toBe(
+      '/api/v2/buy/merchant-purchases/{merchant_purchase_id}',
+    );
+    expect(prepareBuyCheckoutTool.metadata.httpPath).toBe(
+      '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/prepare-checkout',
+    );
+    expect(confirmBuyOrderTool.metadata.httpPath).toBe(
+      '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/confirm-order',
+    );
+    expect(createBuyBillTool.metadata.httpPath).toBe(
+      '/api/v2/buy/merchant-purchases/{merchant_purchase_id}/create-bill',
+    );
   });
 
   it('creates Buy requests through V2 and forwards the idempotency key', async () => {
@@ -390,6 +415,212 @@ describe('Sanka Buy MCP tools', () => {
       },
       approval_required: false,
       ctx_id: 'ctx-submit',
+    });
+  });
+
+  it('creates Buy purchase orders only after explicit confirmation', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        buy_request: { id: 'buy-1', status: 'purchase_order_created' },
+        merchant_purchases: [{ id: 'merchant-1', purchase_order_id: 'po-1' }],
+        purchase_order_ids: ['po-1'],
+        company_ids: ['company-1'],
+      },
+      meta: { ctx_id: 'ctx-po' },
+    });
+
+    const rejected = await createBuyPurchaseOrderTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: { request_id: 'buy-1' },
+    });
+    const result = await createBuyPurchaseOrderTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        confirm: true,
+        idempotency_key: 'po-1',
+      },
+    });
+
+    expect(rejected.isError).toBe(true);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/create-purchase-order', {
+      body: {},
+      headers: { 'Idempotency-Key': 'po-1' },
+    });
+    expect(result.structuredContent).toMatchObject({
+      purchase_order_ids: ['po-1'],
+      company_ids: ['company-1'],
+      ctx_id: 'ctx-po',
+    });
+  });
+
+  it('loads Buy merchant purchases by id', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'merchant-1',
+        buy_request_id: 'buy-1',
+        status: 'purchase_order_created',
+        purchase_order_id: 'po-1',
+      },
+      meta: { ctx_id: 'ctx-merchant' },
+    });
+
+    const result = await getBuyMerchantPurchaseTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+      },
+      args: { merchant_purchase_id: 'merchant-1' },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1');
+    expect(result.structuredContent).toMatchObject({
+      id: 'merchant-1',
+      purchase_order_id: 'po-1',
+      ctx_id: 'ctx-merchant',
+    });
+  });
+
+  it('prepares Buy checkout with confirmation and idempotency key', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        buy_request: { id: 'buy-1', status: 'checkout_pending' },
+        merchant_purchase: { id: 'merchant-1', status: 'checkout_pending' },
+        checkout_url: 'https://example.myshopify.com/products/laptop',
+      },
+      meta: { ctx_id: 'ctx-checkout' },
+    });
+
+    const result = await prepareBuyCheckoutTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        confirm: true,
+        idempotency_key: 'checkout-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1/prepare-checkout', {
+      body: {},
+      headers: { 'Idempotency-Key': 'checkout-1' },
+    });
+    expect(result.structuredContent?.['checkout_url']).toBe('https://example.myshopify.com/products/laptop');
+  });
+
+  it('confirms Buy external orders and forwards order details', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        buy_request: { id: 'buy-1', status: 'ordered' },
+        merchant_purchase: { id: 'merchant-1', status: 'ordered' },
+        external_order_id: 'shopify-order-1',
+      },
+      meta: { ctx_id: 'ctx-order' },
+    });
+
+    const result = await confirmBuyOrderTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        external_order_id: 'shopify-order-1',
+        external_order_name: '#1001',
+        order_url: 'https://example.myshopify.com/orders/1001',
+        confirm: true,
+        idempotency_key: 'order-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1/confirm-order', {
+      body: {
+        external_order_id: 'shopify-order-1',
+        external_order_name: '#1001',
+        order_url: 'https://example.myshopify.com/orders/1001',
+      },
+      headers: { 'Idempotency-Key': 'order-1' },
+    });
+    expect(result.structuredContent?.['external_order_id']).toBe('shopify-order-1');
+  });
+
+  it('rejects malformed Buy external order details before calling V2', async () => {
+    const post = jest.fn();
+
+    const badOrderID = await confirmBuyOrderTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        external_order_id: '<script>',
+        confirm: true,
+      },
+    });
+    const badOrderUrl = await confirmBuyOrderTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        external_order_id: 'shopify-order-1',
+        order_url: 'javascript:alert(1)',
+        confirm: true,
+      },
+    });
+
+    expect(badOrderID.isError).toBe(true);
+    expect(badOrderUrl.isError).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('creates Buy bills with confirmation and idempotency key', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        buy_request: { id: 'buy-1', status: 'bill_created' },
+        merchant_purchase: { id: 'merchant-1', status: 'bill_created' },
+        bill_id: 'bill-1',
+        purchase_order_id: 'po-1',
+      },
+      meta: { ctx_id: 'ctx-bill' },
+    });
+
+    const result = await createBuyBillTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        merchant_purchase_id: 'merchant-1',
+        confirm: true,
+        idempotency_key: 'bill-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/merchant-purchases/merchant-1/create-bill', {
+      body: {},
+      headers: { 'Idempotency-Key': 'bill-1' },
+    });
+    expect(result.structuredContent).toMatchObject({
+      bill_id: 'bill-1',
+      purchase_order_id: 'po-1',
+      ctx_id: 'ctx-bill',
     });
   });
 
