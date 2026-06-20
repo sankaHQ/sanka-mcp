@@ -114,6 +114,18 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `update_deal`: update a deal
 - `delete_deal`: delete a deal
 - `list_deal_pipelines`: inspect deal pipelines and stages
+- `preview_buy_request`: preview a natural-language or structured product purchase request
+- `create_buy_request`: create a draft Sanka Buy request
+- `list_buy_requests`: list Sanka Buy requests
+- `get_buy_request`: load one Sanka Buy request
+- `update_buy_request`: update draft Sanka Buy fields
+- `cancel_buy_request`: cancel a Sanka Buy request after explicit confirmation
+- `source_buy_request`: start or record Shopify Global Catalog sourcing for a Buy request
+- `list_buy_sourcing_runs`: list sourcing runs for a Buy request
+- `get_buy_sourcing_run`: load one Buy sourcing run
+- `select_buy_offer`: select one offer snapshot per Buy request line
+- `preview_buy_approval`: preview approval requirements for selected Buy offers
+- `submit_buy_request`: submit selected Buy offers after explicit confirmation
 - `list_orders`: read-only order search
 - `get_order`: load a single order
 - `create_order`: create an order
