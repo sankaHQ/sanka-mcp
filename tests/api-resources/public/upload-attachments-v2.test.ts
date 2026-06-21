@@ -46,4 +46,53 @@ describe('public object upload attachment resources on V2', () => {
       'POST http://localhost:5000/api/v2/bills/files',
     ]);
   });
+
+  test('lists attached expense files through the V2 child-resource route', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        return envelope({
+          object_type: 'expense',
+          record_id: 'expense-1',
+          items: [
+            {
+              file_id: 'expense-file-row-1',
+              name: 'receipt.pdf',
+              file: 'expense-files/receipt.pdf',
+            },
+          ],
+          page: 2,
+          page_size: 5,
+          total: 1,
+        });
+      },
+    });
+
+    await expect(
+      client.public.expenses.listFiles('expense-1', {
+        page: 2,
+        page_size: 5,
+        workspace_id: 'workspace-ignored-by-v2-child-route',
+      }),
+    ).resolves.toEqual({
+      object_type: 'expense',
+      record_id: 'expense-1',
+      items: [
+        {
+          file_id: 'expense-file-row-1',
+          name: 'receipt.pdf',
+          file: 'expense-files/receipt.pdf',
+        },
+      ],
+      page: 2,
+      page_size: 5,
+      total: 1,
+    });
+
+    expect(calls).toEqual(['GET http://localhost:5000/api/v2/expenses/expense-1/files?page=2&page_size=5']);
+  });
 });
