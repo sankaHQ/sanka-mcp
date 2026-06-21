@@ -6986,6 +6986,33 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('surfaces chunked upload guidance on expense attachment and mutation tools', () => {
+    const createDescription = crmCreateExpenseTool.tool.description ?? '';
+    expect(createDescription).toContain('start_expense_attachment_upload');
+    expect(createDescription).toContain('append_expense_attachment_upload_chunk');
+    expect(createDescription).toContain('finish_expense_attachment_upload');
+    expect(createDescription).toContain('Attachments are optional');
+    expect(createDescription).toContain('Do not silently drop a provided or required attachment');
+
+    const updateDescription = crmUpdateExpenseTool.tool.description ?? '';
+    expect(updateDescription).toContain('start_expense_attachment_upload');
+    expect(updateDescription).toContain('attachment_file_ids');
+
+    const directUploadDescription = crmUploadExpenseAttachmentTool.tool.description ?? '';
+    expect(directUploadDescription).toContain('small, already available base64');
+    expect(directUploadDescription).toContain('use start_expense_attachment_upload');
+
+    const createInputSchema = crmCreateExpenseTool.tool.inputSchema as any;
+    expect(createInputSchema.properties.attachment_file_ids.description).toContain(
+      'append_expense_attachment_upload_chunk until done',
+    );
+
+    expect(crmStartExpenseAttachmentUploadTool.tool.description).toContain('Do not abandon the attachment');
+    expect(crmAppendExpenseAttachmentUploadChunkTool.tool.description).toContain(
+      'Continue appending until the result returns done=true',
+    );
+  });
+
   it('uploads an expense attachment from chunked base64 content', async () => {
     const receiptBytes = Buffer.from('receipt pdf bytes that are sent in chunks');
     const contentBase64 = receiptBytes.toString('base64');
@@ -7020,8 +7047,18 @@ describe('ChatGPT CRM tools', () => {
     expect(uploadToken).toBeTruthy();
     expect(startResult.structuredContent).toMatchObject({
       chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+      recommended_chunk_count: 1,
       next_action: expect.stringContaining(`at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters`),
     });
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('until append returns done=true'),
+    );
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('using max-size chunks this should take 1 append call(s)'),
+    );
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('do not drop it and create or update the expense without its file_id'),
+    );
     expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
     ]);
@@ -7044,8 +7081,12 @@ describe('ChatGPT CRM tools', () => {
       content_base64_length: firstChunk.length,
       next_offset: firstChunk.length,
       done: false,
+      recommended_chunk_count: 1,
       required_next_tool: 'append_expense_attachment_upload_chunk',
     });
+    expect(firstAppend.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('Do not drop this in-progress user-provided or required attachment'),
+    );
 
     const secondAppend = await crmAppendExpenseAttachmentUploadChunkTool.handler({
       reqContext,
@@ -7060,6 +7101,7 @@ describe('ChatGPT CRM tools', () => {
       content_base64_length: contentBase64.length,
       next_offset: contentBase64.length,
       done: true,
+      recommended_chunk_count: 1,
       required_next_tool: 'finish_expense_attachment_upload',
     });
 
