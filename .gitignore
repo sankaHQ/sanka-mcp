@@ -15,3 +15,5 @@ dist-bundle
 .browser-use-profiles/
 packages/*/.browser-use-artifacts/
 packages/*/.browser-use-profiles/
+.worktrees
+worktrees

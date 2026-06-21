@@ -975,7 +975,7 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
   attachment_file_ids: {
     type: 'array',
     description:
-      'Optional uploaded expense attachment file IDs to bind to the expense. Upload receipt or invoice files with upload_expense_attachment first, then pass the returned file_id values here.',
+      'Optional uploaded expense attachment file IDs to bind to the expense. For small, already available base64 payloads, upload receipt or invoice files with upload_expense_attachment. For client-local PDFs or any payload that may truncate in one call, use start_expense_attachment_upload, append_expense_attachment_upload_chunk until done, then finish_expense_attachment_upload. Pass the returned file_id values here.',
     items: {
       type: 'string',
     },
@@ -1831,7 +1831,7 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB.',
+        'Base64-encoded original file content. Data URLs are also accepted. For normal receipts or invoices, keep the original PDF bytes; do not shrink, rasterize, or replace the document with extracted text just because it is a few hundred KB. If the client-local file may be truncated or unreliable as one tool argument, use the chunked upload tools instead.',
     },
     mime_type: {
       type: 'string',
@@ -1916,6 +1916,7 @@ const EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA = {
     chunk_size: { type: 'number' },
     expires_at: { type: 'string' },
     next_offset: { type: 'number' },
+    recommended_chunk_count: { type: 'number' },
     completion_status: { type: 'string' },
     required_next_tool: { type: 'string' },
     next_action: { type: 'string' },
@@ -1941,6 +1942,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA = {
     content_base64_length: { type: 'number' },
     expected_content_base64_length: { type: 'number' },
     expected_byte_length: { type: 'number' },
+    recommended_chunk_count: { type: 'number' },
     next_offset: { type: 'number' },
     done: { type: 'boolean' },
     chunk_size: { type: 'number' },
@@ -14914,7 +14916,7 @@ export const crmUploadExpenseAttachmentTool: McpTool = {
     name: 'upload_expense_attachment',
     title: 'Upload expense attachment',
     description:
-      'Upload an expense attachment to Sanka. Provide a filename and base64-encoded original file content, then use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
+      'Upload an expense attachment to Sanka from a small, already available base64 payload. For client-local PDFs or payloads that are too large or unreliable to pass as one content_base64 string, use start_expense_attachment_upload, append_expense_attachment_upload_chunk until done, then finish_expense_attachment_upload. Use the returned file_id in create_expense or update_expense. Ordinary receipt and invoice PDFs should be uploaded as-is; do not compress or substitute extracted text unless the original upload actually fails.',
     inputSchema: EXPENSE_UPLOAD_INPUT_SCHEMA,
     outputSchema: EXPENSE_UPLOAD_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14973,7 +14975,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
     name: 'start_expense_attachment_upload',
     title: 'Start expense attachment upload',
     description:
-      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append chunks, then finish to receive a file_id for create_expense or update_expense.',
+      'Start a chunked expense attachment upload for client-local files that are too large or unreliable to pass as one content_base64 string. Use this for receipt/invoice PDFs from Claude or other hosted clients: start, append every chunk in order, then finish to receive a file_id for create_expense or update_expense. Do not abandon the attachment only because multiple append calls are required.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_START_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -14998,11 +15000,17 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
       return asErrorResult('`filename` is required.');
     }
 
+    const expectedBase64Length =
+      typeof args?.['content_base64_length'] === 'number' ? args['content_base64_length'] : undefined;
+    const recommendedChunkCount =
+      typeof expectedBase64Length === 'number' ?
+        Math.ceil(expectedBase64Length / BINARY_UPLOAD_CHUNK_BASE64_LENGTH)
+      : undefined;
+
     const upload = startBinaryUpload({
       filename,
       mimeType: readString(args?.['mime_type']),
-      expectedBase64Length:
-        typeof args?.['content_base64_length'] === 'number' ? args['content_base64_length'] : undefined,
+      expectedBase64Length,
       expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
       sessionId: reqContext.mcpSessionId,
     });
@@ -15019,9 +15027,16 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
         chunk_size: upload.chunkSize,
         expires_at: upload.expiresAt,
         next_offset: upload.nextOffset,
+        ...(recommendedChunkCount !== undefined ?
+          { recommended_chunk_count: recommendedChunkCount }
+        : undefined),
         completion_status: 'requires_chunks',
         required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
+          recommendedChunkCount !== undefined ?
+            `; using max-size chunks this should take ${recommendedChunkCount} append call(s)`
+          : ''
+        }. Then call finish_expense_attachment_upload to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and create or update the expense without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
       },
     };
   },
@@ -15038,7 +15053,7 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
     name: 'append_expense_attachment_upload_chunk',
     title: 'Append expense attachment upload chunk',
     description:
-      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context.',
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context. Continue appending until the result returns done=true, then call finish_expense_attachment_upload.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15098,6 +15113,9 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
         ...(chunk.expectedByteLength !== undefined ?
           { expected_byte_length: chunk.expectedByteLength }
         : undefined),
+        ...(chunk.expectedBase64Length !== undefined ?
+          { recommended_chunk_count: Math.ceil(chunk.expectedBase64Length / chunk.chunkSize) }
+        : undefined),
         next_offset: chunk.nextOffset,
         done: chunk.done,
         chunk_size: chunk.chunkSize,
@@ -15109,7 +15127,7 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
         next_action:
           chunk.done ?
             'Call finish_expense_attachment_upload with this upload_token to upload the assembled file to Sanka and receive a file_id.'
-          : 'Call append_expense_attachment_upload_chunk again with next_offset and the next content_base64 chunk.',
+          : 'Call append_expense_attachment_upload_chunk again with next_offset and the next content_base64 chunk. Do not drop this in-progress user-provided or required attachment and switch to create_expense without its file_id while chunks remain.',
       },
     };
   },
@@ -15128,7 +15146,7 @@ export const crmFinishExpenseAttachmentUploadTool: McpTool = {
     name: 'finish_expense_attachment_upload',
     title: 'Finish expense attachment upload',
     description:
-      'Finish a chunked expense attachment upload, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for create_expense or update_expense.',
+      'Finish a chunked expense attachment upload after all chunks have been appended, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for create_expense or update_expense.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_FINISH_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15183,7 +15201,7 @@ export const crmFinishExpenseAttachmentUploadTool: McpTool = {
         content_base64_length: assembled.contentBase64Length,
         completion_status: 'uploaded',
         next_action:
-          'Pass structuredContent.file_id in attachment_file_ids when calling create_expense or update_expense.',
+          'Pass structuredContent.file_id in attachment_file_ids when calling create_expense or update_expense, then read the expense back if attachment confirmation matters.',
       },
     };
   },
@@ -15202,7 +15220,7 @@ export const crmCreateExpenseTool: McpTool = {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. When a receipt or invoice is required, call upload_expense_attachment first and attach uploaded file ids with `attachment_file_ids` in the same create call. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
+      'Create an expense in Sanka. Attachments are optional when the user did not provide or require one. When a receipt or invoice is provided or required, upload the original file first: use upload_expense_attachment for small, already available base64 payloads, or start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Attach uploaded file ids with `attachment_file_ids` in the same create call. Do not silently drop a provided or required attachment unless upload failed or the user explicitly approved skipping it. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15248,7 +15266,8 @@ export const crmUpdateExpenseTool: McpTool = {
   tool: {
     name: 'update_expense',
     title: 'Update expense',
-    description: 'Update an existing expense in Sanka.',
+    description:
+      'Update an existing expense in Sanka. To attach a receipt or invoice, upload the original file first with upload_expense_attachment for small base64 payloads, or with start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Pass returned file_id values in `attachment_file_ids`.',
     inputSchema: EXPENSE_UPDATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
