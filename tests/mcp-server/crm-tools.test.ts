@@ -206,7 +206,10 @@ import {
   crmCalculatePayrollRunTool,
 } from '../../packages/mcp-server/src/crm-tools';
 import { resetBinaryDownloadStoreForTests } from '../../packages/mcp-server/src/binary-download-store';
-import { resetBinaryUploadStoreForTests } from '../../packages/mcp-server/src/binary-upload-store';
+import {
+  BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+  resetBinaryUploadStoreForTests,
+} from '../../packages/mcp-server/src/binary-upload-store';
 
 const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
@@ -7015,6 +7018,10 @@ describe('ChatGPT CRM tools', () => {
     });
     const uploadToken = startResult.structuredContent?.['upload_token'] as string;
     expect(uploadToken).toBeTruthy();
+    expect(startResult.structuredContent).toMatchObject({
+      chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+      next_action: expect.stringContaining(`at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters`),
+    });
     expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
     ]);
