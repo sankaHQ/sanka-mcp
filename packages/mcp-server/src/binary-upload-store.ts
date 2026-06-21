@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-// Keep upload chunks below common hosted-client tool output truncation thresholds.
-export const BINARY_UPLOAD_CHUNK_BASE64_LENGTH = 8_000;
+// Keep normal receipt/invoice PDFs to one append call while staying below the
+// receipt-sized JSON-RPC payloads accepted by hosted clients.
+export const BINARY_UPLOAD_CHUNK_BASE64_LENGTH = 160_000;
 
-const UPLOAD_TTL_MS = 15 * 60 * 1000;
+const UPLOAD_TTL_MS = 60 * 60 * 1000;
 const MAX_UPLOADS = 100;
 const MAX_UPLOAD_BASE64_LENGTH = 12 * 1024 * 1024;
 

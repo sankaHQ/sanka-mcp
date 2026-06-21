@@ -7018,13 +7018,21 @@ describe('ChatGPT CRM tools', () => {
     expect(updateDescription).toContain('attachment_file_ids');
 
     const directUploadDescription = crmUploadExpenseAttachmentTool.tool.description ?? '';
-    expect(directUploadDescription).toContain('small, already available base64');
+    expect(directUploadDescription).toContain('already available base64');
+    expect(directUploadDescription).toContain('Prefer this direct upload for ordinary receipt/invoice PDFs');
     expect(directUploadDescription).toContain('use start_expense_attachment_upload');
 
     const createInputSchema = crmCreateExpenseTool.tool.inputSchema as any;
     expect(createInputSchema.properties.attachment_file_ids.description).toContain(
       'append_expense_attachment_upload_chunk until done',
     );
+
+    const startOutputSchema = crmStartExpenseAttachmentUploadTool.tool.outputSchema as any;
+    expect(startOutputSchema.required).toContain('recommended_upload_strategy');
+    expect(startOutputSchema.properties.recommended_upload_strategy.enum).toEqual([
+      'single_append_then_finish',
+      'append_chunks_then_finish',
+    ]);
 
     expect(crmStartExpenseAttachmentUploadTool.tool.description).toContain('Do not abandon the attachment');
     expect(crmAppendExpenseAttachmentUploadChunkTool.tool.description).toContain(
@@ -7067,7 +7075,8 @@ describe('ChatGPT CRM tools', () => {
     expect(startResult.structuredContent).toMatchObject({
       chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
       recommended_chunk_count: 1,
-      next_action: expect.stringContaining(`safe recommended size of ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH}`),
+      recommended_upload_strategy: 'single_append_then_finish',
+      next_action: expect.stringContaining(`around ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH}`),
     });
     expect(startResult.structuredContent?.['next_action']).toEqual(
       expect.stringContaining('until append returns done=true'),
@@ -7139,6 +7148,87 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       file_id: 'file-1',
       filename: 'receipt.pdf',
+      byte_length: receiptBytes.byteLength,
+      content_base64_length: contentBase64.length,
+      completion_status: 'uploaded',
+    });
+  });
+
+  it('uploads a normal receipt-sized PDF in one append', async () => {
+    const receiptBytes = Buffer.alloc(81_042, 9);
+    const contentBase64 = receiptBytes.toString('base64');
+    expect(contentBase64).toHaveLength(108_056);
+
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-waw-receipt',
+      filename: '20260620_株式会社サンカ_WAW+日本橋_24200.pdf',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          expenses: { uploadAttachment },
+        },
+      } as any,
+      auth: oauthContext(),
+      mcpSessionId: 'session-receipt-sized-upload',
+      toolProfile: 'full' as const,
+    };
+
+    const startResult = await crmStartExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: {
+        filename: '20260620_株式会社サンカ_WAW+日本橋_24200.pdf',
+        mime_type: 'application/pdf',
+        content_base64_length: contentBase64.length,
+        byte_length: receiptBytes.byteLength,
+      },
+    });
+
+    expect(startResult.structuredContent).toMatchObject({
+      chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+      recommended_chunk_count: 1,
+      recommended_upload_strategy: 'single_append_then_finish',
+      next_offset: 0,
+      completion_status: 'requires_chunks',
+      required_next_tool: 'append_expense_attachment_upload_chunk',
+    });
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('ordinary receipt/invoice PDFs'),
+    );
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('one reliable append call'),
+    );
+
+    const uploadToken = startResult.structuredContent?.['upload_token'] as string;
+    const appendResult = await crmAppendExpenseAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: 0,
+        content_base64: contentBase64,
+      },
+    });
+    expect(appendResult.structuredContent).toMatchObject({
+      content_base64_offset: 0,
+      content_base64_length: contentBase64.length,
+      done: true,
+      required_next_tool: 'finish_expense_attachment_upload',
+    });
+
+    const finishResult = await crmFinishExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: { upload_token: uploadToken },
+    });
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('20260620_株式会社サンカ_WAW+日本橋_24200.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(Buffer.from(await payload.file.arrayBuffer())).toEqual(receiptBytes);
+    expect(finishResult.structuredContent).toMatchObject({
+      ok: true,
+      file_id: 'file-waw-receipt',
       byte_length: receiptBytes.byteLength,
       content_base64_length: contentBase64.length,
       completion_status: 'uploaded',
