@@ -1889,7 +1889,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'One base64 chunk of the original file. Keep chunks around the returned chunk_size; do not pass the full PDF as one huge string.',
+        'One base64 chunk of the original file. Keep chunks at or below the returned chunk_size; do not pass the full PDF as one huge string.',
     },
   },
   required: ['content_base64'],
@@ -15021,7 +15021,7 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
         next_offset: upload.nextOffset,
         completion_status: 'requires_chunks',
         required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks of about ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
+        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time. Then call finish_expense_attachment_upload to get a file_id.`,
       },
     };
   },
