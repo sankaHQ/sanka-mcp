@@ -6966,11 +6966,6 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
       attachment_file_count: 1,
-      attachment_verification: {
-        ok: true,
-        expected_uploaded_file_ids: [],
-        attached_file_count: 1,
-      },
     });
   });
 
@@ -7347,7 +7342,9 @@ describe('ChatGPT CRM tools', () => {
       ],
       attachment_file_count: 2,
       attachment_verification: {
+        status: 'verified',
         ok: true,
+        mutation_succeeded: true,
         expected_uploaded_file_ids: ['file-1', 'file-2'],
         attached_file_count: 2,
       },
@@ -7364,6 +7361,52 @@ describe('ChatGPT CRM tools', () => {
     const summaryText = summaryBlock?.type === 'text' ? summaryBlock.text : '';
     expect(summaryText).toContain('Partner fields are missing');
     expect(summaryText).toContain('explicit permission');
+  });
+
+  it('separates successful expense creation from unavailable attachment verification', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      expense_id: 'expense-1',
+    });
+
+    const result = await crmCreateExpenseTool.handler({
+      reqContext: {
+        client: { public: { expenses: { create } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        amount: 100,
+        currency: 'USD',
+        attachment_file_ids: ['file-1'],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        amount: 100,
+        currency: 'USD',
+        attachment_file: {
+          files: [{ file_id: 'file-1' }],
+        },
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      expense_id: 'expense-1',
+      attachment_verification: {
+        status: 'unavailable',
+        verified: false,
+        mutation_succeeded: true,
+        expected_uploaded_file_ids: ['file-1'],
+        message:
+          'Expense was saved, but this Sanka SDK cannot verify attachments because listFiles is unavailable.',
+      },
+    });
+    expect((result.structuredContent as any).attachment_verification).not.toHaveProperty('ok');
   });
 
   it('updates an expense', async () => {

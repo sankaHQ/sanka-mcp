@@ -10334,6 +10334,16 @@ const expenseFileCountFromListPayload = (payload: unknown, files: Array<Record<s
   return typeof total === 'number' && Number.isFinite(total) ? total : files.length;
 };
 
+const withExpenseAttachedFiles = (
+  payload: Record<string, unknown>,
+  files: Array<Record<string, unknown>>,
+  attachmentFileCount = files.length,
+): Record<string, unknown> => ({
+  ...payload,
+  attached_files: files,
+  attachment_file_count: attachmentFileCount,
+});
+
 const withExpenseAttachmentVerification = (
   payload: Record<string, unknown>,
   files: Array<Record<string, unknown>>,
@@ -10341,13 +10351,26 @@ const withExpenseAttachmentVerification = (
   attachmentFileCount = files.length,
 ): Record<string, unknown> => {
   const expectedCount = expectedAttachmentFileIDs.length;
-  const ok = expectedCount === 0 || attachmentFileCount >= expectedCount;
+  if (expectedCount === 0) {
+    return {
+      ...withExpenseAttachedFiles(payload, files, attachmentFileCount),
+      attachment_verification: {
+        status: 'not_requested',
+        verified: false,
+        expected_uploaded_file_ids: expectedAttachmentFileIDs,
+        attached_file_count: attachmentFileCount,
+        message: 'No uploaded attachment file IDs were provided for verification.',
+      },
+    };
+  }
+
+  const ok = attachmentFileCount >= expectedCount;
   return {
-    ...payload,
-    attached_files: files,
-    attachment_file_count: attachmentFileCount,
+    ...withExpenseAttachedFiles(payload, files, attachmentFileCount),
     attachment_verification: {
+      status: ok ? 'verified' : 'mismatch',
       ok,
+      mutation_succeeded: true,
       expected_uploaded_file_ids: expectedAttachmentFileIDs,
       attached_file_count: attachmentFileCount,
       ...(ok ? undefined : (
@@ -10371,30 +10394,41 @@ const enrichExpenseWithAttachedFiles = async ({
     return payload;
   }
 
-  const listFiles = (expensesClient as ExpenseFilesClient).listFiles;
-  if (!listFiles) {
+  const expensesWithFilesClient = expensesClient as ExpenseFilesClient;
+  if (!expensesWithFilesClient.listFiles) {
     return expectedAttachmentFileIDs.length === 0 ?
         payload
       : {
           ...payload,
           attachment_verification: {
-            ok: false,
+            status: 'unavailable',
+            verified: false,
+            mutation_succeeded: true,
             expected_uploaded_file_ids: expectedAttachmentFileIDs,
-            message: 'The Sanka SDK in this MCP server cannot verify expense attachments.',
+            message:
+              'Expense was saved, but this Sanka SDK cannot verify attachments because listFiles is unavailable.',
           },
         };
   }
 
   try {
-    const fileList = await listFiles.call(expensesClient, expenseID, { page: 1, page_size: 100 }, undefined);
+    const fileList = await expensesWithFilesClient.listFiles(
+      expenseID,
+      { page: 1, page_size: 100 },
+      undefined,
+    );
     const files = expenseAttachedFilesFromListPayload(fileList);
     const total = expenseFileCountFromListPayload(fileList, files);
-    return withExpenseAttachmentVerification(payload, files, expectedAttachmentFileIDs, total);
+    return expectedAttachmentFileIDs.length > 0 ?
+        withExpenseAttachmentVerification(payload, files, expectedAttachmentFileIDs, total)
+      : withExpenseAttachedFiles(payload, files, total);
   } catch (error) {
     return {
       ...payload,
       attachment_verification: {
-        ok: false,
+        status: 'failed',
+        verified: false,
+        mutation_succeeded: true,
         expected_uploaded_file_ids: expectedAttachmentFileIDs,
         message:
           error instanceof Error ?
