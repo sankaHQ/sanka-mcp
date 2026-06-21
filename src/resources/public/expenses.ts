@@ -157,6 +157,24 @@ export class Expenses extends APIResource {
   }
 
   /**
+   * List Expense Files
+   */
+  listFiles(
+    expenseID: string,
+    params: ExpenseListFilesParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<ExpenseFileListResponse> {
+    const { workspace_id: _workspaceID, ...query } = params ?? {};
+    void _workspaceID;
+    return unwrapV2DataPromise(
+      this._client.v2Get<ExpenseFileListResponse>(path`/expenses/${expenseID}/files`, {
+        query,
+        ...options,
+      }),
+    );
+  }
+
+  /**
    * Delete Expense
    */
   delete(
@@ -215,6 +233,40 @@ export interface Expense {
   status?: string | null;
 
   updated_at?: string | null;
+
+  attached_files?: Array<ExpenseFile> | null;
+
+  attachment_file?: Expense.AttachmentFile | null;
+}
+
+export namespace Expense {
+  export interface AttachmentFile {
+    files?: Array<ExpenseFile>;
+  }
+}
+
+export interface ExpenseFile {
+  file_id?: string | null;
+
+  id?: string | null;
+
+  name?: string | null;
+
+  filename?: string | null;
+
+  file?: string | null;
+
+  relative_path?: string | null;
+
+  url?: string | null;
+
+  download_url?: string | null;
+
+  display?: string | null;
+
+  size?: number | null;
+
+  created_at?: string | null;
 }
 
 export interface PublicExpenseRequest {
@@ -409,6 +461,28 @@ export interface ExpenseListParams {
    * Header param
    */
   'Accept-Language'?: string;
+}
+
+export interface ExpenseListFilesParams {
+  page?: number | null;
+
+  page_size?: number | null;
+
+  workspace_id?: string | null;
+}
+
+export interface ExpenseFileListResponse {
+  object_type?: string | null;
+
+  record_id?: string | null;
+
+  items?: Array<ExpenseFile>;
+
+  page?: number | null;
+
+  page_size?: number | null;
+
+  total?: number | null;
 }
 
 export interface ExpenseDeleteParams {

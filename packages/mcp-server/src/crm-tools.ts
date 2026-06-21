@@ -1889,7 +1889,7 @@ const EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'One base64 chunk of the original file. Keep chunks at or below the returned chunk_size; do not pass the full PDF as one huge string.',
+        'One base64 chunk of the original file. Use the returned chunk_size as the safe transport recommendation; larger receipt-sized chunks are accepted if the client can pass them without truncation.',
     },
   },
   required: ['content_base64'],
@@ -2323,6 +2323,12 @@ const EXPENSE_OUTPUT_SCHEMA = {
     amount: { type: 'number' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
+    attached_files: {
+      type: 'array',
+      items: { type: 'object', additionalProperties: true },
+    },
+    attachment_file_count: { type: 'integer' },
+    attachment_verification: { type: 'object', additionalProperties: true },
   },
   required: ['id', 'created_at'],
 };
@@ -2349,6 +2355,12 @@ const EXPENSE_MUTATION_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     expense_id: { type: 'string' },
     external_id: { type: ['string', 'null'] as any },
+    attached_files: {
+      type: 'array',
+      items: { type: 'object', additionalProperties: true },
+    },
+    attachment_file_count: { type: 'integer' },
+    attachment_verification: { type: 'object', additionalProperties: true },
     advisories: {
       type: ['array', 'null'] as any,
       items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
@@ -10279,14 +10291,118 @@ const buildExpenseDetailSummary = (expense: Record<string, unknown>): string => 
   const id = readString(expense['id']);
   const amount = typeof expense['amount'] === 'number' ? String(expense['amount']) : undefined;
   const currency = readString(expense['currency']);
+  const attachmentFileCount =
+    typeof expense['attachment_file_count'] === 'number' ? expense['attachment_file_count'] : 0;
 
   if (description) {
-    return `Loaded expense: ${description}.`;
+    return `Loaded expense: ${description}.${
+      attachmentFileCount > 0 ? ` Attached files: ${attachmentFileCount}.` : ''
+    }`;
   }
   if (companyName && amount && currency) {
-    return `Loaded expense for ${companyName}: ${amount} ${currency}.`;
+    return `Loaded expense for ${companyName}: ${amount} ${currency}.${
+      attachmentFileCount > 0 ? ` Attached files: ${attachmentFileCount}.` : ''
+    }`;
   }
   return `Loaded expense ${id ?? ''}.`.trim();
+};
+
+type ExpenseFilesClient = {
+  listFiles?: (
+    expenseID: string,
+    params?: { page?: number; page_size?: number } | null,
+    options?: unknown,
+  ) => Promise<unknown>;
+};
+
+const expenseAttachedFilesFromListPayload = (payload: unknown): Array<Record<string, unknown>> => {
+  const data = readRecord(payload);
+  if (!data) {
+    return [];
+  }
+  const items = data['items'];
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => readRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+};
+
+const expenseFileCountFromListPayload = (payload: unknown, files: Array<Record<string, unknown>>): number => {
+  const total = readRecord(payload)?.['total'];
+  return typeof total === 'number' && Number.isFinite(total) ? total : files.length;
+};
+
+const withExpenseAttachmentVerification = (
+  payload: Record<string, unknown>,
+  files: Array<Record<string, unknown>>,
+  expectedAttachmentFileIDs: string[],
+  attachmentFileCount = files.length,
+): Record<string, unknown> => {
+  const expectedCount = expectedAttachmentFileIDs.length;
+  const ok = expectedCount === 0 || attachmentFileCount >= expectedCount;
+  return {
+    ...payload,
+    attached_files: files,
+    attachment_file_count: attachmentFileCount,
+    attachment_verification: {
+      ok,
+      expected_uploaded_file_ids: expectedAttachmentFileIDs,
+      attached_file_count: attachmentFileCount,
+      ...(ok ? undefined : (
+        { message: 'Sanka did not return enough attached file rows for the uploaded files.' }
+      )),
+    },
+  };
+};
+
+const enrichExpenseWithAttachedFiles = async ({
+  expensesClient,
+  payload,
+  expectedAttachmentFileIDs = [],
+}: {
+  expensesClient: unknown;
+  payload: Record<string, unknown>;
+  expectedAttachmentFileIDs?: string[];
+}): Promise<Record<string, unknown>> => {
+  const expenseID = readString(payload['id']) ?? readString(payload['expense_id']);
+  if (!expenseID) {
+    return payload;
+  }
+
+  const listFiles = (expensesClient as ExpenseFilesClient).listFiles;
+  if (!listFiles) {
+    return expectedAttachmentFileIDs.length === 0 ?
+        payload
+      : {
+          ...payload,
+          attachment_verification: {
+            ok: false,
+            expected_uploaded_file_ids: expectedAttachmentFileIDs,
+            message: 'The Sanka SDK in this MCP server cannot verify expense attachments.',
+          },
+        };
+  }
+
+  try {
+    const fileList = await listFiles.call(expensesClient, expenseID, { page: 1, page_size: 100 }, undefined);
+    const files = expenseAttachedFilesFromListPayload(fileList);
+    const total = expenseFileCountFromListPayload(fileList, files);
+    return withExpenseAttachmentVerification(payload, files, expectedAttachmentFileIDs, total);
+  } catch (error) {
+    return {
+      ...payload,
+      attachment_verification: {
+        ok: false,
+        expected_uploaded_file_ids: expectedAttachmentFileIDs,
+        message:
+          error instanceof Error ?
+            `Expense was saved, but attachment verification failed: ${error.message}`
+          : 'Expense was saved, but attachment verification failed.',
+      },
+    };
+  }
 };
 
 const buildDealListParams = (args: Record<string, unknown> | undefined) => {
@@ -14895,10 +15011,14 @@ export const crmGetExpenseTool: McpTool = {
       params,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const expenseWithFiles = await enrichExpenseWithAttachedFiles({
+      expensesClient: reqContext.client.public.expenses,
+      payload: expense,
+    });
 
     return {
-      content: [{ type: 'text', text: buildExpenseDetailSummary(expense) }],
-      structuredContent: expense,
+      content: [{ type: 'text', text: buildExpenseDetailSummary(expenseWithFiles) }],
+      structuredContent: expenseWithFiles,
     };
   },
 };
@@ -15032,11 +15152,11 @@ export const crmStartExpenseAttachmentUploadTool: McpTool = {
         : undefined),
         completion_status: 'requires_chunks',
         required_next_tool: 'append_expense_attachment_upload_chunk',
-        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
+        next_action: `Call append_expense_attachment_upload_chunk with content_base64 chunks around the safe recommended size of ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
           recommendedChunkCount !== undefined ?
             `; using max-size chunks this should take ${recommendedChunkCount} append call(s)`
           : ''
-        }. Then call finish_expense_attachment_upload to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and create or update the expense without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
+        }. Larger receipt-sized chunks are accepted if the client can pass them reliably without truncation. Then call finish_expense_attachment_upload to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and create or update the expense without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
       },
     };
   },
@@ -15053,7 +15173,7 @@ export const crmAppendExpenseAttachmentUploadChunkTool: McpTool = {
     name: 'append_expense_attachment_upload_chunk',
     title: 'Append expense attachment upload chunk',
     description:
-      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; do not concatenate chunks in the model context. Continue appending until the result returns done=true, then call finish_expense_attachment_upload.',
+      'Append one base64 chunk to an expense attachment upload started with start_expense_attachment_upload. Send the original file base64 in ordered chunks; chunk_size is a safe transport recommendation, and larger receipt-sized chunks are accepted if reliable. Continue appending until the result returns done=true, then call finish_expense_attachment_upload.',
     inputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_INPUT_SCHEMA,
     outputSchema: EXPENSE_CHUNKED_UPLOAD_APPEND_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15244,12 +15364,24 @@ export const crmCreateExpenseTool: McpTool = {
       buildExpenseMutationBody(args),
       undefined,
     )) as unknown as Record<string, unknown>;
+    const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+    const responseWithFiles =
+      attachmentFileIDs.length > 0 ?
+        await enrichExpenseWithAttachedFiles({
+          expensesClient: reqContext.client.public.expenses,
+          payload: response,
+          expectedAttachmentFileIDs: attachmentFileIDs,
+        })
+      : response;
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'created', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'created', payload: responseWithFiles }),
+        },
       ],
-      structuredContent: response,
+      structuredContent: responseWithFiles,
     };
   },
 };
@@ -15297,12 +15429,24 @@ export const crmUpdateExpenseTool: McpTool = {
       buildExpenseMutationBody(args),
       undefined,
     )) as unknown as Record<string, unknown>;
+    const attachmentFileIDs = readStringArray(args?.['attachment_file_ids']);
+    const responseWithFiles =
+      attachmentFileIDs.length > 0 ?
+        await enrichExpenseWithAttachedFiles({
+          expensesClient: reqContext.client.public.expenses,
+          payload: response,
+          expectedAttachmentFileIDs: attachmentFileIDs,
+        })
+      : response;
 
     return {
       content: [
-        { type: 'text', text: buildExpenseMutationSummary({ action: 'updated', payload: response }) },
+        {
+          type: 'text',
+          text: buildExpenseMutationSummary({ action: 'updated', payload: responseWithFiles }),
+        },
       ],
-      structuredContent: response,
+      structuredContent: responseWithFiles,
     };
   },
 };

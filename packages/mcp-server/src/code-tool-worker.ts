@@ -191,6 +191,7 @@ const fuse = new Fuse(
     'client.public.expenses.create',
     'client.public.expenses.delete',
     'client.public.expenses.list',
+    'client.public.expenses.listFiles',
     'client.public.expenses.retrieve',
     'client.public.expenses.update',
     'client.public.expenses.uploadAttachment',

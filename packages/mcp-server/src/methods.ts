@@ -545,6 +545,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/expenses',
   },
   {
+    clientCallName: 'client.public.expenses.listFiles',
+    fullyQualifiedName: 'public.expenses.listFiles',
+    httpMethod: 'get',
+    httpPath: '/api/v2/expenses/{expense_id}/files',
+  },
+  {
     clientCallName: 'client.public.expenses.delete',
     fullyQualifiedName: 'public.expenses.delete',
     httpMethod: 'delete',

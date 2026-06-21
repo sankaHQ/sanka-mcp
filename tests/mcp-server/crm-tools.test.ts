@@ -6918,12 +6918,22 @@ describe('ChatGPT CRM tools', () => {
       currency: 'USD',
       created_at: '2026-04-08T00:00:00Z',
     });
+    const listFiles = jest.fn().mockResolvedValue({
+      items: [
+        {
+          file_id: 'expense-file-row-1',
+          name: 'receipt.pdf',
+          file: 'expense-files/receipt.pdf',
+        },
+      ],
+      total: 1,
+    });
 
     const result = await crmGetExpenseTool.handler({
       reqContext: {
         client: {
           public: {
-            expenses: { retrieve },
+            expenses: { retrieve, listFiles },
           },
         } as any,
         auth: oauthContext(),
@@ -6940,6 +6950,7 @@ describe('ChatGPT CRM tools', () => {
       },
       undefined,
     );
+    expect(listFiles).toHaveBeenCalledWith('expense-1', { page: 1, page_size: 100 }, undefined);
     expect(result.structuredContent).toEqual({
       id: 'expense-1',
       description: 'Google Workspace',
@@ -6947,6 +6958,19 @@ describe('ChatGPT CRM tools', () => {
       amount: 20,
       currency: 'USD',
       created_at: '2026-04-08T00:00:00Z',
+      attached_files: [
+        {
+          file_id: 'expense-file-row-1',
+          name: 'receipt.pdf',
+          file: 'expense-files/receipt.pdf',
+        },
+      ],
+      attachment_file_count: 1,
+      attachment_verification: {
+        ok: true,
+        expected_uploaded_file_ids: [],
+        attached_file_count: 1,
+      },
     });
   });
 
@@ -7048,7 +7072,7 @@ describe('ChatGPT CRM tools', () => {
     expect(startResult.structuredContent).toMatchObject({
       chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
       recommended_chunk_count: 1,
-      next_action: expect.stringContaining(`at or below ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters`),
+      next_action: expect.stringContaining(`safe recommended size of ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH}`),
     });
     expect(startResult.structuredContent?.['next_action']).toEqual(
       expect.stringContaining('until append returns done=true'),
@@ -7126,6 +7150,67 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('accepts a reliable receipt-sized append chunk larger than the recommended chunk size', async () => {
+    const receiptBytes = Buffer.alloc(BINARY_UPLOAD_CHUNK_BASE64_LENGTH, 7);
+    const contentBase64 = receiptBytes.toString('base64');
+    expect(contentBase64.length).toBeGreaterThan(BINARY_UPLOAD_CHUNK_BASE64_LENGTH);
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-large',
+      filename: 'receipt-large.pdf',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          expenses: { uploadAttachment },
+        },
+      } as any,
+      auth: oauthContext(),
+      mcpSessionId: 'session-large-receipt-upload',
+      toolProfile: 'full' as const,
+    };
+
+    const startResult = await crmStartExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: {
+        filename: 'receipt-large.pdf',
+        mime_type: 'application/pdf',
+        content_base64_length: contentBase64.length,
+        byte_length: receiptBytes.byteLength,
+      },
+    });
+    const uploadToken = startResult.structuredContent?.['upload_token'] as string;
+
+    const appendResult = await crmAppendExpenseAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: 0,
+        content_base64: contentBase64,
+      },
+    });
+    expect(appendResult.structuredContent).toMatchObject({
+      content_base64_offset: 0,
+      content_base64_length: contentBase64.length,
+      done: true,
+      required_next_tool: 'finish_expense_attachment_upload',
+    });
+
+    const finishResult = await crmFinishExpenseAttachmentUploadTool.handler({
+      reqContext,
+      args: { upload_token: uploadToken },
+    });
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(Buffer.from(await payload.file.arrayBuffer())).toEqual(receiptBytes);
+    expect(finishResult.structuredContent).toMatchObject({
+      ok: true,
+      file_id: 'file-large',
+      byte_length: receiptBytes.byteLength,
+      content_base64_length: contentBase64.length,
+      completion_status: 'uploaded',
+    });
+  });
+
   it.each([
     [
       'order',
@@ -7195,10 +7280,25 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+    const listFiles = jest.fn().mockResolvedValue({
+      items: [
+        {
+          file_id: 'expense-file-row-1',
+          name: 'hotel.pdf',
+          file: 'expense-files/hotel.pdf',
+        },
+        {
+          file_id: 'expense-file-row-2',
+          name: 'meal.pdf',
+          file: 'expense-files/meal.pdf',
+        },
+      ],
+      total: 2,
+    });
 
     const result = await crmCreateExpenseTool.handler({
       reqContext: {
-        client: { public: { expenses: { create } } } as any,
+        client: { public: { expenses: { create, listFiles } } } as any,
         auth: oauthContext(),
         toolProfile: 'full',
       },
@@ -7227,11 +7327,30 @@ describe('ChatGPT CRM tools', () => {
       },
       undefined,
     );
+    expect(listFiles).toHaveBeenCalledWith('expense-1', { page: 1, page_size: 100 }, undefined);
     expect(result.structuredContent).toEqual({
       ok: true,
       status: 'created',
       expense_id: 'expense-1',
       external_id: 'EXP-1',
+      attached_files: [
+        {
+          file_id: 'expense-file-row-1',
+          name: 'hotel.pdf',
+          file: 'expense-files/hotel.pdf',
+        },
+        {
+          file_id: 'expense-file-row-2',
+          name: 'meal.pdf',
+          file: 'expense-files/meal.pdf',
+        },
+      ],
+      attachment_file_count: 2,
+      attachment_verification: {
+        ok: true,
+        expected_uploaded_file_ids: ['file-1', 'file-2'],
+        attached_file_count: 2,
+      },
       advisories: [
         {
           code: 'missing_recommended_partner',
