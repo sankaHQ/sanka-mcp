@@ -6999,9 +6999,47 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Replacement contact reference.',
     },
+    contact_id: {
+      type: 'string',
+      description:
+        'Replacement contact identifier. Use exactly one of contact_id, company_id, or customer_id.',
+    },
+    company_id: {
+      type: 'string',
+      description: 'Replacement company identifier. Use this for company-only customers.',
+    },
+    customer_id: {
+      type: 'string',
+      description: 'Generic replacement customer identifier. May point to either a Sanka contact or company.',
+    },
+    owner_id: {
+      type: 'string',
+      description: 'Workspace user identifier for the subscription owner.',
+    },
+    item_id: {
+      type: 'string',
+      description: 'Primary item identifier for the subscription.',
+    },
+    item_variant_id: {
+      type: 'string',
+      description: 'Primary item variant identifier for the subscription.',
+    },
+    channel_id: {
+      type: 'string',
+      description: 'Source integration channel identifier.',
+    },
+    platform_display_name: {
+      type: 'string',
+      description: 'Display name for the source platform.',
+    },
     items: {
       type: 'array',
       description: 'Replacement subscription line items.',
+      items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
+    },
+    line_items: {
+      type: 'array',
+      description: 'Alias for items, useful when copying line_items returned by get_invoice or get_order.',
       items: SUBSCRIPTION_ITEM_INPUT_SCHEMA,
     },
     status: {
@@ -7019,6 +7057,119 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
     end_date: {
       type: 'string',
       description: 'Subscription end date in ISO format.',
+    },
+    currency: {
+      type: 'string',
+      description: 'Currency code.',
+    },
+    frequency: {
+      type: 'integer',
+      description: 'Recurring frequency amount.',
+      minimum: 1,
+    },
+    frequency_time: {
+      type: 'string',
+      description: 'Recurring frequency unit.',
+    },
+    prior_to_next: {
+      type: 'number',
+      description: 'Invoice generation lead time before the next billing date.',
+    },
+    prior_to_time: {
+      type: 'string',
+      description: 'Unit for prior_to_next, for example days or months.',
+    },
+    billing_timing: {
+      type: 'string',
+      description: 'Billing timing rule.',
+    },
+    billing_anchor: {
+      type: 'string',
+      description: 'Billing anchor rule.',
+    },
+    charge_method: {
+      type: 'string',
+      description: 'Subscription charge method.',
+    },
+    payment_term_type: {
+      type: 'string',
+      description: 'Payment term type.',
+    },
+    payment_term_days: {
+      type: 'integer',
+      description: 'Payment term day count.',
+    },
+    payment_term_closing_day: {
+      type: 'integer',
+      description: 'Payment term closing day.',
+    },
+    payment_term_offset_months: {
+      type: 'integer',
+      description: 'Payment term month offset.',
+    },
+    payment_term_payment_day: {
+      type: 'integer',
+      description: 'Payment term payment day.',
+    },
+    auto_gen_invoice: {
+      type: 'boolean',
+      description: 'Whether the subscription should automatically generate invoices.',
+    },
+    auto_gen_invoice_statuses: {
+      type: 'string',
+      description: 'Statuses eligible for automatic invoice generation.',
+    },
+    upcoming_invoice_date: {
+      type: 'string',
+      description: 'Upcoming invoice date in ISO format.',
+    },
+    auto_invoice_start_policy: {
+      type: 'string',
+      description: 'Policy for the first automatic invoice date.',
+    },
+    auto_invoice_start_date: {
+      type: 'string',
+      description: 'Explicit first automatic invoice date in ISO format.',
+    },
+    number_item: {
+      type: 'integer',
+      description: 'Number of subscription items.',
+    },
+    total_price: {
+      type: 'number',
+      description: 'Total subscription price.',
+    },
+    total_price_without_tax: {
+      type: 'number',
+      description: 'Total subscription price before tax.',
+    },
+    tax_rate: {
+      type: 'number',
+      description: 'Subscription tax rate.',
+    },
+    tax: {
+      type: 'number',
+      description: 'Tax amount.',
+    },
+    tax_applied_to: {
+      type: 'string',
+      description: 'Tax application target.',
+    },
+    shipping_cost_id: {
+      type: 'string',
+      description: 'Shipping cost identifier.',
+    },
+    shipping_cost_tax_status: {
+      type: 'string',
+      description: 'Shipping cost tax status.',
+    },
+    quick_entry_mode: {
+      type: 'boolean',
+      description: 'Whether quick entry mode is enabled for the subscription.',
+    },
+    custom_fields: {
+      type: 'object',
+      description: 'Custom field values keyed by custom property id or internal_name.',
     },
     contract_id: {
       type: 'string',
@@ -12898,10 +13049,32 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
 
   assignStringFields(body, args, [
     'contact',
+    'contact_id',
+    'company_id',
+    'customer_id',
+    'owner_id',
+    'item_id',
+    'item_variant_id',
+    'channel_id',
+    'platform_display_name',
+    'currency',
     'status',
     'subscription_status',
     'start_date',
     'end_date',
+    'frequency_time',
+    'prior_to_time',
+    'billing_timing',
+    'billing_anchor',
+    'charge_method',
+    'payment_term_type',
+    'auto_gen_invoice_statuses',
+    'upcoming_invoice_date',
+    'auto_invoice_start_policy',
+    'auto_invoice_start_date',
+    'tax_applied_to',
+    'shipping_cost_id',
+    'shipping_cost_tax_status',
     'contract_id',
     'discount_id',
     'discount_number_format',
@@ -12917,8 +13090,31 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
   if (Object.prototype.hasOwnProperty.call(args ?? {}, 'contract_ids')) {
     body['contract_ids'] = readStringArray(args?.['contract_ids']);
   }
-  assignMappedNumberFields(body, args, [['discount_value', 'discount_value']]);
-  assignMappedBooleanFields(body, args, [['clear_discount', 'clear_discount']]);
+  assignMappedIntegerFields(body, args, [
+    ['frequency', 'frequency'],
+    ['payment_term_days', 'payment_term_days'],
+    ['payment_term_closing_day', 'payment_term_closing_day'],
+    ['payment_term_offset_months', 'payment_term_offset_months'],
+    ['payment_term_payment_day', 'payment_term_payment_day'],
+    ['number_item', 'number_item'],
+  ]);
+  assignMappedNumberFields(body, args, [
+    ['prior_to_next', 'prior_to_next'],
+    ['tax', 'tax'],
+    ['tax_rate', 'tax_rate'],
+    ['total_price', 'total_price'],
+    ['total_price_without_tax', 'total_price_without_tax'],
+    ['discount_value', 'discount_value'],
+  ]);
+  assignMappedBooleanFields(body, args, [
+    ['auto_gen_invoice', 'auto_gen_invoice'],
+    ['clear_discount', 'clear_discount'],
+    ['quick_entry_mode', 'quick_entry_mode'],
+  ]);
+  const customFields = readRecord(args?.['custom_fields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
 
   assignPublicLineItems(body, args, {
     targetKey: 'items',
@@ -23976,11 +24172,46 @@ export const crmUpdateSubscriptionTool: McpTool = {
       params as {
         external_id?: string;
         contact?: string;
+        contact_id?: string;
+        company_id?: string;
+        customer_id?: string;
+        owner_id?: string;
+        item_id?: string;
+        item_variant_id?: string;
+        channel_id?: string;
+        platform_display_name?: string;
         items?: Array<{ id: string; amount: number; name?: string; price?: number }>;
+        line_items?: Array<{ id: string; amount: number; name?: string; price?: number }>;
         status?: string;
         subscription_status?: string;
         start_date?: string;
         end_date?: string;
+        currency?: string;
+        frequency?: number;
+        frequency_time?: string;
+        prior_to_next?: number;
+        prior_to_time?: string;
+        billing_timing?: string;
+        billing_anchor?: string;
+        charge_method?: string;
+        payment_term_type?: string;
+        payment_term_days?: number;
+        payment_term_closing_day?: number;
+        payment_term_offset_months?: number;
+        payment_term_payment_day?: number;
+        auto_gen_invoice?: boolean;
+        auto_gen_invoice_statuses?: string;
+        upcoming_invoice_date?: string;
+        auto_invoice_start_policy?: string;
+        auto_invoice_start_date?: string;
+        number_item?: number;
+        total_price?: number;
+        total_price_without_tax?: number;
+        tax_rate?: number;
+        tax?: number;
+        tax_applied_to?: string;
+        shipping_cost_id?: string;
+        shipping_cost_tax_status?: string;
         contract_id?: string;
         contract_ids?: string[];
         discount_id?: string;
@@ -23989,6 +24220,8 @@ export const crmUpdateSubscriptionTool: McpTool = {
         discount_tax_option?: string;
         discount_mode?: string;
         clear_discount?: boolean;
+        quick_entry_mode?: boolean;
+        custom_fields?: Record<string, unknown>;
       },
       undefined,
     )) as unknown as Record<string, unknown>;
