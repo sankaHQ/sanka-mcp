@@ -9296,6 +9296,12 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('updates a subscription with lookup_external_id', async () => {
+    const updateSchema = crmUpdateSubscriptionTool.tool.inputSchema as any;
+    expect(updateSchema.properties.currency).toBeDefined();
+    expect(updateSchema.properties.tax_rate).toBeDefined();
+    expect(updateSchema.properties.payment_term_days).toBeDefined();
+    expect(updateSchema.properties.custom_fields).toBeDefined();
+
     const update = jest.fn().mockResolvedValue({
       id: 'sub-1',
       status: 'active',
@@ -9319,6 +9325,19 @@ describe('ChatGPT CRM tools', () => {
         subscription_id: 'sub-1',
         lookup_external_id: 'ext-sub-1',
         status: 'active',
+        currency: 'JPY',
+        tax_rate: 10,
+        total_price: 1100,
+        total_price_without_tax: 1000,
+        frequency: 1,
+        frequency_time: 'months',
+        billing_timing: 'first_day',
+        billing_anchor: 'start_date',
+        payment_term_type: 'net',
+        payment_term_days: 30,
+        auto_gen_invoice: true,
+        auto_gen_invoice_statuses: 'active',
+        custom_fields: { custom_note: 'June cleanup' },
       },
     });
 
@@ -9327,6 +9346,19 @@ describe('ChatGPT CRM tools', () => {
       {
         external_id: 'ext-sub-1',
         status: 'active',
+        currency: 'JPY',
+        frequency_time: 'months',
+        billing_timing: 'first_day',
+        billing_anchor: 'start_date',
+        payment_term_type: 'net',
+        auto_gen_invoice_statuses: 'active',
+        frequency: 1,
+        payment_term_days: 30,
+        tax_rate: 10,
+        total_price: 1100,
+        total_price_without_tax: 1000,
+        auto_gen_invoice: true,
+        custom_fields: { custom_note: 'June cleanup' },
       },
       undefined,
     );
