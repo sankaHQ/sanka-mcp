@@ -1086,6 +1086,7 @@ describe('ChatGPT CRM tools', () => {
         field_resolution: {
           email: { source_record_id: 'company-2' },
         },
+        confirm: true,
       },
     });
 

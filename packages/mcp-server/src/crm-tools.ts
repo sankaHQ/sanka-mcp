@@ -14454,6 +14454,7 @@ export const crmPreviewRecordMergeTool: McpTool = {
     }
 
     const body = buildRecordMergeBody({ ...args, dry_run: true });
+    delete body['confirm'];
     if (!body['object_type']) {
       return asErrorResult('`object_type` is required.');
     }
