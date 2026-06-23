@@ -151,7 +151,9 @@ import {
   crmListTasksTool,
   crmListTicketPipelinesTool,
   crmListTicketsTool,
+  crmMergeRecordsTool,
   crmMutateObjectSchemaTool,
+  crmPreviewRecordMergeTool,
   crmProspectCompaniesTool,
   crmQueryRecordsTool,
   crmReadBinaryDownloadChunkTool,
@@ -1054,6 +1056,140 @@ describe('ChatGPT CRM tools', () => {
       }),
     );
     expect((result.content[0] as any).text).toContain('company-1');
+  });
+
+  it('passes merge plan arguments through preview_record_merge', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'company',
+      status: 'dry_run',
+      merge_plan: {
+        primary_record: { id: 'company-1', label: 'ADVATEC' },
+        duplicate_records: [{ id: 'company-2', label: '株式会社ADVATEC' }],
+        archive_merged_records: true,
+        required_confirmation: true,
+      },
+      field_plan: [{ field: 'email', selected_value: 'hello@example.com', will_change: true }],
+      related_record_plan: { reverse_relation_rows: 1 },
+      message: 'Record merge preview generated',
+    });
+
+    const result = await crmPreviewRecordMergeTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        canonical_record_id: 'company-1',
+        duplicate_record_ids: ['company-2'],
+        field_resolution: {
+          email: { source_record_id: 'company-2' },
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/merge/preview', {
+      body: {
+        object_type: 'companies',
+        primary_record_id: 'company-1',
+        duplicate_record_ids: ['company-2'],
+        field_resolution: {
+          email: { source_record_id: 'company-2' },
+        },
+        dry_run: true,
+      },
+    });
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        status: 'dry_run',
+        merge_plan: expect.objectContaining({
+          primary_record: expect.objectContaining({ id: 'company-1' }),
+        }),
+      }),
+    );
+    expect((result.content[0] as any).text).toContain(
+      'preview_record_merge planned 1 company duplicate record merge into company-1.',
+    );
+  });
+
+  it('requires confirmation before merge_records calls the API', async () => {
+    const post = jest.fn();
+
+    const result = await crmMergeRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        primary_record_id: 'company-1',
+        duplicate_record_ids: ['company-2'],
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as any).text).toContain('`confirm=true` is required');
+  });
+
+  it('passes confirmed merge arguments through merge_records', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'company',
+      status: 'merged',
+      merge_plan: {
+        primary_record: { id: 'company-1', label: 'ADVATEC' },
+        duplicate_records: [{ id: 'company-2', label: '株式会社ADVATEC' }],
+        archive_merged_records: true,
+      },
+      field_plan: [{ field: 'email', selected_value: 'hello@example.com', will_change: true }],
+      related_record_plan: { reverse_relation_rows: 1 },
+      result: {
+        stats: { records_merged: 1, reverse_relations_relinked: 1 },
+        archived_record_ids: ['company-2'],
+      },
+      audit: { app_log_id: 10, action: 'merge' },
+      message: 'Record merge applied',
+    });
+
+    const result = await crmMergeRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        primary_record_id: 'company-1',
+        duplicate_record_ids: ['company-2'],
+        archive_merged_records: true,
+        confirm: true,
+        reason: 'approved by user',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/merge/apply', {
+      body: {
+        object_type: 'companies',
+        primary_record_id: 'company-1',
+        duplicate_record_ids: ['company-2'],
+        archive_merged_records: true,
+        confirm: true,
+        reason: 'approved by user',
+      },
+    });
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        status: 'merged',
+        result: expect.objectContaining({
+          archived_record_ids: ['company-2'],
+        }),
+      }),
+    );
+    expect((result.content[0] as any).text).toContain(
+      'merge_records merged 1 company duplicate record merge into company-1.',
+    );
   });
 
   it('passes Sanka custom object row arguments through query_records', async () => {
