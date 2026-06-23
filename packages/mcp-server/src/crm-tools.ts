@@ -418,6 +418,79 @@ const RECORD_AGGREGATE_OUTPUT_SCHEMA = {
   required: ['object_type', 'metrics', 'groups', 'message'],
 };
 
+const RECORD_MERGE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description: 'Sanka object type to merge. Currently supports companies and contacts.',
+      enum: ['companies', 'company', 'contacts', 'contact'],
+    },
+    primary_record_id: {
+      type: 'string',
+      description:
+        'Sanka UUID of the canonical record that should remain after the merge. Alias: canonical_record_id.',
+    },
+    canonical_record_id: {
+      type: 'string',
+      description: 'Alias for primary_record_id.',
+    },
+    duplicate_record_ids: {
+      type: 'array',
+      description: 'Sanka UUIDs of duplicate records to merge into the primary record.',
+      items: { type: 'string' },
+    },
+    field_resolution: {
+      type: 'object',
+      description:
+        'Optional per-field resolution policy. Values may be "primary", "first_non_empty", a duplicate record id, or {source_record_id} / {value}.',
+      additionalProperties: true,
+    },
+    archive_merged_records: {
+      type: 'boolean',
+      description:
+        'Archive duplicate records after related records are relinked to the primary record. Defaults to true.',
+      default: true,
+    },
+    dry_run: {
+      type: 'boolean',
+      description: 'When true, return the merge preview without applying changes.',
+      default: false,
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Required by merge_records to apply the merge after reviewing preview_record_merge.',
+      default: false,
+    },
+    reason: {
+      type: 'string',
+      description: 'Optional audit note explaining why the records are being merged.',
+    },
+  },
+  required: ['object_type', 'duplicate_record_ids'],
+};
+
+const RECORD_MERGE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: { type: 'string' },
+    scope: { type: 'string' },
+    source_of_truth: { type: 'string' },
+    data_origin: { type: 'string' },
+    status: { type: 'string' },
+    merge_plan: { type: 'object' },
+    field_plan: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+    related_record_plan: { type: 'object' },
+    result: { type: 'object' },
+    audit: { type: 'object' },
+    message: { type: 'string' },
+  },
+  required: ['object_type', 'status', 'merge_plan', 'field_plan', 'related_record_plan', 'message'],
+};
+
 const CUSTOM_OBJECT_RECORD_DATA_SCHEMA = {
   type: 'object' as const,
   description:
@@ -9195,12 +9268,100 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   return body;
 };
 
+const buildRecordMergeBody = (args: Record<string, unknown> | undefined) => {
+  const objectType = readString(args?.['object_type'] ?? args?.['objectType']);
+  const primaryRecordID = readString(
+    args?.['primary_record_id'] ??
+      args?.['primaryRecordId'] ??
+      args?.['canonical_record_id'] ??
+      args?.['canonicalRecordId'] ??
+      args?.['target_record_id'] ??
+      args?.['targetRecordId'],
+  );
+  const duplicateRecordIDs = readStringArray(
+    args?.['duplicate_record_ids'] ??
+      args?.['duplicateRecordIds'] ??
+      args?.['secondary_record_ids'] ??
+      args?.['secondaryRecordIds'] ??
+      args?.['source_record_ids'] ??
+      args?.['sourceRecordIds'],
+  );
+  const fieldResolution = readRecord(args?.['field_resolution'] ?? args?.['fieldResolution']);
+  const archiveMergedRecords = readBoolean(
+    args?.['archive_merged_records'] ??
+      args?.['archiveMergedRecords'] ??
+      args?.['delete_merged_record'] ??
+      args?.['deleteMergedRecord'],
+  );
+  const dryRun = readBoolean(args?.['dry_run'] ?? args?.['dryRun']);
+  const confirm = readBoolean(args?.['confirm']);
+  const reason = readString(args?.['reason']);
+
+  return {
+    ...(objectType ? { object_type: objectType } : undefined),
+    ...(primaryRecordID ? { primary_record_id: primaryRecordID } : undefined),
+    ...(duplicateRecordIDs.length ? { duplicate_record_ids: duplicateRecordIDs } : undefined),
+    ...(fieldResolution ? { field_resolution: fieldResolution } : undefined),
+    ...(typeof archiveMergedRecords === 'boolean' ?
+      { archive_merged_records: archiveMergedRecords }
+    : undefined),
+    ...(typeof dryRun === 'boolean' ? { dry_run: dryRun } : undefined),
+    ...(typeof confirm === 'boolean' ? { confirm } : undefined),
+    ...(reason ? { reason } : undefined),
+  };
+};
+
 const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
 
 const recordQueryPathForBody = (_body: Record<string, unknown>): string => '/api/v2/public/records/query';
 
 const recordAggregatePathForBody = (_body: Record<string, unknown>): string =>
   '/api/v2/public/records/aggregate';
+
+const normalizeRecordMergePayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    ...(envelope.meta?.['ctx_id'] && !data['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const buildRecordMergeResult = (
+  toolName: 'preview_record_merge' | 'merge_records',
+  payload: Record<string, unknown>,
+): ToolCallResult => {
+  const objectType = readString(payload['object_type']) ?? 'records';
+  const status = readString(payload['status']) ?? 'completed';
+  const message = readString(payload['message']) ?? `${toolName} completed`;
+  const mergePlan = readRecord(payload['merge_plan']);
+  const primaryRecord = readRecord(mergePlan?.['primary_record']);
+  const duplicateRecords =
+    Array.isArray(mergePlan?.['duplicate_records']) ? mergePlan?.['duplicate_records'] : [];
+  const primaryID = readString(primaryRecord?.['id']);
+  const duplicateCount = duplicateRecords.length;
+  const summary =
+    toolName === 'preview_record_merge' ?
+      `preview_record_merge planned ${duplicateCount} ${objectType} duplicate record merge${
+        primaryID ? ` into ${primaryID}` : ''
+      }.`
+    : `merge_records ${status} ${duplicateCount} ${objectType} duplicate record merge${
+        primaryID ? ` into ${primaryID}` : ''
+      }.`;
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `${summary} ${message}`,
+      },
+    ],
+    structuredContent: payload,
+  };
+};
 
 const buildCustomObjectRecordMutationBody = (
   args: Record<string, unknown> | undefined,
@@ -14256,6 +14417,114 @@ export const crmAggregateRecordsTool: McpTool = {
     })) as Record<string, unknown>;
 
     return buildRecordAggregateResult(normalizeRecordAggregatePayload(payload, body));
+  },
+};
+
+export const crmPreviewRecordMergeTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'read',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/records/merge/preview',
+    operationId: 'public.records.merge.preview',
+  },
+  tool: {
+    name: 'preview_record_merge',
+    title: 'Preview record merge',
+    description:
+      'Preview a Sanka-native merge plan for duplicate companies or contacts. Use after query_records mode="dedupe_candidates" and before merge_records. Returns primary/duplicate records, field resolution, related record relink plan, archive behavior, and required confirmation.',
+    inputSchema: RECORD_MERGE_INPUT_SCHEMA,
+    outputSchema: RECORD_MERGE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Preview record merge',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Preview record merge',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildRecordMergeBody({ ...args, dry_run: true });
+    delete body['confirm'];
+    if (!body['object_type']) {
+      return asErrorResult('`object_type` is required.');
+    }
+    if (!body['primary_record_id']) {
+      return asErrorResult('`primary_record_id` or `canonical_record_id` is required.');
+    }
+    if (!Array.isArray(body['duplicate_record_ids']) || body['duplicate_record_ids'].length === 0) {
+      return asErrorResult('`duplicate_record_ids` must include at least one record id.');
+    }
+
+    const payload = (await reqContext.client.post('/api/v2/public/records/merge/preview', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildRecordMergeResult('preview_record_merge', normalizeRecordMergePayload(payload));
+  },
+};
+
+export const crmMergeRecordsTool: McpTool = {
+  metadata: {
+    resource: 'records',
+    operation: 'write',
+    tags: ['crm'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/records/merge/apply',
+    operationId: 'public.records.merge.apply',
+  },
+  tool: {
+    name: 'merge_records',
+    title: 'Merge records',
+    description:
+      'Apply a confirmed Sanka-native merge for duplicate companies or contacts. Call preview_record_merge first, then call this only after the user explicitly approves the merge plan. Requires confirm=true.',
+    inputSchema: RECORD_MERGE_INPUT_SCHEMA,
+    outputSchema: RECORD_MERGE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Merge records',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Merge records',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildRecordMergeBody(args);
+    if (!body['object_type']) {
+      return asErrorResult('`object_type` is required.');
+    }
+    if (!body['primary_record_id']) {
+      return asErrorResult('`primary_record_id` or `canonical_record_id` is required.');
+    }
+    if (!Array.isArray(body['duplicate_record_ids']) || body['duplicate_record_ids'].length === 0) {
+      return asErrorResult('`duplicate_record_ids` must include at least one record id.');
+    }
+    if (body['confirm'] !== true) {
+      return asErrorResult('`confirm=true` is required after reviewing preview_record_merge.');
+    }
+
+    const payload = (await reqContext.client.post('/api/v2/public/records/merge/apply', {
+      body,
+    })) as Record<string, unknown>;
+
+    return buildRecordMergeResult('merge_records', normalizeRecordMergePayload(payload));
   },
 };
 
