@@ -111,6 +111,53 @@ describe('record URL enrichment', () => {
     ]);
   });
 
+  it('canonicalizes backend-provided legacy journal URLs to app-v2 drawer routes', () => {
+    const result = enrichRecordUrlsForToolResult({
+      result: {
+        content: [{ type: 'text', text: 'ok' }],
+        structuredContent: {
+          results: [
+            {
+              id: '79d02b03-a6a4-4706-ab18-adac3a594547',
+              app_url: 'https://app.sanka.com/ja/39467777/journal/?id=79d02b03-a6a4-4706-ab18-adac3a594547',
+            },
+          ],
+        },
+      },
+      resource: 'journals',
+      reqContext,
+      args: { language: 'ja' },
+    });
+
+    expect(result.structuredContent?.['results']).toEqual([
+      {
+        id: '79d02b03-a6a4-4706-ab18-adac3a594547',
+        workspace_code: '39467777',
+        app_url:
+          'https://app-v2.sanka.com/39467777/finance-legal/journals/79d02b03-a6a4-4706-ab18-adac3a594547/manage',
+      },
+    ]);
+  });
+
+  it('builds app-v2 journal URLs when the backend omits app_url', () => {
+    const result = enrichRecordUrlsForToolResult({
+      result: {
+        content: [{ type: 'text', text: 'created' }],
+        structuredContent: {
+          id: 'journal-1',
+        },
+      },
+      resource: 'journals',
+      reqContext,
+      args: {},
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      workspace_code: '39467777',
+      app_url: 'https://app-v2.sanka.com/39467777/finance-legal/journals/journal-1/manage',
+    });
+  });
+
   it('does not enrich child rows when the parent payload is an integration result', () => {
     const result = enrichRecordUrlsForToolResult({
       result: {
