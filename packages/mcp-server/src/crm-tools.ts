@@ -5068,8 +5068,8 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
     },
     action: {
       type: 'string',
-      description: 'Send now or schedule for later.',
-      enum: ['send', 'schedule'],
+      description: 'Create a draft, send now, or schedule for later.',
+      enum: ['draft', 'send', 'schedule'],
       default: 'send',
     },
     to: {
@@ -5099,6 +5099,42 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
     template_select: {
       type: 'string',
       description: 'Optional invoice PDF template selector. Pass a template UUID or built-in template path.',
+    },
+    additional_pdf_attachments: {
+      type: 'array',
+      description:
+        'Optional extra generated PDF attachments, such as additional invoices or delivery notes. Supported object_type values are invoices, estimates, orders, and purchase_orders. Each item may include template_select, object_type, record_id, and filename. Omit record_id/object_type to render this invoice with another template.',
+      items: {
+        type: 'object',
+        properties: {
+          template_select: {
+            type: 'string',
+            description: 'PDF template UUID or built-in template path to render for this attachment.',
+          },
+          object_type: {
+            type: 'string',
+            enum: [
+              'invoice',
+              'invoices',
+              'estimate',
+              'estimates',
+              'order',
+              'orders',
+              'purchase_order',
+              'purchase_orders',
+            ],
+            description: 'Optional Sanka object type or slug. Defaults to invoices.',
+          },
+          record_id: {
+            type: 'string',
+            description: 'Optional record UUID to render. Defaults to invoice_id.',
+          },
+          filename: {
+            type: 'string',
+            description: 'Optional attachment filename. Defaults to the rendered record number.',
+          },
+        },
+      },
     },
     channel_id: {
       type: 'string',
@@ -6213,6 +6249,7 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
       items: { type: 'string' },
     },
     scheduled_at: { type: 'string' },
+    attachment_count: { type: 'integer' },
     message: { type: 'string' },
   },
   required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
@@ -11865,6 +11902,7 @@ const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined
 
 const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
+  const invoiceID = readString(args?.['invoice_id'] ?? args?.['invoiceId']);
   const action = readString(args?.['action']);
   const to = readStringArray(args?.['to'] ?? args?.['recipients'] ?? args?.['recipient_emails']);
   const cc = readStringArray(args?.['cc']);
@@ -11872,9 +11910,35 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   const messageBody = readString(args?.['body']);
   const scheduledAt = readString(args?.['scheduled_at'] ?? args?.['schedule_at'] ?? args?.['scheduledAt']);
   const templateSelect = readString(args?.['template_select']);
+  const additionalPdfAttachmentsRaw =
+    args?.['additional_pdf_attachments'] ??
+    args?.['additionalPdfAttachments'] ??
+    args?.['attachment_templates'];
   const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
   const externalID = readString(args?.['external_id']);
   const language = readString(args?.['language']);
+  const additionalPdfAttachments =
+    Array.isArray(additionalPdfAttachmentsRaw) ?
+      additionalPdfAttachmentsRaw
+        .map((item) => readRecord(item))
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .map((item) => {
+          const attachment: Record<string, unknown> = {};
+          assignStringFields(attachment, item, ['template_select', 'object_type', 'record_id', 'filename']);
+          const objectType = readString(attachment['object_type']) ?? 'invoices';
+          attachment['object_type'] = objectType;
+          const normalizedObjectType = objectType.toLowerCase().replace(/-/g, '_');
+          if (
+            invoiceID &&
+            !readString(attachment['record_id']) &&
+            ['invoice', 'invoices'].includes(normalizedObjectType)
+          ) {
+            attachment['record_id'] = invoiceID;
+          }
+          return attachment;
+        })
+        .filter((item) => Object.keys(item).length > 0)
+    : [];
 
   if (action) body['action'] = action;
   if (to.length > 0) body['to'] = to;
@@ -11883,6 +11947,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   if (messageBody) body['body'] = messageBody;
   if (scheduledAt) body['scheduled_at'] = scheduledAt;
   if (templateSelect) body['template_select'] = templateSelect;
+  if (additionalPdfAttachments.length > 0) body['additional_pdf_attachments'] = additionalPdfAttachments;
   if (channelID) body['channel_id'] = channelID;
   if (externalID) body['external_id'] = externalID;
 
@@ -11908,6 +11973,9 @@ const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
     return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
       threadIDs.length
     }.`;
+  }
+  if (status === 'draft') {
+    return `Created draft ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
   }
   return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
 };

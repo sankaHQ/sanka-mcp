@@ -5256,6 +5256,71 @@ describe('ChatGPT CRM tools', () => {
     expect((result.content[0] as any).text).toContain('Scheduled Invoice No. 1233 email');
   });
 
+  it('creates draft invoice emails with explicit extra PDF attachments', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'draft',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      message_thread_ids: ['message-thread-1'],
+      attachment_count: 3,
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'draft',
+        to: ['finance@example.com'],
+        subject: 'June invoices',
+        additional_pdf_attachments: [
+          {
+            record_id: 'invoice-2',
+            template_select: 'default',
+            filename: '請求書-1262.pdf',
+          },
+          {
+            template_select: 'delivery-note',
+            filename: '納品書-1261.pdf',
+          },
+        ],
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/email', {
+      body: {
+        action: 'draft',
+        to: ['finance@example.com'],
+        subject: 'June invoices',
+        additional_pdf_attachments: [
+          {
+            object_type: 'invoices',
+            record_id: 'invoice-2',
+            template_select: 'default',
+            filename: '請求書-1262.pdf',
+          },
+          {
+            object_type: 'invoices',
+            record_id: 'invoice-1',
+            template_select: 'delivery-note',
+            filename: '納品書-1261.pdf',
+          },
+        ],
+      },
+      query: {},
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'draft',
+      attachment_count: 3,
+    });
+    expect((result.content[0] as any).text).toContain('Created draft Invoice No. 1233 email');
+  });
+
   it('creates an invoice', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,

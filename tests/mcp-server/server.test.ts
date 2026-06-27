@@ -752,6 +752,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
     expect(instructions).toContain('send_invoice_email');
+    expect(instructions).toContain('additional_pdf_attachments');
+    expect(instructions).toContain('action="draft"');
     expect(instructions).toContain('create_invoice');
     expect(instructions).toContain('update_invoice');
     expect(instructions).toContain('activate_invoice');
