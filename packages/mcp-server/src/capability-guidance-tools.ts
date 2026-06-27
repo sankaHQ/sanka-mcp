@@ -1,6 +1,6 @@
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-06-05.workspace-message-guidance.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-06-27.app-builder-guidance.v2';
 
 const GUIDANCE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -35,6 +35,51 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
   const objectType = readString(args?.['object_type']).toLowerCase();
   const operation = readString(args?.['operation']).toLowerCase();
   const combined = [intent, provider, objectType, operation].join(' ');
+  const appBuilderProductTerms = [
+    'app builder',
+    'blueprint',
+    'erp',
+    'crm',
+    'module',
+    'side menu',
+    'permission set',
+    'governance',
+    'モジュール',
+    'サイドメニュー',
+    '権限',
+    'ガバナンス',
+  ];
+  const appBuilderBuildTerms = [
+    'build',
+    'configure',
+    'setup',
+    'set up',
+    'implement',
+    'schema',
+    '構築',
+    '設定',
+    'セットアップ',
+    '実装',
+    'スキーマ',
+  ];
+
+  if (
+    includesAny(combined, ['app builder', 'blueprint']) ||
+    (includesAny(combined, appBuilderProductTerms) && includesAny(combined, appBuilderBuildTerms))
+  ) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'sanka_app_builder',
+      supported: true,
+      recommended_tools: ['list_app_blueprint_templates', 'preview_app_blueprint', 'apply_app_blueprint'],
+      route:
+        'For requests like "ERPを構築して" or "CRMを設定して", use app blueprint tools. Preview the module, custom object, permission-set, guide, flowchart, and ER diagram plan first, then call apply_app_blueprint only after explicit user approval with confirm=true. Pass create_editable_guides=true when the user wants generated guides visible and editable from the Sanka guide drawer/admin UI.',
+      mutation_policy:
+        'apply_app_blueprint performs real Sanka mutations: side-menu modules, missing custom object schemas, permission sets, and persisted guide/Mermaid artifacts. It can promote those artifacts to editable manuals with create_editable_guides=true. It does not assign users or delete records.',
+      fallback_when_missing:
+        'If app blueprint tools are not visible in this client session, say the Sanka Skill or MCP tool catalog may be stale and ask the user to update/reconnect the Sanka plugin or start a fresh session.',
+    };
+  }
 
   if (
     includesAny(combined, [

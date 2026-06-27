@@ -8,6 +8,7 @@ import {
   crmApproveRecordApprovalTool,
   crmApprovePayrollRunTool,
   crmAggregateRecordsTool,
+  crmApplyAppBlueprintTool,
   crmApproveIncentivesTool,
   crmAuthStatusTool,
   crmCancelCalendarAttendanceTool,
@@ -25,6 +26,7 @@ import {
   crmCreateDealTool,
   crmCreateAbsenceTool,
   crmCreateAttendanceRecordTool,
+  crmCreatePermissionSetTool,
   crmCreateDisbursementAllocationTool,
   crmCreateDisbursementTool,
   crmCreateEstimateTool,
@@ -99,6 +101,7 @@ import {
   crmGetLocationTool,
   crmGetOrderTool,
   crmGetPaymentTool,
+  crmGetPermissionSetEditorTool,
   crmGetPipelineSnapshotBatchTool,
   crmGetPayrollRunTool,
   crmGetPrivateMessageThreadTool,
@@ -111,6 +114,7 @@ import {
   crmGetTaskTool,
   crmGetTicketTool,
   crmListBillsTool,
+  crmListAppBlueprintTemplatesTool,
   crmListEmployeesTool,
   crmListAbsencesTool,
   crmListAttendanceRecordsTool,
@@ -138,6 +142,7 @@ import {
   crmListOverdueInvoicesTool,
   crmListPaymentAllocationsTool,
   crmListPaymentsTool,
+  crmListPermissionSetsTool,
   crmListPayrollProfilesTool,
   crmListPayrollRunsTool,
   crmListPrivateMessagesTool,
@@ -153,6 +158,7 @@ import {
   crmListTicketsTool,
   crmMergeRecordsTool,
   crmMutateObjectSchemaTool,
+  crmPreviewAppBlueprintTool,
   crmPreviewRecordMergeTool,
   crmProspectCompaniesTool,
   crmQueryRecordsTool,
@@ -190,6 +196,7 @@ import {
   crmUpdateOrderTool,
   crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
+  crmUpdatePermissionSetTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateSlipTool,
   crmUpdatePropertyTool,
@@ -8866,6 +8873,232 @@ describe('ChatGPT CRM tools', () => {
           soap_action: 'createMetadata',
           metadata_type: 'CustomObject',
         },
+      },
+    });
+  });
+
+  it('routes app blueprint template and preview calls through V2 app-builder endpoints', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        templates: [{ slug: 'crm', title: 'CRM' }],
+        message: 'OK',
+      },
+      meta: { ctx_id: 'ctx-templates' },
+    });
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        plan: {
+          template_slug: 'crm',
+          title: 'CRM',
+          modules: [{ slug: 'crm', name: 'CRM', object_ids: ['company', 'contact', 'deal'] }],
+          permission_sets: [{ name: 'CRM Admin', permissions: { company: 'write' } }],
+          artifacts: [{ type: 'guide', title: 'CRM Guide', body: '# CRM' }],
+        },
+        applied: false,
+        dry_run: true,
+        mutation_results: [],
+        message: 'Previewed app blueprint.',
+      },
+      meta: { ctx_id: 'ctx-preview' },
+    });
+    const reqContext = {
+      client: { get, post } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListAppBlueprintTemplatesTool.handler({ reqContext, args: {} });
+    expect(get).toHaveBeenCalledWith('/api/v2/app-builder/templates');
+    expect(listResult.structuredContent).toMatchObject({
+      templates: [{ slug: 'crm', title: 'CRM' }],
+      ctx_id: 'ctx-templates',
+    });
+
+    const previewResult = await crmPreviewAppBlueprintTool.handler({
+      reqContext,
+      args: { prompt: 'sankaでCRMを構築して' },
+    });
+    expect(post).toHaveBeenCalledWith('/api/v2/app-builder/blueprints/preview', {
+      body: { prompt: 'sankaでCRMを構築して' },
+    });
+    expect(firstTextContent(previewResult)).toContain('CRM blueprint previewed');
+    expect(previewResult.structuredContent).toMatchObject({
+      applied: false,
+      dry_run: true,
+      ctx_id: 'ctx-preview',
+    });
+  });
+
+  it('requires explicit confirmation before applying an app blueprint', async () => {
+    const post = jest.fn();
+
+    const blocked = await crmApplyAppBlueprintTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { template_slug: 'erp' },
+    });
+
+    expect(blocked.isError).toBe(true);
+    expect(firstTextContent(blocked)).toContain('confirm=true');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('applies app blueprints with confirmation and forwards mutation options', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        plan: {
+          template_slug: 'erp',
+          title: 'ERP',
+          modules: [{ slug: 'erp-finance', name: 'Finance', object_ids: ['invoice'] }],
+          permission_sets: [{ name: 'ERP Admin', permissions: { invoice: 'write' } }],
+          artifacts: [{ type: 'er_diagram', title: 'ERP ERD', body: 'erDiagram' }],
+        },
+        applied: true,
+        dry_run: false,
+        mutation_results: [
+          { operation: 'module_upsert', status: 'updated' },
+          {
+            manual_id: 'manual-1',
+            operation: 'guide_artifact_promote',
+            slug: 'erp-erd',
+            status: 'created',
+          },
+        ],
+        message: 'Applied app blueprint.',
+      },
+      meta: { ctx_id: 'ctx-apply' },
+    });
+
+    const result = await crmApplyAppBlueprintTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        template_slug: 'erp',
+        confirm: true,
+        create_editable_guides: true,
+        idempotency_key: 'key-1',
+        update_existing_permission_sets: true,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/app-builder/blueprints/apply', {
+      body: {
+        template_slug: 'erp',
+        confirm: true,
+        create_editable_guides: true,
+        idempotency_key: 'key-1',
+        update_existing_permission_sets: true,
+      },
+    });
+    expect(firstTextContent(result)).toContain('ERP blueprint applied');
+    expect(result.structuredContent).toMatchObject({
+      applied: true,
+      dry_run: false,
+      ctx_id: 'ctx-apply',
+    });
+  });
+
+  it('routes permission-set governance tools through V2 endpoints', async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          data: [{ id: 'permission-set-1', name: 'CRM Admin', permission: { company: 'write' } }],
+          page: 1,
+          total: 1,
+          count: 1,
+          message: 'OK',
+        },
+        meta: { ctx_id: 'ctx-list' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          permission_dict: { company: 'Companies' },
+          permission_sets: [{ id: 'permission-set-1', name: 'CRM Admin' }],
+          message: 'OK',
+        },
+        meta: { ctx_id: 'ctx-editor' },
+      });
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: { id: 'permission-set-2', name: 'CRM Viewer' },
+        message: 'created',
+      },
+      meta: { ctx_id: 'ctx-create' },
+    });
+    const put = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        data: { id: 'permission-set-2', name: 'CRM Viewer' },
+        message: 'updated',
+      },
+      meta: { ctx_id: 'ctx-update' },
+    });
+    const reqContext = {
+      client: { get, post, put } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const listResult = await crmListPermissionSetsTool.handler({
+      reqContext,
+      args: { search: 'CRM', limit: 10 },
+    });
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/permission-sets', {
+      query: { page: 1, limit: 10, q: 'CRM' },
+    });
+    expect(listResult.structuredContent).toMatchObject({
+      count: 1,
+      results: [{ id: 'permission-set-1', name: 'CRM Admin' }],
+    });
+
+    const editorResult = await crmGetPermissionSetEditorTool.handler({ reqContext, args: {} });
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/permission-sets/editor');
+    expect(editorResult.structuredContent).toMatchObject({
+      permission_dict: { company: 'Companies' },
+      ctx_id: 'ctx-editor',
+    });
+
+    await crmCreatePermissionSetTool.handler({
+      reqContext,
+      args: {
+        name: 'CRM Viewer',
+        description: 'Read-only CRM access',
+        permissions: { company: 'read' },
+      },
+    });
+    expect(post).toHaveBeenCalledWith('/api/v2/permission-sets', {
+      body: {
+        name: 'CRM Viewer',
+        description: 'Read-only CRM access',
+        permissions: { company: 'read' },
+      },
+    });
+
+    await crmUpdatePermissionSetTool.handler({
+      reqContext,
+      args: {
+        permission_set_id: 'permission-set-2',
+        name: 'CRM Viewer',
+        permission: { company: 'read' },
+      },
+    });
+    expect(put).toHaveBeenCalledWith('/api/v2/permission-sets/permission-set-2', {
+      body: {
+        name: 'CRM Viewer',
+        permissions: { company: 'read' },
       },
     });
   });
