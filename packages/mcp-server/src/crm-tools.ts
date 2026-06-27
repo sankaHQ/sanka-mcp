@@ -3750,6 +3750,242 @@ const OBJECT_SCHEMA_MUTATION_OUTPUT_SCHEMA = {
   },
 };
 
+const APP_BUILDER_CUSTOM_OBJECT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string' },
+    slug: { type: 'string' },
+    description: { type: 'string' },
+  },
+  required: ['name', 'slug'],
+};
+
+const APP_BUILDER_MODULE_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slug: { type: 'string' },
+    name: { type: 'string' },
+    name_ja: { type: 'string' },
+    object_ids: {
+      type: 'array',
+      description:
+        'Canonical Sanka object ids such as company, contact, deal, invoice, item, or custom:<custom_object_slug>.',
+      items: { type: 'string' },
+    },
+    icon: { type: 'string' },
+  },
+  required: ['slug', 'name', 'object_ids'],
+};
+
+const APP_BUILDER_PERMISSION_SET_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    permissions: {
+      type: 'object',
+      description: 'Permission map keyed by Sanka permission object key.',
+      additionalProperties: { type: 'string' },
+    },
+  },
+  required: ['name'],
+};
+
+const APP_BLUEPRINT_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    template_slug: {
+      type: 'string',
+      description: 'Supported blueprint template slug. Current values: crm or erp.',
+      enum: ['crm', 'erp'],
+    },
+    templateSlug: {
+      type: 'string',
+      description: 'Alias for template_slug.',
+      enum: ['crm', 'erp'],
+    },
+    prompt: {
+      type: 'string',
+      description:
+        'Natural language intent such as "sankaでCRMを構築して". Used when template_slug is omitted.',
+    },
+    intent: {
+      type: 'string',
+      description: 'Alias for prompt.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language hint.',
+    },
+    modules: {
+      type: 'array',
+      description: 'Optional complete module plan override.',
+      items: APP_BUILDER_MODULE_SCHEMA,
+    },
+    custom_objects: {
+      type: 'array',
+      description: 'Optional Sanka custom objects to create before module application.',
+      items: APP_BUILDER_CUSTOM_OBJECT_SCHEMA,
+    },
+    customObjects: {
+      type: 'array',
+      description: 'Alias for custom_objects.',
+      items: APP_BUILDER_CUSTOM_OBJECT_SCHEMA,
+    },
+    permission_sets: {
+      type: 'array',
+      description: 'Optional complete permission-set plan override.',
+      items: APP_BUILDER_PERMISSION_SET_SCHEMA,
+    },
+    permissionSets: {
+      type: 'array',
+      description: 'Alias for permission_sets.',
+      items: APP_BUILDER_PERMISSION_SET_SCHEMA,
+    },
+    options: {
+      type: 'object',
+      additionalProperties: true,
+    },
+  },
+};
+
+const APP_BLUEPRINT_APPLY_INPUT_SCHEMA = {
+  ...APP_BLUEPRINT_INPUT_SCHEMA,
+  properties: {
+    ...APP_BLUEPRINT_INPUT_SCHEMA.properties,
+    confirm: {
+      type: 'boolean',
+      description: 'Required. Must be true after the user explicitly approves the blueprint mutation.',
+      default: false,
+    },
+    idempotency_key: {
+      type: 'string',
+      description: 'Optional client-generated idempotency key for audit and retries.',
+    },
+    idempotencyKey: {
+      type: 'string',
+      description: 'Alias for idempotency_key.',
+    },
+    update_existing_modules: {
+      type: 'boolean',
+      description: 'When true, modules with matching slugs are updated. Defaults to true.',
+      default: true,
+    },
+    updateExistingModules: {
+      type: 'boolean',
+      description: 'Alias for update_existing_modules.',
+    },
+    update_existing_permission_sets: {
+      type: 'boolean',
+      description: 'When true, permission sets with matching names are updated. Defaults to false.',
+      default: false,
+    },
+    updateExistingPermissionSets: {
+      type: 'boolean',
+      description: 'Alias for update_existing_permission_sets.',
+    },
+    create_editable_guides: {
+      type: 'boolean',
+      description:
+        'When true, generated guide, flowchart, and ER diagram artifacts are promoted into editable Sanka guide manuals after apply.',
+      default: false,
+    },
+    createEditableGuides: {
+      type: 'boolean',
+      description: 'Alias for create_editable_guides.',
+    },
+    promote_guide_artifacts: {
+      type: 'boolean',
+      description: 'Alias for create_editable_guides.',
+    },
+    promoteGuideArtifacts: {
+      type: 'boolean',
+      description: 'Alias for create_editable_guides.',
+    },
+  },
+  required: ['confirm'],
+};
+
+const APP_BLUEPRINT_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    plan: { type: 'object' },
+    dry_run: { type: 'boolean' },
+    applied: { type: 'boolean' },
+    mutation_results: { type: 'array', items: { type: 'object' } },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+};
+
+const APP_BLUEPRINT_TEMPLATES_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    templates: { type: 'array', items: { type: 'object' } },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+};
+
+const PERMISSION_SET_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    q: { type: 'string', description: 'Optional search text.' },
+    search: { type: 'string', description: 'Alias for q.' },
+    page: { type: 'integer', minimum: 1, default: 1 },
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 25 },
+  },
+};
+
+const PERMISSION_SET_EDITOR_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {},
+};
+
+const PERMISSION_SET_MUTATION_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    permission_set_id: {
+      type: 'string',
+      description: 'Permission set UUID. Required for update_permission_set.',
+    },
+    permissionSetId: {
+      type: 'string',
+      description: 'Alias for permission_set_id.',
+    },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    permissions: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+    },
+    permission: {
+      type: 'object',
+      description: 'Alias for permissions.',
+      additionalProperties: { type: 'string' },
+    },
+  },
+};
+
+const PERMISSION_SET_CREATE_INPUT_SCHEMA = {
+  ...PERMISSION_SET_MUTATION_INPUT_SCHEMA,
+  required: ['name'],
+};
+
+const PERMISSION_SET_UPDATE_INPUT_SCHEMA = {
+  ...PERMISSION_SET_MUTATION_INPUT_SCHEMA,
+  required: ['permission_set_id', 'name'],
+};
+
+const PERMISSION_SET_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    data: { type: 'object' },
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+  },
+};
+
 const AUTH_STATUS_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -13091,6 +13327,158 @@ const objectSchemaMutationAction = (
     return 'updated';
   }
   return 'created';
+};
+
+const normalizeV2EnvelopeDataPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  if (!envelope) {
+    return payload;
+  }
+  const data = readRecord(envelope.data) ?? {};
+  return {
+    ...data,
+    ...(envelope.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const buildAppBlueprintBody = (
+  args: Record<string, unknown> | undefined,
+  includeApplyFields = false,
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = {};
+  const templateSlug = readString(args?.['template_slug'] ?? args?.['templateSlug'] ?? args?.['template']);
+  const prompt = readString(args?.['prompt'] ?? args?.['intent'] ?? args?.['natural_language_intent']);
+  const language = readString(args?.['language']);
+  if (templateSlug) {
+    body['template_slug'] = templateSlug;
+  }
+  if (prompt) {
+    body['prompt'] = prompt;
+  }
+  if (language) {
+    body['language'] = language;
+  }
+  const modulesValue = args?.['modules'];
+  const modules =
+    Array.isArray(modulesValue) ?
+      modulesValue
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : undefined;
+  if (modules) {
+    body['modules'] = modules;
+  }
+  const customObjectsValue = args?.['custom_objects'] ?? args?.['customObjects'];
+  const customObjects =
+    Array.isArray(customObjectsValue) ?
+      customObjectsValue
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : undefined;
+  if (customObjects) {
+    body['custom_objects'] = customObjects;
+  }
+  const permissionSetsValue = args?.['permission_sets'] ?? args?.['permissionSets'];
+  const permissionSets =
+    Array.isArray(permissionSetsValue) ?
+      permissionSetsValue
+        .map((entry) => readRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : undefined;
+  if (permissionSets) {
+    body['permission_sets'] = permissionSets;
+  }
+  const options = readRecord(args?.['options']);
+  if (options) {
+    body['options'] = options;
+  }
+  if (includeApplyFields) {
+    assignMappedBooleanFields(body, args, [
+      ['confirm', 'confirm'],
+      ['update_existing_modules', 'update_existing_modules'],
+      ['updateExistingModules', 'update_existing_modules'],
+      ['update_existing_permission_sets', 'update_existing_permission_sets'],
+      ['updateExistingPermissionSets', 'update_existing_permission_sets'],
+      ['create_editable_guides', 'create_editable_guides'],
+      ['createEditableGuides', 'create_editable_guides'],
+      ['promote_guide_artifacts', 'create_editable_guides'],
+      ['promoteGuideArtifacts', 'create_editable_guides'],
+    ]);
+    const idempotencyKey = readString(args?.['idempotency_key'] ?? args?.['idempotencyKey']);
+    if (idempotencyKey) {
+      body['idempotency_key'] = idempotencyKey;
+    }
+  }
+  return body;
+};
+
+const buildAppBlueprintToolResult = (
+  payload: Record<string, unknown>,
+  action: 'previewed' | 'applied',
+): ToolCallResult => {
+  const plan = readRecord(payload['plan']);
+  const title = readString(plan?.['title']) ?? readString(plan?.['template_slug']) ?? 'app blueprint';
+  const modules = Array.isArray(plan?.['modules']) ? plan?.['modules'] : [];
+  const permissionSets = Array.isArray(plan?.['permission_sets']) ? plan?.['permission_sets'] : [];
+  const artifacts = Array.isArray(plan?.['artifacts']) ? plan?.['artifacts'] : [];
+  const mutationResults = Array.isArray(payload['mutation_results']) ? payload['mutation_results'] : [];
+  const mutationText =
+    action === 'applied' ? ` Mutation results: ${mutationResults.length}.` : ' No mutations were applied.';
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `${title} blueprint ${action}. Modules: ${modules.length}. Permission sets: ${permissionSets.length}. Artifacts: ${artifacts.length}.${mutationText}`,
+      },
+    ],
+    structuredContent: payload,
+  };
+};
+
+const buildPermissionSetListParams = (args: Record<string, unknown> | undefined) => {
+  const q = readString(args?.['q'] ?? args?.['search']);
+  const page = Math.max(1, readNumber(args?.['page'], 1));
+  const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
+  return {
+    limit,
+    params: {
+      page,
+      limit,
+      ...(q ? { q } : undefined),
+    },
+  };
+};
+
+const normalizePermissionSetListPayload = (
+  payload: Record<string, unknown>,
+): {
+  rows: Array<Record<string, unknown>>;
+  page: number;
+  total: number;
+  message: string;
+} => {
+  const data = normalizeV2EnvelopeDataPayload(payload);
+  const rows = Array.isArray(data['data']) ? data['data'] : [];
+  return {
+    rows: rows
+      .map((entry) => readRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry)),
+    page: readNumber(data['page'], 1),
+    total: readNumber(data['total'], rows.length),
+    message: readString(data['message']) ?? 'OK',
+  };
+};
+
+const buildPermissionSetMutationBody = (
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['name', 'description']);
+  const permissions = readRecord(args?.['permissions'] ?? args?.['permission']);
+  if (permissions) {
+    body['permissions'] = permissions;
+  }
+  return body;
 };
 
 const buildWorkspaceLanguageListParams = (args: Record<string, unknown> | undefined) => {
@@ -23069,6 +23457,356 @@ export const crmMutateObjectSchemaTool: McpTool = {
             action: objectSchemaMutationAction(response, body),
             payload: response,
             idKeys: ['object_schema_id', 'external_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListAppBlueprintTemplatesTool: McpTool = {
+  metadata: {
+    resource: 'app-builder',
+    operation: 'read',
+    tags: ['crm', 'app-builder', 'schema', 'modules'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/app-builder/templates',
+    operationId: 'public.appBuilder.templates',
+  },
+  tool: {
+    name: 'list_app_blueprint_templates',
+    title: 'List app blueprint templates',
+    description:
+      'List Sanka app-builder templates such as CRM and ERP before previewing or applying a workspace blueprint.',
+    inputSchema: PERMISSION_SET_EDITOR_INPUT_SCHEMA,
+    outputSchema: APP_BLUEPRINT_TEMPLATES_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List app blueprint templates',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List app blueprint templates',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = normalizeV2EnvelopeDataPayload(
+      (await reqContext.client.get('/api/v2/app-builder/templates')) as Record<string, unknown>,
+    );
+    const templates = Array.isArray(response['templates']) ? response['templates'] : [];
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Returned ${templates.length} app blueprint templates.`,
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmPreviewAppBlueprintTool: McpTool = {
+  metadata: {
+    resource: 'app-builder',
+    operation: 'read',
+    tags: ['crm', 'app-builder', 'schema', 'modules', 'permissions'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/app-builder/blueprints/preview',
+    operationId: 'public.appBuilder.preview',
+  },
+  tool: {
+    name: 'preview_app_blueprint',
+    title: 'Preview app blueprint',
+    description:
+      'Preview a CRM or ERP workspace blueprint including side-menu modules, object schema references, permission sets, guides, flowcharts, and ER diagrams. This does not mutate records.',
+    inputSchema: APP_BLUEPRINT_INPUT_SCHEMA,
+    outputSchema: APP_BLUEPRINT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Preview app blueprint',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Preview app blueprint',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = normalizeV2EnvelopeDataPayload(
+      (await reqContext.client.post('/api/v2/app-builder/blueprints/preview', {
+        body: buildAppBlueprintBody(args),
+      })) as Record<string, unknown>,
+    );
+    return buildAppBlueprintToolResult(response, 'previewed');
+  },
+};
+
+export const crmApplyAppBlueprintTool: McpTool = {
+  metadata: {
+    resource: 'app-builder',
+    operation: 'write',
+    tags: ['crm', 'app-builder', 'schema', 'modules', 'permissions'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/app-builder/blueprints/apply',
+    operationId: 'public.appBuilder.apply',
+  },
+  tool: {
+    name: 'apply_app_blueprint',
+    title: 'Apply app blueprint',
+    description:
+      'Apply a CRM or ERP workspace blueprint by mutating global side-menu modules, creating missing custom objects, creating or updating permission sets, saving generated guide/Mermaid artifacts, and optionally promoting them to editable guide manuals. Requires confirm=true after explicit user approval.',
+    inputSchema: APP_BLUEPRINT_APPLY_INPUT_SCHEMA,
+    outputSchema: APP_BLUEPRINT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Apply app blueprint',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Apply app blueprint',
+    });
+    if (authError) {
+      return authError;
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult(
+        '`confirm=true` is required after explicit user approval before applying an app blueprint.',
+      );
+    }
+
+    const response = normalizeV2EnvelopeDataPayload(
+      (await reqContext.client.post('/api/v2/app-builder/blueprints/apply', {
+        body: buildAppBlueprintBody(args, true),
+      })) as Record<string, unknown>,
+    );
+    return buildAppBlueprintToolResult(response, 'applied');
+  },
+};
+
+export const crmListPermissionSetsTool: McpTool = {
+  metadata: {
+    resource: 'permission-sets',
+    operation: 'read',
+    tags: ['crm', 'permission-sets', 'governance'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/permission-sets',
+    operationId: 'public.permissionSets.list',
+  },
+  tool: {
+    name: 'list_permission_sets',
+    title: 'List permission sets',
+    description: 'Review permission sets for Sanka workspace governance and access-control planning.',
+    inputSchema: PERMISSION_SET_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List permission sets',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List permission sets',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { limit, params } = buildPermissionSetListParams(args);
+    const payload = normalizePermissionSetListPayload(
+      (await reqContext.client.get('/api/v2/permission-sets', { query: params })) as Record<string, unknown>,
+    );
+    const results = payload.rows.slice(0, limit);
+    return buildListResult({
+      label: 'permission sets',
+      payload: {
+        count: results.length,
+        data: results,
+        message: payload.message,
+        page: payload.page,
+        total: payload.total,
+      },
+      previewKeys: ['name', 'id'],
+    });
+  },
+};
+
+export const crmGetPermissionSetEditorTool: McpTool = {
+  metadata: {
+    resource: 'permission-sets',
+    operation: 'read',
+    tags: ['crm', 'permission-sets', 'governance'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/permission-sets/editor',
+    operationId: 'public.permissionSets.editor',
+  },
+  tool: {
+    name: 'get_permission_set_editor',
+    title: 'Get permission set editor',
+    description:
+      'Load permission dictionary, object labels, system settings, and existing permission sets for governance design.',
+    inputSchema: PERMISSION_SET_EDITOR_INPUT_SCHEMA,
+    outputSchema: PERMISSION_SET_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get permission set editor',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get permission set editor',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const response = normalizeV2EnvelopeDataPayload(
+      (await reqContext.client.get('/api/v2/permission-sets/editor')) as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: 'Loaded permission set editor metadata.' }],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmCreatePermissionSetTool: McpTool = {
+  metadata: {
+    resource: 'permission-sets',
+    operation: 'write',
+    tags: ['crm', 'permission-sets', 'governance'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/permission-sets',
+    operationId: 'public.permissionSets.create',
+  },
+  tool: {
+    name: 'create_permission_set',
+    title: 'Create permission set',
+    description: 'Create a Sanka permission set for workspace governance.',
+    inputSchema: PERMISSION_SET_CREATE_INPUT_SCHEMA,
+    outputSchema: PERMISSION_SET_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create permission set',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create permission set',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildPermissionSetMutationBody(args);
+    if (!readString(body['name'])) {
+      return asErrorResult('`name` is required.');
+    }
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.post('/api/v2/permission-sets', { body })) as Record<string, unknown>,
+    );
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Permission set',
+            action: 'created',
+            payload: response,
+            idKeys: ['id', 'permission_set_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdatePermissionSetTool: McpTool = {
+  metadata: {
+    resource: 'permission-sets',
+    operation: 'write',
+    tags: ['crm', 'permission-sets', 'governance'],
+    httpMethod: 'put',
+    httpPath: '/api/v2/permission-sets/{permission_set_id}',
+    operationId: 'public.permissionSets.update',
+  },
+  tool: {
+    name: 'update_permission_set',
+    title: 'Update permission set',
+    description: 'Update an existing Sanka permission set for workspace governance.',
+    inputSchema: PERMISSION_SET_UPDATE_INPUT_SCHEMA,
+    outputSchema: PERMISSION_SET_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update permission set',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update permission set',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const permissionSetID = readString(args?.['permission_set_id'] ?? args?.['permissionSetId']);
+    if (!permissionSetID) {
+      return asErrorResult('`permission_set_id` is required.');
+    }
+    const body = buildPermissionSetMutationBody(args);
+    if (!readString(body['name'])) {
+      return asErrorResult('`name` is required.');
+    }
+    const response = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.put(`/api/v2/permission-sets/${encodeURIComponent(permissionSetID)}`, {
+        body,
+      })) as Record<string, unknown>,
+    );
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Permission set',
+            action: 'updated',
+            payload: response,
+            idKeys: ['id', 'permission_set_id'],
           }),
         },
       ],

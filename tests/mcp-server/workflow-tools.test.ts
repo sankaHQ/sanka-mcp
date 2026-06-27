@@ -25,6 +25,11 @@ describe('workflow definition MCP tools', () => {
     expect(toolNames).toContain('create_workflow');
     expect(toolNames).toContain('update_workflow');
     expect(toolNames).toContain('run_workflow');
+    expect(toolNames).toContain('list_app_blueprint_templates');
+    expect(toolNames).toContain('preview_app_blueprint');
+    expect(toolNames).toContain('apply_app_blueprint');
+    expect(toolNames).toContain('list_permission_sets');
+    expect(toolNames).toContain('create_permission_set');
     expect(toolNames).not.toContain('create_hubspot_workflow');
   });
 
@@ -56,6 +61,33 @@ describe('workflow definition MCP tools', () => {
     expect(guidance.supported).toBe(true);
     expect(guidance.recommended_tools).toEqual(['create_workflow', 'update_workflow']);
     expect(guidance.fallback_when_missing).toContain('Sanka Skill or MCP tool catalog may be stale');
+  });
+
+  it('returns app-builder guidance for CRM and ERP setup intents', async () => {
+    const result = await getCapabilityGuidanceTool.handler({
+      reqContext: {
+        client: {} as any,
+      },
+      args: {
+        operation: 'configure',
+        intent: 'sankaでCRMを構築して、モジュールと権限を設定して',
+      },
+    });
+
+    const guidance = result.structuredContent?.['guidance'] as any;
+    expect(guidance.intent_family).toBe('sanka_app_builder');
+    expect(guidance.supported).toBe(true);
+    expect(guidance.recommended_tools).toEqual([
+      'list_app_blueprint_templates',
+      'preview_app_blueprint',
+      'apply_app_blueprint',
+    ]);
+    expect(guidance.route).toContain('confirm=true');
+    expect(guidance.route).toContain('create_editable_guides=true');
+    expect(guidance.mutation_policy).toContain('persisted guide/Mermaid artifacts');
+    expect(guidance.mutation_policy).not.toContain(
+      'does not assign users, delete records, or persist guide artifacts',
+    );
   });
 
   it('creates HubSpot workflow previews through the shared workflow endpoint', async () => {
