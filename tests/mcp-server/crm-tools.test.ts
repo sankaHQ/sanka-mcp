@@ -8948,6 +8948,73 @@ describe('ChatGPT CRM tools', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('forwards app blueprint DSL and template overlays to preview', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        plan: {
+          generation_mode: 'template_overlay',
+          template_slug: 'erp',
+          title: '車業界向けERP',
+          modules: [
+            {
+              slug: 'automotive-sales',
+              name: '車両販売管理',
+              object_ids: ['deal', 'custom:vehicles'],
+            },
+          ],
+          custom_objects: [{ name: '車両管理', slug: 'vehicles' }],
+          permission_sets: [],
+          artifacts: [{ type: 'flowchart', title: '車両販売・整備フロー', body: 'flowchart TD' }],
+          validation: { valid: true, issues: [] },
+        },
+        applied: false,
+        dry_run: true,
+        mutation_results: [],
+        message: 'Previewed app blueprint.',
+      },
+    });
+
+    await crmPreviewAppBlueprintTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        template_slug: 'erp',
+        language: 'ja',
+        overlay: {
+          source: 'template_overlay',
+          custom_objects: [{ name: '車両管理', slug: 'vehicles' }],
+          modules: [{ slug: 'automotive-sales', name: '車両販売管理', object_ids: ['deal'] }],
+        },
+        blueprintDsl: {
+          source: 'ai_generated',
+          modules: [{ slug: 'generated-ops', name: '生成業務', object_ids: ['task'] }],
+          artifacts: [{ type: 'guide', title: '生成ガイド', body: '# 生成ガイド' }],
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/app-builder/blueprints/preview', {
+      body: {
+        template_slug: 'erp',
+        language: 'ja',
+        overlay: {
+          source: 'template_overlay',
+          custom_objects: [{ name: '車両管理', slug: 'vehicles' }],
+          modules: [{ slug: 'automotive-sales', name: '車両販売管理', object_ids: ['deal'] }],
+        },
+        blueprint_dsl: {
+          source: 'ai_generated',
+          modules: [{ slug: 'generated-ops', name: '生成業務', object_ids: ['task'] }],
+          artifacts: [{ type: 'guide', title: '生成ガイド', body: '# 生成ガイド' }],
+        },
+      },
+    });
+  });
+
   it('applies app blueprints with confirmation and forwards mutation options', async () => {
     const post = jest.fn().mockResolvedValue({
       success: true,
@@ -8983,8 +9050,10 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         template_slug: 'erp',
+        language: 'ja',
         confirm: true,
         create_editable_guides: true,
+        allow_generated_blueprint_apply: true,
         idempotency_key: 'key-1',
         update_existing_permission_sets: true,
       },
@@ -8993,8 +9062,10 @@ describe('ChatGPT CRM tools', () => {
     expect(post).toHaveBeenCalledWith('/api/v2/app-builder/blueprints/apply', {
       body: {
         template_slug: 'erp',
+        language: 'ja',
         confirm: true,
         create_editable_guides: true,
+        allow_generated_blueprint_apply: true,
         idempotency_key: 'key-1',
         update_existing_permission_sets: true,
       },

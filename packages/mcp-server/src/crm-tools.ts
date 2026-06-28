@@ -3791,18 +3791,113 @@ const APP_BUILDER_PERMISSION_SET_SCHEMA = {
   required: ['name'],
 };
 
+const APP_BUILDER_ARTIFACT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    slug: { type: 'string' },
+    artifact_type: {
+      type: 'string',
+      description: 'Artifact kind. Supported values include guide, flowchart, and er_diagram.',
+      enum: ['guide', 'flowchart', 'er_diagram'],
+    },
+    artifactType: {
+      type: 'string',
+      description: 'Alias for artifact_type.',
+      enum: ['guide', 'flowchart', 'er_diagram'],
+    },
+    type: {
+      type: 'string',
+      description: 'Alias for artifact_type.',
+      enum: ['guide', 'flowchart', 'er_diagram'],
+    },
+    title: { type: 'string' },
+    content: { type: 'string' },
+    body: { type: 'string' },
+    format: {
+      type: 'string',
+      description: 'Artifact format, usually markdown or mermaid.',
+    },
+  },
+  required: ['artifact_type', 'title', 'content'],
+};
+
+const APP_BUILDER_BLUEPRINT_DSL_SCHEMA = {
+  type: 'object' as const,
+  description:
+    'Blueprint DSL for template overlays or validator-gated generated blueprints. Use preview first; apply generated blueprints only after validation passes and explicit user approval.',
+  properties: {
+    source: {
+      type: 'string',
+      description: 'Origin marker such as template, template_overlay, or ai_generated.',
+      enum: ['template', 'template_overlay', 'ai_generated'],
+    },
+    base_template_slug: {
+      type: 'string',
+      description: 'Base template slug when this DSL overlays an existing template.',
+    },
+    baseTemplateSlug: {
+      type: 'string',
+      description: 'Alias for base_template_slug.',
+    },
+    language: {
+      type: 'string',
+      description: 'Language hint for generated guides and artifacts, such as ja or en.',
+    },
+    modules: {
+      type: 'array',
+      description: 'Modules to add or override.',
+      items: APP_BUILDER_MODULE_SCHEMA,
+    },
+    custom_objects: {
+      type: 'array',
+      description: 'Custom object schemas to create before module application.',
+      items: APP_BUILDER_CUSTOM_OBJECT_SCHEMA,
+    },
+    customObjects: {
+      type: 'array',
+      description: 'Alias for custom_objects.',
+      items: APP_BUILDER_CUSTOM_OBJECT_SCHEMA,
+    },
+    permission_sets: {
+      type: 'array',
+      description: 'Permission sets to add or override.',
+      items: APP_BUILDER_PERMISSION_SET_SCHEMA,
+    },
+    permissionSets: {
+      type: 'array',
+      description: 'Alias for permission_sets.',
+      items: APP_BUILDER_PERMISSION_SET_SCHEMA,
+    },
+    artifacts: {
+      type: 'array',
+      description: 'Guide, Mermaid flowchart, and Mermaid ER diagram artifacts.',
+      items: APP_BUILDER_ARTIFACT_SCHEMA,
+    },
+    destructive_actions: {
+      type: 'array',
+      description: 'Must remain empty. The validator rejects destructive blueprint actions.',
+      items: { type: 'string' },
+    },
+    destructiveActions: {
+      type: 'array',
+      description: 'Alias for destructive_actions. Must remain empty.',
+      items: { type: 'string' },
+    },
+    notes: { type: 'string' },
+  },
+};
+
 const APP_BLUEPRINT_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     template_slug: {
       type: 'string',
-      description: 'Supported blueprint template slug. Current values: crm or erp.',
-      enum: ['crm', 'erp'],
+      description:
+        'Supported blueprint template slug. Current values include crm, erp, expense-management, inventory-management, procurement-management, billing-collections, hr-management, it-asset-management, project-management, and support-desk.',
     },
     templateSlug: {
       type: 'string',
       description: 'Alias for template_slug.',
-      enum: ['crm', 'erp'],
     },
     prompt: {
       type: 'string',
@@ -3815,7 +3910,8 @@ const APP_BLUEPRINT_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language hint.',
+      description:
+        'Optional language hint such as ja or en. Pass the same language on preview and apply so generated guides and editable manuals match the user language.',
     },
     modules: {
       type: 'array',
@@ -3841,6 +3937,24 @@ const APP_BLUEPRINT_INPUT_SCHEMA = {
       type: 'array',
       description: 'Alias for permission_sets.',
       items: APP_BUILDER_PERMISSION_SET_SCHEMA,
+    },
+    blueprint_dsl: {
+      ...APP_BUILDER_BLUEPRINT_DSL_SCHEMA,
+      description:
+        'Complete generated blueprint DSL. Unknown intents should be previewed with this field first and only applied after validator approval and explicit user confirmation.',
+    },
+    blueprintDsl: {
+      ...APP_BUILDER_BLUEPRINT_DSL_SCHEMA,
+      description: 'Alias for blueprint_dsl.',
+    },
+    blueprint: {
+      ...APP_BUILDER_BLUEPRINT_DSL_SCHEMA,
+      description: 'Alias for blueprint_dsl.',
+    },
+    overlay: {
+      ...APP_BUILDER_BLUEPRINT_DSL_SCHEMA,
+      description:
+        'Template overlay DSL for partial matches, such as industry-specific ERP additions. Usually used with template_slug or base_template_slug.',
     },
     options: {
       type: 'object',
@@ -3901,6 +4015,16 @@ const APP_BLUEPRINT_APPLY_INPUT_SCHEMA = {
     promoteGuideArtifacts: {
       type: 'boolean',
       description: 'Alias for create_editable_guides.',
+    },
+    allow_generated_blueprint_apply: {
+      type: 'boolean',
+      description:
+        'Required true only when applying a validator-approved ai_generated blueprint after explicit user approval.',
+      default: false,
+    },
+    allowGeneratedBlueprintApply: {
+      type: 'boolean',
+      description: 'Alias for allow_generated_blueprint_apply.',
     },
   },
   required: ['confirm'],
@@ -13388,6 +13512,14 @@ const buildAppBlueprintBody = (
   if (permissionSets) {
     body['permission_sets'] = permissionSets;
   }
+  const blueprintDsl = readRecord(args?.['blueprint_dsl'] ?? args?.['blueprintDsl'] ?? args?.['blueprint']);
+  if (blueprintDsl) {
+    body['blueprint_dsl'] = blueprintDsl;
+  }
+  const overlay = readRecord(args?.['overlay']);
+  if (overlay) {
+    body['overlay'] = overlay;
+  }
   const options = readRecord(args?.['options']);
   if (options) {
     body['options'] = options;
@@ -13403,6 +13535,8 @@ const buildAppBlueprintBody = (
       ['createEditableGuides', 'create_editable_guides'],
       ['promote_guide_artifacts', 'create_editable_guides'],
       ['promoteGuideArtifacts', 'create_editable_guides'],
+      ['allow_generated_blueprint_apply', 'allow_generated_blueprint_apply'],
+      ['allowGeneratedBlueprintApply', 'allow_generated_blueprint_apply'],
     ]);
     const idempotencyKey = readString(args?.['idempotency_key'] ?? args?.['idempotencyKey']);
     if (idempotencyKey) {
@@ -23478,7 +23612,7 @@ export const crmListAppBlueprintTemplatesTool: McpTool = {
     name: 'list_app_blueprint_templates',
     title: 'List app blueprint templates',
     description:
-      'List Sanka app-builder templates such as CRM and ERP before previewing or applying a workspace blueprint.',
+      'List Sanka app-builder templates such as CRM, ERP, expense management, inventory, procurement, billing, HR, IT asset management, project management, and support desk before previewing or applying a workspace blueprint.',
     inputSchema: PERMISSION_SET_EDITOR_INPUT_SCHEMA,
     outputSchema: APP_BLUEPRINT_TEMPLATES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -23527,7 +23661,7 @@ export const crmPreviewAppBlueprintTool: McpTool = {
     name: 'preview_app_blueprint',
     title: 'Preview app blueprint',
     description:
-      'Preview a CRM or ERP workspace blueprint including side-menu modules, object schema references, permission sets, guides, flowcharts, and ER diagrams. This does not mutate records.',
+      'Preview a Sanka workspace blueprint including side-menu modules, object schema references, permission sets, guides, flowcharts, and ER diagrams. Use template_slug for exact template matches, overlay for template + AI overlay partial matches, or blueprint_dsl for unknown generated blueprints. This does not mutate records.',
     inputSchema: APP_BLUEPRINT_INPUT_SCHEMA,
     outputSchema: APP_BLUEPRINT_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -23569,7 +23703,7 @@ export const crmApplyAppBlueprintTool: McpTool = {
     name: 'apply_app_blueprint',
     title: 'Apply app blueprint',
     description:
-      'Apply a CRM or ERP workspace blueprint by mutating global side-menu modules, creating missing custom objects, creating or updating permission sets, saving generated guide/Mermaid artifacts, and optionally promoting them to editable guide manuals. Requires confirm=true after explicit user approval.',
+      'Apply a validator-approved Sanka workspace blueprint by mutating global side-menu modules, creating missing custom objects, creating or updating permission sets, saving generated guide/Mermaid artifacts, and optionally promoting them to editable guide manuals. Requires confirm=true after explicit user approval; generated blueprints also require allow_generated_blueprint_apply=true.',
     inputSchema: APP_BLUEPRINT_APPLY_INPUT_SCHEMA,
     outputSchema: APP_BLUEPRINT_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
