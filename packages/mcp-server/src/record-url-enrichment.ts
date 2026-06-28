@@ -1,36 +1,35 @@
 import { McpRequestContext, ToolCallResult } from './types';
 
 type AppRoute = {
-  moduleSlug?: string | undefined;
+  moduleSlug: string;
   objectSlug: string;
-  useV2Base?: boolean | undefined;
 };
 
 const RESOURCE_TO_APP_ROUTE: Record<string, AppRoute> = {
-  absences: { objectSlug: 'absence' },
-  attendance_records: { objectSlug: 'attendance' },
-  bills: { objectSlug: 'bills' },
-  companies: { objectSlug: 'companies' },
-  contacts: { objectSlug: 'contacts' },
-  deals: { objectSlug: 'deals' },
-  disbursements: { objectSlug: 'disbursements' },
-  employees: { objectSlug: 'worker' },
-  estimates: { objectSlug: 'estimates' },
-  expenses: { objectSlug: 'expenses' },
-  incentives: { objectSlug: 'incentives' },
-  inventory_transactions: { objectSlug: 'inventory_transactions' },
-  inventories: { objectSlug: 'inventory' },
-  invoices: { objectSlug: 'invoices' },
-  items: { objectSlug: 'items' },
-  journals: { moduleSlug: 'finance-legal', objectSlug: 'journals', useV2Base: true },
-  locations: { objectSlug: 'locations' },
-  orders: { objectSlug: 'orders' },
-  payments: { objectSlug: 'payments' },
-  purchaseOrders: { objectSlug: 'purchase_orders' },
-  slips: { objectSlug: 'revenue' },
-  subscriptions: { objectSlug: 'subscriptions' },
-  tasks: { objectSlug: 'projects' },
-  tickets: { objectSlug: 'tickets' },
+  absences: { moduleSlug: 'hr', objectSlug: 'absences' },
+  attendance_records: { moduleSlug: 'hr', objectSlug: 'attendance' },
+  bills: { moduleSlug: 'finance-legal', objectSlug: 'bills' },
+  companies: { moduleSlug: 'crm', objectSlug: 'companies' },
+  contacts: { moduleSlug: 'crm', objectSlug: 'contacts' },
+  deals: { moduleSlug: 'crm', objectSlug: 'deals' },
+  disbursements: { moduleSlug: 'finance-legal', objectSlug: 'disbursements' },
+  employees: { moduleSlug: 'hr', objectSlug: 'worker' },
+  estimates: { moduleSlug: 'commerce', objectSlug: 'estimates' },
+  expenses: { moduleSlug: 'finance-legal', objectSlug: 'expenses' },
+  incentives: { moduleSlug: 'finance-legal', objectSlug: 'incentives' },
+  inventory_transactions: { moduleSlug: 'inventory', objectSlug: 'inventory_transactions' },
+  inventories: { moduleSlug: 'inventory', objectSlug: 'inventory' },
+  invoices: { moduleSlug: 'finance-legal', objectSlug: 'invoices' },
+  items: { moduleSlug: 'commerce', objectSlug: 'items' },
+  journals: { moduleSlug: 'finance-legal', objectSlug: 'journals' },
+  locations: { moduleSlug: 'inventory', objectSlug: 'locations' },
+  orders: { moduleSlug: 'commerce', objectSlug: 'orders' },
+  payments: { moduleSlug: 'finance-legal', objectSlug: 'payments' },
+  purchaseOrders: { moduleSlug: 'finance-legal', objectSlug: 'purchase_orders' },
+  slips: { moduleSlug: 'finance-legal', objectSlug: 'revenues' },
+  subscriptions: { moduleSlug: 'commerce', objectSlug: 'subscriptions' },
+  tasks: { moduleSlug: 'operations', objectSlug: 'tasks' },
+  tickets: { moduleSlug: 'operations', objectSlug: 'tickets' },
 };
 
 const RESOURCE_ID_KEYS: Record<string, string[]> = {
@@ -76,7 +75,6 @@ export function enrichRecordUrlsForToolResult({
   result,
   resource,
   reqContext,
-  args,
 }: {
   result: ToolCallResult;
   resource: string;
@@ -94,8 +92,7 @@ export function enrichRecordUrlsForToolResult({
   }
 
   const context = {
-    baseUrl: readAppBaseUrl(reqContext, route),
-    language: readLanguage(args),
+    baseUrl: readAppBaseUrl(),
     resource,
     route,
     workspaceCode,
@@ -134,7 +131,6 @@ function enrichPayload(
 
 type EnrichmentContext = {
   baseUrl: string;
-  language: string;
   resource: string;
   route: AppRoute;
   workspaceCode: string;
@@ -204,20 +200,18 @@ function isIntegrationMetadata(metadata: RecordEnrichmentMetadata): boolean {
 }
 
 function buildRecordAppUrl(context: EnrichmentContext, recordId: string): string {
-  if (context.route.moduleSlug) {
-    return [
-      context.baseUrl,
-      context.workspaceCode,
-      context.route.moduleSlug,
-      context.route.objectSlug,
-      encodeURIComponent(recordId),
-      'manage',
-    ].join('/');
-  }
+  return [
+    context.baseUrl,
+    encodePathSegment(context.workspaceCode),
+    encodePathSegment(context.route.moduleSlug),
+    encodePathSegment(context.route.objectSlug),
+    encodePathSegment(recordId),
+    'manage',
+  ].join('/');
+}
 
-  const languagePrefix = context.language === 'ja' ? '/ja' : '';
-  const encodedId = encodeURIComponent(recordId);
-  return `${context.baseUrl}${languagePrefix}/${context.workspaceCode}/${context.route.objectSlug}/?id=${encodedId}`;
+function encodePathSegment(value: string): string {
+  return encodeURIComponent(value);
 }
 
 function canonicalRecordAppUrl(
@@ -225,24 +219,35 @@ function canonicalRecordAppUrl(
   recordId: string,
   existingAppUrl?: string | undefined,
 ): string {
-  if (!existingAppUrl || isLegacyJournalAppUrl(context, existingAppUrl)) {
+  if (!existingAppUrl || isSankaWorkspaceAppUrl(context, existingAppUrl)) {
     return buildRecordAppUrl(context, recordId);
   }
   return existingAppUrl;
 }
 
-function isLegacyJournalAppUrl(context: EnrichmentContext, appUrl: string): boolean {
-  if (context.resource !== 'journals') {
-    return false;
-  }
+function isSankaWorkspaceAppUrl(context: EnrichmentContext, appUrl: string): boolean {
   try {
     const url = new URL(appUrl);
+    if (!isKnownSankaAppHost(url, context.baseUrl)) {
+      return false;
+    }
     const segments = url.pathname.split('/').filter(Boolean);
     const routeSegments = segments[0] === 'ja' ? segments.slice(1) : segments;
-    return routeSegments[0] === context.workspaceCode && routeSegments[1] === 'journal';
+    return routeSegments[0] === context.workspaceCode;
   } catch {
     return false;
   }
+}
+
+function isKnownSankaAppHost(url: URL, configuredBaseUrl: string): boolean {
+  const hostname = url.hostname.toLowerCase();
+  const knownHosts = new Set(['app.sanka.com', 'app-v2.sanka.com']);
+  try {
+    knownHosts.add(new URL(configuredBaseUrl).hostname.toLowerCase());
+  } catch {
+    // Ignore malformed local configuration and keep the fixed production hosts.
+  }
+  return knownHosts.has(hostname);
 }
 
 function readRecordId(record: JsonRecord, resource: string): string | undefined {
@@ -313,18 +318,9 @@ function readWorkspaceCode(reqContext: McpRequestContext): string | undefined {
   return readString(reqContext.auth?.oauth?.workspace_code);
 }
 
-function readAppBaseUrl(reqContext: McpRequestContext, route: AppRoute): string {
-  if (route.useV2Base) {
-    const configuredV2Base = readString(process.env['SANKA_V2_APP_BASE_URL']);
-    return (configuredV2Base || 'https://app-v2.sanka.com').replace(/\/+$/, '');
-  }
-  const configured = readString(reqContext.auth?.oauth?.authorizationServerUrl);
-  return (configured || 'https://app.sanka.com').replace(/\/+$/, '');
-}
-
-function readLanguage(args?: Record<string, unknown> | undefined): string {
-  const raw = readString(args?.['language']) || readString(args?.['lang']);
-  return raw === 'en' ? 'en' : 'ja';
+function readAppBaseUrl(): string {
+  const configuredV2Base = readString(process.env['SANKA_V2_APP_BASE_URL']);
+  return (configuredV2Base || 'https://app-v2.sanka.com').replace(/\/+$/, '');
 }
 
 function readString(value: unknown): string | undefined {
