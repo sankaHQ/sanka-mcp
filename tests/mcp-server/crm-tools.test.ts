@@ -8983,6 +8983,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         template_slug: 'erp',
+        language: 'ja',
         confirm: true,
         create_editable_guides: true,
         idempotency_key: 'key-1',
@@ -8993,6 +8994,7 @@ describe('ChatGPT CRM tools', () => {
     expect(post).toHaveBeenCalledWith('/api/v2/app-builder/blueprints/apply', {
       body: {
         template_slug: 'erp',
+        language: 'ja',
         confirm: true,
         create_editable_guides: true,
         idempotency_key: 'key-1',

@@ -1,6 +1,6 @@
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-06-27.app-builder-guidance.v2';
+const CAPABILITY_GUIDANCE_VERSION = '2026-06-28.app-builder-language.v1';
 
 const GUIDANCE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -73,7 +73,7 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
       supported: true,
       recommended_tools: ['list_app_blueprint_templates', 'preview_app_blueprint', 'apply_app_blueprint'],
       route:
-        'For requests like "ERPを構築して" or "CRMを設定して", use app blueprint tools. Preview the module, custom object, permission-set, guide, flowchart, and ER diagram plan first, then call apply_app_blueprint only after explicit user approval with confirm=true. Pass create_editable_guides=true when the user wants generated guides visible and editable from the Sanka guide drawer/admin UI.',
+        'For requests like "ERPを構築して" or "CRMを設定して", use app blueprint tools. Preview the module, custom object, permission-set, guide, flowchart, and ER diagram plan first, passing language="ja" for Japanese requests. Then call apply_app_blueprint only after explicit user approval with confirm=true, preserving the same language and approved module/custom object overrides from preview. Pass create_editable_guides=true when the user wants generated guides visible and editable from the Sanka guide drawer/admin UI.',
       mutation_policy:
         'apply_app_blueprint performs real Sanka mutations: side-menu modules, missing custom object schemas, permission sets, and persisted guide/Mermaid artifacts. It can promote those artifacts to editable manuals with create_editable_guides=true. It does not assign users or delete records.',
       fallback_when_missing:

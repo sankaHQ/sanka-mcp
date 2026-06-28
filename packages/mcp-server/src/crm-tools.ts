@@ -3815,7 +3815,8 @@ const APP_BLUEPRINT_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language hint.',
+      description:
+        'Optional language hint such as ja or en. Pass the same language on preview and apply so generated guides and editable manuals match the user language.',
     },
     modules: {
       type: 'array',
