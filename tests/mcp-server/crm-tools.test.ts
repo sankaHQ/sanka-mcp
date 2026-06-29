@@ -22,6 +22,7 @@ import {
   crmCreateCalendarAttendanceTool,
   crmCreateCompanyTool,
   crmCreateContactTool,
+  crmCreateContractFromTemplateTool,
   crmCreateCustomObjectRecordTool,
   crmCreateDealTool,
   crmCreateAbsenceTool,
@@ -73,6 +74,7 @@ import {
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmDownloadContractTemplateTool,
   crmDownloadEstimatePDFTool,
   crmDownloadInvoicePDFTool,
   crmDownloadOrderPDFTool,
@@ -89,6 +91,7 @@ import {
   crmGetCompanyTool,
   crmGetCompanyPriceTableTool,
   crmGetContactTool,
+  crmGetContractWorkflowStateTool,
   crmGetDealTool,
   crmGetDisbursementTool,
   crmGetEstimateTool,
@@ -121,6 +124,7 @@ import {
   crmListAssociationsTool,
   crmListCompaniesTool,
   crmListContactsTool,
+  crmListContractTemplatesTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
   crmListPipelineSnapshotBatchesTool,
@@ -166,7 +170,11 @@ import {
   crmReplyPrivateMessageThreadTool,
   crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
+  crmSaveContractPlaceFieldsTool,
+  crmSaveContractSignersTool,
+  crmScheduleContractRequestTool,
   crmScoreRecordTool,
+  crmSendContractRequestTool,
   crmSendInvoiceEmailTool,
   crmSyncPipelineSnapshotHubSpotPropertiesTool,
   crmSyncPrivateMessagesTool,
@@ -181,6 +189,7 @@ import {
   crmUpdateCompanyTool,
   crmUpdateCompanyPriceTableCompanyTool,
   crmUpdateCompanyPriceTableItemTool,
+  crmUpdateContractMetadataTool,
   crmUpdateContactTool,
   crmUpdateCustomObjectRecordTool,
   crmUpdateDealTool,
@@ -206,6 +215,8 @@ import {
   crmUpdateTicketTool,
   crmUpsertApprovalRuleTool,
   crmUploadBillAttachmentTool,
+  crmUploadContractPDFTool,
+  crmUploadContractTemplateTool,
   crmUploadEstimateAttachmentTool,
   crmUploadExpenseAttachmentTool,
   crmUploadInvoiceAttachmentTool,
@@ -339,6 +350,17 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListContractTemplatesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDownloadContractTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadContractTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUploadContractPDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateContractFromTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetContractWorkflowStateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateContractMetadataTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSaveContractSignersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSaveContractPlaceFieldsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSendContractRequestTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmScheduleContractRequestTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListEstimatesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadEstimateAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -446,6 +468,301 @@ describe('ChatGPT CRM tools', () => {
     expect(crmRescheduleCalendarAttendanceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmProspectCompaniesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmScoreRecordTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+  });
+
+  it('lists contract templates through the V2 contract route', async () => {
+    const withResponse = jest.fn().mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          templates: [
+            {
+              id: 'template-1',
+              name: 'NDA',
+              file_name: 'contract-documents/nda.pdf',
+              source_file_name: 'nda.docx',
+            },
+          ],
+          message: 'OK',
+        },
+        meta: {},
+      },
+      response: new Response('{}'),
+    });
+    const v2Get = jest.fn().mockReturnValue({ withResponse });
+
+    const result = await crmListContractTemplatesTool.handler({
+      reqContext: {
+        client: { v2Get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { workspace_id: 'workspace-1' },
+    });
+
+    expect(v2Get).toHaveBeenCalledWith('/contracts/templates', {
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      results: [
+        {
+          id: 'template-1',
+          name: 'NDA',
+          source_file_name: 'nda.docx',
+        },
+      ],
+    });
+  });
+
+  it('downloads contract templates as stored binary results', async () => {
+    const asResponse = jest.fn().mockResolvedValue(
+      new Response(Buffer.from('%PDF-1.4\ntemplate'), {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="nda-template.pdf"',
+        },
+      }),
+    );
+    const v2Get = jest.fn().mockReturnValue({ asResponse });
+
+    const result = await crmDownloadContractTemplateTool.handler({
+      reqContext: {
+        client: { v2Get } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        template_id: 'template-1',
+        source: false,
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(v2Get).toHaveBeenCalledWith('/contracts/templates/template-1/download', {
+      query: { workspace_id: 'workspace-1', source: false },
+    });
+    expect(result.structuredContent).toMatchObject({
+      filename: 'nda-template.pdf',
+      mime_type: 'application/pdf',
+      download_complete: true,
+      content_base64_available: true,
+    });
+  });
+
+  it('uploads contract templates and contract PDFs as multipart documents', async () => {
+    const v2Post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: { id: 'template-1', name: 'NDA' },
+        meta: { ctx_id: 'ctx-template' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { contract_id: 'contract-1', name: 'Uploaded NDA', status: 'draft' },
+        meta: { ctx_id: 'ctx-contract' },
+      });
+
+    const templateResult = await crmUploadContractTemplateTool.handler({
+      reqContext: {
+        client: { v2Post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'nda.docx',
+        content_base64: Buffer.from('docx').toString('base64'),
+        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        name: 'NDA',
+        workspace_id: 'workspace-1',
+      },
+    });
+    const pdfResult = await crmUploadContractPDFTool.handler({
+      reqContext: {
+        client: { v2Post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'contract.pdf',
+        content_base64: Buffer.from('%PDF-1.4\nbody').toString('base64'),
+        title: 'Uploaded NDA',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(v2Post).toHaveBeenNthCalledWith(1, '/contracts/templates', {
+      body: expect.any(FormData),
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Post).toHaveBeenNthCalledWith(2, '/contracts/manual-upload', {
+      body: expect.any(FormData),
+      query: { workspace_id: 'workspace-1' },
+    });
+    const templateForm = v2Post.mock.calls[0][1].body as FormData;
+    const pdfForm = v2Post.mock.calls[1][1].body as FormData;
+    expect(templateForm.get('name')).toBe('NDA');
+    expect((templateForm.get('doc') as File).name).toBe('nda.docx');
+    expect(pdfForm.get('title')).toBe('Uploaded NDA');
+    expect((pdfForm.get('doc') as File).name).toBe('contract.pdf');
+    expect(templateResult.structuredContent).toMatchObject({ id: 'template-1', ctx_id: 'ctx-template' });
+    expect(pdfResult.structuredContent).toMatchObject({
+      contract_id: 'contract-1',
+      ctx_id: 'ctx-contract',
+    });
+  });
+
+  it('routes contract draft, signer, field, metadata, and send workflow tools', async () => {
+    const v2Post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: { contract_id: 'contract-1', name: 'NDA', status: 'draft' },
+        meta: { ctx_id: 'ctx-create' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { ok: true, created_signers: 1 },
+        meta: { ctx_id: 'ctx-signers' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { done_placing_fields: true },
+        meta: { ctx_id: 'ctx-fields' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { ok: true, contract_id: 'contract-1', status: 'signing' },
+        meta: { ctx_id: 'ctx-send' },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { ok: true, contract_id: 'contract-1', scheduled_send_status: 'scheduled' },
+        meta: { ctx_id: 'ctx-schedule' },
+      });
+    const v2Patch = jest.fn().mockResolvedValue({
+      success: true,
+      data: { contract_id: 'contract-1', name: 'Updated NDA' },
+      meta: { ctx_id: 'ctx-metadata' },
+    });
+    const v2Get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        contract: { contract_id: 'contract-1', name: 'Updated NDA' },
+        signers: [{ signer_id: 'signer-1', email: 'signer@example.com' }],
+      },
+      meta: { ctx_id: 'ctx-state' },
+    });
+    const reqContext = {
+      client: { v2Post, v2Patch, v2Get } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    await crmCreateContractFromTemplateTool.handler({
+      reqContext,
+      args: { template_id: 'template-1', title: 'NDA', workspace_id: 'workspace-1', language: 'ja' },
+    });
+    await crmUpdateContractMetadataTool.handler({
+      reqContext,
+      args: { contract_id: 'contract-1', name: 'Updated NDA', workspace_id: 'workspace-1' },
+    });
+    await crmSaveContractSignersTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        signers: [{ name: 'Signer One', email: 'signer@example.com' }],
+        workspace_id: 'workspace-1',
+      },
+    });
+    await crmSaveContractPlaceFieldsTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        fields: [
+          {
+            signer_id: 'signer-1',
+            page: 1,
+            left: 120,
+            top: 640,
+            width: 180,
+            height: 48,
+            page_width: 612,
+            page_height: 792,
+          },
+        ],
+        workspace_id: 'workspace-1',
+      },
+    });
+    await crmGetContractWorkflowStateTool.handler({
+      reqContext,
+      args: { contract_id: 'contract-1', workspace_id: 'workspace-1' },
+    });
+    await crmSendContractRequestTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        content: 'Please sign.',
+        language: 'ja',
+        workspace_id: 'workspace-1',
+      },
+    });
+    const scheduleResult = await crmScheduleContractRequestTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        content: 'Please sign.',
+        scheduled_at: '2026-07-01T09:00:00+09:00',
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(v2Post).toHaveBeenNthCalledWith(1, '/contracts/create-from-template', {
+      body: { template_id: 'template-1', title: 'NDA' },
+      query: { workspace_id: 'workspace-1', language: 'ja' },
+    });
+    expect(v2Patch).toHaveBeenCalledWith('/contracts/contract-1/metadata', {
+      body: { name: 'Updated NDA' },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Post).toHaveBeenNthCalledWith(2, '/contracts/contract-1/signers', {
+      body: { signers: [{ name: 'Signer One', email: 'signer@example.com' }] },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Post).toHaveBeenNthCalledWith(3, '/contracts/contract-1/place-fields', {
+      body: {
+        fields: [
+          {
+            signer_id: 'signer-1',
+            page: 1,
+            left: 120,
+            top: 640,
+            width: 180,
+            height: 48,
+            page_width: 612,
+            page_height: 792,
+          },
+        ],
+      },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Get).toHaveBeenCalledWith('/contracts/contract-1/workflow-state', {
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Post).toHaveBeenNthCalledWith(4, '/contracts/contract-1/send-request', {
+      body: { content: 'Please sign.', language: 'ja' },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Post).toHaveBeenNthCalledWith(5, '/contracts/contract-1/schedule-send', {
+      body: { content: 'Please sign.', scheduled_at: '2026-07-01T09:00:00+09:00' },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(scheduleResult.structuredContent).toMatchObject({
+      contract_id: 'contract-1',
+      scheduled_send_status: 'scheduled',
+      ctx_id: 'ctx-schedule',
+    });
   });
 
   it.each([

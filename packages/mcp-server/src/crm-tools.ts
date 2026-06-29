@@ -1914,6 +1914,287 @@ const EXPENSE_UPLOAD_INPUT_SCHEMA = {
   required: ['filename', 'content_base64'],
 };
 
+const CONTRACT_TEMPLATE_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+};
+
+const CONTRACT_TEMPLATE_DOWNLOAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    template_id: {
+      type: 'string',
+      description: 'Contract template UUID to download.',
+    },
+    source: {
+      type: 'boolean',
+      description:
+        'When true, download the retained source file such as DOCX if available. When false, download the signing PDF.',
+      default: true,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['template_id'],
+};
+
+const CONTRACT_TEMPLATE_UPLOAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    filename: {
+      type: 'string',
+      description: 'Template filename. PDF, DOC, and DOCX are supported by the Sanka API.',
+    },
+    content_base64: {
+      type: 'string',
+      description:
+        'Base64-encoded original template file content. Data URLs are also accepted. Upload the original PDF/DOC/DOCX bytes.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type override.',
+    },
+    name: {
+      type: 'string',
+      description: 'Display name for the contract template.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['filename', 'content_base64'],
+};
+
+const CONTRACT_PDF_UPLOAD_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    filename: {
+      type: 'string',
+      description: 'PDF filename to preserve for the contract draft.',
+    },
+    content_base64: {
+      type: 'string',
+      description: 'Base64-encoded PDF bytes. Data URLs are also accepted.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type override. Defaults to application/pdf.',
+    },
+    title: {
+      type: 'string',
+      description: 'Optional contract draft title.',
+    },
+    file_name_override: {
+      type: 'string',
+      description: 'Optional file name override accepted by the Sanka API.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['filename', 'content_base64'],
+};
+
+const CONTRACT_CREATE_FROM_TEMPLATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    template_id: {
+      type: 'string',
+      description: 'Contract template UUID to copy into a new contract draft.',
+    },
+    title: {
+      type: 'string',
+      description: 'Optional contract draft title. Defaults to the template name.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent to the API.',
+    },
+  },
+  required: ['template_id'],
+};
+
+const CONTRACT_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id'],
+};
+
+const CONTRACT_METADATA_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    name: {
+      type: 'string',
+      description: 'Contract display name.',
+    },
+    description: {
+      type: 'string',
+      description: 'Contract description or internal note.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id'],
+};
+
+const CONTRACT_SIGNERS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    signers: {
+      type: 'array',
+      description: 'Signer rows with name and optional email.',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          email: { type: 'string' },
+        },
+        additionalProperties: true,
+      },
+    },
+    signature_id: {
+      type: 'string',
+      description: 'Optional legacy signature id.',
+    },
+    add_me_as_signer: {
+      type: 'boolean',
+      description: 'When true, add the authenticated user as a signer.',
+      default: false,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id'],
+};
+
+const CONTRACT_PLACE_FIELDS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    fields: {
+      type: 'array',
+      description:
+        'Signature field placements. Each row requires signer_id, page, left, top, width, height, page_width, and page_height.',
+      items: {
+        type: 'object',
+        properties: {
+          signer_id: { type: 'string' },
+          page: { type: 'integer', minimum: 1 },
+          left: { type: 'number' },
+          top: { type: 'number' },
+          width: { type: 'number' },
+          height: { type: 'number' },
+          page_width: { type: 'number' },
+          page_height: { type: 'number' },
+        },
+        additionalProperties: true,
+      },
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id', 'fields'],
+};
+
+const CONTRACT_SEND_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    content: {
+      type: 'string',
+      description: 'Message sent to signers.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language or locale such as ja or en.',
+    },
+    resend: {
+      type: 'boolean',
+      description: 'When true, resend a previously sent request using the persisted body.',
+      default: false,
+    },
+    no_send_request: {
+      type: 'boolean',
+      description: 'When true, persist signing state without sending external email.',
+      default: false,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id'],
+};
+
+const CONTRACT_SCHEDULE_SEND_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Contract identifier.',
+    },
+    content: {
+      type: 'string',
+      description: 'Message sent to signers.',
+    },
+    scheduled_at: {
+      type: 'string',
+      description: 'ISO datetime when the signature request should be sent.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language or locale such as ja or en.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id', 'scheduled_at'],
+};
+
 const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -10429,6 +10710,105 @@ const buildWorkspaceQuery = (args: Record<string, unknown> | undefined) => {
   return params;
 };
 
+const buildContractQuery = (args: Record<string, unknown> | undefined) => {
+  const params = buildWorkspaceQuery(args);
+  assignStringFields(params, args, ['language']);
+  return params;
+};
+
+const contractDataFromEnvelope = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const envelope = unwrapV2EnvelopeRecord(payload);
+  const data = readRecord(envelope?.data) ?? readRecord(payload['data']) ?? payload;
+  return {
+    ...data,
+    ...(envelope?.meta?.['ctx_id'] ? { ctx_id: envelope.meta['ctx_id'] } : undefined),
+  };
+};
+
+const buildContractUploadBody = (
+  args: Record<string, unknown> | undefined,
+  defaultMimeType: string,
+): FormData | ToolCallResult => {
+  const filename = readString(args?.['filename']);
+  const contentBase64 = readString(args?.['content_base64']);
+  const mimeType = readString(args?.['mime_type']);
+  if (!filename) {
+    return asErrorResult('`filename` is required.');
+  }
+  if (!contentBase64) {
+    return asErrorResult('`content_base64` is required.');
+  }
+
+  const parsed = parseBase64Content(contentBase64);
+  const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+    type: mimeType || parsed.mimeType || defaultMimeType,
+  });
+  const form = new FormData();
+  form.append('doc', file as unknown as Blob, filename);
+  return form;
+};
+
+const normalizeContractTemplateListPayload = (
+  payload: Record<string, unknown>,
+): {
+  templates: Array<Record<string, unknown>>;
+  message: string;
+  total: number;
+} => {
+  const data = contractDataFromEnvelope(payload);
+  const templates = readObjectArray(data['templates']) ?? [];
+  return {
+    templates,
+    message: readString(data['message']) ?? `Returned ${templates.length} contract templates.`,
+    total: templates.length,
+  };
+};
+
+const buildContractCreateFromTemplateBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['template_id', 'title']);
+  return body;
+};
+
+const buildContractMetadataBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['name', 'description']);
+  return body;
+};
+
+const buildContractSignersBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const signers = readObjectArray(args?.['signers']);
+  if (signers) {
+    body['signers'] = signers;
+  }
+  assignStringFields(body, args, ['signature_id']);
+  assignBooleanFields(body, args, ['add_me_as_signer']);
+  return body;
+};
+
+const buildContractPlaceFieldsBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const fields = readObjectArray(args?.['fields']);
+  if (fields) {
+    body['fields'] = fields;
+  }
+  return body;
+};
+
+const buildContractSendBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['content', 'language']);
+  assignBooleanFields(body, args, ['resend', 'no_send_request']);
+  return body;
+};
+
+const buildContractScheduleSendBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  assignStringFields(body, args, ['content', 'scheduled_at', 'language']);
+  return body;
+};
+
 const buildPayrollPayslipDownloadParams = (args: Record<string, unknown> | undefined) => {
   const runID = readString(args?.['run_id']);
   const params = buildWorkspaceQuery(args);
@@ -16002,6 +16382,554 @@ export const crmDeleteContactTool: McpTool = {
         },
       ],
       structuredContent: response,
+    };
+  },
+};
+
+export const crmListContractTemplatesTool: McpTool = {
+  metadata: {
+    resource: 'contract_templates',
+    operation: 'read',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/contracts/templates',
+    operationId: 'public.contracts.templates.list',
+  },
+  tool: {
+    name: 'list_contract_templates',
+    title: 'List contract templates',
+    description: 'Review uploaded Sanka Contract templates available in the current workspace.',
+    inputSchema: CONTRACT_TEMPLATE_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List contract templates',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List contract templates' });
+    if (authError) {
+      return authError;
+    }
+
+    const { data: payload } = await reqContext.client
+      .v2Get<Record<string, unknown>>('/contracts/templates', {
+        query: buildWorkspaceQuery(args),
+      })
+      .withResponse();
+    const { templates, message, total } = normalizeContractTemplateListPayload(payload);
+
+    return buildListResult({
+      label: 'contract templates',
+      payload: {
+        count: templates.length,
+        data: templates,
+        message,
+        page: 1,
+        total,
+      },
+      previewKeys: ['name', 'source_file_name', 'file_name'],
+    });
+  },
+};
+
+export const crmDownloadContractTemplateTool: McpTool = {
+  metadata: {
+    resource: 'contract_templates',
+    operation: 'read',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/contracts/templates/{template_id}/download',
+    operationId: 'public.contracts.templates.download',
+  },
+  tool: {
+    name: 'download_contract_template',
+    title: 'Download contract template',
+    description:
+      'Download an uploaded Sanka Contract template. By default this returns the retained source document when available; pass source=false to download the signing PDF.',
+    inputSchema: CONTRACT_TEMPLATE_DOWNLOAD_INPUT_SCHEMA,
+    outputSchema: BINARY_DOWNLOAD_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Download contract template',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Download contract template' });
+    if (authError) {
+      return authError;
+    }
+    const templateID = readString(args?.['template_id']);
+    if (!templateID) {
+      return asErrorResult('`template_id` is required.');
+    }
+    const query = buildWorkspaceQuery(args);
+    const source = readBoolean(args?.['source']);
+    if (source !== undefined) {
+      query['source'] = source;
+    }
+    const response = await reqContext.client
+      .v2Get<unknown>(`/contracts/templates/${encodeURIComponent(templateID)}/download`, {
+        query,
+      })
+      .asResponse();
+    return asStoredBinaryDownloadResult(reqContext, response, 'contract-template');
+  },
+};
+
+export const crmUploadContractTemplateTool: McpTool = {
+  metadata: {
+    resource: 'contract_templates',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/templates',
+    operationId: 'public.contracts.templates.create',
+  },
+  tool: {
+    name: 'upload_contract_template',
+    title: 'Upload contract template',
+    description:
+      'Upload a Contract template to Sanka from base64 PDF, DOC, or DOCX bytes. Word documents are converted to signing PDFs by the Sanka API and retained for later source download.',
+    inputSchema: CONTRACT_TEMPLATE_UPLOAD_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload contract template',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Upload contract template' });
+    if (authError) {
+      return authError;
+    }
+    const formOrError = buildContractUploadBody(args, 'application/octet-stream');
+    if ('content' in formOrError) {
+      return formOrError;
+    }
+    const name = readString(args?.['name']);
+    if (name) {
+      formOrError.append('name', name);
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>('/contracts/templates', {
+        body: formOrError,
+        query: buildWorkspaceQuery(args),
+      })) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Uploaded contract template ${readString(payload['name']) ?? name ?? readString(args?.['filename']) ?? ''}.`,
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmUploadContractPDFTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/manual-upload',
+    operationId: 'public.contracts.manualUpload',
+  },
+  tool: {
+    name: 'upload_contract_pdf',
+    title: 'Upload contract PDF',
+    description: 'Upload a PDF and create a draft Sanka Contract from it.',
+    inputSchema: CONTRACT_PDF_UPLOAD_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Upload contract PDF',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Upload contract PDF' });
+    if (authError) {
+      return authError;
+    }
+    const formOrError = buildContractUploadBody(args, 'application/pdf');
+    if ('content' in formOrError) {
+      return formOrError;
+    }
+    const title = readString(args?.['title']);
+    const fileNameOverride = readString(args?.['file_name_override']);
+    if (title) {
+      formOrError.append('title', title);
+    }
+    if (fileNameOverride) {
+      formOrError.append('file_name_override', fileNameOverride);
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>('/contracts/manual-upload', {
+        body: formOrError,
+        query: buildWorkspaceQuery(args),
+      })) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Created contract draft ${readString(payload['name']) ?? readString(payload['contract_id']) ?? ''}.`,
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmCreateContractFromTemplateTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/create-from-template',
+    operationId: 'public.contracts.createFromTemplate',
+  },
+  tool: {
+    name: 'create_contract_from_template',
+    title: 'Create contract from template',
+    description: 'Create a draft Sanka Contract from an uploaded contract template.',
+    inputSchema: CONTRACT_CREATE_FROM_TEMPLATE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create contract from template',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create contract from template' });
+    if (authError) {
+      return authError;
+    }
+    const templateID = readString(args?.['template_id']);
+    if (!templateID) {
+      return asErrorResult('`template_id` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>('/contracts/create-from-template', {
+        body: buildContractCreateFromTemplateBody(args),
+        query: buildContractQuery(args),
+      })) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Created contract draft ${readString(payload['name']) ?? readString(payload['contract_id']) ?? templateID}.`,
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmGetContractWorkflowStateTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'read',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/contracts/{contract_id}/workflow-state',
+    operationId: 'public.contracts.workflowState',
+  },
+  tool: {
+    name: 'get_contract_workflow_state',
+    title: 'Get contract workflow state',
+    description:
+      'Load a Sanka Contract workflow state including draft metadata, signers, signature fields, timeline, and editability.',
+    inputSchema: CONTRACT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get contract workflow state',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get contract workflow state' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const payload = contractDataFromEnvelope(
+      (await reqContext.client.v2Get<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/workflow-state`,
+        { query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    const contract = readRecord(payload['contract']);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Loaded contract workflow state for ${readString(contract?.['name']) ?? contractID}.`,
+        },
+      ],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmUpdateContractMetadataTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'patch',
+    httpPath: '/api/v2/contracts/{contract_id}/metadata',
+    operationId: 'public.contracts.metadata.update',
+  },
+  tool: {
+    name: 'update_contract_metadata',
+    title: 'Update contract metadata',
+    description: 'Update a Sanka Contract draft name or description before sending.',
+    inputSchema: CONTRACT_METADATA_UPDATE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update contract metadata',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update contract metadata' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const body = buildContractMetadataBody(args);
+    if (Object.keys(body).length === 0) {
+      return asErrorResult('At least one of `name` or `description` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Patch<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/metadata`,
+        { body, query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Updated contract metadata for ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmSaveContractSignersTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/{contract_id}/signers',
+    operationId: 'public.contracts.signers.save',
+  },
+  tool: {
+    name: 'save_contract_signers',
+    title: 'Save contract signers',
+    description: 'Save signer rows for a Sanka Contract draft.',
+    inputSchema: CONTRACT_SIGNERS_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Save contract signers',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Save contract signers' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/signers`,
+        { body: buildContractSignersBody(args), query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Saved signers for contract ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmSaveContractPlaceFieldsTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/{contract_id}/place-fields',
+    operationId: 'public.contracts.placeFields.save',
+  },
+  tool: {
+    name: 'save_contract_place_fields',
+    title: 'Save contract place fields',
+    description: 'Save signature field placements for a Sanka Contract draft.',
+    inputSchema: CONTRACT_PLACE_FIELDS_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Save contract place fields',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Save contract place fields' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const body = buildContractPlaceFieldsBody(args);
+    if (!Array.isArray(body['fields'])) {
+      return asErrorResult('`fields` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/place-fields`,
+        { body, query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Saved signature fields for contract ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmSendContractRequestTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/{contract_id}/send-request',
+    operationId: 'public.contracts.sendRequest',
+  },
+  tool: {
+    name: 'send_contract_request',
+    title: 'Send contract request',
+    description: 'Send or resend a Sanka Contract signature request.',
+    inputSchema: CONTRACT_SEND_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Send contract request',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Send contract request' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/send-request`,
+        { body: buildContractSendBody(args), query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Sent contract signature request for ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmScheduleContractRequestTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/contracts/{contract_id}/schedule-send',
+    operationId: 'public.contracts.scheduleRequest',
+  },
+  tool: {
+    name: 'schedule_contract_request',
+    title: 'Schedule contract request',
+    description: 'Schedule a Sanka Contract signature request for later sending.',
+    inputSchema: CONTRACT_SCHEDULE_SEND_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Schedule contract request',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Schedule contract request' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    if (!readString(args?.['scheduled_at'])) {
+      return asErrorResult('`scheduled_at` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Post<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/schedule-send`,
+        { body: buildContractScheduleSendBody(args), query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Scheduled contract signature request for ${contractID}.` }],
+      structuredContent: payload,
     };
   },
 };

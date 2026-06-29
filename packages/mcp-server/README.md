@@ -114,6 +114,17 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `update_deal`: update a deal
 - `delete_deal`: delete a deal
 - `list_deal_pipelines`: inspect deal pipelines and stages
+- `list_contract_templates`: review uploaded Contract templates
+- `download_contract_template`: download a Contract template source file or signing PDF
+- `upload_contract_template`: upload a PDF/DOC/DOCX Contract template
+- `upload_contract_pdf`: create a Contract draft from uploaded PDF bytes
+- `create_contract_from_template`: create a Contract draft from an uploaded template
+- `get_contract_workflow_state`: load Contract signer/field/timeline readiness state
+- `update_contract_metadata`: update Contract draft name or description
+- `save_contract_signers`: save Contract signer rows
+- `save_contract_place_fields`: save Contract signature field placements
+- `send_contract_request`: send or resend a Contract signature request
+- `schedule_contract_request`: schedule a Contract signature request
 - `preview_buy_request`: preview a natural-language or structured product purchase request
 - `create_buy_request`: create a draft Sanka Buy request
 - `list_buy_requests`: list Sanka Buy requests
