@@ -632,6 +632,25 @@ describe('ChatGPT CRM tools', () => {
     expect(firstTextContent(result)).toContain('20 MiB or smaller');
   });
 
+  it('rejects invalid contract upload base64 before decoding', async () => {
+    const v2Post = jest.fn();
+
+    const result = await crmUploadContractPDFTool.handler({
+      reqContext: {
+        client: { v2Post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'contract.pdf',
+        content_base64: 'data:application/pdf;bad,not-base64',
+      },
+    });
+
+    expect(v2Post).not.toHaveBeenCalled();
+    expect(firstTextContent(result)).toContain('must be valid base64 data');
+  });
+
   it('requires explicit confirmation before sending contract requests', async () => {
     const v2Post = jest.fn();
     const reqContext = {

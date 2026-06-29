@@ -10727,6 +10727,7 @@ const buildContractQuery = (args: Record<string, unknown> | undefined) => {
 };
 
 const CONTRACT_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+const CONTRACT_UPLOAD_MAX_BASE64_CHARS = Math.ceil((CONTRACT_UPLOAD_MAX_BYTES / 3) * 4) + 1024 * 1024;
 
 const normalizeBase64Data = (data: string): string => data.replace(/\s/g, '');
 
@@ -10739,6 +10740,32 @@ const estimateBase64DecodedSize = (normalizedData: string): number => {
     : normalizedData.endsWith('=') ? 1
     : 0;
   return Math.floor((normalizedData.length * 3) / 4) - padding;
+};
+
+const isValidBase64Data = (normalizedData: string): boolean => {
+  if (!normalizedData) {
+    return false;
+  }
+  const paddingMatch = /=+$/.exec(normalizedData);
+  const paddingLength = paddingMatch?.[0].length ?? 0;
+  if (paddingLength > 2) {
+    return false;
+  }
+  const body = paddingLength > 0 ? normalizedData.slice(0, -paddingLength) : normalizedData;
+  if (!body || body.includes('=') || !/^[A-Za-z0-9+/]+$/.test(body)) {
+    return false;
+  }
+  const remainder = body.length % 4;
+  if (remainder === 1) {
+    return false;
+  }
+  if (paddingLength === 1 && remainder !== 3) {
+    return false;
+  }
+  if (paddingLength === 2 && remainder !== 2) {
+    return false;
+  }
+  return true;
 };
 
 const sanitizeContractUploadFilename = (filename: string): string | undefined => {
@@ -10777,9 +10804,15 @@ const buildContractUploadBody = (
   if (!contentBase64) {
     return asErrorResult('`content_base64` is required.');
   }
+  if (contentBase64.length > CONTRACT_UPLOAD_MAX_BASE64_CHARS) {
+    return asErrorResult('`content_base64` decoded size must be 20 MiB or smaller.');
+  }
 
   const parsed = parseBase64Content(contentBase64);
   const normalizedData = normalizeBase64Data(parsed.data);
+  if (!isValidBase64Data(normalizedData)) {
+    return asErrorResult('`content_base64` must be valid base64 data.');
+  }
   const decodedSize = estimateBase64DecodedSize(normalizedData);
   if (decodedSize > CONTRACT_UPLOAD_MAX_BYTES) {
     return asErrorResult('`content_base64` decoded size must be 20 MiB or smaller.');
