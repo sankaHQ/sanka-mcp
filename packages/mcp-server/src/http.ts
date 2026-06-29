@@ -32,7 +32,12 @@ import { expressErrorLogger, expressRequestLogger } from './http-logging';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
 import { executeHandler, initMcpServer, newMcpServer, selectTools } from './server';
 import { resolveMissingScopes } from './tool-auth';
-import { buildToolAccessRequirements } from './tool-scope-requirements';
+import {
+  buildToolAccessRequirements,
+  SANKA_API_ACCESS_SCOPE,
+  SANKA_MCP_ACCESS_SCOPE,
+  SANKA_MCP_DELEGATED_SCOPES,
+} from './tool-scope-requirements';
 import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 import { readBinaryDownloadFile } from './binary-download-store';
 import type { McpRequestContext } from './types';
@@ -47,7 +52,11 @@ const OAUTH_AUTHORIZE_PATH = '/oauth/authorize';
 const OAUTH_TOKEN_PATH = '/api/v1/oauth/token';
 const OAUTH_REVOKE_PATH = '/api/v1/oauth/revoke';
 const OAUTH_REGISTER_PATH = '/api/v1/oauth/register';
-const DEFAULT_SCOPES_SUPPORTED = ['mcp:access'];
+const DEFAULT_SCOPES_SUPPORTED = [
+  SANKA_MCP_ACCESS_SCOPE,
+  SANKA_API_ACCESS_SCOPE,
+  ...SANKA_MCP_DELEGATED_SCOPES,
+];
 const STREAMABLE_HTTP_PATHS = ['/', DEFAULT_STREAMABLE_PATH, '/sse'];
 const BINARY_DOWNLOAD_PATHS = [
   '/downloads/:downloadToken',
@@ -645,17 +654,21 @@ const requestLooksLikeNativeOAuthClient = ({
   ].some(valueLooksLikeNativeOAuthClient);
 
 const requestOrigin = (req: express.Request): string => {
-  const forwardedProto = singleHeader(req.headers['x-forwarded-proto'])?.split(',')[0]?.trim();
-  const forwardedHost = singleHeader(req.headers['x-forwarded-host'])?.split(',')[0]?.trim();
-  const protocol = forwardedProto || req.protocol;
-  const host = forwardedHost || req.get('host');
+  const protocol = req.protocol || 'http';
+  const host = req.get('host');
+  if (!host || /[\r\n]/.test(host)) {
+    return 'http://127.0.0.1';
+  }
   return `${protocol}://${host}`;
 };
 
 const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
+  const resourceUrl =
+    mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString();
+  const metadataOrigin = new URL(resourceUrl).origin;
   return {
-    resourceUrl: mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString(),
-    resourceMetadataUrl: new URL(DEFAULT_METADATA_PATH, requestOrigin(req)).toString(),
+    resourceUrl,
+    resourceMetadataUrl: new URL(DEFAULT_METADATA_PATH, metadataOrigin).toString(),
   };
 };
 
@@ -920,9 +933,13 @@ export const streamableHTTPApp = ({
       return;
     }
 
-    const file = readBinaryDownloadFile({ downloadToken });
+    const sessionId = extractMcpSessionId(req.headers);
+    const file = readBinaryDownloadFile({ downloadToken, sessionId });
     if (!file.ok) {
-      res.status(404).json({ error: file.reason, error_description: file.message });
+      res.status(file.reason === 'session_mismatch' ? 403 : 404).json({
+        error: file.reason,
+        error_description: file.message,
+      });
       return;
     }
 

@@ -473,13 +473,15 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('push_integration_sync');
   });
 
-  it('advertises MCP access as the only OAuth scope on protected tools', () => {
+  it('advertises resource-specific OAuth scopes on protected tools', () => {
     const tools = selectTools(undefined, 'hosted').map(applyRequiredScopesToSecuritySchemes);
     const listDeals = tools.find((tool) => tool.tool.name === 'list_deals');
     const listInventories = tools.find((tool) => tool.tool.name === 'list_inventories');
+    const getWorkflowRun = tools.find((tool) => tool.tool.name === 'get_workflow_run');
 
-    expect(listDeals?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
-    expect(listInventories?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
+    expect(listDeals?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['deals:read'] }]);
+    expect(listInventories?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['inventories:read'] }]);
+    expect(getWorkflowRun?.tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
   });
 
   it('returns unified instructions from the default profile', async () => {

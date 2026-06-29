@@ -5169,7 +5169,7 @@ describe('ChatGPT CRM tools', () => {
     expect(structured).not.toHaveProperty('required_next_tool');
     expect(result.content[0]).toMatchObject({
       type: 'text',
-      text: expect.stringContaining('Download it directly from download_url'),
+      text: expect.stringContaining('Download it from download_url with the current MCP session'),
     });
     expect(result.content[0]).toMatchObject({
       type: 'text',

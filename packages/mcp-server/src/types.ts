@@ -199,7 +199,7 @@ export async function asBinaryDownloadResult(
         content: [
           {
             type: 'text',
-            text: `Prepared ${filename} (${byteLength} bytes). Download it directly from download_url before telling the user the PDF download is complete. If the URL is unavailable, fall back to read_binary_download_chunk with download_token ${stored.downloadToken}.`,
+            text: `Prepared ${filename} (${byteLength} bytes). Download it from download_url with the current MCP session before telling the user the PDF download is complete. If the URL is unavailable or the client cannot send the MCP session, fall back to read_binary_download_chunk with download_token ${stored.downloadToken}.`,
           },
         ],
         structuredContent: {
@@ -222,7 +222,7 @@ export async function asBinaryDownloadResult(
           expires_at: stored.expiresAt,
           next_offset: 0,
           next_action:
-            'Download the file from download_url and attach or save it before reporting completion. If the URL fails, call read_binary_download_chunk from next_offset until done=true, concatenate content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF.',
+            'Download the file from download_url with the current MCP session and attach or save it before reporting completion. If the URL fails, call read_binary_download_chunk from next_offset until done=true, concatenate content_base64 chunks in offset order, decode the combined base64, then attach or save the decoded PDF.',
         },
       };
     }

@@ -95,6 +95,19 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('ignores forwarded host headers when deriving protected resource metadata', async () => {
+    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
+      headers: {
+        'x-forwarded-host': 'evil.example',
+        'x-forwarded-proto': 'https',
+      },
+    });
+    const body = (await response.json()) as { resource?: string };
+
+    expect(response.status).toBe(200);
+    expect(body.resource).toBe(`${baseUrl}/mcp`);
+  });
+
   it('serves prepared binary downloads without base64 chunk transport', async () => {
     const pdfBytes = Buffer.from('%PDF-1.4\n% fast download\n%%EOF\n');
     const stored = storeBinaryDownload({
@@ -106,7 +119,9 @@ describe('protected resource metadata route', () => {
       sessionId: 'session-1',
     });
 
-    const response = await fetch(`${baseUrl}/downloads/${stored.downloadToken}`);
+    const response = await fetch(`${baseUrl}/downloads/${stored.downloadToken}`, {
+      headers: { 'mcp-session-id': 'session-1' },
+    });
     const body = Buffer.from(await response.arrayBuffer());
 
     expect(response.status).toBe(200);
@@ -116,6 +131,28 @@ describe('protected resource metadata route', () => {
     expect(response.headers.get('content-type')).toContain('application/pdf');
     expect(response.headers.get('x-sanka-download-expires-at')).toBe(stored.expiresAt);
     expect(body).toEqual(pdfBytes);
+  });
+
+  it('rejects prepared binary downloads from a different MCP session', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\n% private download\n%%EOF\n');
+    const stored = storeBinaryDownload({
+      contentBase64: pdfBytes.toString('base64'),
+      filename: 'invoice-7.pdf',
+      mimeType: 'application/pdf',
+      byteLength: pdfBytes.length,
+      sessionId: 'session-1',
+    });
+
+    const response = await fetch(`${baseUrl}/downloads/${stored.downloadToken}`, {
+      headers: { 'mcp-session-id': 'session-2' },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toMatchObject({
+      error: 'session_mismatch',
+      error_description: expect.stringContaining('different MCP session'),
+    });
   });
 
   it('serves prepared binary downloads from the /mcp alias path', async () => {
