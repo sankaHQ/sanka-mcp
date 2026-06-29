@@ -2164,14 +2164,13 @@ const CONTRACT_SEND_INPUT_SCHEMA = {
       type: 'boolean',
       description:
         'Required true after explicit user approval because this may send signature request emails to external signers.',
-      default: false,
     },
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
     },
   },
-  required: ['contract_id'],
+  required: ['contract_id', 'confirm'],
 };
 
 const CONTRACT_SCHEDULE_SEND_INPUT_SCHEMA = {
@@ -2197,14 +2196,13 @@ const CONTRACT_SCHEDULE_SEND_INPUT_SCHEMA = {
       type: 'boolean',
       description:
         'Required true after explicit user approval because this schedules signature request emails to external signers.',
-      default: false,
     },
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
     },
   },
-  required: ['contract_id', 'scheduled_at'],
+  required: ['contract_id', 'scheduled_at', 'confirm'],
 };
 
 const EXPENSE_CHUNKED_UPLOAD_START_INPUT_SCHEMA = {
@@ -10743,6 +10741,16 @@ const estimateBase64DecodedSize = (normalizedData: string): number => {
   return Math.floor((normalizedData.length * 3) / 4) - padding;
 };
 
+const sanitizeContractUploadFilename = (filename: string): string | undefined => {
+  const lastSegment =
+    filename
+      .split(/[\\/]+/)
+      .filter(Boolean)
+      .pop() ?? filename;
+  const cleaned = lastSegment.replace(/[\x00-\x1f"]/g, '_').trim();
+  return cleaned || undefined;
+};
+
 const contractDataFromEnvelope = (payload: Record<string, unknown>): Record<string, unknown> => {
   const envelope = unwrapV2EnvelopeRecord(payload);
   const data = readRecord(envelope?.data) ?? readRecord(payload['data']) ?? payload;
@@ -10762,6 +10770,10 @@ const buildContractUploadBody = (
   if (!filename) {
     return asErrorResult('`filename` is required.');
   }
+  const safeFilename = sanitizeContractUploadFilename(filename);
+  if (!safeFilename) {
+    return asErrorResult('`filename` must include a valid file name.');
+  }
   if (!contentBase64) {
     return asErrorResult('`content_base64` is required.');
   }
@@ -10773,11 +10785,11 @@ const buildContractUploadBody = (
     return asErrorResult('`content_base64` decoded size must be 20 MiB or smaller.');
   }
 
-  const file = new File([Buffer.from(normalizedData, 'base64')], filename, {
+  const file = new File([Buffer.from(normalizedData, 'base64')], safeFilename, {
     type: mimeType || parsed.mimeType || defaultMimeType,
   });
   const form = new FormData();
-  form.append('doc', file as unknown as Blob, filename);
+  form.append('doc', file as unknown as Blob, safeFilename);
   return form;
 };
 
@@ -16590,7 +16602,7 @@ export const crmUploadContractTemplateTool: McpTool = {
         {
           type: 'text',
           text: `Uploaded contract template ${
-            readString(payload['name']) ?? name ?? readString(args?.['filename']) ?? ''
+            readString(payload['name']) ?? name ?? readString(payload['id']) ?? 'document'
           }.`,
         },
       ],
@@ -16650,7 +16662,7 @@ export const crmUploadContractPDFTool: McpTool = {
         {
           type: 'text',
           text: `Created contract draft ${
-            readString(payload['name']) ?? readString(payload['contract_id']) ?? ''
+            readString(payload['name']) ?? readString(payload['contract_id']) ?? 'uploaded PDF'
           }.`,
         },
       ],

@@ -585,7 +585,7 @@ describe('ChatGPT CRM tools', () => {
         toolProfile: 'full',
       },
       args: {
-        filename: 'contract.pdf',
+        filename: '../../contract.pdf',
         content_base64: Buffer.from('%PDF-1.4\nbody').toString('base64'),
         title: 'Uploaded NDA',
         workspace_id: 'workspace-1',
