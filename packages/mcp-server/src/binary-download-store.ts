@@ -67,7 +67,7 @@ export type ReadBinaryDownloadFileResult =
     }
   | {
       ok: false;
-      reason: 'not_found';
+      reason: 'not_found' | 'session_mismatch';
       message: string;
     };
 
@@ -188,8 +188,10 @@ export const readBinaryDownloadChunk = ({
 
 export const readBinaryDownloadFile = ({
   downloadToken,
+  sessionId,
 }: {
   downloadToken: string;
+  sessionId?: string | undefined;
 }): ReadBinaryDownloadFileResult => {
   const now = nowMs();
   cleanupDownloads(now);
@@ -200,6 +202,14 @@ export const readBinaryDownloadFile = ({
       ok: false,
       reason: 'not_found',
       message: 'Download token was not found or has expired. Re-run the original PDF download tool.',
+    };
+  }
+
+  if (entry.sessionId && entry.sessionId !== sessionId) {
+    return {
+      ok: false,
+      reason: 'session_mismatch',
+      message: 'Download token belongs to a different MCP session. Re-run the original PDF download tool.',
     };
   }
 

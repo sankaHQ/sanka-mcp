@@ -5,13 +5,25 @@ export const SANKA_MCP_ACCESS_SCOPE = 'mcp:access';
 
 export const DEFAULT_CONNECT_SANKA_SCOPES = [SANKA_MCP_ACCESS_SCOPE] as const;
 
-const SANKA_MCP_DELEGATED_SCOPES = new Set([
+export const SANKA_MCP_DELEGATED_SCOPES = [
+  'account_messages:read',
+  'account_messages:write',
+  'app_builder:read',
+  'app_builder:write',
+  'approval_requests:read',
+  'approval_requests:write',
+  'associations:read',
+  'associations:write',
+  'auth:read',
+  'auth:write',
   'bills:read',
   'bills:write',
   'absences:read',
   'absences:write',
   'attendance_records:read',
   'attendance_records:write',
+  'calendar:read',
+  'calendar:write',
   'cases:read',
   'cases:write',
   'companies:read',
@@ -25,6 +37,7 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'deals:write',
   'disbursements:read',
   'disbursements:write',
+  'downloads:read',
   'estimates:read',
   'estimates:write',
   'expenses:read',
@@ -49,16 +62,32 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'messages:write',
   'meters:read',
   'meters:write',
+  'object_schemas:read',
+  'object_schemas:write',
   'orders:read',
   'orders:write',
   'payments:read',
   'payments:write',
   'payroll:read',
   'payroll:write',
+  'payroll_profiles:read',
+  'payroll_profiles:write',
+  'payroll_runs:read',
+  'payroll_runs:write',
+  'permission_sets:read',
+  'permission_sets:write',
+  'pipeline_snapshots:read',
+  'pipeline_snapshots:write',
+  'properties:read',
+  'properties:write',
+  'prospect:read',
   'purchase_orders:read',
   'purchase_orders:write',
+  'records:read',
+  'records:write',
   'reports:read',
   'reports:write',
+  'score:read',
   'slips:read',
   'slips:write',
   'subscriptions:read',
@@ -71,9 +100,22 @@ const SANKA_MCP_DELEGATED_SCOPES = new Set([
   'transfers:write',
   'views:read',
   'views:write',
+  'workspace_messages:read',
+  'workspace_messages:write',
   'workflows:read',
   'workflows:write',
-]);
+] as const;
+
+const SANKA_MCP_DELEGATED_SCOPE_SET = new Set<string>(SANKA_MCP_DELEGATED_SCOPES);
+
+const isDelegatedMcpToolScope = (scope: string): boolean => SANKA_MCP_DELEGATED_SCOPE_SET.has(scope);
+
+const normalizeScopeResource = (resource: string): string =>
+  resource
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/-/g, '_')
+    .toLowerCase();
 
 export const oauthScopeSatisfied = ({
   grantedScopes,
@@ -84,7 +126,7 @@ export const oauthScopeSatisfied = ({
 }): boolean =>
   grantedScopes.has(SANKA_API_ACCESS_SCOPE) ||
   grantedScopes.has(requiredScope) ||
-  (grantedScopes.has(SANKA_MCP_ACCESS_SCOPE) && SANKA_MCP_DELEGATED_SCOPES.has(requiredScope));
+  (grantedScopes.has(SANKA_MCP_ACCESS_SCOPE) && isDelegatedMcpToolScope(requiredScope));
 
 type ToolAccessRequirement = {
   authenticationRequired: boolean;
@@ -98,7 +140,15 @@ export const getToolRequiredScopes = ({
   args?: Record<string, unknown> | undefined;
 }): string[] => {
   const oauthScheme = tool.tool.securitySchemes?.find((scheme) => scheme.type === 'oauth2');
-  return oauthScheme ? [SANKA_MCP_ACCESS_SCOPE] : [];
+  if (!oauthScheme) {
+    return [];
+  }
+  const resource = normalizeScopeResource(tool.metadata.resource ?? '');
+  if (!resource) {
+    return [SANKA_MCP_ACCESS_SCOPE];
+  }
+  const action = tool.metadata.operation === 'read' ? 'read' : 'write';
+  return [`${resource}:${action}`];
 };
 
 export const buildToolAccessRequirements = ({
