@@ -40,7 +40,9 @@ const estimateMutationProperties = (
     currency,
     due_date,
     external_id: _externalID,
+    line_items: _lineItems,
     notes,
+    send_from,
     start_date,
     status,
     tax_inclusive,
@@ -53,6 +55,7 @@ const estimateMutationProperties = (
   void _companyExternalID;
   void _contactExternalID;
   void _externalID;
+  void _lineItems;
   return compactProperties({
     company_id,
     contact_id,
@@ -60,6 +63,7 @@ const estimateMutationProperties = (
     due_date,
     estimate_date: start_date,
     notes,
+    send_from,
     status,
     tax_inclusive,
     tax_option,
@@ -69,6 +73,16 @@ const estimateMutationProperties = (
   });
 };
 
+const estimateMutationBody = (
+  params: EstimateCreateParams | EstimateUpdateParams,
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = { properties: estimateMutationProperties(params) };
+  if (params.line_items != null) {
+    body['line_items'] = params.line_items;
+  }
+  return body;
+};
+
 export class Estimates extends APIResource {
   /**
    * Create Estimate
@@ -76,7 +90,7 @@ export class Estimates extends APIResource {
   create(body: EstimateCreateParams, options?: RequestOptions): APIPromise<PublicEstimateResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/estimates', {
-        body: { properties: estimateMutationProperties(body) },
+        body: estimateMutationBody(body),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -124,7 +138,7 @@ export class Estimates extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/estimates/${estimateID}`, {
         query: { external_id: params.external_id },
-        body: { properties: estimateMutationProperties(params) },
+        body: estimateMutationBody(params),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -265,7 +279,11 @@ export interface PublicEstimateRequest {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 
@@ -339,7 +357,11 @@ export interface EstimateCreateParams {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 
@@ -411,7 +433,11 @@ export interface EstimateUpdateParams {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 
