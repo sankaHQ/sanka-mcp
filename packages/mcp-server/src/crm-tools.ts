@@ -2081,7 +2081,7 @@ const CONTRACT_SIGNERS_INPUT_SCHEMA = {
           name: { type: 'string' },
           email: { type: 'string' },
         },
-        additionalProperties: true,
+        additionalProperties: false,
       },
     },
     signature_id: {
@@ -2124,7 +2124,7 @@ const CONTRACT_PLACE_FIELDS_INPUT_SCHEMA = {
           page_width: { type: 'number' },
           page_height: { type: 'number' },
         },
-        additionalProperties: true,
+        additionalProperties: false,
       },
     },
     workspace_id: {
@@ -10730,16 +10730,17 @@ const buildContractQuery = (args: Record<string, unknown> | undefined) => {
 
 const CONTRACT_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 
-const estimateBase64DecodedSize = (data: string): number => {
-  const normalized = data.replace(/\s/g, '');
-  if (!normalized) {
+const normalizeBase64Data = (data: string): string => data.replace(/\s/g, '');
+
+const estimateBase64DecodedSize = (normalizedData: string): number => {
+  if (!normalizedData) {
     return 0;
   }
   const padding =
-    normalized.endsWith('==') ? 2
-    : normalized.endsWith('=') ? 1
+    normalizedData.endsWith('==') ? 2
+    : normalizedData.endsWith('=') ? 1
     : 0;
-  return Math.floor((normalized.length * 3) / 4) - padding;
+  return Math.floor((normalizedData.length * 3) / 4) - padding;
 };
 
 const contractDataFromEnvelope = (payload: Record<string, unknown>): Record<string, unknown> => {
@@ -10766,7 +10767,7 @@ const buildContractUploadBody = (
   }
 
   const parsed = parseBase64Content(contentBase64);
-  const normalizedData = parsed.data.replace(/\s/g, '');
+  const normalizedData = normalizeBase64Data(parsed.data);
   const decodedSize = estimateBase64DecodedSize(normalizedData);
   if (decodedSize > CONTRACT_UPLOAD_MAX_BYTES) {
     return asErrorResult('`content_base64` decoded size must be 20 MiB or smaller.');
@@ -10808,11 +10809,37 @@ const buildContractMetadataBody = (args: Record<string, unknown> | undefined) =>
   return body;
 };
 
+const normalizeContractSignerRows = (rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
+  rows.map((row) => {
+    const signer: Record<string, unknown> = {};
+    assignStringFields(signer, row, ['name', 'email']);
+    return signer;
+  });
+
+const normalizeContractPlaceFieldRows = (
+  rows: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> =>
+  rows.map((row) => {
+    const field: Record<string, unknown> = {};
+    assignStringFields(field, row, ['signer_id']);
+    for (const key of ['left', 'top', 'width', 'height', 'page_width', 'page_height']) {
+      const value = row[key];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        field[key] = value;
+      }
+    }
+    const page = row['page'];
+    if (typeof page === 'number' && Number.isInteger(page)) {
+      field['page'] = page;
+    }
+    return field;
+  });
+
 const buildContractSignersBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   const signers = readObjectArray(args?.['signers']);
   if (signers) {
-    body['signers'] = signers;
+    body['signers'] = normalizeContractSignerRows(signers);
   }
   assignStringFields(body, args, ['signature_id']);
   assignBooleanFields(body, args, ['add_me_as_signer']);
@@ -10823,7 +10850,7 @@ const buildContractPlaceFieldsBody = (args: Record<string, unknown> | undefined)
   const body: Record<string, unknown> = {};
   const fields = readObjectArray(args?.['fields']);
   if (fields) {
-    body['fields'] = fields;
+    body['fields'] = normalizeContractPlaceFieldRows(fields);
   }
   return body;
 };

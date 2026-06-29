@@ -720,7 +720,7 @@ describe('ChatGPT CRM tools', () => {
       reqContext,
       args: {
         contract_id: 'contract-1',
-        signers: [{ name: 'Signer One', email: 'signer@example.com' }],
+        signers: [{ name: 'Signer One', email: 'signer@example.com', role: 'ignored' }],
         workspace_id: 'workspace-1',
       },
     });
@@ -738,6 +738,7 @@ describe('ChatGPT CRM tools', () => {
             height: 48,
             page_width: 612,
             page_height: 792,
+            ignored: 'value',
           },
         ],
         workspace_id: 'workspace-1',
