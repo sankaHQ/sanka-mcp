@@ -447,4 +447,52 @@ describe('public commerce document resources on V2', () => {
       },
     ]);
   });
+
+  test('preserves estimate line items and sender on V2 mutations', async () => {
+    const bodies: unknown[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (_url, init) => {
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+        return envelope({
+          id: 'estimate-1',
+          record_id: '7002',
+          object_type: 'estimate',
+          properties: {},
+        });
+      },
+    });
+
+    await client.public.estimates.create({
+      company_id: 'company-1',
+      send_from: 'Sanka Sales\n100 Market St',
+      line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
+    });
+    await client.public.estimates.update('estimate-1', {
+      status: 'draft',
+      notes: 'Updated terms',
+      send_from: 'Updated Sanka Sales\n100 Market St',
+      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+    });
+
+    expect(bodies).toEqual([
+      {
+        properties: {
+          company_id: 'company-1',
+          send_from: 'Sanka Sales\n100 Market St',
+        },
+        line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
+      },
+      {
+        properties: {
+          notes: 'Updated terms',
+          send_from: 'Updated Sanka Sales\n100 Market St',
+          status: 'draft',
+        },
+        line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+      },
+    ]);
+  });
 });
