@@ -476,6 +476,10 @@ describe('public commerce document resources on V2', () => {
       send_from: 'Updated Sanka Sales\n100 Market St',
       line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
     });
+    await client.public.estimates.update('estimate-1', {
+      notes: 'Leave existing rows unchanged',
+      line_items: null,
+    });
 
     expect(bodies).toEqual([
       {
@@ -492,6 +496,11 @@ describe('public commerce document resources on V2', () => {
           status: 'draft',
         },
         line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+      },
+      {
+        properties: {
+          notes: 'Leave existing rows unchanged',
+        },
       },
     ]);
   });

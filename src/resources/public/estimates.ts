@@ -77,7 +77,7 @@ const estimateMutationBody = (
   params: EstimateCreateParams | EstimateUpdateParams,
 ): Record<string, unknown> => {
   const body: Record<string, unknown> = { properties: estimateMutationProperties(params) };
-  if (params.line_items !== undefined) {
+  if (params.line_items != null) {
     body['line_items'] = params.line_items;
   }
   return body;
