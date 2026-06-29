@@ -148,7 +148,8 @@ export const getToolRequiredScopes = ({
     return [SANKA_MCP_ACCESS_SCOPE];
   }
   const action = tool.metadata.operation === 'read' ? 'read' : 'write';
-  return [`${resource}:${action}`];
+  const scope = `${resource}:${action}`;
+  return isDelegatedMcpToolScope(scope) ? [scope] : [SANKA_MCP_ACCESS_SCOPE];
 };
 
 export const buildToolAccessRequirements = ({
