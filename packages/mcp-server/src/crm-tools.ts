@@ -1955,7 +1955,7 @@ const CONTRACT_TEMPLATE_UPLOAD_INPUT_SCHEMA = {
     content_base64: {
       type: 'string',
       description:
-        'Base64-encoded original template file content. Data URLs are also accepted. Upload the original PDF/DOC/DOCX bytes.',
+        'Base64-encoded original template file content. Data URLs are also accepted. Upload the original PDF/DOC/DOCX bytes. Max decoded size: 20 MiB.',
     },
     mime_type: {
       type: 'string',
@@ -1982,7 +1982,7 @@ const CONTRACT_PDF_UPLOAD_INPUT_SCHEMA = {
     },
     content_base64: {
       type: 'string',
-      description: 'Base64-encoded PDF bytes. Data URLs are also accepted.',
+      description: 'Base64-encoded PDF bytes. Data URLs are also accepted. Max decoded size: 20 MiB.',
     },
     mime_type: {
       type: 'string',
@@ -2160,6 +2160,12 @@ const CONTRACT_SEND_INPUT_SCHEMA = {
       description: 'When true, persist signing state without sending external email.',
       default: false,
     },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required true after explicit user approval because this may send signature request emails to external signers.',
+      default: false,
+    },
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
@@ -2186,6 +2192,12 @@ const CONTRACT_SCHEDULE_SEND_INPUT_SCHEMA = {
     language: {
       type: 'string',
       description: 'Optional language or locale such as ja or en.',
+    },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required true after explicit user approval because this schedules signature request emails to external signers.',
+      default: false,
     },
     workspace_id: {
       type: 'string',
@@ -10716,6 +10728,20 @@ const buildContractQuery = (args: Record<string, unknown> | undefined) => {
   return params;
 };
 
+const CONTRACT_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+
+const estimateBase64DecodedSize = (data: string): number => {
+  const normalized = data.replace(/\s/g, '');
+  if (!normalized) {
+    return 0;
+  }
+  const padding =
+    normalized.endsWith('==') ? 2
+    : normalized.endsWith('=') ? 1
+    : 0;
+  return Math.floor((normalized.length * 3) / 4) - padding;
+};
+
 const contractDataFromEnvelope = (payload: Record<string, unknown>): Record<string, unknown> => {
   const envelope = unwrapV2EnvelopeRecord(payload);
   const data = readRecord(envelope?.data) ?? readRecord(payload['data']) ?? payload;
@@ -10740,7 +10766,13 @@ const buildContractUploadBody = (
   }
 
   const parsed = parseBase64Content(contentBase64);
-  const file = new File([Buffer.from(parsed.data, 'base64')], filename, {
+  const normalizedData = parsed.data.replace(/\s/g, '');
+  const decodedSize = estimateBase64DecodedSize(normalizedData);
+  if (decodedSize > CONTRACT_UPLOAD_MAX_BYTES) {
+    return asErrorResult('`content_base64` decoded size must be 20 MiB or smaller.');
+  }
+
+  const file = new File([Buffer.from(normalizedData, 'base64')], filename, {
     type: mimeType || parsed.mimeType || defaultMimeType,
   });
   const form = new FormData();
@@ -16530,7 +16562,9 @@ export const crmUploadContractTemplateTool: McpTool = {
       content: [
         {
           type: 'text',
-          text: `Uploaded contract template ${readString(payload['name']) ?? name ?? readString(args?.['filename']) ?? ''}.`,
+          text: `Uploaded contract template ${
+            readString(payload['name']) ?? name ?? readString(args?.['filename']) ?? ''
+          }.`,
         },
       ],
       structuredContent: payload,
@@ -16588,7 +16622,9 @@ export const crmUploadContractPDFTool: McpTool = {
       content: [
         {
           type: 'text',
-          text: `Created contract draft ${readString(payload['name']) ?? readString(payload['contract_id']) ?? ''}.`,
+          text: `Created contract draft ${
+            readString(payload['name']) ?? readString(payload['contract_id']) ?? ''
+          }.`,
         },
       ],
       structuredContent: payload,
@@ -16638,7 +16674,9 @@ export const crmCreateContractFromTemplateTool: McpTool = {
       content: [
         {
           type: 'text',
-          text: `Created contract draft ${readString(payload['name']) ?? readString(payload['contract_id']) ?? templateID}.`,
+          text: `Created contract draft ${
+            readString(payload['name']) ?? readString(payload['contract_id']) ?? templateID
+          }.`,
         },
       ],
       structuredContent: payload,
@@ -16860,7 +16898,7 @@ export const crmSendContractRequestTool: McpTool = {
     annotations: {
       title: 'Send contract request',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       openWorldHint: true,
     },
   },
@@ -16872,6 +16910,11 @@ export const crmSendContractRequestTool: McpTool = {
     const contractID = readString(args?.['contract_id']);
     if (!contractID) {
       return asErrorResult('`contract_id` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult(
+        '`confirm=true` is required after explicit user approval before sending a contract signature request.',
+      );
     }
     const payload = normalizeV2MutationEnvelopePayload(
       (await reqContext.client.v2Post<Record<string, unknown>>(
@@ -16905,7 +16948,7 @@ export const crmScheduleContractRequestTool: McpTool = {
     annotations: {
       title: 'Schedule contract request',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       openWorldHint: true,
     },
   },
@@ -16920,6 +16963,11 @@ export const crmScheduleContractRequestTool: McpTool = {
     }
     if (!readString(args?.['scheduled_at'])) {
       return asErrorResult('`scheduled_at` is required.');
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult(
+        '`confirm=true` is required after explicit user approval before scheduling a contract signature request.',
+      );
     }
     const payload = normalizeV2MutationEnvelopePayload(
       (await reqContext.client.v2Post<Record<string, unknown>>(

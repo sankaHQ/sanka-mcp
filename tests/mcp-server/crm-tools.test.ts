@@ -613,6 +613,54 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('rejects oversized contract template uploads before decoding', async () => {
+    const v2Post = jest.fn();
+
+    const result = await crmUploadContractTemplateTool.handler({
+      reqContext: {
+        client: { v2Post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filename: 'huge-template.pdf',
+        content_base64: 'A'.repeat(28 * 1024 * 1024),
+      },
+    });
+
+    expect(v2Post).not.toHaveBeenCalled();
+    expect(firstTextContent(result)).toContain('20 MiB or smaller');
+  });
+
+  it('requires explicit confirmation before sending contract requests', async () => {
+    const v2Post = jest.fn();
+    const reqContext = {
+      client: { v2Post } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const sendResult = await crmSendContractRequestTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        content: 'Please sign.',
+      },
+    });
+    const scheduleResult = await crmScheduleContractRequestTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        content: 'Please sign.',
+        scheduled_at: '2026-07-01T09:00:00+09:00',
+      },
+    });
+
+    expect(v2Post).not.toHaveBeenCalled();
+    expect(firstTextContent(sendResult)).toContain('`confirm=true` is required');
+    expect(firstTextContent(scheduleResult)).toContain('`confirm=true` is required');
+  });
+
   it('routes contract draft, signer, field, metadata, and send workflow tools', async () => {
     const v2Post = jest
       .fn()
@@ -705,6 +753,7 @@ describe('ChatGPT CRM tools', () => {
         contract_id: 'contract-1',
         content: 'Please sign.',
         language: 'ja',
+        confirm: true,
         workspace_id: 'workspace-1',
       },
     });
@@ -714,6 +763,7 @@ describe('ChatGPT CRM tools', () => {
         contract_id: 'contract-1',
         content: 'Please sign.',
         scheduled_at: '2026-07-01T09:00:00+09:00',
+        confirm: true,
         workspace_id: 'workspace-1',
       },
     });
