@@ -17,3 +17,5 @@ packages/*/.browser-use-artifacts/
 packages/*/.browser-use-profiles/
 .worktrees
 worktrees
+
+.lavish/
