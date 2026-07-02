@@ -41,7 +41,7 @@ Remote MCP config using Sanka OAuth:
 ```json
 {
   "mcpServers": {
-    "sanka_api": {
+    "sakura": {
       "url": "https://mcp.sanka.com/mcp"
     }
   }
@@ -55,7 +55,7 @@ Manual bearer-token config:
 ```json
 {
   "mcpServers": {
-    "sanka_api": {
+    "sakura": {
       "url": "https://mcp.sanka.com/mcp",
       "headers": {
         "Authorization": "Bearer soat_your_sanka_oauth_access_token"
@@ -70,7 +70,7 @@ Local stdio config with an already-issued Sanka token:
 ```json
 {
   "mcpServers": {
-    "sanka_api": {
+    "sakura": {
       "command": "node",
       "args": ["/path/to/sanka-mcp/packages/mcp-server/dist/index.js"],
       "env": {

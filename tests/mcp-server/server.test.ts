@@ -734,7 +734,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('structuredContent.required_user_facing_reply');
     expect(instructions).toContain('generate_demo_workspace');
     expect(instructions).toContain('push_integration_sync');
-    expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
+    expect(instructions).toContain('prefer the plugin-attached namespace');
+    expect(instructions).toContain('mcp__sakura_plugin__*');
     expect(instructions).toContain('mcp__sanka_key__*');
     expect(instructions).toContain('売上請求番号 7');
     expect(instructions).toContain('Order is "受注" and Invoice is "売上請求"');
@@ -948,7 +949,8 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('structuredContent.required_user_facing_reply');
     expect(instructions).toContain('generate_demo_workspace');
     expect(instructions).toContain('push_integration_sync');
-    expect(instructions).toContain('prefer the plugin-attached Sanka namespace');
+    expect(instructions).toContain('prefer the plugin-attached namespace');
+    expect(instructions).toContain('mcp__sakura_plugin__*');
     expect(instructions).toContain('mcp__sanka_key__*');
     expect(instructions).toContain('Only use download_estimate_pdf when the user explicitly asks');
   });

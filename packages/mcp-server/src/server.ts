@@ -330,7 +330,7 @@ import { validateToolArguments } from './tool-argument-validator';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
-export const SANKA_MCP_SERVER_NAME = 'sanka_api';
+export const SAKURA_MCP_SERVER_NAME = 'sakura';
 export const SANKA_MCP_SERVER_VERSION =
   process.env['SANKA_MCP_SERVER_VERSION'] || process.env['npm_package_version'] || '0.0.1';
 
@@ -343,7 +343,7 @@ export const newMcpServer = async ({
 }) =>
   new McpServer(
     {
-      name: SANKA_MCP_SERVER_NAME,
+      name: SAKURA_MCP_SERVER_NAME,
       version: SANKA_MCP_SERVER_VERSION,
     },
     {
@@ -540,7 +540,7 @@ export async function recordMcpToolCall({
         ...(reqContext.mcpProtocolVersion ?
           { mcp_protocol_version: reqContext.mcpProtocolVersion }
         : undefined),
-        mcp_server_name: SANKA_MCP_SERVER_NAME,
+        mcp_server_name: SAKURA_MCP_SERVER_NAME,
         mcp_server_version: SANKA_MCP_SERVER_VERSION,
         ...(reqContext.mcpRequestEnvironment?.modelProvider ?
           { model_provider: reqContext.mcpRequestEnvironment.modelProvider }

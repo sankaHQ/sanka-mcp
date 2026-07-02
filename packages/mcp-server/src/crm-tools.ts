@@ -14564,7 +14564,7 @@ const buildReconnectMetadata = ({
     isHosted ?
       {
         reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: 'sanka',
+        reconnect_server_name: 'sakura',
       }
     : {};
 
@@ -14628,7 +14628,7 @@ const buildReconnectVisibleMessage = ({
     : undefined,
     typeof reconnectMetadata['reconnect_rpc_method'] === 'string' ?
       `Codex reconnect action: ${reconnectMetadata['reconnect_rpc_method']} for server ${String(
-        reconnectMetadata['reconnect_server_name'] || 'sanka',
+        reconnectMetadata['reconnect_server_name'] || 'sakura',
       )}.`
     : undefined,
     typeof reconnectMetadata['connect_url'] === 'string' ?

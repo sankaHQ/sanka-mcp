@@ -10,7 +10,7 @@ import { mcpClientLooksLikeNativeOAuthClient } from './mcp-client-info';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
-const RECONNECT_SERVER_NAME = 'sanka';
+const RECONNECT_SERVER_NAME = 'sakura';
 
 export const resolveMissingScopes = ({
   grantedScopes,
