@@ -769,14 +769,16 @@ type AttachmentFilePayload = {
 };
 
 type OrderPayload = {
-  externalId: string;
+  externalId?: string;
   items?: OrderLineItem[];
   line_items?: PublicLineItem[];
   attachment_file?: AttachmentFilePayload;
   companyExternalId?: string;
   companyId?: string;
+  custom_fields?: Record<string, unknown>;
   deliveryStatus?: string;
   orderAt?: string;
+  send_from?: string;
 };
 
 type OrderPayloadDraft = Partial<OrderPayload> & {
@@ -4729,6 +4731,16 @@ const ORDER_BODY_INPUT_SCHEMA = {
         'Common line item contract. When provided, Sanka converts these rows into order item rows.',
       items: PUBLIC_LINE_ITEM_INPUT_SCHEMA,
     },
+    custom_fields: {
+      type: 'object',
+      description:
+        'Order custom field values keyed by property id, internal_name, or field name. Use for order fields such as 担当者メールアドレス.',
+      additionalProperties: true,
+    },
+    send_from: {
+      type: 'string',
+      description: 'Optional sender block used by document PDF templates.',
+    },
   },
   required: ['external_id'],
 };
@@ -4750,6 +4762,11 @@ const ORDER_CREATE_INPUT_SCHEMA = {
   required: ['order'],
 };
 
+const ORDER_UPDATE_BODY_INPUT_SCHEMA = {
+  ...ORDER_BODY_INPUT_SCHEMA,
+  required: [],
+};
+
 const ORDER_UPDATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -4757,7 +4774,7 @@ const ORDER_UPDATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Order identifier to update.',
     },
-    order: ORDER_BODY_INPUT_SCHEMA,
+    order: ORDER_UPDATE_BODY_INPUT_SCHEMA,
     attachment_file_ids: DOCUMENT_ATTACHMENT_FILE_IDS_INPUT_PROPERTY,
     create_missing_items: {
       type: 'boolean',
@@ -5494,6 +5511,16 @@ const ESTIMATE_INVOICE_MUTATION_INPUT_PROPERTIES = {
     description:
       'Line items for this document. When provided, Sanka creates/replaces the detail rows and recalculates totals.',
     items: FINANCIAL_DOCUMENT_LINE_ITEM_INPUT_SCHEMA,
+  },
+  custom_fields: {
+    type: 'object',
+    description:
+      'Document custom field values keyed by property id, internal_name, or field name. Use for invoice/order correction fields such as 担当者メールアドレス.',
+    additionalProperties: true,
+  },
+  send_from: {
+    type: 'string',
+    description: 'Optional sender block used by document PDF templates.',
   },
 };
 
@@ -12043,6 +12070,8 @@ const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
   const companyID = readString(record['company_id']);
   const deliveryStatus = readString(record['delivery_status']);
   const orderAt = readString(record['order_at']);
+  const sendFrom = readString(record['send_from'] ?? record['sendFrom']);
+  const customFields = readRecord(record['custom_fields'] ?? record['customFields']);
 
   if (externalID) {
     order.externalId = externalID;
@@ -12058,6 +12087,12 @@ const buildOrderBodyEntry = (value: unknown): OrderPayloadDraft | undefined => {
   }
   if (orderAt) {
     order.orderAt = orderAt;
+  }
+  if (sendFrom) {
+    order.send_from = sendFrom;
+  }
+  if (customFields) {
+    order.custom_fields = customFields;
   }
 
   if (Array.isArray(record['items'])) {
@@ -12264,6 +12299,7 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
     'due_date',
     'external_id',
     'notes',
+    'send_from',
     'start_date',
     'status',
     'tax_option',
@@ -12281,7 +12317,10 @@ const buildFinancialDocumentMutationBody = (args: Record<string, unknown> | unde
   if (attachmentFilePayload) {
     body['attachment_file'] = attachmentFilePayload;
   }
-  assignPublicLineItems(body, args);
+  const customFields = readRecord(args?.['custom_fields'] ?? args?.['customFields']);
+  if (customFields) {
+    body['custom_fields'] = customFields;
+  }
 
   return body;
 };
@@ -19379,7 +19418,7 @@ export const crmCreateOrderTool: McpTool = {
     name: 'create_order',
     title: 'Create order',
     description:
-      'Create an order in Sanka. Provide the nested `order` payload with line items and optional workflow flags. Attach uploaded file ids with `attachment_file_ids` when needed.',
+      'Create an order in Sanka. Provide the nested `order` payload with line items, order-level custom_fields, and optional workflow flags. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ORDER_CREATE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -19415,8 +19454,10 @@ export const crmCreateOrderTool: McpTool = {
         ...(body.order.attachment_file !== undefined ? { attachment_file: body.order.attachment_file } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
+        ...(body.order.custom_fields !== undefined ? { custom_fields: body.order.custom_fields } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
         ...(body.order.orderAt ? { orderAt: body.order.orderAt } : {}),
+        ...(body.order.send_from ? { send_from: body.order.send_from } : {}),
       },
       ...(body.createMissingItems !== undefined ? { createMissingItems: body.createMissingItems } : {}),
       ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
@@ -19447,7 +19488,7 @@ export const crmUpdateOrderTool: McpTool = {
     name: 'update_order',
     title: 'Update order',
     description:
-      'Update an existing order in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+      'Update an existing order in Sanka. Pass order-level custom_fields inside the nested `order` payload. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: ORDER_UPDATE_INPUT_SCHEMA,
     outputSchema: ORDER_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -19473,23 +19514,22 @@ export const crmUpdateOrderTool: McpTool = {
     }
 
     const body = buildOrderMutationBody(args);
-    if (!body.order?.externalId) {
-      return asErrorResult('`order.external_id` is required.');
-    }
-    if (!body.order.items?.length && !body.order.line_items?.length) {
-      return asErrorResult('`order.items` or `order.line_items` must contain at least one line item.');
+    if (!body.order || Object.keys(body.order).length === 0) {
+      return asErrorResult('`order` must contain at least one field to update.');
     }
 
-    const payload: OrderMutationPayload = {
+    const payload: OrderMutationPayloadDraft = {
       order: {
-        externalId: body.order.externalId,
+        ...(body.order.externalId ? { externalId: body.order.externalId } : {}),
         ...(body.order.items !== undefined ? { items: body.order.items } : {}),
         ...(body.order.line_items !== undefined ? { line_items: body.order.line_items } : {}),
         ...(body.order.attachment_file !== undefined ? { attachment_file: body.order.attachment_file } : {}),
         ...(body.order.companyExternalId ? { companyExternalId: body.order.companyExternalId } : {}),
         ...(body.order.companyId ? { companyId: body.order.companyId } : {}),
+        ...(body.order.custom_fields !== undefined ? { custom_fields: body.order.custom_fields } : {}),
         ...(body.order.deliveryStatus ? { deliveryStatus: body.order.deliveryStatus } : {}),
         ...(body.order.orderAt ? { orderAt: body.order.orderAt } : {}),
+        ...(body.order.send_from ? { send_from: body.order.send_from } : {}),
       },
       ...(body.createMissingItems !== undefined ? { createMissingItems: body.createMissingItems } : {}),
       ...(body.triggerWorkflows !== undefined ? { triggerWorkflows: body.triggerWorkflows } : {}),
@@ -22465,7 +22505,7 @@ export const crmCreateInvoiceTool: McpTool = {
     name: 'create_invoice',
     title: 'Create invoice',
     description:
-      'Create an invoice in Sanka from explicit customer and line item data. Attach uploaded file ids with `attachment_file_ids` when needed. For CRM deal/opportunity-sourced billing, use deal_to_order first and create invoices from the Sanka Order context.',
+      'Create an invoice in Sanka from explicit customer, line item, and invoice-level custom_fields data. Attach uploaded file ids with `attachment_file_ids` when needed. For CRM deal/opportunity-sourced billing, use deal_to_order first and create invoices from the Sanka Order context.',
     inputSchema: INVOICE_CREATE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -22523,7 +22563,7 @@ export const crmUpdateInvoiceTool: McpTool = {
     name: 'update_invoice',
     title: 'Update invoice',
     description:
-      'Update an existing invoice in Sanka. Attach uploaded file ids with `attachment_file_ids` when needed.',
+      'Update an existing invoice in Sanka, including invoice-level custom_fields such as 担当者メールアドレス. Attach uploaded file ids with `attachment_file_ids` when needed.',
     inputSchema: INVOICE_UPDATE_INPUT_SCHEMA,
     outputSchema: INVOICE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
