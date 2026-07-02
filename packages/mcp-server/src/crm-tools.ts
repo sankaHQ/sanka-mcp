@@ -5570,6 +5570,11 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
       type: 'string',
       description: 'Invoice identifier. Accepts a UUID, numeric invoice id, or external reference.',
     },
+    workspace_id: {
+      type: 'string',
+      description:
+        'Workspace hint required when invoice_id is numeric because invoice numbers are workspace-local. Prefer the internal workspace UUID; short workspace codes are accepted only if the Sanka API credential can resolve them.',
+    },
     action: {
       type: 'string',
       description: 'Create a draft, send now, or schedule for later.',
@@ -6747,6 +6752,9 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
     ok: { type: 'boolean' },
     status: { type: 'string' },
     ctx_id: { type: 'string' },
+    workspace_id: { type: 'string' },
+    workspace_code: { type: 'string' },
+    app_url: { type: 'string' },
     invoice_id: { type: 'string' },
     id_inv: { type: 'integer' },
     message_thread_ids: {
@@ -13164,6 +13172,7 @@ const buildInvoiceDownloadPDFParams = (args: Record<string, unknown> | undefined
 const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   const invoiceID = readString(args?.['invoice_id'] ?? args?.['invoiceId']);
+  const workspaceID = readString(args?.['workspace_id'] ?? args?.['workspaceId']);
   const action = readString(args?.['action']);
   const to = readStringArray(args?.['to'] ?? args?.['recipients'] ?? args?.['recipient_emails']);
   const cc = readStringArray(args?.['cc']);
@@ -13215,6 +13224,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   return {
     body,
     query: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { language } : undefined),
     },
   };
@@ -13230,15 +13240,18 @@ const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
     : 'invoice';
   const threadIDs = readStringArray(payload['message_thread_ids']);
   const scheduledAt = readString(payload['scheduled_at']);
+  const appURL = readString(payload['app_url']);
   if (status === 'scheduled') {
     return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
       threadIDs.length
-    }.`;
+    }.${appURL ? ` ${appURL}` : ''}`;
   }
   if (status === 'draft') {
-    return `Created draft ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
+    return `Created draft ${invoiceLabel} email. Message threads: ${threadIDs.length}.${
+      appURL ? ` ${appURL}` : ''
+    }`;
   }
-  return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
+  return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.${appURL ? ` ${appURL}` : ''}`;
 };
 
 const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
@@ -22667,9 +22680,15 @@ export const crmSendInvoiceEmailTool: McpTool = {
       return authError;
     }
 
-    const invoiceID = readString(args?.['invoice_id']);
+    const invoiceID = readString(args?.['invoice_id'] ?? args?.['invoiceId']);
     if (!invoiceID) {
       return asErrorResult('`invoice_id` is required.');
+    }
+    const workspaceID = readString(args?.['workspace_id'] ?? args?.['workspaceId']);
+    if (/^\d+$/.test(invoiceID) && !workspaceID) {
+      return asErrorResult(
+        '`workspace_id` is required when `invoice_id` is numeric because invoice numbers are workspace-local. Pass the workspace UUID/code explicitly or use the invoice UUID.',
+      );
     }
     const { body, query } = buildInvoiceEmailBody(args);
     const response = (await reqContext.client.post(
