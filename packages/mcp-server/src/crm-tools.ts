@@ -6,12 +6,6 @@ import {
   storeBinaryDownload,
 } from './binary-download-store';
 import {
-  appendBinaryUploadChunk,
-  BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
-  finishBinaryUpload,
-  startBinaryUpload,
-} from './binary-upload-store';
-import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
@@ -19,7 +13,23 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
-import { buildSafeRecordLabel } from './record-labels';
+import {
+  appendGovernanceAdvisorySummary,
+  buildEntityDetailSummary,
+  buildEntityMutationSummary,
+  buildListResult,
+  buildStructuredTextPreview,
+  createChunkedAttachmentUploadTools,
+  defineDetailTool,
+  defineListTool,
+  defineMutationTool,
+  ListToolPayload,
+  readBoolean,
+  readRecord,
+  readString,
+  readStringArray,
+  STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT,
+} from './tool-factories';
 import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
@@ -8935,26 +8945,10 @@ const MAX_LIST_LIMIT = 100;
 const clampListLimit = (value: unknown, fallback: number): number =>
   Math.max(1, Math.min(MAX_LIST_LIMIT, Math.trunc(readNumber(value, fallback))));
 
-const readString = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : undefined;
-};
-
 const DOCUMENT_PDF_DEFAULT_LANGUAGE = 'ja';
 
 const readDocumentPDFLanguage = (args: Record<string, unknown> | undefined): string =>
   readString(args?.['language']) ?? DOCUMENT_PDF_DEFAULT_LANGUAGE;
-
-const readBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  return undefined;
-};
 
 const asStoredBinaryDownloadResult = (
   reqContext: McpRequestContext,
@@ -9050,101 +9044,6 @@ export const crmReadBinaryDownloadChunkTool: McpTool = {
     };
   },
 };
-
-const readRecord = (value: unknown): Record<string, unknown> | undefined => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-
-  return value as Record<string, unknown>;
-};
-
-const STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT = 10;
-const STRUCTURED_TEXT_PREVIEW_MAX_CHARS = 12000;
-const LIST_SUMMARY_PRIMARY_DISPLAY_KEYS = new Set([
-  'name',
-  'title',
-  'label',
-  'display_name',
-  'display_label',
-  'internal_name',
-  'description',
-  'subject',
-]);
-
-const buildStructuredTextPreview = (label: string, value: unknown): string | undefined => {
-  const json = JSON.stringify(value, null, 2);
-  if (!json || json === '{}' || json === '[]') {
-    return undefined;
-  }
-
-  const truncated = json.length > STRUCTURED_TEXT_PREVIEW_MAX_CHARS;
-  const body = truncated ? `${json.slice(0, STRUCTURED_TEXT_PREVIEW_MAX_CHARS)}\n...truncated...` : json;
-  return `${label}:\n${body}`;
-};
-
-const readListPreviewValue = (
-  row: Record<string, unknown>,
-  keys: string[],
-  predicate: (key: string) => boolean = () => true,
-): string | undefined => {
-  for (const key of keys) {
-    if (!predicate(key)) {
-      continue;
-    }
-    const value = row[key];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return String(value);
-    }
-  }
-  return undefined;
-};
-
-const buildListModelContextPreview = ({
-  label,
-  payload,
-}: {
-  label: string;
-  payload: {
-    scope?: string | null;
-    provider?: string | null;
-    channel_id?: string | null;
-    channel_name?: string | null;
-    external_object_type?: string | null;
-    data_origin?: string | null;
-    source_of_truth?: string | null;
-    sync_state?: Record<string, unknown> | null;
-    unavailable_reason?: string | null;
-    next_cursor?: string | null;
-    count: number;
-    data: Array<Record<string, unknown>>;
-    message: string;
-    page: number;
-    total: number;
-    permission?: string | null;
-  };
-}): string | undefined =>
-  buildStructuredTextPreview(`${label} model context`, {
-    ...(payload.scope ? { scope: payload.scope } : undefined),
-    ...(payload.provider ? { provider: payload.provider } : undefined),
-    ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
-    ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
-    ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
-    ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
-    ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
-    ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
-    ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
-    ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
-    ...(payload.permission ? { permission: payload.permission } : undefined),
-    count: payload.count,
-    total: payload.total,
-    page: payload.page,
-    message: payload.message,
-    results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
-  });
 
 const unwrapV2EnvelopeRecord = (
   payload: Record<string, unknown>,
@@ -9245,47 +9144,6 @@ const isDirectCrmSourceContext = (args: Record<string, unknown> | undefined): bo
 
   const normalizedURL = url.toLowerCase();
   return normalizedURL.includes('hubspot.com') || normalizedURL.includes('salesforce.com');
-};
-
-const readStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((entry) => readString(entry)).filter((entry): entry is string => Boolean(entry));
-};
-
-const readGovernanceAdvisories = (payload: Record<string, unknown>): Array<Record<string, unknown>> => {
-  const advisories = payload['advisories'];
-  if (!Array.isArray(advisories)) {
-    return [];
-  }
-
-  return advisories
-    .map((entry) => readRecord(entry))
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
-};
-
-const buildGovernanceAdvisorySummary = (payload: Record<string, unknown>): string | undefined => {
-  const advisories = readGovernanceAdvisories(payload);
-  const missingPartnerAdvisory = advisories.find(
-    (advisory) => readString(advisory['code']) === 'missing_recommended_partner',
-  );
-  if (missingPartnerAdvisory) {
-    return (
-      'Partner fields are missing. Ask the user for explicit permission before creating or linking a ' +
-      'company/contact, then update this record.'
-    );
-  }
-
-  const firstAdvisory = advisories[0];
-  const message = firstAdvisory ? readString(firstAdvisory['message']) : undefined;
-  return message ? `Governance advisory: ${message}` : undefined;
-};
-
-const appendGovernanceAdvisorySummary = (summary: string, payload: Record<string, unknown>): string => {
-  const advisorySummary = buildGovernanceAdvisorySummary(payload);
-  return advisorySummary ? `${summary} ${advisorySummary}` : summary;
 };
 
 type WorkspaceIdentity = {
@@ -9486,44 +9344,6 @@ const assignMappedIntegerFields = (
   }
 };
 
-const buildListSummary = ({
-  label,
-  rows,
-  total,
-  previewKeys = ['name'],
-}: {
-  label: string;
-  rows: Array<Record<string, unknown>>;
-  total: number;
-  previewKeys?: string[];
-}): string => {
-  if (rows.length === 0) {
-    return `No ${label} matched the current filters.`;
-  }
-
-  const preview = rows
-    .slice(0, 3)
-    .map((row) => {
-      const primaryDisplayValue = readListPreviewValue(row, previewKeys, (key) =>
-        LIST_SUMMARY_PRIMARY_DISPLAY_KEYS.has(key),
-      );
-      if (primaryDisplayValue) {
-        return primaryDisplayValue;
-      }
-
-      const safeRecordLabel = buildSafeRecordLabel({ entity: label, payload: row });
-      if (safeRecordLabel) {
-        return safeRecordLabel;
-      }
-
-      return readListPreviewValue(row, previewKeys) ?? null;
-    })
-    .filter((value): value is string => Boolean(value));
-
-  const previewText = preview.length > 0 ? ` Examples: ${preview.join(', ')}.` : '';
-  return `Found ${total} ${label}.${previewText}`;
-};
-
 const buildTaskListParams = (args: Record<string, unknown> | undefined) => {
   const language = readString(args?.['language']);
   const workspaceID = readString(args?.['workspace_id']);
@@ -9588,87 +9408,6 @@ const buildTaskMutationBody = (args: Record<string, unknown> | undefined): TaskM
   }
 
   return body;
-};
-
-const buildListResult = ({
-  label,
-  payload,
-  previewKeys,
-  includeStructuredTextPreview = true,
-}: {
-  label: string;
-  payload: {
-    scope?: string | null;
-    provider?: string | null;
-    channel_id?: string | null;
-    channel_name?: string | null;
-    external_object_type?: string | null;
-    data_origin?: string | null;
-    source_of_truth?: string | null;
-    sync_state?: Record<string, unknown> | null;
-    unavailable_reason?: string | null;
-    next_cursor?: string | null;
-    count: number;
-    data: Array<Record<string, unknown>>;
-    message: string;
-    page: number;
-    total: number;
-    permission?: string | null;
-    hasBlockingPending?: boolean;
-    rules?: unknown[];
-  };
-  previewKeys?: string[];
-  includeStructuredTextPreview?: boolean;
-}): ToolCallResult => {
-  const structuredTextPreview =
-    includeStructuredTextPreview ? buildListModelContextPreview({ label, payload }) : undefined;
-  const summaryInput =
-    previewKeys ?
-      {
-        label,
-        rows: payload.data,
-        total: payload.total,
-        previewKeys,
-      }
-    : {
-        label,
-        rows: payload.data,
-        total: payload.total,
-      };
-
-  return {
-    content: [
-      {
-        type: 'text',
-        text: [
-          payload.unavailable_reason ?
-            `${label} are unavailable: ${payload.unavailable_reason}. ${payload.message}`
-          : buildListSummary(summaryInput),
-          structuredTextPreview,
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-      },
-    ],
-    structuredContent: {
-      ...(payload.scope ? { scope: payload.scope } : undefined),
-      ...(payload.provider ? { provider: payload.provider } : undefined),
-      ...(payload.channel_id ? { channel_id: payload.channel_id } : undefined),
-      ...(payload.channel_name ? { channel_name: payload.channel_name } : undefined),
-      ...(payload.external_object_type ? { external_object_type: payload.external_object_type } : undefined),
-      ...(payload.data_origin ? { data_origin: payload.data_origin } : undefined),
-      ...(payload.source_of_truth ? { source_of_truth: payload.source_of_truth } : undefined),
-      ...(payload.sync_state ? { sync_state: payload.sync_state } : undefined),
-      ...(payload.unavailable_reason ? { unavailable_reason: payload.unavailable_reason } : undefined),
-      ...(payload.next_cursor ? { next_cursor: payload.next_cursor } : undefined),
-      count: payload.count,
-      page: payload.page,
-      total: payload.total,
-      message: payload.message,
-      permission: payload.permission ?? undefined,
-      results: payload.data,
-    },
-  };
 };
 
 const readHeaderNumber = (headers: Headers, name: string): number | undefined => {
@@ -11364,443 +11103,6 @@ const uploadAttachmentFileFromArgs = async ({
     ],
     structuredContent: response as Record<string, unknown>,
   };
-};
-
-type ToolInputSchema = NonNullable<McpTool['tool']['inputSchema']>;
-type ToolOutputSchema = NonNullable<McpTool['tool']['outputSchema']>;
-
-type ChunkedAttachmentUploadToolConfig = {
-  resource: string;
-  tags: string[];
-  httpPath: string;
-  operationIdPrefix: string;
-  entityName: string;
-  attachmentLabel: string;
-  fileKindLabel: string;
-  directUploadToolName: string;
-  createToolName: string;
-  updateToolName: string;
-  startToolName: string;
-  appendToolName: string;
-  finishToolName: string;
-  startToolTitle: string;
-  appendToolTitle: string;
-  finishToolTitle: string;
-  uploadAttachment: (reqContext: McpRequestContext, file: File) => Promise<unknown>;
-};
-
-const CHUNKED_ATTACHMENT_UPLOAD_START_OUTPUT_SCHEMA: ToolOutputSchema = {
-  type: 'object' as const,
-  properties: {
-    upload_token: { type: 'string' },
-    chunk_size: { type: 'number' },
-    expires_at: { type: 'string' },
-    next_offset: { type: 'number' },
-    recommended_chunk_count: { type: 'number' },
-    recommended_upload_strategy: {
-      type: 'string',
-      enum: ['single_append_then_finish', 'append_chunks_then_finish'],
-    },
-    completion_status: { type: 'string' },
-    required_next_tool: { type: 'string' },
-    next_action: { type: 'string' },
-  },
-  required: [
-    'upload_token',
-    'chunk_size',
-    'expires_at',
-    'next_offset',
-    'recommended_upload_strategy',
-    'completion_status',
-    'required_next_tool',
-    'next_action',
-  ],
-};
-
-const CHUNKED_ATTACHMENT_UPLOAD_APPEND_OUTPUT_SCHEMA: ToolOutputSchema = {
-  type: 'object' as const,
-  properties: {
-    upload_token: { type: 'string' },
-    filename: { type: 'string' },
-    mime_type: { type: 'string' },
-    content_base64_offset: { type: 'number' },
-    content_base64_length: { type: 'number' },
-    expected_content_base64_length: { type: 'number' },
-    expected_byte_length: { type: 'number' },
-    recommended_chunk_count: { type: 'number' },
-    next_offset: { type: 'number' },
-    done: { type: 'boolean' },
-    chunk_size: { type: 'number' },
-    expires_at: { type: 'string' },
-    completion_status: { type: 'string' },
-    required_next_tool: { type: 'string' },
-    next_action: { type: 'string' },
-  },
-  required: [
-    'upload_token',
-    'filename',
-    'mime_type',
-    'content_base64_offset',
-    'content_base64_length',
-    'next_offset',
-    'done',
-    'chunk_size',
-    'expires_at',
-    'completion_status',
-    'next_action',
-  ],
-};
-
-const CHUNKED_ATTACHMENT_UPLOAD_FINISH_OUTPUT_SCHEMA: ToolOutputSchema = {
-  type: 'object' as const,
-  properties: {
-    ok: { type: 'boolean' },
-    file_id: { type: 'string' },
-    id: { type: 'string' },
-    filename: { type: 'string' },
-    url: { type: 'string' },
-    relative_path: { type: 'string' },
-    byte_length: { type: 'number' },
-    content_base64_length: { type: 'number' },
-    completion_status: { type: 'string' },
-    next_action: { type: 'string' },
-  },
-  required: ['ok', 'file_id', 'filename', 'completion_status', 'next_action'],
-};
-
-const capitalizeFirst = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
-
-const buildChunkedAttachmentUploadStartInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
-  type: 'object' as const,
-  properties: {
-    filename: {
-      type: 'string',
-      description: `${capitalizeFirst(config.attachmentLabel)} filename to preserve in Sanka.`,
-    },
-    mime_type: {
-      type: 'string',
-      description: 'Optional MIME type. Defaults to application/octet-stream.',
-    },
-    content_base64_length: {
-      type: 'number',
-      description: `Optional total base64 character length. Pass this when known so ${config.finishToolName} can detect missing chunks.`,
-      minimum: 1,
-    },
-    byte_length: {
-      type: 'number',
-      description: `Optional original byte length. Pass this when known so ${config.finishToolName} can verify the decoded file size.`,
-      minimum: 1,
-    },
-  },
-  required: ['filename'],
-});
-
-const buildChunkedAttachmentUploadAppendInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
-  type: 'object' as const,
-  properties: {
-    upload_token: {
-      type: 'string',
-      description: `Opaque token returned by ${config.startToolName}.`,
-    },
-    token: {
-      type: 'string',
-      description: 'Alias for upload_token.',
-    },
-    offset: {
-      type: 'number',
-      description:
-        'Base64 character offset for this chunk. Start at 0, then use next_offset from the previous append result.',
-      minimum: 0,
-      default: 0,
-    },
-    content_base64: {
-      type: 'string',
-      description: `One base64 chunk of the original ${config.attachmentLabel}. Use the returned chunk_size as the normal target so ${config.fileKindLabel} often complete in one append call. Larger chunks are accepted up to the server max if the client can pass them without truncation.`,
-    },
-  },
-  required: ['content_base64'],
-  anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
-});
-
-const buildChunkedAttachmentUploadFinishInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
-  type: 'object' as const,
-  properties: {
-    upload_token: {
-      type: 'string',
-      description: `Opaque token returned by ${config.startToolName}.`,
-    },
-    token: {
-      type: 'string',
-      description: 'Alias for upload_token.',
-    },
-  },
-  anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
-});
-
-const createChunkedAttachmentUploadTools = (
-  config: ChunkedAttachmentUploadToolConfig,
-): {
-  startTool: McpTool;
-  appendTool: McpTool;
-  finishTool: McpTool;
-} => {
-  const createOrUpdateLabel = `${config.createToolName} or ${config.updateToolName}`;
-
-  const startTool: McpTool = {
-    metadata: {
-      resource: config.resource,
-      operation: 'write',
-      tags: config.tags,
-      operationId: `${config.operationIdPrefix}.startChunkedAttachmentUpload`,
-    },
-    tool: {
-      name: config.startToolName,
-      title: config.startToolTitle,
-      description: `Start a chunked ${config.attachmentLabel} upload for ${config.fileKindLabel} that are too large or unreliable to pass as one content_base64 string. Use ${config.directUploadToolName} when the client can pass content_base64 reliably. Start, append every chunk in order, then finish to receive a file_id for ${createOrUpdateLabel}. Do not abandon the attachment only because multiple append calls are required.`,
-      inputSchema: buildChunkedAttachmentUploadStartInputSchema(config),
-      outputSchema: CHUNKED_ATTACHMENT_UPLOAD_START_OUTPUT_SCHEMA,
-      securitySchemes: [{ type: 'oauth2' }],
-      annotations: {
-        title: config.startToolTitle,
-        readOnlyHint: false,
-        destructiveHint: false,
-        openWorldHint: false,
-      },
-    },
-    handler: async ({ reqContext, args }) => {
-      const authError = requireAuthentication({
-        reqContext,
-        toolTitle: config.startToolTitle,
-      });
-      if (authError) {
-        return authError;
-      }
-
-      const filename = readString(args?.['filename']);
-      if (!filename) {
-        return asErrorResult('`filename` is required.');
-      }
-
-      const expectedBase64Length =
-        typeof args?.['content_base64_length'] === 'number' ? args['content_base64_length'] : undefined;
-      const recommendedChunkCount =
-        typeof expectedBase64Length === 'number' ?
-          Math.ceil(expectedBase64Length / BINARY_UPLOAD_CHUNK_BASE64_LENGTH)
-        : undefined;
-
-      const upload = startBinaryUpload({
-        filename,
-        mimeType: readString(args?.['mime_type']),
-        expectedBase64Length,
-        expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
-        sessionId: reqContext.mcpSessionId,
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Started chunked ${config.attachmentLabel} upload for ${filename}.`,
-          },
-        ],
-        structuredContent: {
-          upload_token: upload.uploadToken,
-          chunk_size: upload.chunkSize,
-          expires_at: upload.expiresAt,
-          next_offset: upload.nextOffset,
-          ...(recommendedChunkCount !== undefined ?
-            { recommended_chunk_count: recommendedChunkCount }
-          : undefined),
-          completion_status: 'requires_chunks',
-          required_next_tool: config.appendToolName,
-          recommended_upload_strategy:
-            recommendedChunkCount === undefined || recommendedChunkCount <= 1 ?
-              'single_append_then_finish'
-            : 'append_chunks_then_finish',
-          next_action: `Call ${
-            config.appendToolName
-          } with content_base64 chunks around ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
-            recommendedChunkCount !== undefined ?
-              `; using max-size chunks this should take ${recommendedChunkCount} append call(s)`
-            : ''
-          }. For ordinary ${
-            config.fileKindLabel
-          }, prefer one reliable append call when the base64 fits within this size instead of manually slicing into tiny chunks. Then call ${
-            config.finishToolName
-          } to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and call ${createOrUpdateLabel} without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
-        },
-      };
-    },
-  };
-
-  const appendTool: McpTool = {
-    metadata: {
-      resource: config.resource,
-      operation: 'write',
-      tags: config.tags,
-      operationId: `${config.operationIdPrefix}.appendChunkedAttachmentUpload`,
-    },
-    tool: {
-      name: config.appendToolName,
-      title: config.appendToolTitle,
-      description: `Append one base64 chunk to a ${config.attachmentLabel} upload started with ${config.startToolName}. Send the original file base64 in ordered chunks; chunk_size is the normal target, so ${config.fileKindLabel} often complete in one append. Continue appending until the result returns done=true, then call ${config.finishToolName}.`,
-      inputSchema: buildChunkedAttachmentUploadAppendInputSchema(config),
-      outputSchema: CHUNKED_ATTACHMENT_UPLOAD_APPEND_OUTPUT_SCHEMA,
-      securitySchemes: [{ type: 'oauth2' }],
-      annotations: {
-        title: config.appendToolTitle,
-        readOnlyHint: false,
-        destructiveHint: false,
-        openWorldHint: false,
-      },
-    },
-    handler: async ({ reqContext, args }) => {
-      const authError = requireAuthentication({
-        reqContext,
-        toolTitle: config.appendToolTitle,
-      });
-      if (authError) {
-        return authError;
-      }
-
-      const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
-      if (!uploadToken) {
-        return asErrorResult('`upload_token` is required.');
-      }
-      const contentBase64 = readString(args?.['content_base64']);
-      if (!contentBase64) {
-        return asErrorResult('`content_base64` is required.');
-      }
-
-      const chunk = appendBinaryUploadChunk({
-        uploadToken,
-        contentBase64,
-        offset: typeof args?.['offset'] === 'number' ? args['offset'] : undefined,
-        sessionId: reqContext.mcpSessionId,
-      });
-      if (!chunk.ok) {
-        return asErrorResult(chunk.message);
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Appended ${chunk.nextOffset - chunk.contentBase64Offset} base64 characters for ${
-              chunk.filename
-            }.`,
-          },
-        ],
-        structuredContent: {
-          upload_token: uploadToken,
-          filename: chunk.filename,
-          mime_type: chunk.mimeType,
-          content_base64_offset: chunk.contentBase64Offset,
-          content_base64_length: chunk.contentBase64Length,
-          ...(chunk.expectedBase64Length !== undefined ?
-            { expected_content_base64_length: chunk.expectedBase64Length }
-          : undefined),
-          ...(chunk.expectedByteLength !== undefined ?
-            { expected_byte_length: chunk.expectedByteLength }
-          : undefined),
-          ...(chunk.expectedBase64Length !== undefined ?
-            { recommended_chunk_count: Math.ceil(chunk.expectedBase64Length / chunk.chunkSize) }
-          : undefined),
-          next_offset: chunk.nextOffset,
-          done: chunk.done,
-          chunk_size: chunk.chunkSize,
-          expires_at: chunk.expiresAt,
-          completion_status: chunk.done ? 'chunks_received' : 'requires_next_chunk',
-          ...(chunk.done ?
-            { required_next_tool: config.finishToolName }
-          : { required_next_tool: config.appendToolName }),
-          next_action:
-            chunk.done ?
-              `Call ${config.finishToolName} with this upload_token to upload the assembled file to Sanka and receive a file_id.`
-            : `Call ${config.appendToolName} again with next_offset and the next content_base64 chunk. Do not drop this in-progress user-provided or required attachment and switch to ${createOrUpdateLabel} without its file_id while chunks remain.`,
-        },
-      };
-    },
-  };
-
-  const finishTool: McpTool = {
-    metadata: {
-      resource: config.resource,
-      operation: 'write',
-      tags: config.tags,
-      httpMethod: 'post',
-      httpPath: config.httpPath,
-      operationId: `${config.operationIdPrefix}.finishChunkedAttachmentUpload`,
-    },
-    tool: {
-      name: config.finishToolName,
-      title: config.finishToolTitle,
-      description: `Finish a chunked ${config.attachmentLabel} upload after all chunks have been appended, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for ${createOrUpdateLabel}.`,
-      inputSchema: buildChunkedAttachmentUploadFinishInputSchema(config),
-      outputSchema: CHUNKED_ATTACHMENT_UPLOAD_FINISH_OUTPUT_SCHEMA,
-      securitySchemes: [{ type: 'oauth2' }],
-      annotations: {
-        title: config.finishToolTitle,
-        readOnlyHint: false,
-        destructiveHint: false,
-        openWorldHint: false,
-      },
-    },
-    handler: async ({ reqContext, args }) => {
-      const authError = requireAuthentication({
-        reqContext,
-        toolTitle: config.finishToolTitle,
-      });
-      if (authError) {
-        return authError;
-      }
-
-      const uploadToken = readString(args?.['upload_token']) ?? readString(args?.['token']);
-      if (!uploadToken) {
-        return asErrorResult('`upload_token` is required.');
-      }
-
-      const assembled = finishBinaryUpload({
-        uploadToken,
-        sessionId: reqContext.mcpSessionId,
-      });
-      if (!assembled.ok) {
-        return asErrorResult(assembled.message);
-      }
-
-      const file = new File([assembled.buffer], assembled.filename, {
-        type: assembled.mimeType,
-      });
-      const response = (await config.uploadAttachment(reqContext, file)) as Record<string, unknown>;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Uploaded ${config.attachmentLabel} ${
-              readString(response['filename']) || assembled.filename
-            }.`,
-          },
-        ],
-        structuredContent: {
-          ...response,
-          filename: readString(response['filename']) || assembled.filename,
-          byte_length: assembled.byteLength,
-          content_base64_length: assembled.contentBase64Length,
-          completion_status: 'uploaded',
-          next_action: `Pass structuredContent.file_id in attachment_file_ids when calling ${createOrUpdateLabel}, then read the ${config.entityName} back if attachment confirmation matters.`,
-        },
-      };
-    },
-  };
-
-  return { startTool, appendTool, finishTool };
 };
 
 const expenseAttachmentUploadTools = createChunkedAttachmentUploadTools({
@@ -15220,85 +14522,6 @@ const buildCompanyPriceTableMutationSummary = (payload: Record<string, unknown>)
   return 'Updated company price-table settings.';
 };
 
-const buildEntityMutationSummary = ({
-  entity,
-  action,
-  payload,
-  idKeys,
-}: {
-  entity: string;
-  action: 'created' | 'updated' | 'deleted';
-  payload: Record<string, unknown>;
-  idKeys: string[];
-}): string => {
-  const target = readString(payload['target']);
-  const operation = readString(payload['operation']);
-  const provider = readString(payload['provider']) || 'integration';
-  const dryRun = readBoolean(payload['dry_run']);
-  if (target === 'integration' && operation?.startsWith('dedupe_')) {
-    const remote = readRecord(payload['remote']);
-    const primary =
-      readString(remote?.['primary_external_id']) ||
-      readString(payload['primary_external_id']) ||
-      readString(payload['external_id']);
-    const secondaries =
-      readStringArray(remote?.['secondary_external_ids']).length > 0 ?
-        readStringArray(remote?.['secondary_external_ids'])
-      : readStringArray(payload['secondary_external_ids']);
-    const mergeCount = secondaries.length;
-    const previewText = dryRun || operation === 'dedupe_preview' ? 'preview prepared' : 'applied';
-    const primaryText = primary ? ` primary=${primary}` : '';
-    const mergeText = mergeCount > 0 ? ` merge_count=${mergeCount}` : '';
-    return `${entity} ${provider} dedupe ${previewText}:${primaryText}${mergeText}.`;
-  }
-
-  if (target === 'integration') {
-    const reference =
-      readString(payload['external_id']) ||
-      readString(payload['status']) ||
-      readString(payload['operation']) ||
-      entity;
-    return `${entity} ${provider} ${operation || action}: ${reference}.`;
-  }
-
-  const reference =
-    idKeys.map((key) => readString(payload[key])).find((value): value is string => Boolean(value)) ||
-    readString(payload['external_id']) ||
-    readString(payload['status']) ||
-    entity;
-
-  return appendGovernanceAdvisorySummary(`${entity} ${action}: ${reference}.`, payload);
-};
-
-const buildEntityDetailSummary = ({
-  entity,
-  payload,
-  previewKeys,
-}: {
-  entity: string;
-  payload: Record<string, unknown>;
-  previewKeys: string[];
-}): string => {
-  const safeRecordLabel = buildSafeRecordLabel({ entity, payload });
-  if (safeRecordLabel) {
-    return `Loaded ${entity} successfully: ${safeRecordLabel}.`;
-  }
-
-  for (const key of previewKeys) {
-    const stringValue = readString(payload[key]);
-    if (stringValue) {
-      return `Loaded ${entity}: ${stringValue}.`;
-    }
-
-    const value = payload[key];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return `Loaded ${entity}: ${value}.`;
-    }
-  }
-
-  return `Loaded ${entity} ${readString(payload['id']) ?? ''}.`.trim();
-};
-
 const buildReconnectMetadata = ({
   connectScopes,
   reqContext,
@@ -16388,583 +15611,215 @@ export const crmDeleteAssociationTool: McpTool = {
   },
 };
 
-export const crmListCompaniesTool: McpTool = {
-  metadata: {
-    resource: 'companies',
-    operation: 'read',
-    tags: ['crm'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/companies',
-    operationId: 'public.companies.list',
-  },
-  tool: {
-    name: 'list_companies',
-    title: 'List companies',
-    description:
-      'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts; scope=integration with provider=salesforce lists live Salesforce Accounts; scope=integration with provider=freee or provider=moneyforward lists live accounting partners as companies.',
-    inputSchema: LIST_INPUT_SCHEMA,
-    outputSchema: LIST_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'List companies',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'List companies',
-    });
-    if (authError) {
-      return authError;
-    }
-
-    const filtersError = invalidRecordFiltersResult(args?.['filters']);
-    if (filtersError) {
-      return filtersError;
-    }
-
-    let payload: {
-      count: number;
-      data: Array<Record<string, unknown>>;
-      message: string;
-      page: number;
-      total: number;
-      permission?: string | null;
-    };
+export const crmListCompaniesTool: McpTool = defineListTool({
+  resource: 'companies',
+  tags: ['crm'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/companies',
+  operationId: 'public.companies.list',
+  name: 'list_companies',
+  title: 'List companies',
+  description:
+    'Search and review companies. Default scope=sanka lists Sanka companies; scope=sanka with provider=salesforce lists Sanka companies linked to Salesforce Accounts; scope=integration with provider=salesforce lists live Salesforce Accounts; scope=integration with provider=freee or provider=moneyforward lists live accounting partners as companies.',
+  inputSchema: LIST_INPUT_SCHEMA,
+  outputSchema: LIST_OUTPUT_SCHEMA,
+  label: 'companies',
+  validateArgs: (args) => invalidRecordFiltersResult(args?.['filters']),
+  fetchList: async ({ reqContext, args }) => {
     if (hasCompanyRecordRoutingArgs(args)) {
       const body = buildCompanyRecordQueryBody(args);
       const rawPayload = (await reqContext.client.post(recordQueryPathForBody(body), {
         body,
       })) as Record<string, unknown>;
-      payload = normalizeRecordQueryPayload(rawPayload, body) as typeof payload;
-    } else {
-      payload = await reqContext.client.public.companies.list(buildListParams(args), undefined);
+      return normalizeRecordQueryPayload(rawPayload, body) as ListToolPayload;
     }
-
-    return buildListResult({
-      label: 'companies',
-      payload,
-    });
+    return await reqContext.client.public.companies.list(buildListParams(args), undefined);
   },
-};
+});
 
-export const crmGetCompanyTool: McpTool = {
-  metadata: {
-    resource: 'companies',
-    operation: 'read',
-    tags: ['crm'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/companies/{company_id}',
-    operationId: 'public.companies.retrieve',
-  },
-  tool: {
-    name: 'get_company',
-    title: 'Get company',
-    description: 'Load one company from Sanka by company id, numeric id, or external reference.',
-    inputSchema: COMPANY_RETRIEVE_INPUT_SCHEMA,
-    outputSchema: COMPANY_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Get company',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Get company',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmGetCompanyTool: McpTool = defineDetailTool({
+  resource: 'companies',
+  tags: ['crm'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/companies/{company_id}',
+  operationId: 'public.companies.retrieve',
+  name: 'get_company',
+  title: 'Get company',
+  description: 'Load one company from Sanka by company id, numeric id, or external reference.',
+  inputSchema: COMPANY_RETRIEVE_INPUT_SCHEMA,
+  outputSchema: COMPANY_OUTPUT_SCHEMA,
+  entity: 'company',
+  previewKeys: ['name', 'email', 'company_id'],
+  missingTargetError: '`company_id` is required.',
+  resolveTarget: (args) => {
     const { companyID, params } = buildCompanyRetrieveParams(args);
-    if (!companyID) {
-      return asErrorResult('`company_id` is required.');
-    }
-
-    const company = (await reqContext.client.public.companies.retrieve(
-      companyID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityDetailSummary({
-            entity: 'company',
-            payload: company,
-            previewKeys: ['name', 'email', 'company_id'],
-          }),
-        },
-      ],
-      structuredContent: company,
-    };
+    return { id: companyID, params };
   },
-};
+  retrieve: ({ reqContext, id, params }) =>
+    reqContext.client.public.companies.retrieve(id, params, undefined),
+});
 
-export const crmCreateCompanyTool: McpTool = {
-  metadata: {
-    resource: 'companies',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'post',
-    httpPath: '/api/v2/companies',
-    operationId: 'public.companies.create',
-  },
-  tool: {
-    name: 'create_company',
-    title: 'Create company',
-    description:
-      'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync. freee/MoneyForward partner creation is handled by invoice_export, not this tool.',
-    inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
-    outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Create company',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Create company',
-    });
-    if (authError) {
-      return authError;
-    }
+export const crmCreateCompanyTool: McpTool = defineMutationTool({
+  resource: 'companies',
+  tags: ['crm'],
+  httpMethod: 'post',
+  httpPath: '/api/v2/companies',
+  operationId: 'public.companies.create',
+  name: 'create_company',
+  title: 'Create company',
+  description:
+    'Create or upsert a company. Default target=sanka mutates Sanka only; external_id is optional and should be used for idempotent upserts. Use target=integration with provider=salesforce to mutate Salesforce only, or target=both when the API allows both-side sync. freee/MoneyForward partner creation is handled by invoice_export, not this tool.',
+  inputSchema: COMPANY_CREATE_INPUT_SCHEMA,
+  outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Company',
+  action: 'created',
+  idKeys: ['company_id'],
+  execute: ({ reqContext, args }) =>
+    reqContext.client.public.companies.create(buildCompanyMutationBody(args), undefined),
+});
 
-    const response = (await reqContext.client.public.companies.create(
-      buildCompanyMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+export const crmUpdateCompanyTool: McpTool = defineMutationTool({
+  resource: 'companies',
+  tags: ['crm'],
+  httpMethod: 'patch',
+  httpPath: '/api/v2/companies/{company_id}',
+  operationId: 'public.companies.update',
+  name: 'update_company',
+  title: 'Update company',
+  description:
+    'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. freee/MoneyForward partner updates are not supported here. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
+  inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
+  outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Company',
+  action: 'updated',
+  idKeys: ['company_id'],
+  missingTargetError: '`company_id` is required.',
+  resolveTarget: (args) => ({ id: readString(args?.['company_id']), params: undefined }),
+  execute: ({ reqContext, args, id }) =>
+    reqContext.client.public.companies.update(id, buildCompanyMutationBody(args), undefined),
+});
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Company',
-            action: 'created',
-            payload: response,
-            idKeys: ['company_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmUpdateCompanyTool: McpTool = {
-  metadata: {
-    resource: 'companies',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'patch',
-    httpPath: '/api/v2/companies/{company_id}',
-    operationId: 'public.companies.update',
-  },
-  tool: {
-    name: 'update_company',
-    title: 'Update company',
-    description:
-      'Update an existing company. Default target="sanka" mutates Sanka only; use target="integration" or target="both" with provider="hubspot" or provider="salesforce" when allowed. freee/MoneyForward partner updates are not supported here. For company dedupe, use operation="dedupe_preview" first; execute operation="dedupe_apply" with confirm=true only after explicit user approval.',
-    inputSchema: COMPANY_UPDATE_INPUT_SCHEMA,
-    outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Update company',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Update company',
-    });
-    if (authError) {
-      return authError;
-    }
-
-    const companyID = readString(args?.['company_id']);
-    if (!companyID) {
-      return asErrorResult('`company_id` is required.');
-    }
-
-    const response = (await reqContext.client.public.companies.update(
-      companyID,
-      buildCompanyMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Company',
-            action: 'updated',
-            payload: response,
-            idKeys: ['company_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmDeleteCompanyTool: McpTool = {
-  metadata: {
-    resource: 'companies',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'delete',
-    httpPath: '/api/v2/companies/{company_id}',
-    operationId: 'public.companies.delete',
-  },
-  tool: {
-    name: 'delete_company',
-    title: 'Delete company',
-    description:
-      'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce to delete a Salesforce record by external_id, or provider=freee/provider=moneyforward to delete an accounting partner by external_id. Always run dry_run=true first and set confirm=true only after explicit approval.',
-    inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
-    outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Delete company',
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Delete company',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmDeleteCompanyTool: McpTool = defineMutationTool({
+  resource: 'companies',
+  tags: ['crm'],
+  httpMethod: 'delete',
+  httpPath: '/api/v2/companies/{company_id}',
+  operationId: 'public.companies.delete',
+  name: 'delete_company',
+  title: 'Delete company',
+  description:
+    'Archive or delete a company. Default target=sanka archives in Sanka only. Use target=integration with provider=salesforce to delete a Salesforce record by external_id, or provider=freee/provider=moneyforward to delete an accounting partner by external_id. Always run dry_run=true first and set confirm=true only after explicit approval.',
+  inputSchema: COMPANY_DELETE_INPUT_SCHEMA,
+  outputSchema: COMPANY_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Company',
+  action: 'deleted',
+  idKeys: ['company_id'],
+  missingTargetError: '`company_id` is required unless target="integration" and `external_id` is provided.',
+  resolveTarget: (args) => {
     const { companyID, params } = buildCompanyDeleteParams(args);
-    if (!companyID) {
-      return asErrorResult(
-        '`company_id` is required unless target="integration" and `external_id` is provided.',
-      );
-    }
-
-    const response = (await reqContext.client.public.companies.delete(
-      companyID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Company',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['company_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
+    return { id: companyID, params };
   },
-};
+  execute: ({ reqContext, id, params }) => reqContext.client.public.companies.delete(id, params, undefined),
+});
 
-export const crmListContactsTool: McpTool = {
-  metadata: {
-    resource: 'contacts',
-    operation: 'read',
-    tags: ['crm'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/contacts',
-    operationId: 'public.contacts.list',
-  },
-  tool: {
-    name: 'list_contacts',
-    title: 'List contacts',
-    description:
-      'Search and review contacts in Sanka. Use this when the user wants to find or inspect contacts, not to create or update them.',
-    inputSchema: LIST_INPUT_SCHEMA,
-    outputSchema: LIST_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'List contacts',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'List contacts',
-    });
-    if (authError) {
-      return authError;
-    }
+export const crmListContactsTool: McpTool = defineListTool({
+  resource: 'contacts',
+  tags: ['crm'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/contacts',
+  operationId: 'public.contacts.list',
+  name: 'list_contacts',
+  title: 'List contacts',
+  description:
+    'Search and review contacts in Sanka. Use this when the user wants to find or inspect contacts, not to create or update them.',
+  inputSchema: LIST_INPUT_SCHEMA,
+  outputSchema: LIST_OUTPUT_SCHEMA,
+  label: 'contacts',
+  fetchList: ({ reqContext, args }) =>
+    reqContext.client.public.contacts.list(buildListParams(args), undefined),
+});
 
-    const payload = await reqContext.client.public.contacts.list(buildListParams(args), undefined);
-
-    return buildListResult({
-      label: 'contacts',
-      payload,
-    });
-  },
-};
-
-export const crmGetContactTool: McpTool = {
-  metadata: {
-    resource: 'contacts',
-    operation: 'read',
-    tags: ['crm'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/contacts/{contact_id}',
-    operationId: 'public.contacts.retrieve',
-  },
-  tool: {
-    name: 'get_contact',
-    title: 'Get contact',
-    description: 'Load one contact from Sanka by contact id, numeric id, or external reference.',
-    inputSchema: CONTACT_RETRIEVE_INPUT_SCHEMA,
-    outputSchema: CONTACT_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Get contact',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Get contact',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmGetContactTool: McpTool = defineDetailTool({
+  resource: 'contacts',
+  tags: ['crm'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/contacts/{contact_id}',
+  operationId: 'public.contacts.retrieve',
+  name: 'get_contact',
+  title: 'Get contact',
+  description: 'Load one contact from Sanka by contact id, numeric id, or external reference.',
+  inputSchema: CONTACT_RETRIEVE_INPUT_SCHEMA,
+  outputSchema: CONTACT_OUTPUT_SCHEMA,
+  entity: 'contact',
+  previewKeys: ['name', 'email', 'contact_id'],
+  missingTargetError: '`contact_id` is required.',
+  resolveTarget: (args) => {
     const { contactID, params } = buildContactRetrieveParams(args);
-    if (!contactID) {
-      return asErrorResult('`contact_id` is required.');
-    }
-
-    const contact = (await reqContext.client.public.contacts.retrieve(
-      contactID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityDetailSummary({
-            entity: 'contact',
-            payload: contact,
-            previewKeys: ['name', 'email', 'contact_id'],
-          }),
-        },
-      ],
-      structuredContent: contact,
-    };
+    return { id: contactID, params };
   },
-};
+  retrieve: ({ reqContext, id, params }) => reqContext.client.public.contacts.retrieve(id, params, undefined),
+});
 
-export const crmCreateContactTool: McpTool = {
-  metadata: {
-    resource: 'contacts',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'post',
-    httpPath: '/api/v2/contacts',
-    operationId: 'public.contacts.create',
-  },
-  tool: {
-    name: 'create_contact',
-    title: 'Create contact',
-    description:
-      'Create a contact in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
-    inputSchema: CONTACT_CREATE_INPUT_SCHEMA,
-    outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Create contact',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Create contact',
-    });
-    if (authError) {
-      return authError;
-    }
+export const crmCreateContactTool: McpTool = defineMutationTool({
+  resource: 'contacts',
+  tags: ['crm'],
+  httpMethod: 'post',
+  httpPath: '/api/v2/contacts',
+  operationId: 'public.contacts.create',
+  name: 'create_contact',
+  title: 'Create contact',
+  description:
+    'Create a contact in Sanka or a connected CRM. `external_id` is optional for Sanka-local creates and should be used for idempotent upserts; integration-only creates can omit it and use the returned provider id.',
+  inputSchema: CONTACT_CREATE_INPUT_SCHEMA,
+  outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Contact',
+  action: 'created',
+  idKeys: ['contact_id'],
+  execute: ({ reqContext, args }) =>
+    reqContext.client.public.contacts.create(buildContactMutationBody(args), undefined),
+});
 
-    const response = (await reqContext.client.public.contacts.create(
-      buildContactMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+export const crmUpdateContactTool: McpTool = defineMutationTool({
+  resource: 'contacts',
+  tags: ['crm'],
+  httpMethod: 'patch',
+  httpPath: '/api/v2/contacts/{contact_id}',
+  operationId: 'public.contacts.update',
+  name: 'update_contact',
+  title: 'Update contact',
+  description: 'Update an existing contact in Sanka or a connected CRM.',
+  inputSchema: CONTACT_UPDATE_INPUT_SCHEMA,
+  outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Contact',
+  action: 'updated',
+  idKeys: ['contact_id'],
+  missingTargetError: '`contact_id` is required.',
+  resolveTarget: (args) => ({ id: readString(args?.['contact_id']), params: undefined }),
+  execute: ({ reqContext, args, id }) =>
+    reqContext.client.public.contacts.update(id, buildContactMutationBody(args), undefined),
+});
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Contact',
-            action: 'created',
-            payload: response,
-            idKeys: ['contact_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmUpdateContactTool: McpTool = {
-  metadata: {
-    resource: 'contacts',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'patch',
-    httpPath: '/api/v2/contacts/{contact_id}',
-    operationId: 'public.contacts.update',
-  },
-  tool: {
-    name: 'update_contact',
-    title: 'Update contact',
-    description: 'Update an existing contact in Sanka or a connected CRM.',
-    inputSchema: CONTACT_UPDATE_INPUT_SCHEMA,
-    outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Update contact',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Update contact',
-    });
-    if (authError) {
-      return authError;
-    }
-
-    const contactID = readString(args?.['contact_id']);
-    if (!contactID) {
-      return asErrorResult('`contact_id` is required.');
-    }
-
-    const response = (await reqContext.client.public.contacts.update(
-      contactID,
-      buildContactMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Contact',
-            action: 'updated',
-            payload: response,
-            idKeys: ['contact_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmDeleteContactTool: McpTool = {
-  metadata: {
-    resource: 'contacts',
-    operation: 'write',
-    tags: ['crm'],
-    httpMethod: 'delete',
-    httpPath: '/api/v2/contacts/{contact_id}',
-    operationId: 'public.contacts.delete',
-  },
-  tool: {
-    name: 'delete_contact',
-    title: 'Delete contact',
-    description:
-      'Archive or delete a contact in Sanka or a connected CRM by contact id or external reference.',
-    inputSchema: CONTACT_DELETE_INPUT_SCHEMA,
-    outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Delete contact',
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Delete contact',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmDeleteContactTool: McpTool = defineMutationTool({
+  resource: 'contacts',
+  tags: ['crm'],
+  httpMethod: 'delete',
+  httpPath: '/api/v2/contacts/{contact_id}',
+  operationId: 'public.contacts.delete',
+  name: 'delete_contact',
+  title: 'Delete contact',
+  description: 'Archive or delete a contact in Sanka or a connected CRM by contact id or external reference.',
+  inputSchema: CONTACT_DELETE_INPUT_SCHEMA,
+  outputSchema: CONTACT_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Contact',
+  action: 'deleted',
+  idKeys: ['contact_id'],
+  missingTargetError: '`contact_id` is required.',
+  resolveTarget: (args) => {
     const { contactID, params } = buildContactDeleteParams(args);
-    if (!contactID) {
-      return asErrorResult('`contact_id` is required.');
-    }
-
-    const response = (await reqContext.client.public.contacts.delete(
-      contactID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Contact',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['contact_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
+    return { id: contactID, params };
   },
-};
+  execute: ({ reqContext, id, params }) => reqContext.client.public.contacts.delete(id, params, undefined),
+});
 
 export const crmListContractTemplatesTool: McpTool = {
   metadata: {
@@ -27189,151 +26044,74 @@ export const crmDeletePaymentTool: McpTool = {
   },
 };
 
-export const crmListLocationsTool: McpTool = {
-  metadata: {
-    resource: 'locations',
-    operation: 'read',
-    tags: ['crm', 'locations'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/locations',
-    operationId: 'public.locations.list',
-  },
-  tool: {
-    name: 'list_locations',
-    title: 'List locations',
-    description: 'Review locations in Sanka.',
-    inputSchema: SEARCHABLE_WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA,
-    outputSchema: LIST_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'List locations',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'List locations',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmListLocationsTool: McpTool = defineListTool({
+  resource: 'locations',
+  tags: ['crm', 'locations'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/locations',
+  operationId: 'public.locations.list',
+  name: 'list_locations',
+  title: 'List locations',
+  description: 'Review locations in Sanka.',
+  inputSchema: SEARCHABLE_WORKSPACE_LANGUAGE_LIST_INPUT_SCHEMA,
+  outputSchema: LIST_OUTPUT_SCHEMA,
+  label: 'locations',
+  previewKeys: ['location', 'warehouse', 'id_iw'],
+  fetchList: async ({ reqContext, args }) => {
     const { limit, params } = buildSearchableWorkspaceLanguageListParams(args);
     const locations = await reqContext.client.public.locations.list(params, undefined);
     const results = locations
       .slice(0, limit)
       .map((location) => location as unknown as Record<string, unknown>);
-
-    return buildListResult({
-      label: 'locations',
-      payload: {
-        count: results.length,
-        data: results,
-        message: `Returned ${results.length} of ${locations.length} locations.`,
-        page: 1,
-        total: locations.length,
-      },
-      previewKeys: ['location', 'warehouse', 'id_iw'],
-    });
-  },
-};
-
-export const crmGetLocationTool: McpTool = {
-  metadata: {
-    resource: 'locations',
-    operation: 'read',
-    tags: ['crm', 'locations'],
-    httpMethod: 'get',
-    httpPath: '/api/v2/locations/{location_id}',
-    operationId: 'public.locations.retrieve',
-  },
-  tool: {
-    name: 'get_location',
-    title: 'Get location',
-    description: 'Load one location from Sanka by location id, numeric id, or external reference.',
-    inputSchema: LOCATION_RETRIEVE_INPUT_SCHEMA,
-    outputSchema: LOCATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Get location',
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Get location',
-    });
-    if (authError) {
-      return authError;
-    }
-
-    const { locationID, params } = buildLocationRetrieveParams(args);
-    if (!locationID) {
-      return asErrorResult('`location_id` is required.');
-    }
-
-    const location = (await reqContext.client.public.locations.retrieve(
-      locationID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
     return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityDetailSummary({
-            entity: 'location',
-            payload: location,
-            previewKeys: ['location', 'warehouse', 'id_iw'],
-          }),
-        },
-      ],
-      structuredContent: location,
+      count: results.length,
+      data: results,
+      message: `Returned ${results.length} of ${locations.length} locations.`,
+      page: 1,
+      total: locations.length,
     };
   },
-};
+});
 
-export const crmCreateLocationTool: McpTool = {
-  metadata: {
-    resource: 'locations',
-    operation: 'write',
-    tags: ['crm', 'locations'],
-    httpMethod: 'post',
-    httpPath: '/api/v2/locations',
-    operationId: 'public.locations.create',
+export const crmGetLocationTool: McpTool = defineDetailTool({
+  resource: 'locations',
+  tags: ['crm', 'locations'],
+  httpMethod: 'get',
+  httpPath: '/api/v2/locations/{location_id}',
+  operationId: 'public.locations.retrieve',
+  name: 'get_location',
+  title: 'Get location',
+  description: 'Load one location from Sanka by location id, numeric id, or external reference.',
+  inputSchema: LOCATION_RETRIEVE_INPUT_SCHEMA,
+  outputSchema: LOCATION_OUTPUT_SCHEMA,
+  entity: 'location',
+  previewKeys: ['location', 'warehouse', 'id_iw'],
+  missingTargetError: '`location_id` is required.',
+  resolveTarget: (args) => {
+    const { locationID, params } = buildLocationRetrieveParams(args);
+    return { id: locationID, params };
   },
-  tool: {
-    name: 'create_location',
-    title: 'Create location',
-    description:
-      'Create a location in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
-    inputSchema: LOCATION_CREATE_INPUT_SCHEMA,
-    outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Create location',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Create location',
-    });
-    if (authError) {
-      return authError;
-    }
+  retrieve: ({ reqContext, id, params }) =>
+    reqContext.client.public.locations.retrieve(id, params, undefined),
+});
 
-    const response = (await reqContext.client.public.locations.create(
+export const crmCreateLocationTool: McpTool = defineMutationTool({
+  resource: 'locations',
+  tags: ['crm', 'locations'],
+  httpMethod: 'post',
+  httpPath: '/api/v2/locations',
+  operationId: 'public.locations.create',
+  name: 'create_location',
+  title: 'Create location',
+  description:
+    'Create a location in Sanka. `external_id` is required so repeated calls can upsert safely against the same external reference.',
+  inputSchema: LOCATION_CREATE_INPUT_SCHEMA,
+  outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Location',
+  action: 'created',
+  idKeys: ['location_id'],
+  execute: ({ reqContext, args }) =>
+    reqContext.client.public.locations.create(
       buildLocationMutationBody(args) as {
         externalId: string;
         aisle?: string;
@@ -27346,64 +26124,31 @@ export const crmCreateLocationTool: McpTool = {
         zone?: string;
       },
       undefined,
-    )) as unknown as Record<string, unknown>;
+    ),
+});
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Location',
-            action: 'created',
-            payload: response,
-            idKeys: ['location_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmUpdateLocationTool: McpTool = {
-  metadata: {
-    resource: 'locations',
-    operation: 'write',
-    tags: ['crm', 'locations'],
-    httpMethod: 'patch',
-    httpPath: '/api/v2/locations/{location_id}',
-    operationId: 'public.locations.update',
-  },
-  tool: {
-    name: 'update_location',
-    title: 'Update location',
-    description: 'Update an existing location in Sanka.',
-    inputSchema: LOCATION_UPDATE_INPUT_SCHEMA,
-    outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Update location',
-      readOnlyHint: false,
-      destructiveHint: false,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Update location',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmUpdateLocationTool: McpTool = defineMutationTool({
+  resource: 'locations',
+  tags: ['crm', 'locations'],
+  httpMethod: 'patch',
+  httpPath: '/api/v2/locations/{location_id}',
+  operationId: 'public.locations.update',
+  name: 'update_location',
+  title: 'Update location',
+  description: 'Update an existing location in Sanka.',
+  inputSchema: LOCATION_UPDATE_INPUT_SCHEMA,
+  outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Location',
+  action: 'updated',
+  idKeys: ['location_id'],
+  missingTargetError: '`location_id` is required.',
+  resolveTarget: (args) => {
     const { locationID, params } = buildLocationUpdateParams(args);
-    if (!locationID) {
-      return asErrorResult('`location_id` is required.');
-    }
-
-    const response = (await reqContext.client.public.locations.update(
-      locationID,
+    return { id: locationID, params };
+  },
+  execute: ({ reqContext, id, params }) =>
+    reqContext.client.public.locations.update(
+      id,
       params as {
         external_id?: string;
         externalId?: string;
@@ -27417,84 +26162,30 @@ export const crmUpdateLocationTool: McpTool = {
         zone?: string;
       },
       undefined,
-    )) as unknown as Record<string, unknown>;
+    ),
+});
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Location',
-            action: 'updated',
-            payload: response,
-            idKeys: ['location_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
-  },
-};
-
-export const crmDeleteLocationTool: McpTool = {
-  metadata: {
-    resource: 'locations',
-    operation: 'write',
-    tags: ['crm', 'locations'],
-    httpMethod: 'delete',
-    httpPath: '/api/v2/locations/{location_id}',
-    operationId: 'public.locations.delete',
-  },
-  tool: {
-    name: 'delete_location',
-    title: 'Delete location',
-    description: 'Delete a location in Sanka by location id or external reference.',
-    inputSchema: LOCATION_DELETE_INPUT_SCHEMA,
-    outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
-    securitySchemes: [{ type: 'oauth2' }],
-    annotations: {
-      title: 'Delete location',
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: false,
-    },
-  },
-  handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Delete location',
-    });
-    if (authError) {
-      return authError;
-    }
-
+export const crmDeleteLocationTool: McpTool = defineMutationTool({
+  resource: 'locations',
+  tags: ['crm', 'locations'],
+  httpMethod: 'delete',
+  httpPath: '/api/v2/locations/{location_id}',
+  operationId: 'public.locations.delete',
+  name: 'delete_location',
+  title: 'Delete location',
+  description: 'Delete a location in Sanka by location id or external reference.',
+  inputSchema: LOCATION_DELETE_INPUT_SCHEMA,
+  outputSchema: LOCATION_MUTATION_OUTPUT_SCHEMA,
+  entity: 'Location',
+  action: 'deleted',
+  idKeys: ['location_id'],
+  missingTargetError: '`location_id` is required.',
+  resolveTarget: (args) => {
     const { locationID, params } = buildLocationRetrieveParams(args);
-    if (!locationID) {
-      return asErrorResult('`location_id` is required.');
-    }
-
-    const response = (await reqContext.client.public.locations.delete(
-      locationID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Location',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['location_id'],
-          }),
-        },
-      ],
-      structuredContent: response,
-    };
+    return { id: locationID, params };
   },
-};
+  execute: ({ reqContext, id, params }) => reqContext.client.public.locations.delete(id, params, undefined),
+});
 
 export const crmListInventoriesTool: McpTool = {
   metadata: {
