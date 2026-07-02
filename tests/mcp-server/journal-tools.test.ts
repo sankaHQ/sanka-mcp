@@ -1,5 +1,8 @@
-import { crmCreateJournalStatementViewTool, crmListJournalEntriesTool } from '../src/crm-tools';
-import { McpRequestContext } from '../src/types';
+import {
+  crmCreateJournalStatementViewTool,
+  crmListJournalEntriesTool,
+} from '../../packages/mcp-server/src/crm-tools';
+import { McpRequestContext } from '../../packages/mcp-server/src/types';
 
 describe('journal tools', () => {
   it('list_journal_entries reads statement rows from the public journals endpoint', async () => {

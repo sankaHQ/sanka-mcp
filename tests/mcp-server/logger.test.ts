@@ -4,7 +4,7 @@ import {
   requestLogLevelForStatus,
   resolveLoggerConfig,
   serializeError,
-} from '../src/logger';
+} from '../../packages/mcp-server/src/logger';
 
 const withEnv = (env: Record<string, string | undefined>, run: () => void) => {
   const original = new Map<string, string | undefined>();

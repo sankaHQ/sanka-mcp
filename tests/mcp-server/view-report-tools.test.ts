@@ -4,8 +4,8 @@ import {
   crmListReportsTool,
   crmListViewsTool,
   crmUpdateReportTool,
-} from '../src/crm-tools';
-import { McpRequestContext } from '../src/types';
+} from '../../packages/mcp-server/src/crm-tools';
+import { McpRequestContext } from '../../packages/mcp-server/src/types';
 
 describe('saved view and report tools', () => {
   it('create_view posts a generic saved-view request to the public views endpoint', async () => {

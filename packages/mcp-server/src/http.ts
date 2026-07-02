@@ -30,7 +30,7 @@ import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { expressErrorLogger, expressRequestLogger } from './http-logging';
 import { buildProtectedResourceMetadata } from './protected-resource-metadata';
-import { executeHandler, initMcpServer, newMcpServer, selectTools } from './server';
+import { executeHandler, initMcpServer, newMcpServer } from './server';
 import { resolveMissingScopes } from './tool-auth';
 import {
   buildToolAccessRequirements,
@@ -230,7 +230,7 @@ const createRequestTransport = async ({
 
   const transport = new StreamableHTTPServerTransport();
 
-  await initMcpServer({
+  const { tools: selectedTools } = await initMcpServer({
     server,
     mcpOptions: effectiveMcpOptions,
     clientOptions: {
@@ -247,7 +247,6 @@ const createRequestTransport = async ({
   });
   await server.connect(transport as any);
 
-  const selectedTools = selectTools(effectiveMcpOptions, toolProfile);
   const argsByToolName =
     (
       isObjectRecord(req.body) &&

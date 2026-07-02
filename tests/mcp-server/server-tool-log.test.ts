@@ -1,5 +1,6 @@
-import { recordMcpToolCall } from '../src/server';
-import { McpRequestContext, McpTool } from '../src/types';
+import { configureLogger } from '../../packages/mcp-server/src/logger';
+import { initMcpServer, recordMcpToolCall } from '../../packages/mcp-server/src/server';
+import { McpRequestContext, McpTool } from '../../packages/mcp-server/src/types';
 
 describe('MCP tool call logging', () => {
   it.each([
@@ -260,5 +261,91 @@ describe('MCP tool call logging', () => {
         'X-Sanka-MCP-Session-ID': 'codex-session-123',
       },
     });
+  });
+});
+
+describe('MCP tool call log dispatch', () => {
+  beforeAll(() => {
+    configureLogger({ level: 'error', pretty: false });
+  });
+
+  it('returns tool results without waiting for the tool-call log POST', async () => {
+    // Keyed by the JSON-RPC method literal of each registered request schema so
+    // the test does not need to resolve the MCP SDK package from the root tree.
+    const handlersByMethod = new Map<string, (request: unknown) => Promise<unknown>>();
+    const fakeServer = {
+      setRequestHandler: (schema: unknown, handler: (request: unknown) => Promise<unknown>) => {
+        const method = (schema as { shape?: { method?: { value?: unknown } } }).shape?.method?.value;
+        if (typeof method === 'string') {
+          handlersByMethod.set(method, handler);
+        }
+      },
+      sendLoggingMessage: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const jsonResponse = (body: unknown): Response =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+    let logPostStarted = false;
+    let resolveLogPost: (response: Response) => void = () => {};
+    const fetchImpl = jest.fn((input: unknown): Promise<Response> => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url.includes('/api/v2/mcp/tool-call-log')) {
+        logPostStarted = true;
+        return new Promise<Response>((resolve) => {
+          resolveLogPost = resolve;
+        });
+      }
+      return Promise.resolve(
+        jsonResponse({
+          success: true,
+          data: {
+            auth_mode: 'oauth_bearer',
+            principal_key: 'user:user-1',
+            user: { id: 'user-1' },
+            current_workspace: { id: 'workspace-1', code: '10101010', name: 'Workspace One' },
+          },
+          meta: { ctx_id: 'ctx-session' },
+        }),
+      );
+    });
+
+    await initMcpServer({
+      server: fakeServer as never,
+      clientOptions: { apiKey: 'soat_log_dispatch', fetch: fetchImpl as never },
+      mcpSessionId: 'session-log-dispatch',
+      toolProfile: 'hosted',
+      auth: {
+        authMode: 'oauth_bearer',
+        clientOptions: {},
+        oauth: {
+          authorizationServerUrl: 'https://app.example.com',
+          resourceMetadataUrl: 'https://app.example.com/.well-known/oauth-protected-resource',
+          resourceUrl: 'https://app.example.com/mcp',
+          scopes: ['api-access'],
+        },
+      },
+    });
+
+    const callTool = handlersByMethod.get('tools/call');
+    expect(callTool).toBeDefined();
+
+    // The tool result must resolve while the log POST is still unresolved; if
+    // the handler awaited the log POST, this await would hang until timeout.
+    const result = (await callTool!({
+      params: { name: 'current_workspace', arguments: {} },
+    })) as { isError?: boolean };
+    expect(result.isError).toBeFalsy();
+
+    // The log call itself must still happen: give the fire-and-forget chain a
+    // few event-loop turns to reach fetch, then release the pending POST.
+    for (let turn = 0; turn < 50 && !logPostStarted; turn += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(logPostStarted).toBe(true);
+    resolveLogPost(jsonResponse({}));
   });
 });

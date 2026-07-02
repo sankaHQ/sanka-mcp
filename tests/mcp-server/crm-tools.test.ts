@@ -280,6 +280,22 @@ describe('ChatGPT CRM tools', () => {
     resetBinaryUploadStoreForTests();
   });
 
+  it('does not add provider-specific company tool names', async () => {
+    const crmTools = await import('../../packages/mcp-server/src/crm-tools');
+    const toolNames = Object.values(crmTools)
+      .map((candidate) => {
+        if (candidate && typeof candidate === 'object' && 'tool' in candidate) {
+          return (candidate as { tool?: { name?: string } }).tool?.name;
+        }
+        return undefined;
+      })
+      .filter(Boolean);
+
+    expect(toolNames).not.toContain('list_companies_salesforce');
+    expect(toolNames).not.toContain('list_companies_hubspot');
+    expect(toolNames).not.toContain('create_salesforce_company');
+  });
+
   it('documents Sanka company cycle fields as standard company inputs', () => {
     const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
     const createCompanySchema = crmCreateCompanyTool.tool.inputSchema as any;

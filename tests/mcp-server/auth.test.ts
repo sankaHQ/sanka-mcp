@@ -393,3 +393,51 @@ describe('resolveClientAuth', () => {
     expect(introspectionCallCount).toBe(0);
   });
 });
+
+describe('upstream auth request hardening', () => {
+  const introspectionContext = (token: string): Parameters<typeof resolveClientAuth>[0] => ({
+    mcpOptions: {
+      authorizationServerUrl: 'https://app.example.com',
+    },
+    req: { headers: { authorization: `Bearer ${token}` } } as IncomingMessage,
+    resourceMetadataUrl: 'https://mcp.example.com/.well-known/oauth-protected-resource',
+    resourceUrl: 'https://mcp.example.com/mcp',
+  });
+
+  const spyOnFetch = () => jest.spyOn(global as unknown as { fetch: typeof fetch }, 'fetch');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('sends an abort signal with the introspection request', async () => {
+    const fetchMock = spyOnFetch().mockResolvedValue(
+      new Response(JSON.stringify({ data: { active: true, scope: 'api-access' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await resolveClientAuth(introspectionContext('soat_signal_probe_token'));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://app.example.com/api/v1/oauth/introspect',
+      expect.objectContaining({
+        method: 'GET',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it('turns introspection timeouts into a 401 OAuth challenge instead of an unhandled error', async () => {
+    spyOnFetch().mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'));
+
+    const resolving = resolveClientAuth(introspectionContext('soat_timeout_probe_token'));
+
+    await expect(resolving).rejects.toBeInstanceOf(OAuthChallengeError);
+    await expect(resolving).rejects.toMatchObject({
+      statusCode: 401,
+      message: 'OAuth token introspection request failed or timed out.',
+    });
+  });
+});

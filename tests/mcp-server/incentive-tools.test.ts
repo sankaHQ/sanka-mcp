@@ -3,12 +3,12 @@ import {
   crmCreateIncentivePlanTool,
   crmGenerateIncentivePaymentNoticeTool,
   crmListIncentivesTool,
-} from '../src/crm-tools';
-import { McpRequestContext } from '../src/types';
+} from '../../packages/mcp-server/src/crm-tools';
+import { McpRequestContext } from '../../packages/mcp-server/src/types';
 
 describe('incentive tools', () => {
-  it('uses the public API pagination headers for list_incentives totals', async () => {
-    const withResponse = jest.fn().mockResolvedValue({
+  it('uses the payload pagination fields for list_incentives totals', async () => {
+    const get = jest.fn().mockResolvedValue({
       data: [
         {
           id: 'incentive-1',
@@ -16,14 +16,9 @@ describe('incentive tools', () => {
           incentive_amount: 9000,
         },
       ],
-      response: new Response('[]', {
-        headers: {
-          'X-Sanka-Page': '2',
-          'X-Sanka-Total': '31',
-        },
-      }),
+      page: 2,
+      total: 31,
     });
-    const get = jest.fn().mockReturnValue({ withResponse });
     const reqContext = {
       client: { get },
     } as unknown as McpRequestContext;
@@ -141,7 +136,7 @@ describe('incentive tools', () => {
   });
 
   it('generates a Japanese payment notice from incentive rows', async () => {
-    const withResponse = jest
+    const get = jest
       .fn()
       .mockResolvedValueOnce({
         data: [
@@ -155,7 +150,6 @@ describe('incentive tools', () => {
             incentive_amount: 9000,
           },
         ],
-        response: new Response('[]'),
       })
       .mockResolvedValueOnce({
         data: [
@@ -169,9 +163,7 @@ describe('incentive tools', () => {
             incentive_amount: 9000,
           },
         ],
-        response: new Response('[]'),
       });
-    const get = jest.fn().mockReturnValue({ withResponse });
     const reqContext = {
       client: { get },
     } as unknown as McpRequestContext;
@@ -188,6 +180,14 @@ describe('incentive tools', () => {
     });
 
     expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/public/incentives', {
+      query: {
+        period: '2026-01',
+        limit: 100,
+        page: 1,
+        status: 'approved',
+      },
+    });
     expect(result.structuredContent).toMatchObject({
       count: 2,
       total_payout: 18000,

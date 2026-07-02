@@ -2909,6 +2909,35 @@ export class LocalDocsSearch {
   }
 }
 
+/**
+ * Building a LocalDocsSearch is expensive (two MiniSearch full-text indexes over
+ * the embedded method docs, plus an optional docs-directory scan), and the result
+ * only depends on the docs-source configuration. Memoize one instance per process
+ * per distinct docs source so per-request server initialization can reuse it.
+ * The promise itself is cached so concurrent requests share a single build; a
+ * rejected build is evicted so the next request can retry.
+ */
+const sharedLocalDocsSearchByConfig = new Map<string, Promise<LocalDocsSearch>>();
+
+export function getSharedLocalDocsSearch(opts?: { docsDir?: string }): Promise<LocalDocsSearch> {
+  const cacheKey = opts?.docsDir ?? '__embedded__';
+  const cached = sharedLocalDocsSearchByConfig.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const created = LocalDocsSearch.create(opts).catch((error) => {
+    sharedLocalDocsSearchByConfig.delete(cacheKey);
+    throw error;
+  });
+  sharedLocalDocsSearchByConfig.set(cacheKey, created);
+  return created;
+}
+
+export function resetSharedLocalDocsSearchForTests(): void {
+  sharedLocalDocsSearchByConfig.clear();
+}
+
 /** Lightweight markdown chunker — splits on headers, chunks by word count. */
 function chunkMarkdown(markdown: string): { content: string; tag: string; sectionContext?: string }[] {
   // Strip YAML frontmatter
