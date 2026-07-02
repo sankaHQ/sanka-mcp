@@ -37,17 +37,21 @@ const invoiceFromV2Record = (record: V2ObjectRecord): InvoiceSchema => {
 
 const invoiceMutationProperties = (
   params: InvoiceCreateParams | InvoiceUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
   const {
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
+    custom_fields,
     due_date,
-    external_id: _externalID,
+    external_id,
+    line_items: _lineItems,
     notes,
+    send_from,
     start_date,
     status,
     tax_inclusive,
@@ -56,17 +60,20 @@ const invoiceMutationProperties = (
     total_price,
     total_price_without_tax,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
+  void _lineItems;
   return compactProperties({
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
+    custom_fields,
     due_date,
+    external_id: options.includeExternalID ? external_id : undefined,
     invoice_date: start_date,
     notes,
+    send_from,
     status,
     tax_inclusive,
     tax_option,
@@ -76,6 +83,17 @@ const invoiceMutationProperties = (
   });
 };
 
+const invoiceMutationBody = (
+  params: InvoiceCreateParams | InvoiceUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> => {
+  const body: Record<string, unknown> = { properties: invoiceMutationProperties(params, options) };
+  if (params.line_items != null) {
+    body['line_items'] = params.line_items;
+  }
+  return body;
+};
+
 export class Invoices extends APIResource {
   /**
    * Create Invoice
@@ -83,7 +101,7 @@ export class Invoices extends APIResource {
   create(body: InvoiceCreateParams, options?: RequestOptions): APIPromise<Invoice> {
     return this._client
       .v2Post<V2ObjectRecord>('/invoices', {
-        body: { properties: invoiceMutationProperties(body) },
+        body: invoiceMutationBody(body, { includeExternalID: true }),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -122,7 +140,7 @@ export class Invoices extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/invoices/${invoiceID}`, {
         query: { external_id: params.external_id },
-        body: { properties: invoiceMutationProperties(params) },
+        body: invoiceMutationBody(params),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -267,11 +285,17 @@ export interface InvoiceRequest {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
   due_date?: string | null;
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 
@@ -365,11 +389,17 @@ export interface InvoiceCreateParams {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
   due_date?: string | null;
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 
@@ -464,11 +494,17 @@ export interface InvoiceUpdateParams {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
   due_date?: string | null;
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
+
+  send_from?: string | null;
 
   start_date?: string | null;
 

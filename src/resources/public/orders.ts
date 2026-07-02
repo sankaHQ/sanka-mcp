@@ -47,14 +47,17 @@ const orderMutationProperties = (
 ): { externalID?: string; properties: Record<string, unknown> } => {
   const order = params.order;
   const lineItems = orderLineItemsForV2(order);
+  const externalID = order.externalId ?? undefined;
   return {
-    externalID: order.externalId,
+    ...(externalID !== undefined ? { externalID } : {}),
     properties: compactProperties({
-      external_id: order.externalId,
+      external_id: externalID,
       company_external_id: order.companyExternalId,
       company_id: order.companyId,
+      custom_fields: order.custom_fields,
       delivery_status: order.deliveryStatus,
       order_at: order.orderAt,
+      send_from: order.send_from ?? order.sendFrom,
       line_items: lineItems,
       attachment_file: order.attachment_file,
       create_missing_items: params.createMissingItems,
@@ -251,7 +254,7 @@ export class Orders extends APIResource {
 }
 
 export interface BulkOrder {
-  externalId: string;
+  externalId?: string | null;
 
   items?: Array<BulkOrder.Item> | null;
 
@@ -283,7 +286,13 @@ export namespace BulkOrder {
 export interface PublicOrder extends BulkOrder {
   attachment_file?: PublicOrder.AttachmentFile | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
   line_items?: Array<PublicLineItem> | null;
+
+  send_from?: string | null;
+
+  sendFrom?: string | null;
 }
 
 export namespace PublicOrder {
@@ -399,7 +408,7 @@ export interface OrderUploadAttachmentResponse {
 }
 
 export interface OrderCreateParams {
-  order: PublicOrder;
+  order: PublicOrder & { externalId: string };
 
   createMissingItems?: boolean;
 

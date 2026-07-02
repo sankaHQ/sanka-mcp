@@ -448,7 +448,7 @@ describe('public commerce document resources on V2', () => {
     ]);
   });
 
-  test('preserves estimate line items and sender on V2 mutations', async () => {
+  test('preserves estimate line items, attachments, sender, and custom fields on V2 mutations', async () => {
     const bodies: unknown[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -466,13 +466,19 @@ describe('public commerce document resources on V2', () => {
     });
 
     await client.public.estimates.create({
+      attachment_file: { files: [{ file_id: 'file-1' }] },
+      company_external_id: 'company-ext-1',
       company_id: 'company-1',
+      contact_external_id: 'contact-ext-1',
+      custom_fields: { owner_email: 'owner@example.com' },
+      external_id: 'estimate-ext-1',
       send_from: 'Sanka Sales\n100 Market St',
       line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
     });
     await client.public.estimates.update('estimate-1', {
       status: 'draft',
       notes: 'Updated terms',
+      custom_fields: { owner_email: 'updated@example.com' },
       send_from: 'Updated Sanka Sales\n100 Market St',
       line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
     });
@@ -484,13 +490,19 @@ describe('public commerce document resources on V2', () => {
     expect(bodies).toEqual([
       {
         properties: {
+          attachment_file: { files: [{ file_id: 'file-1' }] },
+          company_external_id: 'company-ext-1',
           company_id: 'company-1',
+          contact_external_id: 'contact-ext-1',
+          custom_fields: { owner_email: 'owner@example.com' },
+          external_id: 'estimate-ext-1',
           send_from: 'Sanka Sales\n100 Market St',
         },
         line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
       {
         properties: {
+          custom_fields: { owner_email: 'updated@example.com' },
           notes: 'Updated terms',
           send_from: 'Updated Sanka Sales\n100 Market St',
           status: 'draft',
@@ -501,6 +513,113 @@ describe('public commerce document resources on V2', () => {
         properties: {
           notes: 'Leave existing rows unchanged',
         },
+      },
+    ]);
+  });
+
+  test('preserves order custom fields and sender on V2 mutations', async () => {
+    const bodies: unknown[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (_url, init) => {
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+        return envelope({
+          id: 'order-1',
+          record_id: '7003',
+          object_type: 'order',
+          properties: {},
+        });
+      },
+    });
+
+    await client.public.orders.create({
+      order: {
+        externalId: 'order-ext-1',
+        companyExternalId: 'company-ext-1',
+        custom_fields: { owner_email: 'owner@example.com' },
+        line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+        send_from: 'Sanka Sales\n100 Market St',
+      },
+    });
+    await client.public.orders.update('order-1', {
+      order: {
+        custom_fields: { owner_email: 'updated@example.com' },
+        send_from: 'Updated Sanka Sales\n100 Market St',
+      },
+    });
+
+    expect(bodies).toEqual([
+      {
+        properties: {
+          company_external_id: 'company-ext-1',
+          custom_fields: { owner_email: 'owner@example.com' },
+          external_id: 'order-ext-1',
+          line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+          send_from: 'Sanka Sales\n100 Market St',
+        },
+      },
+      {
+        properties: {
+          custom_fields: { owner_email: 'updated@example.com' },
+          send_from: 'Updated Sanka Sales\n100 Market St',
+        },
+      },
+    ]);
+  });
+
+  test('preserves invoice line items, attachments, sender, and custom fields on V2 mutations', async () => {
+    const bodies: unknown[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (_url, init) => {
+        bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+        return envelope({
+          id: 'invoice-1',
+          record_id: '7004',
+          object_type: 'invoice',
+          properties: {},
+        });
+      },
+    });
+
+    await client.public.invoices.create({
+      attachment_file: { files: [{ file_id: 'file-1' }] },
+      company_external_id: 'company-ext-1',
+      contact_external_id: 'contact-ext-1',
+      custom_fields: { owner_email: 'owner@example.com' },
+      external_id: 'invoice-ext-1',
+      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+      send_from: 'Sanka Billing\n100 Market St',
+    });
+    await client.public.invoices.update('invoice-1', {
+      custom_fields: { owner_email: 'updated@example.com' },
+      external_id: 'invoice-ext-1',
+      line_items: [{ item_name: 'Retainer', quantity: 1, unit_price: 200, tax_rate: 10 }],
+      send_from: 'Updated Sanka Billing\n100 Market St',
+    });
+
+    expect(bodies).toEqual([
+      {
+        properties: {
+          attachment_file: { files: [{ file_id: 'file-1' }] },
+          company_external_id: 'company-ext-1',
+          contact_external_id: 'contact-ext-1',
+          custom_fields: { owner_email: 'owner@example.com' },
+          external_id: 'invoice-ext-1',
+          send_from: 'Sanka Billing\n100 Market St',
+        },
+        line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 300, tax_rate: 10 }],
+      },
+      {
+        properties: {
+          custom_fields: { owner_email: 'updated@example.com' },
+          send_from: 'Updated Sanka Billing\n100 Market St',
+        },
+        line_items: [{ item_name: 'Retainer', quantity: 1, unit_price: 200, tax_rate: 10 }],
       },
     ]);
   });

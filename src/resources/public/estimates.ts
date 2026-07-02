@@ -30,16 +30,18 @@ const estimateFromV2Record = (record: V2ObjectRecord): Estimate => {
 
 const estimateMutationProperties = (
   params: EstimateCreateParams | EstimateUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
   const {
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
+    custom_fields,
     due_date,
-    external_id: _externalID,
+    external_id,
     line_items: _lineItems,
     notes,
     send_from,
@@ -51,16 +53,17 @@ const estimateMutationProperties = (
     total_price,
     total_price_without_tax,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
   void _lineItems;
   return compactProperties({
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
+    custom_fields,
     due_date,
+    external_id: options.includeExternalID ? external_id : undefined,
     estimate_date: start_date,
     notes,
     send_from,
@@ -75,8 +78,9 @@ const estimateMutationProperties = (
 
 const estimateMutationBody = (
   params: EstimateCreateParams | EstimateUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
-  const body: Record<string, unknown> = { properties: estimateMutationProperties(params) };
+  const body: Record<string, unknown> = { properties: estimateMutationProperties(params, options) };
   if (params.line_items != null) {
     body['line_items'] = params.line_items;
   }
@@ -90,7 +94,7 @@ export class Estimates extends APIResource {
   create(body: EstimateCreateParams, options?: RequestOptions): APIPromise<PublicEstimateResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/estimates', {
-        body: estimateMutationBody(body),
+        body: estimateMutationBody(body, { includeExternalID: true }),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -253,6 +257,8 @@ export interface Estimate {
 
   line_items?: Array<PublicLineItem>;
 
+  custom_fields?: Record<string, unknown> | null;
+
   start_date?: string | null;
 
   status?: string | null;
@@ -274,6 +280,8 @@ export interface PublicEstimateRequest {
   contact_id?: string | null;
 
   currency?: string | null;
+
+  custom_fields?: Record<string, unknown> | null;
 
   due_date?: string | null;
 
@@ -353,6 +361,8 @@ export interface EstimateCreateParams {
 
   currency?: string | null;
 
+  custom_fields?: Record<string, unknown> | null;
+
   due_date?: string | null;
 
   external_id?: string | null;
@@ -428,6 +438,8 @@ export interface EstimateUpdateParams {
   contact_id?: string | null;
 
   currency?: string | null;
+
+  custom_fields?: Record<string, unknown> | null;
 
   due_date?: string | null;
 
