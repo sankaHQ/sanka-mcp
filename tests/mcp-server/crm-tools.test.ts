@@ -6817,7 +6817,15 @@ describe('ChatGPT CRM tools', () => {
     expect((crmAppendBillAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
     ]);
+    expect((crmAppendBillAttachmentUploadChunkTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
     expect((crmFinishBillAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
+    expect((crmFinishBillAttachmentUploadTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
     expect(crmStartBillAttachmentUploadTool.tool.description).toContain('Do not abandon the attachment');
     expect(crmAppendBillAttachmentUploadChunkTool.tool.description).toContain(
       'Continue appending until the result returns done=true',
@@ -6948,7 +6956,15 @@ describe('ChatGPT CRM tools', () => {
     expect((crmAppendOrderAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
     ]);
+    expect((crmAppendOrderAttachmentUploadChunkTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
     expect((crmFinishOrderAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
+    expect((crmFinishOrderAttachmentUploadTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
 
     const startResult = await crmStartOrderAttachmentUploadTool.handler({
       reqContext,
@@ -7928,7 +7944,15 @@ describe('ChatGPT CRM tools', () => {
     expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
     ]);
+    expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
     expect((crmFinishExpenseAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
+    expect((crmFinishExpenseAttachmentUploadTool.tool.inputSchema as any).anyOf).toEqual([
+      { required: ['upload_token'] },
+      { required: ['token'] },
+    ]);
     expect(startResult.structuredContent).toMatchObject({
       completion_status: 'requires_chunks',
       required_next_tool: 'append_expense_attachment_upload_chunk',

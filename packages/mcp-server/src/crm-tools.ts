@@ -11479,6 +11479,7 @@ const buildChunkedAttachmentUploadAppendInputSchema = (
     },
   },
   required: ['content_base64'],
+  anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
 });
 
 const buildChunkedAttachmentUploadFinishInputSchema = (
@@ -11495,6 +11496,7 @@ const buildChunkedAttachmentUploadFinishInputSchema = (
       description: 'Alias for upload_token.',
     },
   },
+  anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
 });
 
 const createChunkedAttachmentUploadTools = (
