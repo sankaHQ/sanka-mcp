@@ -9,7 +9,14 @@ import { McpOptions } from './options';
 
 const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
 const DEFAULT_INTROSPECTION_PATH = '/api/v1/oauth/introspect';
-const INTROSPECTION_CACHE_TTL_MS = 2_000;
+// Successful introspections are cached so bursts of tool calls do not re-hit the
+// authorization server on every request. Tradeoff: a token revoked upstream can
+// keep working on this server for up to this TTL after revocation.
+const INTROSPECTION_CACHE_TTL_MS = 60_000;
+// Upstream auth calls (introspection, MCP session token exchange) must never
+// hang a request; individual Sanka API requests use a 30s budget, so a stricter
+// 10s cap on these small internal auth round-trips is comfortably within it.
+const UPSTREAM_AUTH_REQUEST_TIMEOUT_MS = 10_000;
 const OAUTH_ACCESS_TOKEN_PREFIX = 'soat_';
 
 const oauthIntrospectionCache = new Map<
@@ -227,13 +234,31 @@ const introspectOAuthAccessToken = async ({
     return cached;
   }
 
-  const response = await fetch(resolveIntrospectionUrl(authorizationServerUrl), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(resolveIntrospectionUrl(authorizationServerUrl), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(UPSTREAM_AUTH_REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // Network failures and timeouts follow the same 401 challenge path as a
+    // failed introspection instead of surfacing as an unhandled server error.
+    getLogger().warn(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'OAuth token introspection request failed',
+    );
+    throw buildOAuthAccessTokenChallenge({
+      authorizationServerUrl: challengeAuthorizationServerUrl ?? authorizationServerUrl,
+      description: 'OAuth token introspection request failed or timed out.',
+      resourceMetadataUrl,
+    });
+  }
 
   const payload = (await response.json().catch(() => null)) as OAuthIntrospectionEnvelope | null;
   const description = String(
@@ -372,6 +397,7 @@ const exchangeMcpSessionForAccessToken = async ({
         resource: resourceUrl,
         session_id: normalizedSessionId,
       }),
+      signal: AbortSignal.timeout(UPSTREAM_AUTH_REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     getLogger().warn(

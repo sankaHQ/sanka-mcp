@@ -1,3 +1,4 @@
+import { INVALID_TOOL_ARGUMENTS_ERROR_TYPE } from './tool-argument-validator';
 import { ContentBlock, McpTool, ToolCallResult } from './types';
 
 const CONTROL_ARGUMENT_KEYS = new Set([
@@ -144,8 +145,35 @@ const summarizeValue = (value: unknown): unknown => {
   return undefined;
 };
 
+// Compact variant of summarizeValue for the `result` summary: arrays are
+// replaced with a placeholder instead of re-embedding row copies, because the
+// full rows already live at the top level of structuredContent.
+const summarizeCompactValue = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    if (value.length > LARGE_STRING_PLACEHOLDER_THRESHOLD) {
+      return `[large string omitted: ${value.length} chars]`;
+    }
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return `[array omitted: ${value.length} items]`;
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== 'content_base64')
+        .slice(0, 20)
+        .map(([key, item]) => [key, summarizeCompactValue(item)]),
+    );
+  }
+  return undefined;
+};
+
 const buildSafeResult = (payload: Record<string, unknown>): Record<string, unknown> =>
-  Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, summarizeValue(value)]));
+  Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, summarizeCompactValue(value)]));
 
 const buildRequestedFields = (args: Record<string, unknown> | undefined): Record<string, unknown> => {
   if (!args) {
@@ -190,6 +218,20 @@ const buildRecordIds = (payload: Record<string, unknown>): Record<string, string
       .map(([key, value]) => [key, readString(value)])
       .filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
+
+const NETWORK_ERROR_TYPE_PATTERN = /connection|network|timeout/i;
+
+// Retry only failures that are plausibly transient: rate limits, server-side
+// errors, and network/timeout failures that never produced an HTTP status.
+// Validation-style failures (4xx statuses or status-less string errors) are
+// client-correctable and must not be marked retryable.
+const isRetryableFailure = (httpStatus: number | undefined, payload: Record<string, unknown>): boolean => {
+  if (httpStatus !== undefined) {
+    return httpStatus === 429 || httpStatus >= 500;
+  }
+  const errorType = readString(payload['error_type']);
+  return errorType !== undefined && NETWORK_ERROR_TYPE_PATTERN.test(errorType);
+};
 
 const advisoryRequiresConfirmation = (payload: Record<string, unknown>): boolean => {
   const advisories = payload['advisories'];
@@ -302,15 +344,16 @@ export const normalizeToolCallResult = ({
     advisory_count: Array.isArray(payload['advisories']) ? payload['advisories'].length : 0,
     needs_confirmation: needsConfirmation,
   };
+  const isInvalidArguments = readString(payload['error_type']) === INVALID_TOOL_ARGUMENTS_ERROR_TYPE;
+  const canRetry = isError && isRetryableFailure(httpStatus, payload);
   const remediation = {
     safe_to_continue: !isError && !needsConfirmation,
-    can_retry: isError && (httpStatus === undefined || httpStatus >= 500),
-    retry_reason:
-      isError && (httpStatus === undefined || httpStatus >= 500) ?
-        'The tool failed without a client-correctable validation status.'
-      : undefined,
+    can_retry: canRetry,
+    retry_reason: canRetry ? 'The tool failed without a client-correctable validation status.' : undefined,
     required_next_action:
-      isError ? 'Inspect the error message and ctx_id before retrying.'
+      isError && isInvalidArguments ?
+        'Fix the arguments listed in validation_errors to match the tool input schema, then call the tool again with corrected arguments.'
+      : isError ? 'Inspect the error message and ctx_id before retrying.'
       : needsConfirmation ?
         'Review advisories and ask for explicit user confirmation before follow-up mutations.'
       : verificationNeeded ? 'Read the record again before claiming exact field-level state to the user.'

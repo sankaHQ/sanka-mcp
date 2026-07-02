@@ -297,7 +297,7 @@ import {
 import { demoGenerateTool, integrationSyncPushTool } from './demo-tools';
 import docsSearchTool from './docs-search-tool';
 import { setLocalSearch } from './docs-search-tool';
-import { LocalDocsSearch } from './local-docs-search';
+import { getSharedLocalDocsSearch } from './local-docs-search';
 import { getInstructions } from './instructions';
 import { McpOptions } from './options';
 import { blockedMethodsForCodeTool } from './methods';
@@ -323,9 +323,10 @@ import {
   startWorkflowTool,
 } from './workflow-run-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
-import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
+import { McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
+import { validateToolArguments } from './tool-argument-validator';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
@@ -561,8 +562,61 @@ export async function recordMcpToolCall({
 }
 
 /**
+ * Tool selection and scope preparation only depend on the tool profile and the
+ * code-execution permission options, not on per-request auth or session state.
+ * Cache the prepared tool arrays per distinct configuration so every request
+ * does not rebuild and re-map the full tool registry. The cache is bounded
+ * because permission overrides can arrive from client-controlled headers.
+ */
+const PREPARED_TOOLS_CACHE_MAX = 100;
+const preparedToolsCache = new Map<string, McpTool[]>();
+
+// Mirrors the option gating inside selectTools: generic code/docs tools exist
+// only in the 'full' profile, and code-permission options only matter when the
+// code tool is included. Keep this in sync with selectTools when selection
+// starts depending on new options.
+const preparedToolsCacheKey = (options: McpOptions | undefined, profile: ToolProfile): string => {
+  const includeGenericTools = profile === 'full';
+  const includeCodeTool = includeGenericTools && (options?.includeCodeTool ?? true);
+  const includeDocsTools = includeGenericTools && (options?.includeDocsTools ?? true);
+  return JSON.stringify({
+    profile,
+    includeCodeTool,
+    includeDocsTools,
+    codeAllowHttpGets: includeCodeTool ? options?.codeAllowHttpGets ?? null : null,
+    codeAllowedMethods: includeCodeTool ? options?.codeAllowedMethods ?? null : null,
+    codeBlockedMethods: includeCodeTool ? options?.codeBlockedMethods ?? null : null,
+  });
+};
+
+/**
+ * Returns the selected tools with required OAuth scopes applied, memoized per
+ * (profile, code-permission options) configuration. The returned array and its
+ * tools are shared across requests and must be treated as immutable.
+ */
+export function selectPreparedTools(options?: McpOptions, profile: ToolProfile = 'full'): McpTool[] {
+  const cacheKey = preparedToolsCacheKey(options, profile);
+  const cached = preparedToolsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const prepared = selectTools(options, profile).map(applyRequiredScopesToSecuritySchemes);
+  if (preparedToolsCache.size >= PREPARED_TOOLS_CACHE_MAX) {
+    const oldestKey = preparedToolsCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      preparedToolsCache.delete(oldestKey);
+    }
+  }
+  preparedToolsCache.set(cacheKey, prepared);
+  return prepared;
+}
+
+/**
  * Initializes the provided MCP Server with the given tools and handlers.
  * If not provided, the default client, tools and handlers will be used.
+ * Returns the tools registered on the server so callers can reuse the
+ * selection instead of recomputing it.
  */
 export async function initMcpServer(params: {
   server: Server | McpServer;
@@ -575,7 +629,7 @@ export async function initMcpServer(params: {
   toolProfile?: ToolProfile | undefined;
   auth?: McpRequestContext['auth'];
   downloadBaseUrl?: string | undefined;
-}) {
+}): Promise<{ tools: McpTool[] }> {
   const server = params.server instanceof McpServer ? params.server.server : params.server;
 
   const logAtLevel =
@@ -594,7 +648,7 @@ export async function initMcpServer(params: {
   };
 
   const docsDir = params.mcpOptions?.docsDir;
-  const localSearch = await LocalDocsSearch.create(docsDir ? { docsDir } : undefined);
+  const localSearch = await getSharedLocalDocsSearch(docsDir ? { docsDir } : undefined);
   setLocalSearch(localSearch);
 
   let _client: Sanka | undefined;
@@ -625,7 +679,7 @@ export async function initMcpServer(params: {
   };
 
   const toolProfile = params.toolProfile ?? 'full';
-  const providedTools = selectTools(params.mcpOptions, toolProfile).map(applyRequiredScopesToSecuritySchemes);
+  const providedTools = selectPreparedTools(params.mcpOptions, toolProfile);
   const toolMap = Object.fromEntries(providedTools.map((mcpTool) => [mcpTool.tool.name, mcpTool]));
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -666,7 +720,8 @@ export async function initMcpServer(params: {
       });
       try {
         const client = getClient();
-        await recordMcpToolCall({
+        // Fire-and-forget: never make the tool result wait on the audit log POST.
+        void recordMcpToolCall({
           client,
           logger,
           mcpTool,
@@ -676,6 +731,8 @@ export async function initMcpServer(params: {
           },
           result: normalizedScopeError,
           startedAt,
+        }).catch((error) => {
+          logger.warn('Failed to record MCP tool call scope error log', error);
         });
       } catch (error) {
         logger.warn('Failed to record MCP tool call scope error log', error);
@@ -703,7 +760,7 @@ export async function initMcpServer(params: {
       const result = normalizeToolCallResult({
         mcpTool,
         result: await executeHandler({
-          handler: mcpTool.handler,
+          mcpTool,
           reqContext: reqContextWithClient,
           args,
         }),
@@ -715,13 +772,16 @@ export async function initMcpServer(params: {
         reqContext: reqContextWithClient,
         args,
       });
-      await recordMcpToolCall({
+      // Fire-and-forget: never make the tool result wait on the audit log POST.
+      void recordMcpToolCall({
         client,
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
         result: enrichedResult,
         startedAt,
+      }).catch((error) => {
+        logger.warn('Failed to record MCP tool call log', error);
       });
       return enrichedResult;
     } catch (error) {
@@ -730,13 +790,16 @@ export async function initMcpServer(params: {
         args,
         result: buildToolErrorResult(error),
       });
-      await recordMcpToolCall({
+      // Fire-and-forget: never make the tool result wait on the audit log POST.
+      void recordMcpToolCall({
         client,
         logger,
         mcpTool,
         reqContext: reqContextWithClient,
         result: errorResult,
         startedAt,
+      }).catch((logError) => {
+        logger.warn('Failed to record MCP tool call log', logError);
       });
       return errorResult;
     }
@@ -769,10 +832,15 @@ export async function initMcpServer(params: {
     }
     return {};
   });
+
+  return { tools: providedTools };
 }
 
 /**
  * Selects the tools to include in the MCP Server based on the provided options.
+ *
+ * NOTE: if selection starts depending on additional options, update
+ * preparedToolsCacheKey so the memoized variant keys on them too.
  */
 export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
@@ -1096,16 +1164,22 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
 }
 
 /**
- * Runs the provided handler with the given client and arguments.
+ * Validates the arguments against the tool's input schema, then runs the
+ * tool's handler with the given client and arguments. Invalid arguments never
+ * reach the handler; they produce a non-retryable MCP error result instead.
  */
 export async function executeHandler({
-  handler,
+  mcpTool,
   reqContext,
   args,
 }: {
-  handler: HandlerFunction;
+  mcpTool: McpTool;
   reqContext: McpRequestContext;
   args: Record<string, unknown> | undefined;
 }): Promise<ToolCallResult> {
-  return await handler({ reqContext, args: args || {} });
+  const invalidArgumentsResult = validateToolArguments({ mcpTool, args });
+  if (invalidArgumentsResult) {
+    return invalidArgumentsResult;
+  }
+  return await mcpTool.handler({ reqContext, args: args || {} });
 }

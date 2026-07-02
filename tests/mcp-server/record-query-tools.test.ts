@@ -1,5 +1,5 @@
-import { crmAggregateRecordsTool, crmQueryRecordsTool } from '../src/crm-tools';
-import { McpRequestContext } from '../src/types';
+import { crmAggregateRecordsTool, crmQueryRecordsTool } from '../../packages/mcp-server/src/crm-tools';
+import { McpRequestContext } from '../../packages/mcp-server/src/types';
 
 describe('record query tools', () => {
   it('aggregate_records calls the server-side aggregate endpoint', async () => {
@@ -21,7 +21,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
       body: {
         object_type: 'companies',
         filters: [{ field: 'address', operator: 'is_empty' }],
@@ -64,7 +64,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
       body: {
         object_type: 'companies',
         scope: 'integration',
@@ -108,7 +108,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'companies',
         select: ['id', 'name', 'address'],
@@ -185,7 +185,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
       body: {
         object_type: 'companies',
         scope: 'integration',

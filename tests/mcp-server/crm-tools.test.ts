@@ -280,6 +280,22 @@ describe('ChatGPT CRM tools', () => {
     resetBinaryUploadStoreForTests();
   });
 
+  it('does not add provider-specific company tool names', async () => {
+    const crmTools = await import('../../packages/mcp-server/src/crm-tools');
+    const toolNames = Object.values(crmTools)
+      .map((candidate) => {
+        if (candidate && typeof candidate === 'object' && 'tool' in candidate) {
+          return (candidate as { tool?: { name?: string } }).tool?.name;
+        }
+        return undefined;
+      })
+      .filter(Boolean);
+
+    expect(toolNames).not.toContain('list_companies_salesforce');
+    expect(toolNames).not.toContain('list_companies_hubspot');
+    expect(toolNames).not.toContain('create_salesforce_company');
+  });
+
   it('documents Sanka company cycle fields as standard company inputs', () => {
     const createPropertySchema = crmCreatePropertyTool.tool.inputSchema as any;
     const createCompanySchema = crmCreateCompanyTool.tool.inputSchema as any;
@@ -11465,5 +11481,145 @@ describe('ChatGPT CRM tools', () => {
       end_date: '2026-05-31',
       contract_info: [],
     });
+  });
+
+  it('rejects query_records filter entries that are missing a string field', async () => {
+    const post = jest.fn();
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        filters: [{ operator: 'equals', value: 'Tokyo' }],
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('filters[0] is missing a non-empty string `field`');
+    expect(firstTextContent(result)).toContain('the query was not executed');
+  });
+
+  it('rejects query_records filters that are not an array', async () => {
+    const post = jest.fn();
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        filters: 'address is empty',
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('`filters` must be an array');
+  });
+
+  it('rejects aggregate_records filter entries that are not objects', async () => {
+    const post = jest.fn();
+
+    const result = await crmAggregateRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        filters: ['address'],
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('filters[0] must be an object');
+  });
+
+  it('rejects malformed list_deals filters instead of listing unfiltered deals', async () => {
+    const post = jest.fn();
+    const list = jest.fn();
+
+    const result = await crmListDealsTool.handler({
+      reqContext: {
+        client: { post, public: { deals: { list } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        filters: [{ field: 42 }],
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('filters[0] is missing a non-empty string `field`');
+  });
+
+  it('clamps list_companies limit to the schema bounds', async () => {
+    const list = jest.fn().mockResolvedValue({
+      count: 0,
+      data: [],
+      message: 'ok',
+      page: 1,
+      total: 0,
+      permission: 'edit',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          companies: { list },
+        },
+      } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    await crmListCompaniesTool.handler({ reqContext, args: { limit: 500 } });
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 100 }), undefined);
+
+    list.mockClear();
+    await crmListCompaniesTool.handler({ reqContext, args: { limit: 0 } });
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 1 }), undefined);
+  });
+
+  it('clamps query_records limit to the schema maximum', async () => {
+    const post = jest.fn().mockResolvedValue({
+      object_type: 'companies',
+      count: 0,
+      total: 0,
+      page: 1,
+      limit: 100,
+      data: [],
+      message: 'OK',
+    });
+
+    await crmQueryRecordsTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'companies',
+        limit: 500,
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.objectContaining({ limit: 100 }),
+      }),
+    );
   });
 });

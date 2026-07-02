@@ -1,4 +1,4 @@
-import { __testing, buildAuthorizationServerMetadata } from '../src/http';
+import { __testing, buildAuthorizationServerMetadata } from '../../packages/mcp-server/src/http';
 
 describe('buildAuthorizationServerMetadata', () => {
   it('omits client_id when oauth client id is not configured', () => {

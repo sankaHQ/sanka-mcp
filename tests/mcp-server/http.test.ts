@@ -5,6 +5,10 @@ import {
   resetBinaryDownloadStoreForTests,
 } from '../../packages/mcp-server/src/binary-download-store';
 import { streamableHTTPApp } from '../../packages/mcp-server/src/http';
+import {
+  LocalDocsSearch,
+  resetSharedLocalDocsSearchForTests,
+} from '../../packages/mcp-server/src/local-docs-search';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 const TEST_ADVERTISED_SCOPE = 'api-access';
@@ -652,6 +656,77 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"push_integration_sync"');
     expect(text).not.toContain('"name":"execute"');
     expect(text).not.toContain('"name":"search_docs"');
+  });
+
+  it('builds the local docs search once across multiple requests', async () => {
+    resetSharedLocalDocsSearchForTests();
+    const createSpy = jest.spyOn(LocalDocsSearch, 'create');
+    try {
+      for (const id of [61, 62]) {
+        const response = await fetch(`${baseUrl}/mcp`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json, text/event-stream',
+            'Content-Type': 'application/json',
+            'MCP-Protocol-Version': '2025-11-25',
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id,
+            method: 'tools/list',
+            params: {},
+          }),
+        });
+        expect(response.status).toBe(200);
+        await response.text();
+      }
+
+      expect(createSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      createSpy.mockRestore();
+    }
+  });
+
+  it('serves the correct hosted tool set to requests with different client permission headers', async () => {
+    const listToolsWithPermissions = async (permissions: string, id: number): Promise<string> => {
+      const response = await fetch(`${baseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+          'MCP-Protocol-Version': '2025-11-25',
+          'x-sanka-mcp-client-permissions': permissions,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id,
+          method: 'tools/list',
+          params: {},
+        }),
+      });
+      expect(response.status).toBe(200);
+      return response.text();
+    };
+
+    const blockedOrdersText = await listToolsWithPermissions(
+      JSON.stringify({ blocked_methods: ['public\\.orders\\..*'] }),
+      63,
+    );
+    const allowedGetsText = await listToolsWithPermissions(
+      JSON.stringify({ allow_http_gets: true, allowed_methods: ['public\\.companies\\..*'] }),
+      64,
+    );
+
+    // Client permission overrides only affect the code tool, which the hosted
+    // profile never exposes: both requests must still get the full hosted set,
+    // and neither cached selection may leak code tools into the other.
+    for (const text of [blockedOrdersText, allowedGetsText]) {
+      expect(text).toContain('"name":"connect_sanka"');
+      expect(text).toContain('"name":"list_companies"');
+      expect(text).toContain('"name":"create_invoice"');
+      expect(text).not.toContain('"name":"execute"');
+      expect(text).not.toContain('"name":"search_docs"');
+    }
   });
 
   it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {
