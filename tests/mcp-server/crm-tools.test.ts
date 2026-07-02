@@ -2,6 +2,11 @@ import { File } from 'node:buffer';
 import {
   crmActivateInvoiceTool,
   crmActivateOrderTool,
+  crmAppendBillAttachmentUploadChunkTool,
+  crmAppendEstimateAttachmentUploadChunkTool,
+  crmAppendInvoiceAttachmentUploadChunkTool,
+  crmAppendOrderAttachmentUploadChunkTool,
+  crmAppendPurchaseOrderAttachmentUploadChunkTool,
   crmArchiveCustomObjectRecordTool,
   crmArchivePrivateMessageThreadTool,
   crmApplyCompanyPriceTableItemsTool,
@@ -181,8 +186,18 @@ import {
   crmSyncWorkspaceMessagesTool,
   crmSwitchWorkspaceTool,
   crmAppendExpenseAttachmentUploadChunkTool,
+  crmFinishBillAttachmentUploadTool,
+  crmFinishEstimateAttachmentUploadTool,
   crmFinishExpenseAttachmentUploadTool,
+  crmFinishInvoiceAttachmentUploadTool,
+  crmFinishOrderAttachmentUploadTool,
+  crmFinishPurchaseOrderAttachmentUploadTool,
+  crmStartBillAttachmentUploadTool,
+  crmStartEstimateAttachmentUploadTool,
   crmStartExpenseAttachmentUploadTool,
+  crmStartInvoiceAttachmentUploadTool,
+  crmStartOrderAttachmentUploadTool,
+  crmStartPurchaseOrderAttachmentUploadTool,
   crmUpdateBillTool,
   crmUpdateAbsenceTool,
   crmUpdateAttendanceRecordTool,
@@ -336,12 +351,20 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListOrdersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadOrderAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmStartOrderAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmAppendOrderAttachmentUploadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmFinishOrderAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPurchaseOrdersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetPurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadPurchaseOrderAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmStartPurchaseOrderAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmAppendPurchaseOrderAttachmentUploadChunkTool.tool.securitySchemes).toEqual([
+      { type: 'oauth2' },
+    ]);
+    expect(crmFinishPurchaseOrderAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeletePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -364,12 +387,18 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListEstimatesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadEstimateAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmStartEstimateAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmAppendEstimateAttachmentUploadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmFinishEstimateAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListInvoicesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadInvoiceAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmStartInvoiceAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmAppendInvoiceAttachmentUploadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmFinishInvoiceAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -393,6 +422,9 @@ describe('ChatGPT CRM tools', () => {
     expect(crmListBillsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadBillAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmStartBillAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmAppendBillAttachmentUploadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmFinishBillAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeleteBillTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -6762,6 +6794,216 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('surfaces chunked upload guidance on bill attachment and mutation tools', () => {
+    const createDescription = crmCreateBillTool.tool.description ?? '';
+    expect(createDescription).toContain('start_bill_attachment_upload');
+    expect(createDescription).toContain('append_bill_attachment_upload_chunk');
+    expect(createDescription).toContain('finish_bill_attachment_upload');
+    expect(createDescription).toContain('Do not silently drop a provided or required attachment');
+
+    const updateDescription = crmUpdateBillTool.tool.description ?? '';
+    expect(updateDescription).toContain('start_bill_attachment_upload');
+    expect(updateDescription).toContain('attachment_file_ids');
+
+    const directUploadDescription = crmUploadBillAttachmentTool.tool.description ?? '';
+    expect(directUploadDescription).toContain('already available base64');
+    expect(directUploadDescription).toContain('start_bill_attachment_upload');
+
+    const createInputSchema = crmCreateBillTool.tool.inputSchema as any;
+    expect(createInputSchema.properties.attachment_file_ids.description).toContain(
+      'append_bill_attachment_upload_chunk until done',
+    );
+
+    expect((crmAppendBillAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
+      'content_base64',
+    ]);
+    expect((crmFinishBillAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
+    expect(crmStartBillAttachmentUploadTool.tool.description).toContain('Do not abandon the attachment');
+    expect(crmAppendBillAttachmentUploadChunkTool.tool.description).toContain(
+      'Continue appending until the result returns done=true',
+    );
+  });
+
+  it('uploads a bill attachment from chunked base64 content', async () => {
+    const billBytes = Buffer.from('bill pdf bytes that are sent in chunks');
+    const contentBase64 = billBytes.toString('base64');
+    const firstChunk = contentBase64.slice(0, 12);
+    const secondChunk = contentBase64.slice(12);
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'bill.pdf',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          bills: { uploadAttachment },
+        },
+      } as any,
+      auth: oauthContext(),
+      mcpSessionId: 'session-1',
+      toolProfile: 'full' as const,
+    };
+
+    const startResult = await crmStartBillAttachmentUploadTool.handler({
+      reqContext,
+      args: {
+        filename: 'bill.pdf',
+        mime_type: 'application/pdf',
+        content_base64_length: contentBase64.length,
+        byte_length: billBytes.byteLength,
+      },
+    });
+    const uploadToken = startResult.structuredContent?.['upload_token'] as string;
+    expect(uploadToken).toBeTruthy();
+    expect(startResult.structuredContent).toMatchObject({
+      chunk_size: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
+      recommended_chunk_count: 1,
+      recommended_upload_strategy: 'single_append_then_finish',
+      completion_status: 'requires_chunks',
+      required_next_tool: 'append_bill_attachment_upload_chunk',
+    });
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('finish_bill_attachment_upload'),
+    );
+    expect(startResult.structuredContent?.['next_action']).toEqual(
+      expect.stringContaining('do not drop it and call create_bill or update_bill without its file_id'),
+    );
+
+    const firstAppend = await crmAppendBillAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: 0,
+        content_base64: firstChunk,
+      },
+    });
+    expect(firstAppend.structuredContent).toMatchObject({
+      content_base64_offset: 0,
+      content_base64_length: firstChunk.length,
+      next_offset: firstChunk.length,
+      done: false,
+      required_next_tool: 'append_bill_attachment_upload_chunk',
+    });
+
+    const secondAppend = await crmAppendBillAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: firstChunk.length,
+        content_base64: secondChunk,
+      },
+    });
+    expect(secondAppend.structuredContent).toMatchObject({
+      content_base64_offset: firstChunk.length,
+      content_base64_length: contentBase64.length,
+      next_offset: contentBase64.length,
+      done: true,
+      required_next_tool: 'finish_bill_attachment_upload',
+    });
+
+    const finishResult = await crmFinishBillAttachmentUploadTool.handler({
+      reqContext,
+      args: { upload_token: uploadToken },
+    });
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('bill.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(finishResult.structuredContent).toEqual({
+      ok: true,
+      file_id: 'file-1',
+      filename: 'bill.pdf',
+      byte_length: billBytes.byteLength,
+      content_base64_length: contentBase64.length,
+      completion_status: 'uploaded',
+      next_action:
+        'Pass structuredContent.file_id in attachment_file_ids when calling create_bill or update_bill, then read the bill back if attachment confirmation matters.',
+    });
+  });
+
+  it('uploads an order attachment from chunked base64 content through the shared helper', async () => {
+    const orderBytes = Buffer.from('order pdf bytes sent in one reliable chunk');
+    const contentBase64 = orderBytes.toString('base64');
+    const uploadAttachment = jest.fn().mockResolvedValue({
+      ok: true,
+      file_id: 'order-file-1',
+      filename: 'order.pdf',
+    });
+    const reqContext = {
+      client: {
+        public: {
+          orders: { uploadAttachment },
+        },
+      } as any,
+      auth: oauthContext(),
+      mcpSessionId: 'session-order-upload',
+      toolProfile: 'full' as const,
+    };
+
+    expect(crmUploadOrderAttachmentTool.tool.description).toContain('start_order_attachment_upload');
+    expect(crmStartOrderAttachmentUploadTool.tool.description).toContain('upload_order_attachment');
+    expect((crmAppendOrderAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
+      'content_base64',
+    ]);
+    expect((crmFinishOrderAttachmentUploadTool.tool.inputSchema as any).required ?? []).toEqual([]);
+
+    const startResult = await crmStartOrderAttachmentUploadTool.handler({
+      reqContext,
+      args: {
+        filename: 'order.pdf',
+        mime_type: 'application/pdf',
+        content_base64_length: contentBase64.length,
+        byte_length: orderBytes.byteLength,
+      },
+    });
+    const uploadToken = startResult.structuredContent?.['upload_token'] as string;
+    expect(startResult.structuredContent).toMatchObject({
+      recommended_upload_strategy: 'single_append_then_finish',
+      completion_status: 'requires_chunks',
+      required_next_tool: 'append_order_attachment_upload_chunk',
+    });
+
+    const appendResult = await crmAppendOrderAttachmentUploadChunkTool.handler({
+      reqContext,
+      args: {
+        upload_token: uploadToken,
+        offset: 0,
+        content_base64: contentBase64,
+      },
+    });
+    expect(appendResult.structuredContent).toMatchObject({
+      content_base64_offset: 0,
+      content_base64_length: contentBase64.length,
+      done: true,
+      required_next_tool: 'finish_order_attachment_upload',
+    });
+
+    const finishResult = await crmFinishOrderAttachmentUploadTool.handler({
+      reqContext,
+      args: { upload_token: uploadToken },
+    });
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1);
+    const [payload] = uploadAttachment.mock.calls[0];
+    expect(payload.file).toBeInstanceOf(File);
+    expect(payload.file.name).toBe('order.pdf');
+    expect(payload.file.type).toBe('application/pdf');
+    expect(Buffer.from(await payload.file.arrayBuffer())).toEqual(orderBytes);
+    expect(finishResult.structuredContent).toMatchObject({
+      ok: true,
+      file_id: 'order-file-1',
+      filename: 'order.pdf',
+      byte_length: orderBytes.byteLength,
+      content_base64_length: contentBase64.length,
+      completion_status: 'uploaded',
+      next_action:
+        'Pass structuredContent.file_id in attachment_file_ids when calling create_order or update_order, then read the order back if attachment confirmation matters.',
+    });
+  });
+
   it('maps disbursement CRUD handlers to the SDK client', async () => {
     const list = jest.fn().mockResolvedValue([
       { id_dsb: 601, company_name: 'Acme', contact_name: 'Taylor', total_price: 800 },
@@ -7681,7 +7923,7 @@ describe('ChatGPT CRM tools', () => {
       expect.stringContaining('using max-size chunks this should take 1 append call(s)'),
     );
     expect(startResult.structuredContent?.['next_action']).toEqual(
-      expect.stringContaining('do not drop it and create or update the expense without its file_id'),
+      expect.stringContaining('do not drop it and call create_expense or update_expense without its file_id'),
     );
     expect((crmAppendExpenseAttachmentUploadChunkTool.tool.inputSchema as any).required).toEqual([
       'content_base64',
