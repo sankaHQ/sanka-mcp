@@ -11,10 +11,7 @@ import {
   OAuthChallengeError,
   resolveClientAuth,
 } from './auth';
-import {
-  reconnectServerNameHintFromHeaders,
-  resolveReconnectServerName,
-} from './reconnect-name';
+import { reconnectServerNameHintFromHeaders, resolveReconnectServerName } from './reconnect-name';
 import { getLogger } from './logger';
 import {
   buildMcpConnectMarkdownLink,
@@ -816,9 +813,7 @@ const maybeHandleInlineToolCall = async ({
       mcpClientInfo: transportContext.mcpClientInfo,
       toolProfile,
       auth: transportContext.auth,
-      reconnectServerName: resolveReconnectServerName(
-        reconnectServerNameHintFromHeaders(req.headers),
-      ),
+      reconnectServerName: resolveReconnectServerName(reconnectServerNameHintFromHeaders(req.headers)),
     },
     args: isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : {},
   });
@@ -872,9 +867,7 @@ const handleStreamableRequest =
     const authPreflight = getRequestAuthPreflight({
       auth: transportContext.auth,
       body: req.body,
-      reconnectServerName: resolveReconnectServerName(
-        reconnectServerNameHintFromHeaders(req.headers),
-      ),
+      reconnectServerName: resolveReconnectServerName(reconnectServerNameHintFromHeaders(req.headers)),
       toolAccessRequirements: transportContext.toolAccessRequirements,
     });
     if (authPreflight) {

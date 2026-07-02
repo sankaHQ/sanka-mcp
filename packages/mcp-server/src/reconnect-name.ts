@@ -16,9 +16,7 @@ export const resolveReconnectServerName = (hint?: string | undefined): string =>
   return LEGACY_RECONNECT_SERVER_NAME;
 };
 
-export const reconnectServerNameHintFromHeaders = (
-  headers: Record<string, unknown>,
-): string | undefined => {
+export const reconnectServerNameHintFromHeaders = (headers: Record<string, unknown>): string | undefined => {
   const raw = headers[RECONNECT_SERVER_NAME_HEADER];
   if (typeof raw === 'string') {
     return raw;

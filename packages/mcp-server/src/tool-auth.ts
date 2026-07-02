@@ -11,8 +11,6 @@ import { resolveReconnectServerName } from './reconnect-name';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
-
-
 export const resolveMissingScopes = ({
   grantedScopes,
   requiredScopes,
@@ -91,7 +89,9 @@ const authErrorResult = ({
         : undefined,
         `OAuth authorization URL: ${authorizationUrl}`,
         `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
-        `Codex reconnect action: mcpServer/oauth/login for server ${resolveReconnectServerName(reqContext.reconnectServerName)}.`,
+        `Codex reconnect action: mcpServer/oauth/login for server ${resolveReconnectServerName(
+          reqContext.reconnectServerName,
+        )}.`,
         shouldIncludeConnectUrl ?
           'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.'
         : undefined,

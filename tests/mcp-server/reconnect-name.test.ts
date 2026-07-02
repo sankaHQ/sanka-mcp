@@ -25,12 +25,8 @@ describe('resolveReconnectServerName', () => {
 
 describe('reconnectServerNameHintFromHeaders', () => {
   it('reads string and array header values', () => {
-    expect(
-      reconnectServerNameHintFromHeaders({ 'x-mcp-reconnect-server-name': 'sakura' }),
-    ).toBe('sakura');
-    expect(
-      reconnectServerNameHintFromHeaders({ 'x-mcp-reconnect-server-name': ['sakura'] }),
-    ).toBe('sakura');
+    expect(reconnectServerNameHintFromHeaders({ 'x-mcp-reconnect-server-name': 'sakura' })).toBe('sakura');
+    expect(reconnectServerNameHintFromHeaders({ 'x-mcp-reconnect-server-name': ['sakura'] })).toBe('sakura');
     expect(reconnectServerNameHintFromHeaders({})).toBeUndefined();
   });
 });
