@@ -218,6 +218,96 @@ describe('normalizeToolCallResult', () => {
     });
   });
 
+  it('summarizes arrays in the result copy instead of duplicating rows', () => {
+    const rows = [
+      { id: 'company-1', name: 'ADVATEC' },
+      { id: 'company-2', name: 'Sanka' },
+    ];
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool(),
+      args: { object_type: 'companies' },
+      now,
+      result: {
+        content: [{ type: 'text', text: 'query_records returned 2 of 2 companies records.' }],
+        structuredContent: {
+          object_type: 'companies',
+          count: 2,
+          total: 2,
+          message: 'OK',
+          results: rows,
+        },
+      },
+    });
+
+    expect(result.structuredContent?.['results']).toEqual(rows);
+    expect(result.structuredContent?.['result']).toEqual({
+      object_type: 'companies',
+      count: 2,
+      total: 2,
+      message: 'OK',
+      results: '[array omitted: 2 items]',
+    });
+  });
+
+  it('does not mark status-less string errors as retryable', () => {
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool(),
+      args: { case_id: 'case-1' },
+      now,
+      result: {
+        content: [{ type: 'text', text: '`object_type` is required.' }],
+        isError: true,
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent?.['remediation']).toMatchObject({
+      safe_to_continue: false,
+      can_retry: false,
+      retry_reason: undefined,
+      required_next_action: 'Inspect the error message and ctx_id before retrying.',
+    });
+  });
+
+  it('keeps 429 rate limits retryable', () => {
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool(),
+      args: { case_id: 'case-1' },
+      now,
+      result: {
+        content: [{ type: 'text', text: 'Rate limited' }],
+        structuredContent: {
+          status_code: 429,
+          message: 'Rate limited',
+        },
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent?.['remediation']).toMatchObject({
+      can_retry: true,
+      retry_reason: 'The tool failed without a client-correctable validation status.',
+    });
+  });
+
+  it('keeps status-less connection errors retryable', () => {
+    class APIConnectionError extends Error {}
+    const result = normalizeToolCallResult({
+      mcpTool: makeTool(),
+      args: { case_id: 'case-1' },
+      now,
+      result: buildToolErrorResult(new APIConnectionError('Connection error.')),
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      error_type: 'APIConnectionError',
+      remediation: {
+        can_retry: true,
+      },
+    });
+  });
+
   it('preserves thrown SDK HTTP status and error payloads for remediation', () => {
     const error = Object.assign(new Error('500 Failed to update case'), {
       status: 500,

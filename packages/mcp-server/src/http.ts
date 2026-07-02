@@ -804,7 +804,7 @@ const maybeHandleInlineToolCall = async ({
   }
 
   const result = await executeHandler({
-    handler: inlineTool.handler,
+    mcpTool: inlineTool,
     reqContext: {
       client: undefined as any,
       mcpSessionId: transportContext.mcpSessionId,

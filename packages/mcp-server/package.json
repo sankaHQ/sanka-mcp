@@ -24,17 +24,11 @@
     "fix": "eslint --fix ."
   },
   "dependencies": {
-    "@cloudflare/cabidela": "^0.2.4",
-    "@hono/node-server": "^1.19.10",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@valtown/deno-http-worker": "^0.0.21",
     "ajv": "^8.18.0",
-    "cookie-parser": "^1.4.6",
-    "cors": "^2.8.5",
     "express": "^5.1.0",
     "fuse.js": "^7.1.0",
-    "hono": "^4.12.4",
-    "jq-web": "https://github.com/stainless-api/jq-web/releases/download/v0.8.8/jq-web.tar.gz",
     "minisearch": "^7.2.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
@@ -43,9 +37,7 @@
     "sanka-sdk": "workspace:*",
     "typescript": "5.8.3",
     "yargs": "^17.7.2",
-    "zod": "^3.25.20",
-    "zod-to-json-schema": "^3.24.5",
-    "zod-validation-error": "^4.0.1"
+    "zod": "^3.25.20"
   },
   "bin": {
     "mcp-server": "dist/index.js",
@@ -53,8 +45,6 @@
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.4.0",
     "@types/qs": "^6.14.0",

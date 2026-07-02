@@ -323,9 +323,10 @@ import {
   startWorkflowTool,
 } from './workflow-run-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
-import { HandlerFunction, McpRequestContext, ToolCallResult, McpTool } from './types';
+import { McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
+import { validateToolArguments } from './tool-argument-validator';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 
@@ -703,7 +704,7 @@ export async function initMcpServer(params: {
       const result = normalizeToolCallResult({
         mcpTool,
         result: await executeHandler({
-          handler: mcpTool.handler,
+          mcpTool,
           reqContext: reqContextWithClient,
           args,
         }),
@@ -1096,16 +1097,22 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
 }
 
 /**
- * Runs the provided handler with the given client and arguments.
+ * Validates the arguments against the tool's input schema, then runs the
+ * tool's handler with the given client and arguments. Invalid arguments never
+ * reach the handler; they produce a non-retryable MCP error result instead.
  */
 export async function executeHandler({
-  handler,
+  mcpTool,
   reqContext,
   args,
 }: {
-  handler: HandlerFunction;
+  mcpTool: McpTool;
   reqContext: McpRequestContext;
   args: Record<string, unknown> | undefined;
 }): Promise<ToolCallResult> {
-  return await handler({ reqContext, args: args || {} });
+  const invalidArgumentsResult = validateToolArguments({ mcpTool, args });
+  if (invalidArgumentsResult) {
+    return invalidArgumentsResult;
+  }
+  return await mcpTool.handler({ reqContext, args: args || {} });
 }

@@ -8928,6 +8928,13 @@ const readNumber = (value: unknown, fallback: number): number => {
   return fallback;
 };
 
+const MAX_LIST_LIMIT = 100;
+
+// Keep `limit` inside the bounds advertised by the list input schemas
+// (minimum 1, maximum 100) instead of forwarding arbitrary finite numbers.
+const clampListLimit = (value: unknown, fallback: number): number =>
+  Math.max(1, Math.min(MAX_LIST_LIMIT, Math.trunc(readNumber(value, fallback))));
+
 const readString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
     return undefined;
@@ -9673,26 +9680,63 @@ const readHeaderNumber = (headers: Headers, name: string): number | undefined =>
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 };
 
+export class InvalidRecordFiltersError extends Error {}
+
 const buildRecordFilters = (value: unknown): Record<string, unknown>[] => {
-  if (!Array.isArray(value)) {
+  if (value === undefined || value === null) {
     return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new InvalidRecordFiltersError(
+      '`filters` must be an array of { field, operator, value } objects. Fix the filters and call the tool again.',
+    );
   }
 
   const filters: Record<string, unknown>[] = [];
-  for (const entry of value) {
+  const problems: string[] = [];
+  value.forEach((entry, index) => {
     const record = readRecord(entry);
-    const field = readString(record?.['field']);
-    if (!record || !field) {
-      continue;
+    if (!record) {
+      problems.push(`filters[${index}] must be an object with a string \`field\`.`);
+      return;
     }
-    const operator = readString(record['operator']) ?? 'equals';
+    const field = readString(record['field']);
+    if (!field) {
+      problems.push(`filters[${index}] is missing a non-empty string \`field\`.`);
+      return;
+    }
+    const operator = readString(record['operator']);
+    if (record['operator'] !== undefined && !operator) {
+      problems.push(`filters[${index}] \`operator\` must be a non-empty string.`);
+      return;
+    }
     filters.push({
       field,
-      operator,
+      operator: operator ?? 'equals',
       ...(Object.prototype.hasOwnProperty.call(record, 'value') ? { value: record['value'] } : undefined),
     });
+  });
+  if (problems.length > 0) {
+    const detail = problems.join(' ');
+    throw new InvalidRecordFiltersError(
+      `Invalid \`filters\`: ${detail} Fix the filters and call the tool again; the query was not executed.`,
+    );
   }
   return filters;
+};
+
+// Surfaces malformed `filters` as a tool error result before any request is
+// sent, so a bad filter can never silently run an unfiltered query.
+const invalidRecordFiltersResult = (value: unknown): ToolCallResult | undefined => {
+  try {
+    buildRecordFilters(value);
+    return undefined;
+  } catch (error) {
+    if (error instanceof InvalidRecordFiltersError) {
+      return asErrorResult(error.message);
+    }
+    throw error;
+  }
 };
 
 const readCustomObjectIdentifier = (args: Record<string, unknown> | undefined): string | undefined =>
@@ -9746,7 +9790,7 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
     body['sort'] = sort;
   }
   body['page'] = readNumber(args?.['page'], 1);
-  body['limit'] = readNumber(args?.['limit'], 25);
+  body['limit'] = clampListLimit(args?.['limit'], 25);
   const minCountValue = args?.['min_count'] ?? args?.['minCount'];
   if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
     const minCount = minCountValue;
@@ -9796,7 +9840,7 @@ const buildRecordAggregateBody = (args: Record<string, unknown> | undefined) => 
   if (groupBy.length) {
     body['group_by'] = groupBy;
   }
-  body['limit'] = readNumber(args?.['limit'], 25);
+  body['limit'] = clampListLimit(args?.['limit'], 25);
   const minCountValue = args?.['min_count'] ?? args?.['minCount'];
   if (typeof minCountValue === 'number' && Number.isFinite(minCountValue)) {
     const minCount = minCountValue;
@@ -10282,7 +10326,7 @@ const buildListParams = (args: Record<string, unknown> | undefined) => {
   const language = readString(args?.['language']);
 
   return {
-    limit: readNumber(args?.['limit'], 10),
+    limit: clampListLimit(args?.['limit'], 10),
     page: readNumber(args?.['page'], 1),
     ...(scope ? { scope } : undefined),
     ...(legacyProvider ? { provider: legacyProvider } : undefined),
@@ -15852,6 +15896,11 @@ export const crmQueryRecordsTool: McpTool = {
       return authError;
     }
 
+    const filtersError = invalidRecordFiltersResult(args?.['filters']);
+    if (filtersError) {
+      return filtersError;
+    }
+
     const body = buildRecordQueryBody(args);
     if (!body['object_type']) {
       return asErrorResult('`object_type` is required.');
@@ -15896,6 +15945,11 @@ export const crmAggregateRecordsTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+
+    const filtersError = invalidRecordFiltersResult(args?.['filters']);
+    if (filtersError) {
+      return filtersError;
     }
 
     const body = buildRecordAggregateBody(args);
@@ -16365,6 +16419,11 @@ export const crmListCompaniesTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+
+    const filtersError = invalidRecordFiltersResult(args?.['filters']);
+    if (filtersError) {
+      return filtersError;
     }
 
     let payload: {
@@ -19213,6 +19272,11 @@ export const crmListDealsTool: McpTool = {
     });
     if (authError) {
       return authError;
+    }
+
+    const filtersError = invalidRecordFiltersResult(args?.['filters']);
+    if (filtersError) {
+      return filtersError;
     }
 
     if (hasDealRecordRoutingArgs(args)) {
