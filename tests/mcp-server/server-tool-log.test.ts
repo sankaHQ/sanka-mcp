@@ -77,7 +77,7 @@ describe('MCP tool call logging', () => {
           source_os: 'macOS',
           source_device_type: 'desktop',
           mcp_protocol_version: '2025-03-26',
-          mcp_server_name: 'sanka_api',
+          mcp_server_name: 'sakura',
           mcp_server_version: '0.0.1',
           model_provider: 'openai',
           model_name: 'gpt-5.5',

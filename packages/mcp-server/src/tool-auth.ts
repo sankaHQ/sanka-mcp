@@ -7,10 +7,9 @@ import {
   normalizeMcpConnectScopes,
 } from './mcp-connect';
 import { mcpClientLooksLikeNativeOAuthClient } from './mcp-client-info';
+import { resolveReconnectServerName } from './reconnect-name';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
-
-const RECONNECT_SERVER_NAME = 'sanka';
 
 export const resolveMissingScopes = ({
   grantedScopes,
@@ -71,7 +70,7 @@ const authErrorResult = ({
         resource_url: oauth.resourceUrl,
         reconnect_mode: 'client_native_oauth',
         reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: RECONNECT_SERVER_NAME,
+        reconnect_server_name: resolveReconnectServerName(reqContext.reconnectServerName),
         reconnect_instructions:
           isNativeOAuthClient ?
             'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.'
@@ -90,7 +89,9 @@ const authErrorResult = ({
         : undefined,
         `OAuth authorization URL: ${authorizationUrl}`,
         `MCP resource metadata URL: ${oauth?.resourceMetadataUrl}`,
-        `Codex reconnect action: mcpServer/oauth/login for server ${RECONNECT_SERVER_NAME}.`,
+        `Codex reconnect action: mcpServer/oauth/login for server ${resolveReconnectServerName(
+          reqContext.reconnectServerName,
+        )}.`,
         shouldIncludeConnectUrl ?
           'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.'
         : undefined,

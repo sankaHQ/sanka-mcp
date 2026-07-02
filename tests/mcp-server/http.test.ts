@@ -811,6 +811,31 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'reply_private_message_thread'));
   });
 
+  it('echoes the client-declared reconnect server name from the hint header', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'X-Mcp-Reconnect-Server-Name': 'sakura',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {},
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toContain('"reconnect_server_name":"sakura"');
+    expect(text).not.toContain('"reconnect_server_name":"sanka"');
+  });
+
   it('returns the auth_status fallback payload when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
