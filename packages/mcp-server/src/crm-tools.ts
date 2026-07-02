@@ -1,5 +1,6 @@
 import { File } from 'node:buffer';
 import { buildOAuthWwwAuthenticateHeader } from './auth';
+import { LEGACY_RECONNECT_SERVER_NAME, resolveReconnectServerName } from './reconnect-name';
 import {
   BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
   readBinaryDownloadChunk,
@@ -14564,7 +14565,7 @@ const buildReconnectMetadata = ({
     isHosted ?
       {
         reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: 'sakura',
+        reconnect_server_name: resolveReconnectServerName(reqContext.reconnectServerName),
       }
     : {};
 
@@ -14628,7 +14629,7 @@ const buildReconnectVisibleMessage = ({
     : undefined,
     typeof reconnectMetadata['reconnect_rpc_method'] === 'string' ?
       `Codex reconnect action: ${reconnectMetadata['reconnect_rpc_method']} for server ${String(
-        reconnectMetadata['reconnect_server_name'] || 'sakura',
+        reconnectMetadata['reconnect_server_name'] || LEGACY_RECONNECT_SERVER_NAME,
       )}.`
     : undefined,
     typeof reconnectMetadata['connect_url'] === 'string' ?

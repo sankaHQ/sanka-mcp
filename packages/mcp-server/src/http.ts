@@ -11,6 +11,10 @@ import {
   OAuthChallengeError,
   resolveClientAuth,
 } from './auth';
+import {
+  reconnectServerNameHintFromHeaders,
+  resolveReconnectServerName,
+} from './reconnect-name';
 import { getLogger } from './logger';
 import {
   buildMcpConnectMarkdownLink,
@@ -82,7 +86,7 @@ const INLINE_TOOL_HANDLERS = {
   connect_sanka: crmConnectSankaTool,
 } as const;
 const RECONNECT_RPC_METHOD = 'mcpServer/oauth/login';
-const RECONNECT_SERVER_NAME = 'sakura';
+
 const MCP_JSON_BODY_LIMIT = '16mb';
 const RECONNECT_INSTRUCTIONS =
   'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
@@ -277,10 +281,12 @@ const createRequestTransport = async ({
 const getRequestAuthPreflight = ({
   auth,
   body,
+  reconnectServerName,
   toolAccessRequirements,
 }: {
   auth: Awaited<ReturnType<typeof resolveClientAuth>>;
   body: unknown;
+  reconnectServerName: string;
   toolAccessRequirements: Record<
     string,
     {
@@ -304,7 +310,7 @@ const getRequestAuthPreflight = ({
         reconnect_instructions: string;
         reconnect_mode: 'client_native_oauth';
         reconnect_rpc_method: typeof RECONNECT_RPC_METHOD;
-        reconnect_server_name: typeof RECONNECT_SERVER_NAME;
+        reconnect_server_name: string;
       };
       nativeErrorDescription?: string | undefined;
       statusCode: number;
@@ -364,7 +370,7 @@ const getRequestAuthPreflight = ({
           reconnect_instructions: RECONNECT_INSTRUCTIONS,
           reconnect_mode: 'client_native_oauth',
           reconnect_rpc_method: RECONNECT_RPC_METHOD,
-          reconnect_server_name: RECONNECT_SERVER_NAME,
+          reconnect_server_name: reconnectServerName,
         },
         nativeErrorDescription,
         statusCode: 401,
@@ -810,6 +816,9 @@ const maybeHandleInlineToolCall = async ({
       mcpClientInfo: transportContext.mcpClientInfo,
       toolProfile,
       auth: transportContext.auth,
+      reconnectServerName: resolveReconnectServerName(
+        reconnectServerNameHintFromHeaders(req.headers),
+      ),
     },
     args: isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : {},
   });
@@ -863,6 +872,9 @@ const handleStreamableRequest =
     const authPreflight = getRequestAuthPreflight({
       auth: transportContext.auth,
       body: req.body,
+      reconnectServerName: resolveReconnectServerName(
+        reconnectServerNameHintFromHeaders(req.headers),
+      ),
       toolAccessRequirements: transportContext.toolAccessRequirements,
     });
     if (authPreflight) {

@@ -36,7 +36,7 @@ const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
     body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
     body['reconnect_mode'] === 'client_native_oauth' &&
     body['reconnect_rpc_method'] === 'mcpServer/oauth/login' &&
-    body['reconnect_server_name'] === 'sakura',
+    body['reconnect_server_name'] === 'sanka',
   toString: () => 'OAuth reconnect challenge body',
 });
 
@@ -811,6 +811,31 @@ describe('protected resource metadata route', () => {
     expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'reply_private_message_thread'));
   });
 
+  it('echoes the client-declared reconnect server name from the hint header', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'X-Mcp-Reconnect-Server-Name': 'sakura',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {},
+        },
+      }),
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toContain('"reconnect_server_name":"sakura"');
+    expect(text).not.toContain('"reconnect_server_name":"sanka"');
+  });
+
   it('returns the auth_status fallback payload when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -849,7 +874,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sakura"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
     expect(text).toContain('the assistant must include required_user_facing_reply');
     expect(text).toContain('resource_metadata=');
   });
@@ -927,7 +952,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
     expect(text).toContain('"reconnect_mode":"client_native_oauth"');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sakura"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
     expect(text).toContain('the assistant must include required_user_facing_reply');
   });
 
@@ -1038,7 +1063,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('mcpServer/oauth/login');
     expect(text).toContain('sanka');
     expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sakura"');
+    expect(text).toContain('"reconnect_server_name":"sanka"');
   });
 
   it('returns a native OAuth challenge for Codex streamable tool calls when authentication is missing', async () => {
