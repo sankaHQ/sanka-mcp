@@ -1136,7 +1136,7 @@ export const exportRecordsTool: McpTool = {
     name: 'export_records',
     title: 'Export records',
     description:
-      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For invoice accounting sync to freee, MoneyForward, Xero, or QuickBooks, use preview_workflow/start_workflow with workflow_type=invoice_export instead.',
+      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For invoice accounting sync to freee, MoneyForward, Xero, or QuickBooks, use preview_workflow/start_workflow with workflow_type=invoice_export instead. Integration exports are validated against the runnable delivery matrix; provider/object pairs without a working native delivery pipeline are rejected with HTTP 400 and error code INTEGRATION_EXPORT_NOT_SUPPORTED (do not retry those pairs), and HTTP 503 with error code JOB_QUEUE_UNAVAILABLE means the dispatch queue is temporarily unavailable — retry later. Accepted integration exports return status "queued" and deliver asynchronously in the background; treat "queued" as successful submission instead of polling for "completed".',
     inputSchema: EXPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
