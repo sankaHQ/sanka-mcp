@@ -189,7 +189,8 @@ const INTEGRATION_SYNC_PUSH_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Object type to push to the destination channel. HubSpot channels support "contact", "company", "deal", and "ticket"; other pairs are rejected with INTEGRATION_EXPORT_NOT_SUPPORTED.',
+        'Object type to push to the destination channel. HubSpot channels support "contact", "company", "deal", "ticket", and "custom_object"; other pairs are rejected with INTEGRATION_EXPORT_NOT_SUPPORTED. When object_type is "custom_object", pass custom_object_id.',
+      enum: ['contact', 'company', 'deal', 'ticket', 'custom_object'],
     },
     record_ids: {
       type: 'array',
@@ -209,7 +210,7 @@ const INTEGRATION_SYNC_PUSH_INPUT_SCHEMA = {
     },
     custom_object_id: {
       type: 'string',
-      description: 'Optional custom object id when object_type is "custom".',
+      description: 'Required custom object id when object_type is "custom_object".',
     },
     limit: {
       type: 'integer',
@@ -467,7 +468,7 @@ export const integrationSyncPushTool: McpTool = {
     name: 'push_integration_sync',
     title: 'Push records to integration channel',
     description:
-      'Emit outbound integration sync events for a set of records so they flow to a connected destination (e.g. HubSpot). Use this after generating demo data or after a user manually edits records and wants to push the changes downstream. Prefer explicit record_ids; use workspace_scope="all" only when the user asks to push everything in the workspace. Native outbound delivery currently supports HubSpot channels with object_type "contact", "company", "deal", or "ticket"; other provider/object pairs are rejected with HTTP 400 and error code INTEGRATION_EXPORT_NOT_SUPPORTED — do not retry those, the pair has no working delivery pipeline yet. HTTP 503 with error code JOB_QUEUE_UNAVAILABLE means the dispatch queue is temporarily unavailable; retry later.',
+      'Emit outbound integration sync events for a set of records so they flow to a connected destination (e.g. HubSpot). Use this after generating demo data or after a user manually edits records and wants to push the changes downstream. Prefer explicit record_ids; use workspace_scope="all" only when the user asks to push everything in the workspace. Native outbound delivery currently supports HubSpot channels with object_type "contact", "company", "deal", "ticket", or "custom_object"; custom_object pushes require custom_object_id. Other provider/object pairs are rejected with HTTP 400 and error code INTEGRATION_EXPORT_NOT_SUPPORTED — do not retry those, the pair has no working delivery pipeline yet. HTTP 503 with error code JOB_QUEUE_UNAVAILABLE means the dispatch queue is temporarily unavailable; retry later.',
     inputSchema: INTEGRATION_SYNC_PUSH_INPUT_SCHEMA,
     outputSchema: INTEGRATION_SYNC_PUSH_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

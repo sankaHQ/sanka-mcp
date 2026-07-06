@@ -27,6 +27,16 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
     expect(integrationSyncPushTool.metadata.httpMethod).toBe('post');
   });
 
+  it('advertises the runnable HubSpot push object matrix', () => {
+    const properties = (integrationSyncPushTool.tool.inputSchema as any).properties;
+
+    expect(properties.object_type.enum).toEqual(['contact', 'company', 'deal', 'ticket', 'custom_object']);
+    expect(properties.object_type.description).toContain('custom_object');
+    expect(properties.object_type.description).toContain('custom_object_id');
+    expect(properties.custom_object_id.description).toContain('object_type is "custom_object"');
+    expect(integrationSyncPushTool.tool.description).toContain('"custom_object"');
+  });
+
   describe('generate_demo_workspace', () => {
     it('returns a reauth challenge when called without authentication', async () => {
       const generate = jest.fn();
