@@ -45,6 +45,7 @@ import {
   crmCreateLocationTool,
   crmCreateOrderTool,
   crmCreatePaymentTool,
+  crmCreateProjectTool,
   crmCreatePropertyTool,
   crmCreatePayrollJournalEntryTool,
   crmCreatePurchaseOrderTool,
@@ -73,6 +74,7 @@ import {
   crmPermanentDeleteInvoiceTool,
   crmPermanentDeleteOrderTool,
   crmDeletePaymentTool,
+  crmDeleteProjectTool,
   crmDeletePurchaseOrderTool,
   crmDeletePropertyTool,
   crmDeleteSlipTool,
@@ -116,6 +118,7 @@ import {
   crmGetWorkspaceMessageThreadTool,
   crmGetDeliveryRuleOptionsTool,
   crmGetPropertyTool,
+  crmGetProjectTool,
   crmGetPurchaseOrderTool,
   crmGetSlipTool,
   crmGetSubscriptionTool,
@@ -159,6 +162,7 @@ import {
   crmListRecordApprovalsTool,
   crmListApprovalRulesTool,
   crmListPropertiesTool,
+  crmListProjectsTool,
   crmListPurchaseOrdersTool,
   crmListSlipsTool,
   crmListSubscriptionsTool,
@@ -221,6 +225,7 @@ import {
   crmUpdatePaymentAllocationsTool,
   crmUpdatePaymentTool,
   crmUpdatePermissionSetTool,
+  crmUpdateProjectTool,
   crmUpdatePurchaseOrderTool,
   crmUpdateSlipTool,
   crmUpdatePropertyTool,
@@ -384,6 +389,11 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCreatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdatePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmDeletePurchaseOrderTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListProjectsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmGetProjectTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCreateProjectTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmUpdateProjectTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmDeleteProjectTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListTasksTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateTaskTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -4802,6 +4812,240 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       purchase_order_id: 'purchase-order-1',
+    });
+  });
+
+  it('lists projects when authentication is present', async () => {
+    const list = jest.fn().mockResolvedValue({
+      data: [{ id: 'project-1', project_id: 'project-1', title: 'Customer Onboarding' }],
+      page: 2,
+      count: 1,
+      total: 4,
+      has_next: true,
+      message: 'OK',
+    });
+
+    const result = await crmListProjectsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { list },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        search: 'Customer',
+        default: false,
+        page: 2,
+        limit: 20,
+        workspace_id: 'workspace-1',
+        language: 'en',
+      },
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      {
+        search: 'Customer',
+        default: false,
+        page: 2,
+        limit: 20,
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+        'X-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      count: 1,
+      page: 2,
+      total: 4,
+      message: 'OK',
+      permission: undefined,
+      results: [{ id: 'project-1', project_id: 'project-1', title: 'Customer Onboarding' }],
+    });
+  });
+
+  it('gets one project when authentication is present', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'project-1',
+      project_id: 'project-1',
+      title: 'Customer Onboarding',
+      statuses: [{ id: 'status-1', name: 'Todo', internal_value: 'todo', order: 1 }],
+      task_count: 2,
+      active_task_count: 1,
+    });
+
+    const result = await crmGetProjectTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { retrieve },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        project_id: 'project-1',
+        workspace_id: 'workspace-1',
+        language: 'en',
+      },
+    });
+
+    expect(retrieve).toHaveBeenCalledWith(
+      'project-1',
+      {
+        workspace_id: 'workspace-1',
+        'Accept-Language': 'en',
+        'X-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      id: 'project-1',
+      project_id: 'project-1',
+      title: 'Customer Onboarding',
+      statuses: [{ id: 'status-1', name: 'Todo', internal_value: 'todo', order: 1 }],
+      task_count: 2,
+      active_task_count: 1,
+    });
+  });
+
+  it('creates a project', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      id: 'project-1',
+      project_id: 'project-1',
+    });
+
+    const result = await crmCreateProjectTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        title: 'Customer Onboarding',
+        default: false,
+        statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
+        language: 'en',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        title: 'Customer Onboarding',
+        default: false,
+        statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
+        'Accept-Language': 'en',
+        'X-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'created',
+      id: 'project-1',
+      project_id: 'project-1',
+    });
+  });
+
+  it('updates a project with statuses', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      id: 'project-1',
+      project_id: 'project-1',
+    });
+
+    const result = await crmUpdateProjectTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        project_id: 'project-1',
+        title: 'Customer Success',
+        statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
+        language: 'ja',
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'project-1',
+      {
+        title: 'Customer Success',
+        statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
+        'Accept-Language': 'ja',
+        'X-Language': 'ja',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      id: 'project-1',
+      project_id: 'project-1',
+    });
+  });
+
+  it('deletes a project with linked-task handling options', async () => {
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      id: 'project-1',
+      project_id: 'project-1',
+      replacement_project_id: 'project-2',
+      reassigned_task_count: 2,
+    });
+
+    const result = await crmDeleteProjectTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        project_id: 'project-1',
+        replacement_project_id: 'project-2',
+        clear_task_project: false,
+        language: 'en',
+      },
+    });
+
+    expect(del).toHaveBeenCalledWith(
+      'project-1',
+      {
+        replacement_project_id: 'project-2',
+        clear_task_project: false,
+        'Accept-Language': 'en',
+        'X-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      id: 'project-1',
+      project_id: 'project-1',
+      replacement_project_id: 'project-2',
+      reassigned_task_count: 2,
     });
   });
 

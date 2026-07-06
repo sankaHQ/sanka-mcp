@@ -337,6 +337,111 @@ const EMBEDDED_METHODS: MethodEntry[] = [
   },
   {
     name: 'create',
+    endpoint: '/api/v2/public/projects',
+    httpMethod: 'post',
+    summary: 'Create Project',
+    description: 'Create Project',
+    stainlessPath: '(resource) public.projects > (method) create',
+    qualified: 'client.public.projects.create',
+    params: [
+      'title?: string;',
+      'default?: boolean;',
+      'statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[];',
+      "'Accept-Language'?: string;",
+      "'X-Language'?: string;",
+    ],
+    response:
+      '{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }',
+    markdown:
+      "## create\n\n`client.public.projects.create(title?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**post** `/api/v2/public/projects`\n\nCreate Project\n\n### Parameters\n\n- `title?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.create({ title: 'Customer Onboarding' });\n\nconsole.log(project);\n```",
+  },
+  {
+    name: 'retrieve',
+    endpoint: '/api/v2/public/projects/{project_id}',
+    httpMethod: 'get',
+    summary: 'Get Project',
+    description: 'Get Project',
+    stainlessPath: '(resource) public.projects > (method) retrieve',
+    qualified: 'client.public.projects.retrieve',
+    params: [
+      'project_id: string;',
+      'workspace_id?: string;',
+      "'Accept-Language'?: string;",
+      "'X-Language'?: string;",
+    ],
+    response:
+      '{ id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }',
+    markdown:
+      "## retrieve\n\n`client.public.projects.retrieve(project_id: string, workspace_id?: string, 'Accept-Language'?: string, 'X-Language'?: string): { id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n**get** `/api/v2/public/projects/{project_id}`\n\nGet Project\n\n### Parameters\n\n- `project_id: string`\n\n- `workspace_id?: string`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.retrieve('project_id');\n\nconsole.log(project);\n```",
+  },
+  {
+    name: 'update',
+    endpoint: '/api/v2/public/projects/{project_id}',
+    httpMethod: 'put',
+    summary: 'Update Project',
+    description: 'Update Project',
+    stainlessPath: '(resource) public.projects > (method) update',
+    qualified: 'client.public.projects.update',
+    params: [
+      'project_id: string;',
+      'title?: string;',
+      'default?: boolean;',
+      'statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[];',
+      "'Accept-Language'?: string;",
+      "'X-Language'?: string;",
+    ],
+    response:
+      '{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }',
+    markdown:
+      "## update\n\n`client.public.projects.update(project_id: string, title?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**put** `/api/v2/public/projects/{project_id}`\n\nUpdate Project\n\n### Parameters\n\n- `project_id: string`\n\n- `title?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.update('project_id', { title: 'Customer Success' });\n\nconsole.log(project);\n```",
+  },
+  {
+    name: 'list',
+    endpoint: '/api/v2/public/projects',
+    httpMethod: 'get',
+    summary: 'List Projects',
+    description: 'List Projects',
+    stainlessPath: '(resource) public.projects > (method) list',
+    qualified: 'client.public.projects.list',
+    params: [
+      'search?: string;',
+      'default?: boolean;',
+      'page?: number;',
+      'limit?: number;',
+      'lang?: string;',
+      'language?: string;',
+      'workspace_id?: string;',
+      "'Accept-Language'?: string;",
+      "'X-Language'?: string;",
+    ],
+    response:
+      '{ data: object[]; page: number; count: number; total: number; limit?: number; has_next: boolean; next_page?: number; message: string; ctx_id?: string; }',
+    markdown:
+      "## list\n\n`client.public.projects.list(search?: string, default?: boolean, page?: number, limit?: number, lang?: string, language?: string, workspace_id?: string, 'Accept-Language'?: string, 'X-Language'?: string): { data: object[]; page: number; count: number; total: number; has_next: boolean; message: string; ctx_id?: string; }`\n\n**get** `/api/v2/public/projects`\n\nList Projects\n\n### Parameters\n\n- `search?: string`\n\n- `default?: boolean`\n\n- `page?: number`\n\n- `limit?: number`\n\n- `lang?: string`\n\n- `language?: string`\n\n- `workspace_id?: string`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ data: object[]; page: number; count: number; total: number; has_next: boolean; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst projects = await client.public.projects.list({ search: 'Onboarding' });\n\nconsole.log(projects);\n```",
+  },
+  {
+    name: 'delete',
+    endpoint: '/api/v2/public/projects/{project_id}',
+    httpMethod: 'delete',
+    summary: 'Delete Project',
+    description:
+      'Delete Project. Projects with linked tasks are rejected unless replacement_project_id or clear_task_project is provided.',
+    stainlessPath: '(resource) public.projects > (method) delete',
+    qualified: 'client.public.projects.delete',
+    params: [
+      'project_id: string;',
+      'replacement_project_id?: string;',
+      'clear_task_project?: boolean;',
+      "'Accept-Language'?: string;",
+      "'X-Language'?: string;",
+    ],
+    response:
+      '{ ok: boolean; status: string; id?: string; project_id?: string; replacement_project_id?: string; cleared_task_count?: number; reassigned_task_count?: number; ctx_id?: string; }',
+    markdown:
+      "## delete\n\n`client.public.projects.delete(project_id: string, replacement_project_id?: string, clear_task_project?: boolean, 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; replacement_project_id?: string; cleared_task_count?: number; reassigned_task_count?: number; ctx_id?: string; }`\n\n**delete** `/api/v2/public/projects/{project_id}`\n\nDelete Project\n\nProjects with linked tasks are rejected by default. Pass `replacement_project_id` to reassign linked tasks or `clear_task_project: true` to clear the project field before deletion.\n\n### Parameters\n\n- `project_id: string`\n\n- `replacement_project_id?: string`\n\n- `clear_task_project?: boolean`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; replacement_project_id?: string; cleared_task_count?: number; reassigned_task_count?: number; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst deleted = await client.public.projects.delete('project_id', { clear_task_project: true });\n\nconsole.log(deleted);\n```",
+  },
+  {
+    name: 'create',
     endpoint: '/api/v2/public/tasks',
     httpMethod: 'post',
     summary: 'Create Task',

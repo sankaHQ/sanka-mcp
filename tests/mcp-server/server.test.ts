@@ -103,6 +103,11 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_purchase_order');
     expect(toolNames).toContain('update_purchase_order');
     expect(toolNames).toContain('delete_purchase_order');
+    expect(toolNames).toContain('list_projects');
+    expect(toolNames).toContain('get_project');
+    expect(toolNames).toContain('create_project');
+    expect(toolNames).toContain('update_project');
+    expect(toolNames).toContain('delete_project');
     expect(toolNames).toContain('list_contract_templates');
     expect(toolNames).toContain('download_contract_template');
     expect(toolNames).toContain('upload_contract_template');
@@ -366,6 +371,11 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('create_purchase_order');
     expect(toolNames).toContain('update_purchase_order');
     expect(toolNames).toContain('delete_purchase_order');
+    expect(toolNames).toContain('list_projects');
+    expect(toolNames).toContain('get_project');
+    expect(toolNames).toContain('create_project');
+    expect(toolNames).toContain('update_project');
+    expect(toolNames).toContain('delete_project');
     expect(toolNames).toContain('list_estimates');
     expect(toolNames).toContain('get_estimate');
     expect(toolNames).toContain('create_estimate');

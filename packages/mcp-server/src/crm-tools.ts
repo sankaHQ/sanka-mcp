@@ -812,6 +812,21 @@ type TaskMutationPayload = {
   projects?: string[];
 };
 
+type ProjectStatusPayload = {
+  id?: string;
+  name?: string;
+  internal_value?: string;
+  order?: number;
+};
+
+type ProjectMutationPayload = {
+  title?: string;
+  default?: boolean;
+  statuses?: ProjectStatusPayload[];
+  'Accept-Language'?: string;
+  'X-Language'?: string;
+};
+
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
   ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
   address: {
@@ -4746,6 +4761,146 @@ const ORDER_PERMANENT_DELETE_INPUT_SCHEMA = {
   required: ['order_id', 'confirm'],
 };
 
+const PROJECT_STATUS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    id: {
+      type: 'string',
+      description: 'Existing project status UUID when updating a status row.',
+    },
+    name: {
+      type: 'string',
+      description: 'Display label for the status.',
+    },
+    internal_value: {
+      type: 'string',
+      description: 'Stable internal status key, for example todo or done.',
+    },
+    order: {
+      type: 'integer',
+      description: 'Sort order for this status within the project.',
+    },
+  },
+};
+
+const PROJECT_MUTATION_INPUT_PROPERTIES = {
+  title: {
+    type: 'string',
+    description: 'Project title.',
+  },
+  default: {
+    type: 'boolean',
+    description: 'Whether this is the default task project for the workspace.',
+  },
+  statuses: {
+    type: 'array',
+    description:
+      'Optional complete status list for this project. On update, Sanka syncs these status rows for the project.',
+    items: PROJECT_STATUS_INPUT_SCHEMA,
+  },
+  language: {
+    type: 'string',
+    description:
+      'Optional language override sent as X-Language and Accept-Language. Used when default statuses are generated.',
+  },
+};
+
+const PROJECT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    search: {
+      type: 'string',
+      description: 'Free-text project title search query.',
+    },
+    default: {
+      type: 'boolean',
+      description: 'Optional filter for default or non-default projects.',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of projects to return.',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch.',
+      minimum: 1,
+      default: 1,
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as X-Language and Accept-Language.',
+    },
+  },
+};
+
+const PROJECT_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: PROJECT_MUTATION_INPUT_PROPERTIES,
+};
+
+const PROJECT_RETRIEVE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    project_id: {
+      type: 'string',
+      description: 'Project UUID to load.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as X-Language and Accept-Language.',
+    },
+  },
+  required: ['project_id'],
+};
+
+const PROJECT_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    project_id: {
+      type: 'string',
+      description: 'Project UUID to update.',
+    },
+    ...PROJECT_MUTATION_INPUT_PROPERTIES,
+  },
+  required: ['project_id'],
+};
+
+const PROJECT_DELETE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    project_id: {
+      type: 'string',
+      description: 'Project UUID to delete.',
+    },
+    replacement_project_id: {
+      type: 'string',
+      description:
+        'Optional replacement project UUID. When provided, linked tasks are reassigned before the project is deleted.',
+    },
+    clear_task_project: {
+      type: 'boolean',
+      description:
+        'Set true to clear the project from linked tasks before deleting. By default deletion rejects projects with linked tasks.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as X-Language and Accept-Language.',
+    },
+  },
+  required: ['project_id'],
+};
+
 const TASK_MUTATION_INPUT_PROPERTIES = {
   external_id: {
     type: 'string',
@@ -4895,6 +5050,37 @@ const TASK_DELETE_INPUT_SCHEMA = {
     },
   },
   required: ['task_id'],
+};
+
+const PROJECT_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {},
+  additionalProperties: true,
+  required: [],
+};
+
+const PROJECT_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    id: { type: ['string', 'null'] as any },
+    project_id: { type: ['string', 'null'] as any },
+    replacement_project_id: { type: ['string', 'null'] as any },
+    cleared_task_count: { type: 'integer' },
+    reassigned_task_count: { type: 'integer' },
+    project: {
+      type: 'object' as const,
+      properties: {},
+      additionalProperties: true,
+    },
+    ctx_id: { type: ['string', 'null'] as any },
+    advisories: {
+      type: ['array', 'null'] as any,
+      items: GOVERNANCE_ADVISORY_OUTPUT_SCHEMA,
+    },
+  },
+  required: ['ok'],
 };
 
 const V2_RECORD_DETAIL_OUTPUT_SCHEMA = {
@@ -9408,6 +9594,78 @@ const buildTaskMutationBody = (args: Record<string, unknown> | undefined): TaskM
     body.projects = projects;
   }
 
+  return body;
+};
+
+const buildProjectLanguageHeaders = (args: Record<string, unknown> | undefined) => {
+  const language = readString(args?.['language']);
+  return language ? { 'Accept-Language': language, 'X-Language': language } : {};
+};
+
+const buildProjectListParams = (args: Record<string, unknown> | undefined) => {
+  const workspaceID = readString(args?.['workspace_id']);
+  const search = readString(args?.['search']);
+  const rawLimit = readNumber(args?.['limit'], 10);
+  const rawPage = readNumber(args?.['page'], 1);
+  const isDefault = readBoolean(args?.['default']);
+
+  return {
+    params: {
+      limit: Math.max(1, Math.min(100, rawLimit)),
+      page: Math.max(1, rawPage),
+      ...(search ? { search } : undefined),
+      ...(isDefault !== undefined ? { default: isDefault } : undefined),
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...buildProjectLanguageHeaders(args),
+    },
+  };
+};
+
+const buildProjectRetrieveParams = (args: Record<string, unknown> | undefined) => {
+  const projectID = readString(args?.['project_id']);
+  const workspaceID = readString(args?.['workspace_id']);
+
+  return {
+    projectID,
+    params: {
+      ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+      ...buildProjectLanguageHeaders(args),
+    },
+  };
+};
+
+const readProjectStatuses = (value: unknown): ProjectStatusPayload[] | undefined => {
+  if (value === undefined || value === null || !Array.isArray(value)) {
+    return undefined;
+  }
+  return value
+    .map((entry) => {
+      const record = readRecord(entry);
+      if (!record) {
+        return undefined;
+      }
+      const status: ProjectStatusPayload = {};
+      assignStringFields(status, record, ['id', 'name', 'internal_value']);
+      if (record['order'] !== undefined && record['order'] !== null) {
+        status.order = readNumber(record['order'], 0);
+      }
+      return Object.keys(status).length > 0 ? status : undefined;
+    })
+    .filter((entry): entry is ProjectStatusPayload => entry !== undefined);
+};
+
+const buildProjectMutationBody = (args: Record<string, unknown> | undefined): ProjectMutationPayload => {
+  const body: ProjectMutationPayload = {};
+  assignStringFields(body, args, ['title']);
+  const isDefault = readBoolean(args?.['default']);
+  if (isDefault !== undefined) {
+    body.default = isDefault;
+  }
+  const statuses = readProjectStatuses(args?.['statuses']);
+  if (statuses !== undefined) {
+    body.statuses = statuses;
+  }
+  Object.assign(body, buildProjectLanguageHeaders(args));
   return body;
 };
 
@@ -19613,6 +19871,307 @@ export const crmDeletePurchaseOrderTool: McpTool = {
             action: 'deleted',
             payload: response,
             idKeys: ['purchase_order_id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmListProjectsTool: McpTool = {
+  metadata: {
+    resource: 'projects',
+    operation: 'read',
+    tags: ['crm', 'tasks', 'projects'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/projects',
+    operationId: 'public.projects.list',
+  },
+  tool: {
+    name: 'list_projects',
+    title: 'List projects',
+    description: 'Search and review task projects in Sanka.',
+    inputSchema: PROJECT_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List projects',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List projects',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const payload = await reqContext.client.public.projects.list(
+      buildProjectListParams(args).params,
+      undefined,
+    );
+
+    return buildListResult({
+      label: 'projects',
+      payload: {
+        count: payload.count,
+        data: payload.data.map((project) => ({ ...project })),
+        message: payload.message,
+        page: payload.page,
+        total: payload.total,
+      },
+      previewKeys: ['title', 'project_id', 'id'],
+    });
+  },
+};
+
+export const crmGetProjectTool: McpTool = {
+  metadata: {
+    resource: 'projects',
+    operation: 'read',
+    tags: ['crm', 'tasks', 'projects'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/projects/{project_id}',
+    operationId: 'public.projects.retrieve',
+  },
+  tool: {
+    name: 'get_project',
+    title: 'Get project',
+    description: 'Load one task project from Sanka by project UUID.',
+    inputSchema: PROJECT_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: PROJECT_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Get project',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Get project',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { projectID, params } = buildProjectRetrieveParams(args);
+    if (!projectID) {
+      return asErrorResult('`project_id` is required.');
+    }
+
+    const project = (await reqContext.client.public.projects.retrieve(
+      projectID,
+      params,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityDetailSummary({
+            entity: 'project',
+            payload: project,
+            previewKeys: ['title', 'project_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: project,
+    };
+  },
+};
+
+export const crmCreateProjectTool: McpTool = {
+  metadata: {
+    resource: 'projects',
+    operation: 'write',
+    tags: ['crm', 'tasks', 'projects'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/projects',
+    operationId: 'public.projects.create',
+  },
+  tool: {
+    name: 'create_project',
+    title: 'Create project',
+    description: 'Create a task project in Sanka, optionally with project-specific statuses.',
+    inputSchema: PROJECT_CREATE_INPUT_SCHEMA,
+    outputSchema: PROJECT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create project',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create project',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const body = buildProjectMutationBody(args);
+    if (body.title === undefined && body.default === undefined && body.statuses === undefined) {
+      return asErrorResult('At least one project field is required.');
+    }
+
+    const response = (await reqContext.client.public.projects.create(body, undefined)) as unknown as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Project',
+            action: 'created',
+            payload: response,
+            idKeys: ['project_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmUpdateProjectTool: McpTool = {
+  metadata: {
+    resource: 'projects',
+    operation: 'write',
+    tags: ['crm', 'tasks', 'projects'],
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/projects/{project_id}',
+    operationId: 'public.projects.update',
+  },
+  tool: {
+    name: 'update_project',
+    title: 'Update project',
+    description: 'Update an existing task project in Sanka, including project-specific statuses.',
+    inputSchema: PROJECT_UPDATE_INPUT_SCHEMA,
+    outputSchema: PROJECT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update project',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update project',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const projectID = readString(args?.['project_id']);
+    if (!projectID) {
+      return asErrorResult('`project_id` is required.');
+    }
+
+    const body = buildProjectMutationBody(args);
+    if (body.title === undefined && body.default === undefined && body.statuses === undefined) {
+      return asErrorResult('At least one project field is required.');
+    }
+
+    const response = (await reqContext.client.public.projects.update(
+      projectID,
+      body,
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Project',
+            action: 'updated',
+            payload: response,
+            idKeys: ['project_id', 'id'],
+          }),
+        },
+      ],
+      structuredContent: response,
+    };
+  },
+};
+
+export const crmDeleteProjectTool: McpTool = {
+  metadata: {
+    resource: 'projects',
+    operation: 'write',
+    tags: ['crm', 'tasks', 'projects'],
+    httpMethod: 'delete',
+    httpPath: '/api/v2/public/projects/{project_id}',
+    operationId: 'public.projects.delete',
+  },
+  tool: {
+    name: 'delete_project',
+    title: 'Delete project',
+    description:
+      'Delete a task project in Sanka. Projects with linked tasks are rejected unless replacement_project_id or clear_task_project is provided.',
+    inputSchema: PROJECT_DELETE_INPUT_SCHEMA,
+    outputSchema: PROJECT_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Delete project',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Delete project',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const projectID = readString(args?.['project_id']);
+    if (!projectID) {
+      return asErrorResult('`project_id` is required.');
+    }
+
+    const replacementProjectID = readString(args?.['replacement_project_id']);
+    const clearTaskProject = readBoolean(args?.['clear_task_project']);
+    const response = (await reqContext.client.public.projects.delete(
+      projectID,
+      {
+        ...(replacementProjectID ? { replacement_project_id: replacementProjectID } : undefined),
+        ...(clearTaskProject !== undefined ? { clear_task_project: clearTaskProject } : undefined),
+        ...buildProjectLanguageHeaders(args),
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: buildEntityMutationSummary({
+            entity: 'Project',
+            action: 'deleted',
+            payload: response,
+            idKeys: ['project_id', 'id'],
           }),
         },
       ],
