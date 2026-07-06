@@ -59,6 +59,39 @@ describe('public transfer MCP tools', () => {
     expect(retryExportJobTool.metadata.httpPath).toBe('/api/v2/exports/{job_id}/retry');
   });
 
+  it('advertises the runnable export matrix in input schemas', () => {
+    const channelProperties = (listIntegrationChannelsTool.tool.inputSchema as any).properties;
+    expect(channelProperties.object_type.enum).toEqual([
+      'company',
+      'contact',
+      'deal',
+      'item',
+      'order',
+      'invoice',
+    ]);
+    expect(channelProperties.provider.enum).toEqual(['hubspot', 'nextengine', 'freee', 'moneyforward']);
+    expect(channelProperties.object_type.description).toContain('company/contact/deal with hubspot');
+    expect(channelProperties.object_type.description).toContain('item/order with hubspot or nextengine');
+
+    const exportProperties = (exportRecordsTool.tool.inputSchema as any).properties;
+    expect(exportProperties.object_type.enum).toEqual(['company', 'contact', 'deal', 'item', 'order']);
+    expect(exportProperties.destination_kind.enum).toEqual(['integration']);
+    expect(exportProperties.provider.enum).toEqual(['hubspot', 'nextengine']);
+    expect(exportProperties.object_type.description).toContain('company/contact/deal');
+    expect(exportProperties.object_type.description).toContain('item/order');
+    expect(exportProperties.object_type.description).toContain('workflow_type=invoice_export');
+
+    const listProperties = (listExportJobsTool.tool.inputSchema as any).properties;
+    expect(listProperties.object_type.enum).toEqual([
+      'company',
+      'contact',
+      'deal',
+      'item',
+      'order',
+      'invoice',
+    ]);
+  });
+
   it('returns a reauth challenge for upload_import_file without authentication', async () => {
     const uploadFile = jest.fn();
 
@@ -470,6 +503,46 @@ describe('public transfer MCP tools', () => {
 
     expect(result.isError).toBe(true);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('forwards currently runnable item and order integration exports', async () => {
+    const create = jest.fn().mockResolvedValue({
+      job_id: 'exp-nextengine-1',
+      job_type: 'export',
+      object_type: 'order',
+      status: 'queued',
+      mode: 'update',
+      destination_kind: 'integration',
+      provider: 'nextengine',
+      channel_id: 'chan-ne',
+      summary: { processed: 0, succeeded: 0, failed: 0, total: 1 },
+    });
+
+    const result = await exportRecordsTool.handler({
+      reqContext: {
+        client: {
+          public: { exports: { create } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'order',
+        provider: 'nextengine',
+        channel_id: 'chan-ne',
+        record_ids: ['order-1'],
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(create).toHaveBeenCalledWith({
+      object_type: 'order',
+      destination_kind: 'integration',
+      provider: 'nextengine',
+      channel_id: 'chan-ne',
+      operation: 'update',
+      record_ids: ['order-1'],
+    });
   });
 
   it('creates an export job and exposes lookup/list/cancel tool calls', async () => {

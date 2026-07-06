@@ -160,15 +160,15 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Object type you plan to export. For invoice/accounting exports, this tool can return accounting channel_id candidates, but preview_workflow/start_workflow invoice_export determines actual export readiness.',
-      enum: ['deal', 'invoice'],
+        'Object type you plan to export. For export_records integration jobs, runnable pairs are company/contact/deal with hubspot and item/order with hubspot or nextengine. For invoice accounting export, this only discovers accounting channel_id candidates; preview_workflow/start_workflow with workflow_type=invoice_export determines actual readiness.',
+      enum: ['company', 'contact', 'deal', 'item', 'order', 'invoice'],
       default: 'deal',
     },
     provider: {
       type: 'string',
       description:
-        'Optional destination provider filter. MoneyForward/freee are accounting invoice_export channel candidates, not public export_records readiness checks.',
-      enum: ['hubspot', 'freee', 'moneyforward'],
+        'Optional destination provider filter. Use hubspot for company/contact/deal/item/order integration exports, nextengine for item/order integration exports, and freee/moneyforward only to discover invoice_export accounting channel candidates.',
+      enum: ['hubspot', 'nextengine', 'freee', 'moneyforward'],
       default: 'hubspot',
     },
   },
@@ -179,25 +179,29 @@ const EXPORT_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Object type to export. Use "deal" for HubSpot or "invoice" for accounting draft exports.',
-      enum: ['deal', 'invoice'],
+      description:
+        'Object type to export with destination_kind="integration". Runnable pairs are company/contact/deal with provider="hubspot" and item/order with provider="hubspot" or provider="nextengine". Invoice accounting exports are not created by export_records; use preview_workflow/start_workflow with workflow_type=invoice_export.',
+      enum: ['company', 'contact', 'deal', 'item', 'order'],
       default: 'deal',
     },
     destination_kind: {
       type: 'string',
-      description: 'Destination kind. Use "integration" for deals or "accounting" for invoice exports.',
-      enum: ['integration', 'accounting'],
+      description:
+        'Destination kind for this tool. export_records creates integration-destination export jobs; invoice accounting sync and file/CSV exports are rejected by this endpoint.',
+      enum: ['integration'],
       default: 'integration',
     },
     provider: {
       type: 'string',
-      description: 'Destination provider.',
-      enum: ['hubspot', 'freee', 'moneyforward'],
+      description:
+        'Destination integration provider. Runnable pairs: hubspot supports company/contact/deal/item/order; nextengine supports item/order. Other provider/object pairs are API-rejected with INTEGRATION_EXPORT_NOT_SUPPORTED or INTEGRATION_EXPORT_UNKNOWN_PROVIDER.',
+      enum: ['hubspot', 'nextengine'],
       default: 'hubspot',
     },
     target_system: {
       type: 'string',
-      description: 'Accounting target system for invoice exports. Alias of provider.',
+      description:
+        'Legacy accounting target alias. Do not use with export_records; invoice accounting exports must use preview_workflow/start_workflow with workflow_type=invoice_export.',
       enum: ['freee', 'moneyforward'],
     },
     channel_id: {
@@ -281,8 +285,9 @@ const EXPORT_LIST_INPUT_SCHEMA = {
   properties: {
     object_type: {
       type: 'string',
-      description: 'Optional export job filter.',
-      enum: ['deal', 'invoice'],
+      description:
+        'Optional export job filter. Supports the public export object aliases accepted by the API.',
+      enum: ['company', 'contact', 'deal', 'item', 'order', 'invoice'],
       default: 'deal',
     },
     limit: {
