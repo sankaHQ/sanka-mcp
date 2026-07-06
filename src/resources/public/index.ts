@@ -268,6 +268,19 @@ export {
   type OrderUploadAttachmentParams,
 } from './orders';
 export {
+  Projects,
+  type PublicProjectStatus,
+  type PublicProject,
+  type PublicProjectsListResponse,
+  type PublicProjectMutationResponse,
+  type PublicProjectDeleteResponse,
+  type ProjectListParams,
+  type ProjectRetrieveParams,
+  type ProjectCreateParams,
+  type ProjectUpdateParams,
+  type ProjectDeleteParams,
+} from './projects';
+export {
   Tasks,
   type PublicTaskRequest,
   type PublicTaskResponse,

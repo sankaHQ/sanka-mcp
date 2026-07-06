@@ -137,6 +137,36 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/orders/bulk',
   },
   {
+    clientCallName: 'client.public.projects.create',
+    fullyQualifiedName: 'public.projects.create',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/projects',
+  },
+  {
+    clientCallName: 'client.public.projects.retrieve',
+    fullyQualifiedName: 'public.projects.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/projects/{project_id}',
+  },
+  {
+    clientCallName: 'client.public.projects.update',
+    fullyQualifiedName: 'public.projects.update',
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/projects/{project_id}',
+  },
+  {
+    clientCallName: 'client.public.projects.list',
+    fullyQualifiedName: 'public.projects.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/projects',
+  },
+  {
+    clientCallName: 'client.public.projects.delete',
+    fullyQualifiedName: 'public.projects.delete',
+    httpMethod: 'delete',
+    httpPath: '/api/v2/public/projects/{project_id}',
+  },
+  {
     clientCallName: 'client.public.tasks.create',
     fullyQualifiedName: 'public.tasks.create',
     httpMethod: 'post',

@@ -279,6 +279,20 @@ import {
   ObjectSchemaMutationResponse,
   ObjectSchemas,
 } from './object-schemas';
+import * as ProjectsAPI from './projects';
+import {
+  ProjectCreateParams,
+  ProjectDeleteParams,
+  ProjectListParams,
+  ProjectRetrieveParams,
+  Projects,
+  ProjectUpdateParams,
+  PublicProject,
+  PublicProjectDeleteResponse,
+  PublicProjectMutationResponse,
+  PublicProjectsListResponse,
+  PublicProjectStatus,
+} from './projects';
 import * as TasksAPI from './tasks';
 import {
   PublicTaskRequest,
@@ -442,6 +456,7 @@ export class Public extends APIResource {
   meters: MetersAPI.Meters = new MetersAPI.Meters(this._client);
   properties: PropertiesAPI.Properties = new PropertiesAPI.Properties(this._client);
   objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
+  projects: ProjectsAPI.Projects = new ProjectsAPI.Projects(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
   slips: SlipsAPI.Slips = new SlipsAPI.Slips(this._client);
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
@@ -476,6 +491,7 @@ Public.InventoryTransactions = InventoryTransactions;
 Public.Meters = Meters;
 Public.Properties = Properties;
 Public.ObjectSchemas = ObjectSchemas;
+Public.Projects = Projects;
 Public.PurchaseOrders = PurchaseOrders;
 Public.Slips = Slips;
 Public.Bills = Bills;
@@ -577,6 +593,20 @@ export declare namespace Public {
     type OrderListParams as OrderListParams,
     type OrderDeleteParams as OrderDeleteParams,
     type OrderBulkCreateParams as OrderBulkCreateParams,
+  };
+
+  export {
+    Projects as Projects,
+    type PublicProjectStatus as PublicProjectStatus,
+    type PublicProject as PublicProject,
+    type PublicProjectsListResponse as PublicProjectsListResponse,
+    type PublicProjectMutationResponse as PublicProjectMutationResponse,
+    type PublicProjectDeleteResponse as PublicProjectDeleteResponse,
+    type ProjectListParams as ProjectListParams,
+    type ProjectRetrieveParams as ProjectRetrieveParams,
+    type ProjectCreateParams as ProjectCreateParams,
+    type ProjectUpdateParams as ProjectUpdateParams,
+    type ProjectDeleteParams as ProjectDeleteParams,
   };
 
   export {
