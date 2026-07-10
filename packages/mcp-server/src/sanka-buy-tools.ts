@@ -662,7 +662,7 @@ export const sourceBuyRequestTool: McpTool = {
     name: 'source_buy_request',
     title: 'Source Buy request',
     description:
-      'Start or record a sourcing run for a Sanka Buy request. provider=shopify_global_catalog searches the Shopify Global Catalog (results may be queued or unavailable until the adapter is configured). provider=procurement_rfq links the Buy request to an existing procurement RFQ instead: pass constraints.procurement_request_id (required), then reconcile vendor proposals with sync_buy_rfq, compare offers via get_buy_sourcing_run or get_buy_request, and continue with select_buy_offer.',
+      'Start or record a sourcing run for a Sanka Buy request. provider=shopify_global_catalog searches the Shopify Global Catalog (results may be queued or unavailable until the adapter is configured). With provider=procurement_rfq, pass constraints.procurement_request_id to link an existing RFQ, or pass constraints.vendor_company_ids to originate a new RFQ and invite those vendors. Then reconcile vendor proposals with sync_buy_rfq, compare offers via get_buy_sourcing_run or get_buy_request, and continue with select_buy_offer.',
     inputSchema: {
       type: 'object',
       required: ['request_id'],
@@ -678,7 +678,7 @@ export const sourceBuyRequestTool: McpTool = {
         constraints: {
           type: 'object',
           description:
-            'Provider-specific sourcing constraints. For provider=procurement_rfq: procurement_request_id (required, uuid of the existing procurement request to link), vendor_company_ids (optional company uuids to invite), rfq_deadline (optional ISO date), channels (optional map of company uuid to "portal"; the "email" channel is not available yet), and message (optional note to vendors).',
+            'Provider-specific sourcing constraints. For provider=procurement_rfq, supply either procurement_request_id (uuid of an existing procurement request to link) or vendor_company_ids (company uuids used to create a new RFQ and invite vendors). Optional fields: rfq_deadline (ISO date), channels (map of company uuid to "portal"; the explicit "email" channel is not available yet), and message (note to vendors).',
         },
         idempotency_key: { type: 'string' },
       },
@@ -703,9 +703,12 @@ export const sourceBuyRequestTool: McpTool = {
       const procurementRequestID = readString(
         readArg(constraints, 'procurement_request_id', ['procurementRequestId']),
       );
-      if (!procurementRequestID) {
+      const vendorCompanyIDs = readArg(constraints, 'vendor_company_ids', ['vendorCompanyIds']);
+      const hasVendorCompanyIDs =
+        Array.isArray(vendorCompanyIDs) && vendorCompanyIDs.some((value) => Boolean(readString(value)));
+      if (!procurementRequestID && !hasVendorCompanyIDs) {
         return asErrorResult(
-          '`constraints.procurement_request_id` is required when provider is procurement_rfq: the RFQ bridge links an existing procurement request.',
+          'When provider is procurement_rfq, pass either `constraints.procurement_request_id` to link an existing RFQ or a non-empty `constraints.vendor_company_ids` array to create a new RFQ.',
         );
       }
     }

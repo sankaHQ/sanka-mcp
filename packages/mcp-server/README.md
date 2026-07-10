@@ -131,7 +131,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `get_buy_request`: load one Sanka Buy request
 - `update_buy_request`: update draft Sanka Buy fields
 - `cancel_buy_request`: cancel a Sanka Buy request after explicit confirmation
-- `source_buy_request`: start Shopify Global Catalog sourcing or link an existing procurement RFQ (`provider=procurement_rfq` with `constraints.procurement_request_id`) for a Buy request
+- `source_buy_request`: start Shopify Global Catalog sourcing, link an existing procurement RFQ with `constraints.procurement_request_id`, or create a new RFQ for `constraints.vendor_company_ids`
 - `sync_buy_rfq`: reconcile linked-RFQ vendor proposals into draft offer snapshots and read invitation state
 - `list_buy_sourcing_runs`: list sourcing runs for a Buy request
 - `get_buy_sourcing_run`: load one Buy sourcing run

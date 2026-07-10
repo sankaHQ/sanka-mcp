@@ -345,7 +345,47 @@ describe('Sanka Buy MCP tools', () => {
     });
   });
 
-  it('rejects procurement RFQ sourcing without constraints.procurement_request_id', async () => {
+  it('originates procurement RFQ sourcing with vendor company ids', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'run-1',
+        buy_request_id: 'buy-1',
+        provider: 'procurement_rfq',
+        status: 'running',
+        constraints: { vendor_company_ids: ['0a1b2c3d-0000-4000-8000-000000000002'] },
+      },
+      meta: { ctx_id: 'ctx-rfq-create' },
+    });
+
+    const result = await sourceBuyRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        provider: 'procurement_rfq',
+        constraints: {
+          vendor_company_ids: ['0a1b2c3d-0000-4000-8000-000000000002'],
+          message: 'Please quote by Friday',
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/source', {
+      body: {
+        provider: 'procurement_rfq',
+        constraints: {
+          vendor_company_ids: ['0a1b2c3d-0000-4000-8000-000000000002'],
+          message: 'Please quote by Friday',
+        },
+      },
+    });
+    expect(result.structuredContent).toMatchObject({ ctx_id: 'ctx-rfq-create' });
+  });
+
+  it('rejects procurement RFQ sourcing without an existing request or invited vendors', async () => {
     const post = jest.fn();
 
     const missingConstraints = await sourceBuyRequestTool.handler({
@@ -358,7 +398,7 @@ describe('Sanka Buy MCP tools', () => {
         provider: 'procurement_rfq',
       },
     });
-    const emptyID = await sourceBuyRequestTool.handler({
+    const emptyConstraints = await sourceBuyRequestTool.handler({
       reqContext: {
         client: { post } as any,
         auth: oauthContext(),
@@ -366,12 +406,12 @@ describe('Sanka Buy MCP tools', () => {
       args: {
         request_id: 'buy-1',
         provider: 'procurement_rfq',
-        constraints: { procurement_request_id: '  ' },
+        constraints: { procurement_request_id: '  ', vendor_company_ids: [] },
       },
     });
 
     expect(missingConstraints.isError).toBe(true);
-    expect(emptyID.isError).toBe(true);
+    expect(emptyConstraints.isError).toBe(true);
     expect(post).not.toHaveBeenCalled();
   });
 
