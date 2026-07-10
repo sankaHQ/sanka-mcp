@@ -8,6 +8,7 @@ import * as demoTools from '../../packages/mcp-server/src/demo-tools';
 import * as docsSearchTool from '../../packages/mcp-server/src/docs-search-tool';
 import * as sankaBuyTools from '../../packages/mcp-server/src/sanka-buy-tools';
 import * as transferTools from '../../packages/mcp-server/src/transfer-tools';
+import * as watchtowerTools from '../../packages/mcp-server/src/watchtower-tools';
 import * as workflowRunTools from '../../packages/mcp-server/src/workflow-run-tools';
 import * as workflowTools from '../../packages/mcp-server/src/workflow-tools';
 
@@ -24,6 +25,7 @@ const TOOL_MODULES: Record<string, Record<string, unknown>> = {
   'docs-search-tool': docsSearchTool,
   'sanka-buy-tools': sankaBuyTools,
   'transfer-tools': transferTools,
+  'watchtower-tools': watchtowerTools,
   'workflow-run-tools': workflowRunTools,
   'workflow-tools': workflowTools,
 };

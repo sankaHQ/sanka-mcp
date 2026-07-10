@@ -3,6 +3,7 @@ import { requireAuthentication } from './tool-auth';
 
 const BUY_BASE_PATH = '/api/v2/buy';
 const SHOPIFY_GLOBAL_CATALOG_PROVIDER = 'shopify_global_catalog';
+const PROCUREMENT_RFQ_PROVIDER = 'procurement_rfq';
 
 const OUTPUT_SCHEMA = {
   type: 'object' as const,
@@ -661,7 +662,7 @@ export const sourceBuyRequestTool: McpTool = {
     name: 'source_buy_request',
     title: 'Source Buy request',
     description:
-      'Start or record a sourcing run for a Sanka Buy request. MVP provider is Shopify Global Catalog; provider results may be queued or unavailable until the adapter is configured.',
+      'Start or record a sourcing run for a Sanka Buy request. provider=shopify_global_catalog searches the Shopify Global Catalog (results may be queued or unavailable until the adapter is configured). provider=procurement_rfq links the Buy request to an existing procurement RFQ instead: pass constraints.procurement_request_id (required), then reconcile vendor proposals with sync_buy_rfq, compare offers via get_buy_sourcing_run or get_buy_request, and continue with select_buy_offer.',
     inputSchema: {
       type: 'object',
       required: ['request_id'],
@@ -672,9 +673,13 @@ export const sourceBuyRequestTool: McpTool = {
         provider: {
           type: 'string',
           default: SHOPIFY_GLOBAL_CATALOG_PROVIDER,
-          enum: [SHOPIFY_GLOBAL_CATALOG_PROVIDER],
+          enum: [SHOPIFY_GLOBAL_CATALOG_PROVIDER, PROCUREMENT_RFQ_PROVIDER],
         },
-        constraints: { type: 'object' },
+        constraints: {
+          type: 'object',
+          description:
+            'Provider-specific sourcing constraints. For provider=procurement_rfq: procurement_request_id (required, uuid of the existing procurement request to link), vendor_company_ids (optional company uuids to invite), rfq_deadline (optional ISO date), channels (optional map of company uuid to "portal"; the "email" channel is not available yet), and message (optional note to vendors).',
+        },
         idempotency_key: { type: 'string' },
       },
     },
@@ -692,16 +697,73 @@ export const sourceBuyRequestTool: McpTool = {
     if (authError) return authError;
     const requestID = readString(readArg(args, 'request_id', ['requestId']));
     if (!requestID) return asErrorResult('`request_id` is required.');
+    const provider = readString(readArg(args, 'provider')) ?? SHOPIFY_GLOBAL_CATALOG_PROVIDER;
+    const constraints = readRecord(readArg(args, 'constraints')) ?? {};
+    if (provider === PROCUREMENT_RFQ_PROVIDER) {
+      const procurementRequestID = readString(
+        readArg(constraints, 'procurement_request_id', ['procurementRequestId']),
+      );
+      if (!procurementRequestID) {
+        return asErrorResult(
+          '`constraints.procurement_request_id` is required when provider is procurement_rfq: the RFQ bridge links an existing procurement request.',
+        );
+      }
+    }
     const body = compactRecord({
       query: readString(readArg(args, 'query')),
-      provider: readString(readArg(args, 'provider')) ?? SHOPIFY_GLOBAL_CATALOG_PROVIDER,
-      constraints: readRecord(readArg(args, 'constraints')) ?? {},
+      provider,
+      constraints,
     });
     const response = (await reqContext.client.post(
       `${BUY_BASE_PATH}/requests/${encodeURIComponent(requestID)}/source`,
       { body, ...idempotencyHeaders(args) },
     )) as Record<string, unknown>;
     return buyResult(response, 'Started Sanka Buy sourcing run');
+  },
+};
+
+export const syncBuyRfqTool: McpTool = {
+  metadata: {
+    resource: 'buy',
+    operation: 'write',
+    tags: ['buy', 'procurement', 'rfq'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/buy/requests/{request_id}/sync-rfq',
+    operationId: 'buy.requests.syncRfq',
+  },
+  tool: {
+    name: 'sync_buy_rfq',
+    title: 'Sync Buy RFQ',
+    description:
+      'Reconcile a Sanka Buy request with its linked procurement RFQ: ingest newly received vendor proposals into draft offer snapshots and refresh invitation state. Use this after source_buy_request with provider=procurement_rfq, and re-run it to poll for new proposals. The response is also the way to read current RFQ invitation status (invited, viewed, proposed, declined, expired, superseded); there is no separate invitation list endpoint. Compare the ingested offers with get_buy_sourcing_run or get_buy_request, then continue with select_buy_offer.',
+    inputSchema: {
+      type: 'object',
+      required: ['request_id'],
+      additionalProperties: false,
+      properties: {
+        request_id: { type: 'string' },
+        idempotency_key: { type: 'string' },
+      },
+    },
+    outputSchema: OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Sync Buy RFQ',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = buyToolAuthError(reqContext, 'Sync Buy RFQ');
+    if (authError) return authError;
+    const requestID = readString(readArg(args, 'request_id', ['requestId']));
+    if (!requestID) return asErrorResult('`request_id` is required.');
+    const response = (await reqContext.client.post(
+      `${BUY_BASE_PATH}/requests/${encodeURIComponent(requestID)}/sync-rfq`,
+      { body: {}, ...idempotencyHeaders(args) },
+    )) as Record<string, unknown>;
+    return buyResult(response, 'Reconciled Sanka Buy RFQ proposals');
   },
 };
 

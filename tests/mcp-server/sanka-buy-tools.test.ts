@@ -13,6 +13,7 @@ import {
   selectBuyOfferTool,
   sourceBuyRequestTool,
   submitBuyRequestTool,
+  syncBuyRfqTool,
   updateBuyRequestTool,
 } from '../../packages/mcp-server/src/sanka-buy-tools';
 
@@ -54,6 +55,7 @@ describe('Sanka Buy MCP tools', () => {
         'update_buy_request',
         'cancel_buy_request',
         'source_buy_request',
+        'sync_buy_rfq',
         'list_buy_sourcing_runs',
         'get_buy_sourcing_run',
         'select_buy_offer',
@@ -74,6 +76,7 @@ describe('Sanka Buy MCP tools', () => {
     expect(createBuyRequestTool.metadata.httpPath).toBe('/api/v2/buy/requests');
     expect(listBuyRequestsTool.metadata.httpPath).toBe('/api/v2/buy/requests');
     expect(sourceBuyRequestTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/source');
+    expect(syncBuyRfqTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/sync-rfq');
     expect(selectBuyOfferTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/select-offer');
     expect(submitBuyRequestTool.metadata.httpPath).toBe('/api/v2/buy/requests/{request_id}/submit');
     expect(createBuyPurchaseOrderTool.metadata.httpPath).toBe(
@@ -292,6 +295,182 @@ describe('Sanka Buy MCP tools', () => {
         selected_quantity: 1,
       },
     ]);
+  });
+
+  it('starts procurement RFQ sourcing runs with the linked procurement request id', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'run-1',
+        buy_request_id: 'buy-1',
+        provider: 'procurement_rfq',
+        status: 'running',
+        constraints: { procurement_request_id: '0a1b2c3d-0000-4000-8000-000000000001' },
+      },
+      meta: { ctx_id: 'ctx-rfq-source' },
+    });
+
+    const result = await sourceBuyRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        provider: 'procurement_rfq',
+        constraints: {
+          procurement_request_id: '0a1b2c3d-0000-4000-8000-000000000001',
+          vendor_company_ids: ['0a1b2c3d-0000-4000-8000-000000000002'],
+          rfq_deadline: '2026-07-31',
+        },
+        idempotency_key: 'rfq-source-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/source', {
+      body: {
+        provider: 'procurement_rfq',
+        constraints: {
+          procurement_request_id: '0a1b2c3d-0000-4000-8000-000000000001',
+          vendor_company_ids: ['0a1b2c3d-0000-4000-8000-000000000002'],
+          rfq_deadline: '2026-07-31',
+        },
+      },
+      headers: { 'Idempotency-Key': 'rfq-source-1' },
+    });
+    expect(result.structuredContent).toMatchObject({
+      provider: 'procurement_rfq',
+      status: 'running',
+      ctx_id: 'ctx-rfq-source',
+    });
+  });
+
+  it('rejects procurement RFQ sourcing without constraints.procurement_request_id', async () => {
+    const post = jest.fn();
+
+    const missingConstraints = await sourceBuyRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        provider: 'procurement_rfq',
+      },
+    });
+    const emptyID = await sourceBuyRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        provider: 'procurement_rfq',
+        constraints: { procurement_request_id: '  ' },
+      },
+    });
+
+    expect(missingConstraints.isError).toBe(true);
+    expect(emptyID.isError).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('keeps Shopify sourcing runs free of the RFQ constraint requirement', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: { id: 'run-2', buy_request_id: 'buy-1', provider: 'shopify_global_catalog', status: 'pending' },
+      meta: { ctx_id: 'ctx-shopify-source' },
+    });
+
+    const result = await sourceBuyRequestTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        query: 'laptop',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/source', {
+      body: {
+        query: 'laptop',
+        provider: 'shopify_global_catalog',
+        constraints: {},
+      },
+    });
+    expect(result.structuredContent?.['provider']).toBe('shopify_global_catalog');
+  });
+
+  it('reconciles RFQ proposals through sync_buy_rfq and forwards the idempotency key', async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        buy_request_id: 'buy-1',
+        runs: [
+          {
+            sourcing_run_id: 'run-1',
+            procurement_request_id: '0a1b2c3d-0000-4000-8000-000000000001',
+            status: 'completed',
+            invitation_count: 2,
+            ingested_offer_count: 1,
+            unchanged_offer_count: 0,
+            needs_review_count: 1,
+          },
+        ],
+        invitations: [
+          { id: 'invitation-1', company_id: 'company-1', status: 'proposed', channel: 'portal' },
+          { id: 'invitation-2', company_id: 'company-2', status: 'invited', channel: 'portal' },
+        ],
+        ingested_offer_count: 1,
+        unchanged_offer_count: 0,
+        needs_review_count: 1,
+        completed_run_count: 1,
+        message: 'OK',
+      },
+      meta: { ctx_id: 'ctx-rfq-sync' },
+    });
+
+    const result = await syncBuyRfqTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        request_id: 'buy-1',
+        idempotency_key: 'rfq-sync-1',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/sync-rfq', {
+      body: {},
+      headers: { 'Idempotency-Key': 'rfq-sync-1' },
+    });
+    expect(result.structuredContent).toMatchObject({
+      buy_request_id: 'buy-1',
+      ingested_offer_count: 1,
+      invitations: [
+        expect.objectContaining({ status: 'proposed' }),
+        expect.objectContaining({ status: 'invited' }),
+      ],
+      ctx_id: 'ctx-rfq-sync',
+    });
+  });
+
+  it('requires request_id for sync_buy_rfq', async () => {
+    const post = jest.fn();
+
+    const result = await syncBuyRfqTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {},
+    });
+
+    expect(result.isError).toBe(true);
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('requires explicit confirmation before cancelling a Buy request', async () => {

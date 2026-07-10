@@ -30,6 +30,7 @@ import {
   selectBuyOfferTool,
   sourceBuyRequestTool,
   submitBuyRequestTool,
+  syncBuyRfqTool,
   updateBuyRequestTool,
 } from './sanka-buy-tools';
 import {
@@ -327,6 +328,12 @@ import {
   resolveRecordTool,
   startWorkflowTool,
 } from './workflow-run-tools';
+import {
+  createBuyRequestFromFindingTool,
+  getWatchtowerSummaryTool,
+  listWatchtowerFindingsTool,
+  updateWatchtowerFindingTool,
+} from './watchtower-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import { McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
@@ -930,6 +937,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     updateBuyRequestTool,
     cancelBuyRequestTool,
     sourceBuyRequestTool,
+    syncBuyRfqTool,
     listBuySourcingRunsTool,
     getBuySourcingRunTool,
     selectBuyOfferTool,
@@ -941,6 +949,10 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     confirmBuyOrderTool,
     createBuyBillTool,
     previewBuyAccountingTool,
+    listWatchtowerFindingsTool,
+    updateWatchtowerFindingTool,
+    createBuyRequestFromFindingTool,
+    getWatchtowerSummaryTool,
     crmListItemsTool,
     crmGetItemTool,
     crmCreateItemTool,

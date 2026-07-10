@@ -131,7 +131,8 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `get_buy_request`: load one Sanka Buy request
 - `update_buy_request`: update draft Sanka Buy fields
 - `cancel_buy_request`: cancel a Sanka Buy request after explicit confirmation
-- `source_buy_request`: start or record Shopify Global Catalog sourcing for a Buy request
+- `source_buy_request`: start Shopify Global Catalog sourcing or link an existing procurement RFQ (`provider=procurement_rfq` with `constraints.procurement_request_id`) for a Buy request
+- `sync_buy_rfq`: reconcile linked-RFQ vendor proposals into draft offer snapshots and read invitation state
 - `list_buy_sourcing_runs`: list sourcing runs for a Buy request
 - `get_buy_sourcing_run`: load one Buy sourcing run
 - `select_buy_offer`: select one offer snapshot per Buy request line
@@ -143,6 +144,10 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `confirm_buy_order`: record a user-confirmed external merchant order id
 - `create_buy_bill`: create or reuse a Bill and optionally attach uploaded evidence file ids
 - `preview_buy_accounting`: preview accounting export readiness without posting Journal entries
+- `list_watchtower_findings`: list WatchTower waste findings with status/type filters
+- `update_watchtower_finding`: confirm, dismiss, or reopen a WatchTower waste finding
+- `create_buy_request_from_finding`: turn one WatchTower finding into a draft Sanka Buy request
+- `get_watchtower_summary`: load the WatchTower spend summary with category and top-vendor breakdowns
 - `list_orders`: read-only order search
 - `get_order`: load a single order
 - `create_order`: create an order
