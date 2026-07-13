@@ -4,6 +4,7 @@ const project = {
   id: 'project-1',
   project_id: 'project-1',
   title: 'Customer Onboarding',
+  description: 'Coordinate the customer rollout.',
   default: false,
   statuses: [
     {
@@ -22,6 +23,13 @@ const json = (data: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const envelope = (data: unknown, ctxId: string) =>
+  json({
+    success: true,
+    data,
+    meta: { ctx_id: ctxId },
+  });
+
 describe('public projects resource', () => {
   test('uses public project paths and response shapes', async () => {
     const calls: Array<{ body?: unknown; headers: Record<string, string>; method: string; url: string }> = [];
@@ -35,50 +43,56 @@ describe('public projects resource', () => {
         const headers = Object.fromEntries(new Headers(init?.headers as any).entries());
         calls.push({ method, url: String(url), body, headers });
         if (method === 'GET' && String(url).includes('/api/v2/public/projects?')) {
-          return json({
-            data: [project],
-            page: 2,
-            count: 1,
-            total: 3,
-            limit: 20,
-            has_next: true,
-            next_page: 3,
-            message: 'OK',
-            ctx_id: 'ctx-list',
-          });
+          return envelope(
+            {
+              items: [project],
+              page: 2,
+              page_size: 20,
+              total: 3,
+              next_cursor: 'project-1',
+              meta: { source: 'data_projects' },
+            },
+            'ctx-list',
+          );
         }
         if (method === 'POST') {
-          return json({
-            ok: true,
-            status: 'created',
-            id: 'project-1',
-            project_id: 'project-1',
-            project,
-            ctx_id: 'ctx-create',
-          });
+          return envelope(
+            {
+              ok: true,
+              status: 'created',
+              id: 'project-1',
+              project_id: 'project-1',
+              project,
+            },
+            'ctx-create',
+          );
         }
         if (method === 'PUT') {
-          return json({
-            ok: true,
-            status: 'updated',
-            id: 'project-1',
-            project_id: 'project-1',
-            project: { ...project, title: 'Customer Success' },
-            ctx_id: 'ctx-update',
-          });
+          return envelope(
+            {
+              ok: true,
+              status: 'updated',
+              id: 'project-1',
+              project_id: 'project-1',
+              project: { ...project, title: 'Customer Success' },
+            },
+            'ctx-update',
+          );
         }
         if (method === 'DELETE') {
-          return json({
-            ok: true,
-            status: 'deleted',
-            id: 'project-1',
-            project_id: 'project-1',
-            cleared_task_count: 2,
-            reassigned_task_count: 0,
-            ctx_id: 'ctx-delete',
-          });
+          return envelope(
+            {
+              ok: true,
+              status: 'deleted',
+              id: 'project-1',
+              project_id: 'project-1',
+              cleared_task_count: 2,
+              reassigned_task_count: 0,
+            },
+            'ctx-delete',
+          );
         }
-        return json(project);
+        return envelope(project, 'ctx-get');
       },
     });
 
@@ -103,6 +117,7 @@ describe('public projects resource', () => {
     await expect(
       client.public.projects.create({
         title: 'Customer Onboarding',
+        description: 'Coordinate the customer rollout.',
         default: false,
         statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
         'X-Language': 'en',
@@ -111,6 +126,7 @@ describe('public projects resource', () => {
     await expect(
       client.public.projects.update('project-1', {
         title: 'Customer Success',
+        description: 'Updated rollout overview.',
         statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
       }),
     ).resolves.toMatchObject({ ok: true, status: 'updated', project_id: 'project-1' });
@@ -147,6 +163,7 @@ describe('public projects resource', () => {
         url: 'http://localhost:5000/api/v2/public/projects',
         body: {
           title: 'Customer Onboarding',
+          description: 'Coordinate the customer rollout.',
           default: false,
           statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
         },
@@ -159,6 +176,7 @@ describe('public projects resource', () => {
         url: 'http://localhost:5000/api/v2/public/projects/project-1',
         body: {
           title: 'Customer Success',
+          description: 'Updated rollout overview.',
           statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
         },
         headers: expect.any(Object),
