@@ -77,10 +77,12 @@ import {
   crmDeleteProjectTool,
   crmDeletePurchaseOrderTool,
   crmDeletePropertyTool,
+  crmDeleteReportTool,
   crmDeleteSlipTool,
   crmDeleteSubscriptionTool,
   crmDeleteTaskTool,
   crmDeleteTicketTool,
+  crmDeleteViewTool,
   crmDownloadContractTemplateTool,
   crmDownloadEstimatePDFTool,
   crmDownloadInvoicePDFTool,
@@ -120,10 +122,13 @@ import {
   crmGetPropertyTool,
   crmGetProjectTool,
   crmGetPurchaseOrderTool,
+  crmGetReportTool,
   crmGetSlipTool,
   crmGetSubscriptionTool,
   crmGetTaskTool,
   crmGetTicketTool,
+  crmGetViewColumnsTool,
+  crmGetViewTool,
   crmListBillsTool,
   crmListAppBlueprintTemplatesTool,
   crmListEmployeesTool,
@@ -229,6 +234,7 @@ import {
   crmUpdatePurchaseOrderTool,
   crmUpdateSlipTool,
   crmUpdatePropertyTool,
+  crmUpdateViewTool,
   crmUpdateSubscriptionTool,
   crmUpdateTaskTool,
   crmUpdateTicketStatusTool,
@@ -4812,6 +4818,130 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'deleted',
       purchase_order_id: 'purchase-order-1',
+    });
+  });
+
+  it('gets, updates, deletes, and resolves columns for a saved view', async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({ view: { id: 'view-1', label: 'Open orders' } })
+      .mockResolvedValueOnce({ columns: [{ id: 'status', label: 'Status' }] });
+    const patch = jest.fn().mockResolvedValue({ data: { id: 'view-1', label: 'Priority orders' } });
+    const del = jest.fn().mockResolvedValue({ status: 'deleted', view_id: 'view-1' });
+    const reqContext = {
+      client: { get, patch, delete: del } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const getResult = await crmGetViewTool.handler({
+      reqContext,
+      args: { view_id: 'view-1', workspace_id: 'workspace-1', language: 'ja' },
+    });
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/views/view-1', {
+      query: { workspace_id: 'workspace-1', 'Accept-Language': 'ja' },
+    });
+    expect(firstTextContent(getResult)).toBe('Loaded saved view Open orders.');
+    expect(getResult.structuredContent).toEqual({
+      view: { id: 'view-1', label: 'Open orders' },
+    });
+
+    const columnsResult = await crmGetViewColumnsTool.handler({
+      reqContext,
+      args: { view_id: 'view-1', workspace_id: 'workspace-1' },
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/views/view-1/columns', {
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(firstTextContent(columnsResult)).toBe('Loaded 1 columns for saved view view-1.');
+    expect(columnsResult.structuredContent).toEqual({
+      columns: [{ id: 'status', label: 'Status' }],
+    });
+
+    const updateResult = await crmUpdateViewTool.handler({
+      reqContext,
+      args: {
+        view_id: 'view-1',
+        object: 'orders',
+        name: 'Priority orders',
+        view_type: 'list',
+        columns: ['status', 'company'],
+        is_private: true,
+        workspace_id: 'workspace-1',
+        language: 'en',
+      },
+    });
+    expect(patch).toHaveBeenCalledWith('/api/v2/views/view-1', {
+      body: {
+        object: 'orders',
+        object_type: 'orders',
+        name: 'Priority orders',
+        title: 'Priority orders',
+        view_type: 'list',
+        mode: 'table',
+        columns: ['status', 'company'],
+        column_field_ids: ['status', 'company'],
+        is_private: true,
+        visibility: 'private',
+      },
+      query: { workspace_id: 'workspace-1', 'Accept-Language': 'en' },
+    });
+    expect(firstTextContent(updateResult)).toBe('Updated saved view view-1.');
+    expect(updateResult.structuredContent).toEqual({
+      data: { id: 'view-1', label: 'Priority orders' },
+    });
+
+    const deleteResult = await crmDeleteViewTool.handler({
+      reqContext,
+      args: { view_id: 'view-1', object: 'orders', workspace_id: 'workspace-1' },
+    });
+    expect(del).toHaveBeenCalledWith('/api/v2/views/view-1', {
+      body: { object: 'orders', object_type: 'orders' },
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(firstTextContent(deleteResult)).toBe('Deleted saved view view-1.');
+    expect(deleteResult.structuredContent).toEqual({ status: 'deleted', view_id: 'view-1' });
+  });
+
+  it('gets and deletes a report through the public SDK client', async () => {
+    const retrieve = jest.fn().mockResolvedValue({
+      report_id: 'report-1',
+      name: 'Revenue dashboard',
+      report_type: 'invoices',
+    });
+    const del = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'deleted',
+      report_id: 'report-1',
+    });
+    const reqContext = {
+      client: { public: { reports: { retrieve, delete: del } } } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    const getResult = await crmGetReportTool.handler({
+      reqContext,
+      args: { report_id: 'report-1', workspace_id: 'workspace-1' },
+    });
+    expect(retrieve).toHaveBeenCalledWith('report-1', { workspace_id: 'workspace-1' }, undefined);
+    expect(firstTextContent(getResult)).toBe('Loaded report Revenue dashboard.');
+    expect(getResult.structuredContent).toEqual({
+      report_id: 'report-1',
+      name: 'Revenue dashboard',
+      report_type: 'invoices',
+    });
+
+    const deleteResult = await crmDeleteReportTool.handler({
+      reqContext,
+      args: { report_id: 'report-1', workspace_id: 'workspace-1' },
+    });
+    expect(del).toHaveBeenCalledWith('report-1', { workspace_id: 'workspace-1' }, undefined);
+    expect(firstTextContent(deleteResult)).toBe('Deleted report report-1.');
+    expect(deleteResult.structuredContent).toEqual({
+      ok: true,
+      status: 'deleted',
+      report_id: 'report-1',
     });
   });
 
