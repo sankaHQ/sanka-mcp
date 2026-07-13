@@ -5,6 +5,13 @@ export { Sanka as default } from './client';
 export { type Uploadable, toFile } from './core/uploads';
 export { APIPromise } from './core/api-promise';
 export { Sanka, type APIVersionMode, type ClientOptions } from './client';
+export type {
+  FerryDiagramCreateParams,
+  FerryDiagramEdge,
+  FerryDiagramNode,
+  FerryDiagramUpdateParams,
+  FerryDiagramViewport,
+} from './resources/public/ferry-diagrams';
 export {
   V2EnvelopeError,
   isV2Envelope,

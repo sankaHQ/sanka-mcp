@@ -281,6 +281,27 @@ export {
   type ProjectDeleteParams,
 } from './projects';
 export {
+  FerryDiagrams,
+  type FerryDiagramNodeType,
+  type FerryDiagramColor,
+  type FerryDiagramEdgeType,
+  type FerryDiagramPosition,
+  type FerryDiagramViewport,
+  type FerryDiagramNodeData,
+  type FerryDiagramNode,
+  type FerryDiagramEdge,
+  type FerryDiagramDocument,
+  type FerryDiagram,
+  type FerryDiagramSummary,
+  type FerryDiagramListData,
+  type FerryDiagramDeleteData,
+  type FerryDiagramListParams,
+  type FerryDiagramRetrieveParams,
+  type FerryDiagramCreateParams,
+  type FerryDiagramUpdateParams,
+  type FerryDiagramDeleteParams,
+} from './ferry-diagrams';
+export {
   Tasks,
   type PublicTaskRequest,
   type PublicTaskResponse,
