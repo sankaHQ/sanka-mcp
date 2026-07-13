@@ -78,8 +78,12 @@ const WORKSPACE_PROPERTY = {
 };
 
 const DOCUMENT_PROPERTIES = {
-  name: { type: 'string', description: 'Diagram name.' },
-  description: { type: 'string', description: 'Diagram overview.' },
+  name: { type: 'string', minLength: 1, description: 'Diagram name.' },
+  description: {
+    type: 'string',
+    description:
+      'Diagram overview. On update, pass an explicit empty string to clear it; omit it to preserve it.',
+  },
   nodes: {
     type: 'array',
     items: NODE_SCHEMA,
@@ -175,6 +179,26 @@ const readObjectArray = (value: unknown): Array<Record<string, unknown>> | undef
     (value as Array<Record<string, unknown>>)
   : undefined;
 
+const readViewport = (value: unknown): FerryDiagramViewport | undefined => {
+  const viewport = readObject(value);
+  const x = viewport?.['x'];
+  const y = viewport?.['y'];
+  const zoom = viewport?.['zoom'];
+  if (
+    typeof x !== 'number' ||
+    !Number.isFinite(x) ||
+    typeof y !== 'number' ||
+    !Number.isFinite(y) ||
+    typeof zoom !== 'number' ||
+    !Number.isFinite(zoom) ||
+    zoom < 0.1 ||
+    zoom > 4
+  ) {
+    return undefined;
+  }
+  return { x, y, zoom };
+};
+
 const hasOwn = (args: Record<string, unknown> | undefined, key: string): boolean =>
   Boolean(args && Object.prototype.hasOwnProperty.call(args, key));
 
@@ -193,14 +217,14 @@ const buildCreateBody = (args: Record<string, unknown> | undefined): FerryDiagra
   if (!name) return undefined;
   const nodes = readObjectArray(args?.['nodes']);
   const edges = readObjectArray(args?.['edges']);
-  const viewport = readObject(args?.['viewport']);
+  const viewport = readViewport(args?.['viewport']);
   const description = typeof args?.['description'] === 'string' ? args['description'].trim() : undefined;
   return {
     name,
     ...(description !== undefined ? { description } : undefined),
     nodes: (nodes ?? []) as unknown as FerryDiagramNode[],
     edges: (edges ?? []) as unknown as FerryDiagramEdge[],
-    viewport: (viewport ?? { x: 0, y: 0, zoom: 1 }) as unknown as FerryDiagramViewport,
+    viewport: viewport ?? { x: 0, y: 0, zoom: 1 },
     ...readWorkspaceParams(args),
   };
 };
@@ -349,7 +373,7 @@ export const updateFerryDiagramTool: McpTool = {
     }
     const nodes = hasOwn(args, 'nodes') ? readObjectArray(args?.['nodes']) : current.nodes;
     const edges = hasOwn(args, 'edges') ? readObjectArray(args?.['edges']) : current.edges;
-    const viewport = hasOwn(args, 'viewport') ? readObject(args?.['viewport']) : current.viewport;
+    const viewport = hasOwn(args, 'viewport') ? readViewport(args?.['viewport']) : current.viewport;
     if (!nodes || !edges || !viewport) {
       return asErrorResult('`nodes`, `edges`, and `viewport` must use valid Ferry diagram object shapes.');
     }
@@ -361,7 +385,7 @@ export const updateFerryDiagramTool: McpTool = {
         : current.description ?? '',
       nodes: nodes as FerryDiagramNode[],
       edges: edges as FerryDiagramEdge[],
-      viewport: viewport as unknown as FerryDiagramViewport,
+      viewport,
       revision,
       ...workspaceParams,
     };

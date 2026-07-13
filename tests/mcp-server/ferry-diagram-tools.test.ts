@@ -135,6 +135,19 @@ describe('Ferry diagram MCP tools', () => {
     expect(result.content[0]).toMatchObject({ type: 'text' });
   });
 
+  it('clears the description only when an empty description is explicit', async () => {
+    const retrieve = jest.fn().mockResolvedValue(diagram);
+    const update = jest.fn().mockResolvedValue({ ...diagram, description: '', revision: 5 });
+    const client = { public: { ferryDiagrams: { retrieve, update } } } as any;
+
+    await updateFerryDiagramTool.handler({
+      reqContext: { client, auth: oauthContext() },
+      args: { diagram_id: 'diagram-1', revision: 4, description: '  ' },
+    });
+
+    expect(update).toHaveBeenCalledWith('diagram-1', expect.objectContaining({ description: '' }));
+  });
+
   it('deletes a diagram through the public SDK resource', async () => {
     const del = jest.fn().mockResolvedValue({ id: 'diagram-1', deleted: true });
     const client = { public: { ferryDiagrams: { delete: del } } } as any;
