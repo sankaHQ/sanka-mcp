@@ -3,6 +3,7 @@ import { selectTools } from '../../packages/mcp-server/src/server';
 import { McpTool } from '../../packages/mcp-server/src/types';
 import * as browserUseTools from '../../packages/mcp-server/src/browser-use-tools';
 import * as capabilityGuidanceTools from '../../packages/mcp-server/src/capability-guidance-tools';
+import * as cargoCatalogTools from '../../packages/mcp-server/src/cargo-catalog-tools';
 import * as crmTools from '../../packages/mcp-server/src/crm-tools';
 import * as demoTools from '../../packages/mcp-server/src/demo-tools';
 import * as docsSearchTool from '../../packages/mcp-server/src/docs-search-tool';
@@ -20,6 +21,7 @@ import * as workflowTools from '../../packages/mcp-server/src/workflow-tools';
 const TOOL_MODULES: Record<string, Record<string, unknown>> = {
   'browser-use-tools': browserUseTools,
   'capability-guidance-tools': capabilityGuidanceTools,
+  'cargo-catalog-tools': cargoCatalogTools,
   'crm-tools': crmTools,
   'demo-tools': demoTools,
   'docs-search-tool': docsSearchTool,
