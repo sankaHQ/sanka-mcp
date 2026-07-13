@@ -43,42 +43,54 @@ describe('public projects resource', () => {
         const headers = Object.fromEntries(new Headers(init?.headers as any).entries());
         calls.push({ method, url: String(url), body, headers });
         if (method === 'GET' && String(url).includes('/api/v2/public/projects?')) {
-          return envelope({
-            items: [project],
-            page: 2,
-            page_size: 20,
-            total: 3,
-            next_cursor: 'project-1',
-            meta: { source: 'data_projects' },
-          }, 'ctx-list');
+          return envelope(
+            {
+              items: [project],
+              page: 2,
+              page_size: 20,
+              total: 3,
+              next_cursor: 'project-1',
+              meta: { source: 'data_projects' },
+            },
+            'ctx-list',
+          );
         }
         if (method === 'POST') {
-          return envelope({
-            ok: true,
-            status: 'created',
-            id: 'project-1',
-            project_id: 'project-1',
-            project,
-          }, 'ctx-create');
+          return envelope(
+            {
+              ok: true,
+              status: 'created',
+              id: 'project-1',
+              project_id: 'project-1',
+              project,
+            },
+            'ctx-create',
+          );
         }
         if (method === 'PUT') {
-          return envelope({
-            ok: true,
-            status: 'updated',
-            id: 'project-1',
-            project_id: 'project-1',
-            project: { ...project, title: 'Customer Success' },
-          }, 'ctx-update');
+          return envelope(
+            {
+              ok: true,
+              status: 'updated',
+              id: 'project-1',
+              project_id: 'project-1',
+              project: { ...project, title: 'Customer Success' },
+            },
+            'ctx-update',
+          );
         }
         if (method === 'DELETE') {
-          return envelope({
-            ok: true,
-            status: 'deleted',
-            id: 'project-1',
-            project_id: 'project-1',
-            cleared_task_count: 2,
-            reassigned_task_count: 0,
-          }, 'ctx-delete');
+          return envelope(
+            {
+              ok: true,
+              status: 'deleted',
+              id: 'project-1',
+              project_id: 'project-1',
+              cleared_task_count: 2,
+              reassigned_task_count: 0,
+            },
+            'ctx-delete',
+          );
         }
         return envelope(project, 'ctx-get');
       },
