@@ -149,6 +149,33 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
     };
   }
 
+  if (
+    includesAny(combined, ['cargo']) &&
+    includesAny(combined, [
+      'catalog',
+      'supplier',
+      'research',
+      'category',
+      'カタログ',
+      '仕入れ先',
+      '調査',
+      'カテゴリー',
+    ])
+  ) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'cargo_global_catalog',
+      supported: true,
+      recommended_tools: ['get_cargo_catalog', 'import_cargo_catalog'],
+      route:
+        'Use get_cargo_catalog for the global research, supplier, intake, and publication queue. Use import_cargo_catalog for idempotent research bundles. Do not create tenant Company records for global Cargo supplier research.',
+      mutation_policy:
+        'import_cargo_catalog may create or update research rows and draft or ready-for-review snapshots. It never publishes an LP. Publication remains an explicit admin action in /manage/cargo.',
+      fallback_when_missing:
+        'If these tools are not visible, update or reconnect the Sanka MCP/plugin before falling back to direct API access. Never give an agent direct database credentials.',
+    };
+  }
+
   return {
     capability_version: CAPABILITY_GUIDANCE_VERSION,
     intent_family: 'general_sanka_capability',

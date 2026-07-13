@@ -11,6 +11,7 @@ import { ClientOptions } from 'sanka-sdk';
 import Sanka from 'sanka-sdk';
 import { browserUseTool } from './browser-use-tools';
 import { getCapabilityGuidanceTool } from './capability-guidance-tools';
+import { getCargoCatalogTool, importCargoCatalogTool } from './cargo-catalog-tools';
 import { codeTool } from './code-tool';
 import {
   cancelBuyRequestTool,
@@ -871,6 +872,8 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
   }
   includedTools.push(
     getCapabilityGuidanceTool,
+    getCargoCatalogTool,
+    importCargoCatalogTool,
     crmConnectSankaTool,
     crmAuthStatusTool,
     crmCurrentWorkspaceTool,
