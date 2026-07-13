@@ -6,6 +6,7 @@ import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
 import { compactProperties } from '../../internal/v2-object-records';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
 
 const buildProjectHeaders = (
   acceptLanguage: string | undefined,
@@ -19,6 +20,50 @@ const buildProjectHeaders = (
     },
     options?.headers,
   ]);
+
+type V2PublicProjectListData = {
+  items?: Array<PublicProject>;
+  page?: number;
+  page_size?: number;
+  total?: number;
+  next_cursor?: string | null;
+  meta?: Record<string, unknown> | null;
+};
+
+const unwrapProjectList = (
+  promise: APIPromise<V2Envelope<V2PublicProjectListData>>,
+): APIPromise<PublicProjectsListResponse> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    const items = Array.isArray(data.items) ? data.items : [];
+    const page = data.page ?? 1;
+    const pageSize = data.page_size ?? items.length;
+    const total = data.total ?? items.length;
+    const hasNext = data.next_cursor != null || (pageSize > 0 && total > page * pageSize);
+    return {
+      data: items,
+      page,
+      count: items.length,
+      total,
+      limit: pageSize,
+      has_next: hasNext,
+      next_page: hasNext ? page + 1 : null,
+      pagination: data.meta ?? null,
+      message: 'OK',
+      ctx_id: envelope.meta.ctx_id ?? null,
+    };
+  });
+
+const unwrapProjectData = <T extends { ctx_id?: string | null }>(
+  promise: APIPromise<V2Envelope<T>>,
+): APIPromise<T> =>
+  promise._thenUnwrap((envelope) => {
+    const data = unwrapV2Data(envelope);
+    return {
+      ...data,
+      ctx_id: data.ctx_id ?? envelope.meta.ctx_id ?? null,
+    };
+  });
 
 export class Projects extends APIResource {
   /**
@@ -39,19 +84,21 @@ export class Projects extends APIResource {
       lang,
       language,
     } = params ?? {};
-    return this._client.get<PublicProjectsListResponse>(this._client.v2Path('/public/projects'), {
-      query: {
-        ...(workspace_id != null ? { workspace_id } : undefined),
-        ...(isDefault != null ? { default: isDefault } : undefined),
-        ...(limit != null ? { limit } : undefined),
-        ...(page != null ? { page } : undefined),
-        ...(search != null ? { search } : undefined),
-        ...(lang != null ? { lang } : undefined),
-        ...(language != null ? { language } : undefined),
-      },
-      ...options,
-      headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
-    });
+    return unwrapProjectList(
+      this._client.v2Get<V2PublicProjectListData>('/public/projects', {
+        query: {
+          ...(workspace_id != null ? { workspace_id } : undefined),
+          ...(isDefault != null ? { default: isDefault } : undefined),
+          ...(limit != null ? { limit } : undefined),
+          ...(page != null ? { page } : undefined),
+          ...(search != null ? { search } : undefined),
+          ...(lang != null ? { lang } : undefined),
+          ...(language != null ? { language } : undefined),
+        },
+        ...options,
+        headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
+      }),
+    );
   }
 
   /**
@@ -63,13 +110,15 @@ export class Projects extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicProject> {
     const { 'Accept-Language': acceptLanguage, 'X-Language': xLanguage, workspace_id } = params ?? {};
-    return this._client.get<PublicProject>(this._client.v2Path(path`/public/projects/${projectID}`), {
-      query: {
-        ...(workspace_id != null ? { workspace_id } : undefined),
-      },
-      ...options,
-      headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
-    });
+    return this._client
+      .v2Get<PublicProject>(path`/public/projects/${projectID}`, {
+        query: {
+          ...(workspace_id != null ? { workspace_id } : undefined),
+        },
+        ...options,
+        headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
+      })
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope));
   }
 
   /**
@@ -77,11 +126,13 @@ export class Projects extends APIResource {
    */
   create(params: ProjectCreateParams, options?: RequestOptions): APIPromise<PublicProjectMutationResponse> {
     const { 'Accept-Language': acceptLanguage, 'X-Language': xLanguage, ...body } = params;
-    return this._client.post<PublicProjectMutationResponse>(this._client.v2Path('/public/projects'), {
-      body: compactProperties(body as Record<string, unknown>),
-      ...options,
-      headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
-    });
+    return unwrapProjectData(
+      this._client.v2Post<PublicProjectMutationResponse>('/public/projects', {
+        body: compactProperties(body as Record<string, unknown>),
+        ...options,
+        headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
+      }),
+    );
   }
 
   /**
@@ -93,13 +144,12 @@ export class Projects extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PublicProjectMutationResponse> {
     const { 'Accept-Language': acceptLanguage, 'X-Language': xLanguage, ...body } = params;
-    return this._client.put<PublicProjectMutationResponse>(
-      this._client.v2Path(path`/public/projects/${projectID}`),
-      {
+    return unwrapProjectData(
+      this._client.v2Put<PublicProjectMutationResponse>(path`/public/projects/${projectID}`, {
         body: compactProperties(body as Record<string, unknown>),
         ...options,
         headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
-      },
+      }),
     );
   }
 
@@ -117,16 +167,15 @@ export class Projects extends APIResource {
       replacement_project_id,
       clear_task_project,
     } = params ?? {};
-    return this._client.delete<PublicProjectDeleteResponse>(
-      this._client.v2Path(path`/public/projects/${projectID}`),
-      {
+    return unwrapProjectData(
+      this._client.v2Delete<PublicProjectDeleteResponse>(path`/public/projects/${projectID}`, {
         query: {
           ...(replacement_project_id != null ? { replacement_project_id } : undefined),
           ...(clear_task_project != null ? { clear_task_project } : undefined),
         },
         ...options,
         headers: buildProjectHeaders(acceptLanguage, xLanguage, options),
-      },
+      }),
     );
   }
 }
@@ -147,6 +196,8 @@ export interface PublicProject {
   project_id: string;
 
   title?: string | null;
+
+  description?: string | null;
 
   default?: boolean | null;
 
@@ -288,6 +339,11 @@ export interface ProjectCreateParams {
    * Body param
    */
   title?: string | null;
+
+  /**
+   * Body param
+   */
+  description?: string | null;
 
   /**
    * Body param

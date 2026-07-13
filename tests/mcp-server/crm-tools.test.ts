@@ -4947,7 +4947,14 @@ describe('ChatGPT CRM tools', () => {
 
   it('lists projects when authentication is present', async () => {
     const list = jest.fn().mockResolvedValue({
-      data: [{ id: 'project-1', project_id: 'project-1', title: 'Customer Onboarding' }],
+      data: [
+        {
+          id: 'project-1',
+          project_id: 'project-1',
+          title: 'Customer Onboarding',
+          description: 'Coordinate the customer rollout.',
+        },
+      ],
       page: 2,
       count: 1,
       total: 4,
@@ -4993,7 +5000,14 @@ describe('ChatGPT CRM tools', () => {
       total: 4,
       message: 'OK',
       permission: undefined,
-      results: [{ id: 'project-1', project_id: 'project-1', title: 'Customer Onboarding' }],
+      results: [
+        {
+          id: 'project-1',
+          project_id: 'project-1',
+          title: 'Customer Onboarding',
+          description: 'Coordinate the customer rollout.',
+        },
+      ],
     });
   });
 
@@ -5002,6 +5016,7 @@ describe('ChatGPT CRM tools', () => {
       id: 'project-1',
       project_id: 'project-1',
       title: 'Customer Onboarding',
+      description: 'Coordinate the customer rollout.',
       statuses: [{ id: 'status-1', name: 'Todo', internal_value: 'todo', order: 1 }],
       task_count: 2,
       active_task_count: 1,
@@ -5037,6 +5052,7 @@ describe('ChatGPT CRM tools', () => {
       id: 'project-1',
       project_id: 'project-1',
       title: 'Customer Onboarding',
+      description: 'Coordinate the customer rollout.',
       statuses: [{ id: 'status-1', name: 'Todo', internal_value: 'todo', order: 1 }],
       task_count: 2,
       active_task_count: 1,
@@ -5063,6 +5079,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         title: 'Customer Onboarding',
+        description: 'Coordinate the customer rollout.',
         default: false,
         statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
         language: 'en',
@@ -5072,6 +5089,7 @@ describe('ChatGPT CRM tools', () => {
     expect(create).toHaveBeenCalledWith(
       {
         title: 'Customer Onboarding',
+        description: 'Coordinate the customer rollout.',
         default: false,
         statuses: [{ name: 'Todo', internal_value: 'todo', order: 1 }],
         'Accept-Language': 'en',
@@ -5108,6 +5126,7 @@ describe('ChatGPT CRM tools', () => {
       args: {
         project_id: 'project-1',
         title: 'Customer Success',
+        description: 'Updated rollout overview.',
         statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
         language: 'ja',
       },
@@ -5117,6 +5136,7 @@ describe('ChatGPT CRM tools', () => {
       'project-1',
       {
         title: 'Customer Success',
+        description: 'Updated rollout overview.',
         statuses: [{ id: 'status-1', name: 'Done', internal_value: 'done', order: 2 }],
         'Accept-Language': 'ja',
         'X-Language': 'ja',
@@ -5129,6 +5149,33 @@ describe('ChatGPT CRM tools', () => {
       id: 'project-1',
       project_id: 'project-1',
     });
+  });
+
+  it('updates only the project description and preserves an empty value for clearing', async () => {
+    const update = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'updated',
+      id: 'project-1',
+      project_id: 'project-1',
+    });
+
+    await crmUpdateProjectTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            projects: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        project_id: 'project-1',
+        description: '  ',
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith('project-1', { description: '' }, undefined);
   });
 
   it('deletes a project with linked-task handling options', async () => {

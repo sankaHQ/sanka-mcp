@@ -821,6 +821,7 @@ type ProjectStatusPayload = {
 
 type ProjectMutationPayload = {
   title?: string;
+  description?: string | null;
   default?: boolean;
   statuses?: ProjectStatusPayload[];
   'Accept-Language'?: string;
@@ -4787,6 +4788,11 @@ const PROJECT_MUTATION_INPUT_PROPERTIES = {
   title: {
     type: 'string',
     description: 'Project title.',
+  },
+  description: {
+    type: ['string', 'null'] as any,
+    description:
+      'Project overview or description. Send an empty string or null when updating to clear the saved overview.',
   },
   default: {
     type: 'boolean',
@@ -9657,6 +9663,14 @@ const readProjectStatuses = (value: unknown): ProjectStatusPayload[] | undefined
 const buildProjectMutationBody = (args: Record<string, unknown> | undefined): ProjectMutationPayload => {
   const body: ProjectMutationPayload = {};
   assignStringFields(body, args, ['title']);
+  if (args && Object.prototype.hasOwnProperty.call(args, 'description')) {
+    const description = args['description'];
+    if (description === null) {
+      body.description = null;
+    } else if (typeof description === 'string') {
+      body.description = description.trim();
+    }
+  }
   const isDefault = readBoolean(args?.['default']);
   if (isDefault !== undefined) {
     body.default = isDefault;
@@ -20022,7 +20036,12 @@ export const crmCreateProjectTool: McpTool = {
     }
 
     const body = buildProjectMutationBody(args);
-    if (body.title === undefined && body.default === undefined && body.statuses === undefined) {
+    if (
+      body.title === undefined &&
+      body.description === undefined &&
+      body.default === undefined &&
+      body.statuses === undefined
+    ) {
       return asErrorResult('At least one project field is required.');
     }
 
@@ -20086,7 +20105,12 @@ export const crmUpdateProjectTool: McpTool = {
     }
 
     const body = buildProjectMutationBody(args);
-    if (body.title === undefined && body.default === undefined && body.statuses === undefined) {
+    if (
+      body.title === undefined &&
+      body.description === undefined &&
+      body.default === undefined &&
+      body.statuses === undefined
+    ) {
       return asErrorResult('At least one project field is required.');
     }
 

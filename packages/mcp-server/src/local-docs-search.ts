@@ -345,6 +345,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     qualified: 'client.public.projects.create',
     params: [
       'title?: string;',
+      'description?: string;',
       'default?: boolean;',
       'statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[];',
       "'Accept-Language'?: string;",
@@ -353,7 +354,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     response:
       '{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }',
     markdown:
-      "## create\n\n`client.public.projects.create(title?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**post** `/api/v2/public/projects`\n\nCreate Project\n\n### Parameters\n\n- `title?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.create({ title: 'Customer Onboarding' });\n\nconsole.log(project);\n```",
+      "## create\n\n`client.public.projects.create(title?: string, description?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**post** `/api/v2/public/projects`\n\nCreate Project\n\n### Parameters\n\n- `title?: string`\n\n- `description?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.create({ title: 'Customer Onboarding', description: 'Coordinate the rollout.' });\n\nconsole.log(project);\n```",
   },
   {
     name: 'retrieve',
@@ -370,9 +371,9 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       "'X-Language'?: string;",
     ],
     response:
-      '{ id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }',
+      '{ id: string; project_id: string; title?: string; description?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }',
     markdown:
-      "## retrieve\n\n`client.public.projects.retrieve(project_id: string, workspace_id?: string, 'Accept-Language'?: string, 'X-Language'?: string): { id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n**get** `/api/v2/public/projects/{project_id}`\n\nGet Project\n\n### Parameters\n\n- `project_id: string`\n\n- `workspace_id?: string`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ id: string; project_id: string; title?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.retrieve('project_id');\n\nconsole.log(project);\n```",
+      "## retrieve\n\n`client.public.projects.retrieve(project_id: string, workspace_id?: string, 'Accept-Language'?: string, 'X-Language'?: string): { id: string; project_id: string; title?: string; description?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n**get** `/api/v2/public/projects/{project_id}`\n\nGet Project\n\n### Parameters\n\n- `project_id: string`\n\n- `workspace_id?: string`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ id: string; project_id: string; title?: string; description?: string; default?: boolean; statuses?: object[]; task_count?: number; active_task_count?: number; created_at?: string; updated_at?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.retrieve('project_id');\n\nconsole.log(project);\n```",
   },
   {
     name: 'update',
@@ -385,6 +386,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     params: [
       'project_id: string;',
       'title?: string;',
+      'description?: string;',
       'default?: boolean;',
       'statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[];',
       "'Accept-Language'?: string;",
@@ -393,7 +395,7 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     response:
       '{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }',
     markdown:
-      "## update\n\n`client.public.projects.update(project_id: string, title?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**put** `/api/v2/public/projects/{project_id}`\n\nUpdate Project\n\n### Parameters\n\n- `project_id: string`\n\n- `title?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.update('project_id', { title: 'Customer Success' });\n\nconsole.log(project);\n```",
+      "## update\n\n`client.public.projects.update(project_id: string, title?: string, description?: string, default?: boolean, statuses?: object[], 'Accept-Language'?: string, 'X-Language'?: string): { ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n**put** `/api/v2/public/projects/{project_id}`\n\nUpdate Project\n\n### Parameters\n\n- `project_id: string`\n\n- `title?: string`\n\n- `description?: string`\n\n- `default?: boolean`\n\n- `statuses?: { id?: string; name?: string; internal_value?: string; order?: number; }[]`\n\n- `'Accept-Language'?: string`\n\n- `'X-Language'?: string`\n\n### Returns\n\n- `{ ok: boolean; status: string; id?: string; project_id?: string; project?: object; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst project = await client.public.projects.update('project_id', { description: 'Updated rollout overview.' });\n\nconsole.log(project);\n```",
   },
   {
     name: 'list',
