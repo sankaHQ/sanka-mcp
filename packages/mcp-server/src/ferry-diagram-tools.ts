@@ -194,9 +194,10 @@ const buildCreateBody = (args: Record<string, unknown> | undefined): FerryDiagra
   const nodes = readObjectArray(args?.['nodes']);
   const edges = readObjectArray(args?.['edges']);
   const viewport = readObject(args?.['viewport']);
+  const description = typeof args?.['description'] === 'string' ? args['description'].trim() : undefined;
   return {
     name,
-    description: typeof args?.['description'] === 'string' ? args['description'].trim() : '',
+    ...(description !== undefined ? { description } : undefined),
     nodes: (nodes ?? []) as unknown as FerryDiagramNode[],
     edges: (edges ?? []) as unknown as FerryDiagramEdge[],
     viewport: (viewport ?? { x: 0, y: 0, zoom: 1 }) as unknown as FerryDiagramViewport,
