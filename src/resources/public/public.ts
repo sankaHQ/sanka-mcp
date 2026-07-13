@@ -293,6 +293,28 @@ import {
   PublicProjectsListResponse,
   PublicProjectStatus,
 } from './projects';
+import * as FerryDiagramsAPI from './ferry-diagrams';
+import {
+  FerryDiagram,
+  FerryDiagramColor,
+  FerryDiagramCreateParams,
+  FerryDiagramDeleteData,
+  FerryDiagramDeleteParams,
+  FerryDiagramDocument,
+  FerryDiagramEdge,
+  FerryDiagramEdgeType,
+  FerryDiagramListData,
+  FerryDiagramListParams,
+  FerryDiagramNode,
+  FerryDiagramNodeData,
+  FerryDiagramNodeType,
+  FerryDiagramPosition,
+  FerryDiagramRetrieveParams,
+  FerryDiagrams,
+  FerryDiagramSummary,
+  FerryDiagramUpdateParams,
+  FerryDiagramViewport,
+} from './ferry-diagrams';
 import * as TasksAPI from './tasks';
 import {
   PublicTaskRequest,
@@ -457,6 +479,7 @@ export class Public extends APIResource {
   properties: PropertiesAPI.Properties = new PropertiesAPI.Properties(this._client);
   objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
   projects: ProjectsAPI.Projects = new ProjectsAPI.Projects(this._client);
+  ferryDiagrams: FerryDiagramsAPI.FerryDiagrams = new FerryDiagramsAPI.FerryDiagrams(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
   slips: SlipsAPI.Slips = new SlipsAPI.Slips(this._client);
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
@@ -492,6 +515,7 @@ Public.Meters = Meters;
 Public.Properties = Properties;
 Public.ObjectSchemas = ObjectSchemas;
 Public.Projects = Projects;
+Public.FerryDiagrams = FerryDiagrams;
 Public.PurchaseOrders = PurchaseOrders;
 Public.Slips = Slips;
 Public.Bills = Bills;
@@ -607,6 +631,28 @@ export declare namespace Public {
     type ProjectCreateParams as ProjectCreateParams,
     type ProjectUpdateParams as ProjectUpdateParams,
     type ProjectDeleteParams as ProjectDeleteParams,
+  };
+
+  export {
+    FerryDiagrams as FerryDiagrams,
+    type FerryDiagramNodeType as FerryDiagramNodeType,
+    type FerryDiagramColor as FerryDiagramColor,
+    type FerryDiagramEdgeType as FerryDiagramEdgeType,
+    type FerryDiagramPosition as FerryDiagramPosition,
+    type FerryDiagramViewport as FerryDiagramViewport,
+    type FerryDiagramNodeData as FerryDiagramNodeData,
+    type FerryDiagramNode as FerryDiagramNode,
+    type FerryDiagramEdge as FerryDiagramEdge,
+    type FerryDiagramDocument as FerryDiagramDocument,
+    type FerryDiagram as FerryDiagram,
+    type FerryDiagramSummary as FerryDiagramSummary,
+    type FerryDiagramListData as FerryDiagramListData,
+    type FerryDiagramDeleteData as FerryDiagramDeleteData,
+    type FerryDiagramListParams as FerryDiagramListParams,
+    type FerryDiagramRetrieveParams as FerryDiagramRetrieveParams,
+    type FerryDiagramCreateParams as FerryDiagramCreateParams,
+    type FerryDiagramUpdateParams as FerryDiagramUpdateParams,
+    type FerryDiagramDeleteParams as FerryDiagramDeleteParams,
   };
 
   export {

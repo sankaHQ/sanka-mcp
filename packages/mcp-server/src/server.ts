@@ -14,6 +14,13 @@ import { getCapabilityGuidanceTool } from './capability-guidance-tools';
 import { getCargoCatalogTool, importCargoCatalogTool } from './cargo-catalog-tools';
 import { codeTool } from './code-tool';
 import {
+  createFerryDiagramTool,
+  deleteFerryDiagramTool,
+  getFerryDiagramTool,
+  listFerryDiagramsTool,
+  updateFerryDiagramTool,
+} from './ferry-diagram-tools';
+import {
   cancelBuyRequestTool,
   confirmBuyOrderTool,
   createBuyBillTool,
@@ -988,6 +995,11 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateProjectTool,
     crmUpdateProjectTool,
     crmDeleteProjectTool,
+    listFerryDiagramsTool,
+    getFerryDiagramTool,
+    createFerryDiagramTool,
+    updateFerryDiagramTool,
+    deleteFerryDiagramTool,
     crmListTasksTool,
     crmGetTaskTool,
     crmCreateTaskTool,

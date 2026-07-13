@@ -167,6 +167,36 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/public/projects/{project_id}',
   },
   {
+    clientCallName: 'client.public.ferryDiagrams.list',
+    fullyQualifiedName: 'public.ferryDiagrams.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/ferry/diagrams',
+  },
+  {
+    clientCallName: 'client.public.ferryDiagrams.retrieve',
+    fullyQualifiedName: 'public.ferryDiagrams.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/ferry/diagrams/{diagram_id}',
+  },
+  {
+    clientCallName: 'client.public.ferryDiagrams.create',
+    fullyQualifiedName: 'public.ferryDiagrams.create',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/ferry/diagrams',
+  },
+  {
+    clientCallName: 'client.public.ferryDiagrams.update',
+    fullyQualifiedName: 'public.ferryDiagrams.update',
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/ferry/diagrams/{diagram_id}',
+  },
+  {
+    clientCallName: 'client.public.ferryDiagrams.delete',
+    fullyQualifiedName: 'public.ferryDiagrams.delete',
+    httpMethod: 'delete',
+    httpPath: '/api/v2/public/ferry/diagrams/{diagram_id}',
+  },
+  {
     clientCallName: 'client.public.tasks.create',
     fullyQualifiedName: 'public.tasks.create',
     httpMethod: 'post',
