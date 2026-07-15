@@ -99,6 +99,62 @@ describe('protected resource metadata route', () => {
     });
   });
 
+  it('serves the configured HTTPS resource URL in production metadata', async () => {
+    const configuredApp = streamableHTTPApp({
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.sanka.com/',
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        scopesSupported: [TEST_ADVERTISED_SCOPE],
+      },
+    });
+    const configuredServer = await new Promise<http.Server>((resolve) => {
+      const listener = configuredApp.listen(0, () => resolve(listener));
+    });
+
+    try {
+      const address = configuredServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${address.port}/.well-known/oauth-protected-resource`);
+      const body = (await response.json()) as { resource?: string };
+
+      expect(response.status).toBe(200);
+      expect(body.resource).toBe('https://mcp.sanka.com/mcp');
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        configuredServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('returns a generic JSON response for malformed JSON without framework headers', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: '{',
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('x-powered-by')).toBeNull();
+    expect(JSON.parse(text)).toEqual({
+      error: 'invalid_json',
+      error_description: 'Request body must contain valid JSON.',
+    });
+    expect(text).not.toContain('SyntaxError');
+    expect(text).not.toContain('/app/');
+    expect(text).not.toContain('node_modules');
+  });
+
+  it('does not expose the Express framework header', async () => {
+    const response = await fetch(`${baseUrl}/health`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-powered-by')).toBeNull();
+  });
+
   it('ignores forwarded host headers when deriving protected resource metadata', async () => {
     const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
       headers: {
