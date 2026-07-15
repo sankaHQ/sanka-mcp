@@ -922,6 +922,7 @@ export const streamableHTTPApp = ({
   mcpOptions: McpOptions;
 }): express.Express => {
   const app = express();
+  app.disable('x-powered-by');
   app.set('query parser', 'extended');
   app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
@@ -998,6 +999,31 @@ export const streamableHTTPApp = ({
     app.delete(routePath, streamableHandler);
   }
   app.use(expressErrorLogger());
+  app.use(((error: unknown, _req, res, next) => {
+    if (res.headersSent) {
+      next(error);
+      return;
+    }
+
+    const candidate = error as { status?: unknown; type?: unknown };
+    const status = typeof candidate?.status === 'number' ? candidate.status : 500;
+    const isInvalidJson =
+      error instanceof SyntaxError && status === 400 && candidate.type === 'entity.parse.failed';
+    if (isInvalidJson) {
+      res.status(400).json({
+        error: 'invalid_json',
+        error_description: 'Request body must contain valid JSON.',
+      });
+      return;
+    }
+
+    const publicStatus = status >= 400 && status < 500 ? status : 500;
+    res.status(publicStatus).json({
+      error: publicStatus === 500 ? 'internal_server_error' : 'invalid_request',
+      error_description:
+        publicStatus === 500 ? 'The server could not process the request.' : 'The request is invalid.',
+    });
+  }) satisfies express.ErrorRequestHandler);
 
   return app;
 };

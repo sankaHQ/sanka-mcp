@@ -49,6 +49,7 @@ FROM denoland/deno:alpine-2.7.1
 RUN apk add --no-cache nodejs npm
 
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
+ENV NODE_ENV=production
 
 # Add non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
