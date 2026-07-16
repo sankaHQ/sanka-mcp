@@ -2412,6 +2412,11 @@ const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
       description:
         'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
     },
+    expected_sender_email: {
+      type: 'string',
+      description:
+        'Confirmed sender address. Optional when only one distinct send-capable email is connected across personal and workspace inboxes. When multiple addresses are connected, ask the user to confirm the exact sender before setting this value; never infer it or retry a sender-confirmation error without new user approval.',
+    },
     language: {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
@@ -2603,6 +2608,11 @@ const WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA = {
       type: 'boolean',
       description:
         'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+    },
+    expected_sender_email: {
+      type: 'string',
+      description:
+        'Confirmed sender address. Optional when only one distinct send-capable email is connected across personal and workspace inboxes. When multiple addresses are connected, ask the user to confirm the exact sender before setting this value; never infer it or retry a sender-confirmation error without new user approval.',
     },
     language: {
       type: 'string',
@@ -8439,10 +8449,12 @@ const buildPrivateMessageThreadLanguageParams = (args: Record<string, unknown> |
 
 const buildPrivateMessageReplyParams = (args: Record<string, unknown> | undefined) => {
   const body = readString(args?.['body']);
+  const expectedSenderEmail = readString(args?.['expected_sender_email']);
   const language = readString(args?.['language']);
 
   return {
     ...(body ? { body } : undefined),
+    ...(expectedSenderEmail ? { expected_sender_email: expectedSenderEmail } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
@@ -8589,10 +8601,12 @@ const buildWorkspaceMessageThreadLanguageParams = (args: Record<string, unknown>
 
 const buildWorkspaceMessageReplyParams = (args: Record<string, unknown> | undefined) => {
   const body = readString(args?.['body']);
+  const expectedSenderEmail = readString(args?.['expected_sender_email']);
   const language = readString(args?.['language']);
 
   return {
     ...(body ? { body } : undefined),
+    ...(expectedSenderEmail ? { expected_sender_email: expectedSenderEmail } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
@@ -21352,7 +21366,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     name: 'reply_private_message_thread',
     title: 'Reply private message thread',
     description:
-      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
+      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. If multiple distinct send-capable email addresses are connected across personal and workspace inboxes, the user must also confirm the exact sender via expected_sender_email; with one address it may be omitted. Drafting or writing a reply is not send authorization. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -21390,7 +21404,11 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
 
     const payload = (await reqContext.client.public.accountMessages.threads.reply(
       threadID,
-      buildPrivateMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
+      buildPrivateMessageReplyParams(args) as {
+        body: string;
+        expected_sender_email?: string;
+        'Accept-Language'?: string;
+      },
       undefined,
     )) as unknown as Record<string, unknown>;
 
@@ -21600,7 +21618,7 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
     name: 'reply_workspace_message_thread',
     title: 'Reply workspace message thread',
     description:
-      'Send a reply from the shared workspace identity attached to a Sanka workspace/integration inbox thread. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal inbox threads.',
+      'Send a reply from the shared workspace identity attached to a Sanka workspace/integration inbox thread. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. If multiple distinct send-capable email addresses are connected across personal and workspace inboxes, the user must also confirm the exact sender via expected_sender_email; with one address it may be omitted. Drafting or writing a reply is not send authorization. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal inbox threads.',
     inputSchema: WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -21638,7 +21656,11 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
 
     const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
       threadID,
-      buildWorkspaceMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
+      buildWorkspaceMessageReplyParams(args) as {
+        body: string;
+        expected_sender_email?: string;
+        'Accept-Language'?: string;
+      },
       undefined,
     )) as unknown as Record<string, unknown>;
 

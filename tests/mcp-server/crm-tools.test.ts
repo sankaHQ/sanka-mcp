@@ -2509,6 +2509,7 @@ describe('ChatGPT CRM tools', () => {
         thread_id: 'thread-1',
         body: 'Thanks for the update.',
         confirm_send: true,
+        expected_sender_email: 'haegwan@sanka.com',
         language: 'en',
       },
     });
@@ -2517,6 +2518,7 @@ describe('ChatGPT CRM tools', () => {
       'thread-1',
       {
         body: 'Thanks for the update.',
+        expected_sender_email: 'haegwan@sanka.com',
         'Accept-Language': 'en',
       },
       undefined,
@@ -2814,6 +2816,7 @@ describe('ChatGPT CRM tools', () => {
         thread_id: 'workspace-thread-1',
         body: 'Thanks for the update.',
         confirm_send: true,
+        expected_sender_email: 'hey@sanka.com',
         language: 'en',
       },
     });
@@ -2822,6 +2825,7 @@ describe('ChatGPT CRM tools', () => {
       'workspace-thread-1',
       {
         body: 'Thanks for the update.',
+        expected_sender_email: 'hey@sanka.com',
         'Accept-Language': 'en',
       },
       undefined,

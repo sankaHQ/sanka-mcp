@@ -86,7 +86,10 @@ describe('public account message resources on V2', () => {
       data: messagesData,
     });
     await expect(
-      client.public.accountMessages.threads.reply('thread-1', { body: 'Thanks' }),
+      client.public.accountMessages.threads.reply('thread-1', {
+        body: 'Thanks',
+        expected_sender_email: 'haegwan@sanka.com',
+      }),
     ).resolves.toMatchObject({
       data: {
         thread_id: 'thread-1',
