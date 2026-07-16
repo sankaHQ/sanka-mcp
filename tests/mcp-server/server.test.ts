@@ -59,6 +59,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_workspace_messages');
     expect(toolNames).toContain('sync_workspace_messages');
     expect(toolNames).toContain('get_workspace_message_thread');
+    expect(toolNames).toContain('reply_workspace_message_thread');
     expect(toolNames).toContain('list_associations');
     expect(toolNames).toContain('create_association');
     expect(toolNames).toContain('delete_association');
@@ -329,6 +330,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_workspace_messages');
     expect(toolNames).toContain('sync_workspace_messages');
     expect(toolNames).toContain('get_workspace_message_thread');
+    expect(toolNames).toContain('reply_workspace_message_thread');
     expect(toolNames).toContain('list_associations');
     expect(toolNames).toContain('create_association');
     expect(toolNames).toContain('delete_association');
@@ -552,6 +554,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_workspace_messages');
     expect(instructions).toContain('sync_workspace_messages');
     expect(instructions).toContain('get_workspace_message_thread');
+    expect(instructions).toContain('reply_workspace_message_thread');
     expect(instructions).toContain('list_associations');
     expect(instructions).toContain('create_association');
     expect(instructions).toContain('delete_association');
@@ -772,6 +775,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_workspace_messages');
     expect(instructions).toContain('sync_workspace_messages');
     expect(instructions).toContain('get_workspace_message_thread');
+    expect(instructions).toContain('reply_workspace_message_thread');
     expect(instructions).toContain('list_associations');
     expect(instructions).toContain('create_association');
     expect(instructions).toContain('delete_association');

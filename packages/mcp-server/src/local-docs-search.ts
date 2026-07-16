@@ -184,9 +184,9 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     qualified: 'client.public.accountMessages.threads.reply',
     params: ['thread_id: string;', 'body: string;', "'Accept-Language'?: string;"],
     response:
-      '{ data: { thread_id: string; has_unread: boolean; message_id?: string; }; message: string; ctx_id?: string; }',
+      '{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }',
     markdown:
-      "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/me/messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.' });\n\nconsole.log(response);\n```",
+      "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/me/messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.' });\n\nconsole.log(response);\n```",
   },
   {
     name: 'list',
@@ -230,6 +230,20 @@ const EMBEDDED_METHODS: MethodEntry[] = [
       '{ data: { id: string; title: string; channel_id: string; channel_label: string; counterparty: string; preview: string; has_unread: boolean; message_count: number; message_type: string; open_in_web_url: string; can_reply: boolean; reply_target?: string; messages: object[]; last_message_at?: string; }; message: string; ctx_id?: string; }',
     markdown:
       "## retrieve\n\n`client.public.workspaceMessages.threads.retrieve(thread_id: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**get** `/api/v2/workspace/messages/threads/{thread_id}`\n\nLoad one shared workspace/integration inbox thread, including message history/body. Use for /conversation and integration-linked Gmail threads.\n\n### Example\n\n```typescript\nconst response = await client.public.workspaceMessages.threads.retrieve('thread_id');\n```",
+  },
+  {
+    name: 'reply',
+    endpoint: '/api/v2/workspace/messages/threads/{thread_id}/reply',
+    httpMethod: 'post',
+    summary: 'Reply To Workspace Message Thread',
+    description: 'Send a reply from a shared workspace inbox and return the actual sender email.',
+    stainlessPath: '(resource) public.workspaceMessages.threads > (method) reply',
+    qualified: 'client.public.workspaceMessages.threads.reply',
+    params: ['thread_id: string;', 'body: string;', "'Accept-Language'?: string;"],
+    response:
+      '{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }',
+    markdown:
+      "## reply\n\n`client.public.workspaceMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/workspace/messages/threads/{thread_id}/reply`\n\nSend a reply from the shared workspace identity attached to the thread and return the actual sender email.",
   },
   {
     name: 'create',

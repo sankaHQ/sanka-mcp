@@ -36,6 +36,27 @@ export class Threads extends APIResource {
       }),
     );
   }
+
+  /**
+   * Reply To Workspace Message Thread
+   */
+  reply(
+    threadID: string,
+    params: WorkspaceMessageThreadReplyParams,
+    options?: RequestOptions,
+  ): APIPromise<WorkspaceMessageThreadReplyResponse> {
+    const { 'Accept-Language': acceptLanguage, ...body } = params;
+    return wrapV2WorkspaceMessageEnvelope(
+      this._client.post(path`/api/v2/workspace/messages/threads/${threadID}/reply`, {
+        body,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
+  }
 }
 
 export interface WorkspaceMessageThreadMessage {
@@ -70,7 +91,36 @@ export interface WorkspaceMessageThreadDetailResponse {
   ctx_id?: string | null;
 }
 
+export interface WorkspaceMessageThreadReplyData {
+  thread_id: string;
+
+  has_unread: boolean;
+
+  sender_email: string;
+
+  integration_slug: string;
+
+  message_id?: string | null;
+}
+
+export interface WorkspaceMessageThreadReplyResponse {
+  data: WorkspaceMessageThreadReplyData;
+
+  message: string;
+
+  ctx_id?: string | null;
+}
+
 export interface WorkspaceMessageThreadRetrieveParams {
+  /**
+   * Header param
+   */
+  'Accept-Language'?: string | null;
+}
+
+export interface WorkspaceMessageThreadReplyParams {
+  body: string;
+
   /**
    * Header param
    */
@@ -83,5 +133,8 @@ export declare namespace Threads {
     type WorkspaceMessageThreadDetail as WorkspaceMessageThreadDetail,
     type WorkspaceMessageThreadDetailResponse as WorkspaceMessageThreadDetailResponse,
     type WorkspaceMessageThreadRetrieveParams as WorkspaceMessageThreadRetrieveParams,
+    type WorkspaceMessageThreadReplyData as WorkspaceMessageThreadReplyData,
+    type WorkspaceMessageThreadReplyResponse as WorkspaceMessageThreadReplyResponse,
+    type WorkspaceMessageThreadReplyParams as WorkspaceMessageThreadReplyParams,
   };
 }

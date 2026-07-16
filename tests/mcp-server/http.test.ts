@@ -583,6 +583,7 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"name":"list_workspace_messages"');
     expect(text).toContain('"name":"sync_workspace_messages"');
     expect(text).toContain('"name":"get_workspace_message_thread"');
+    expect(text).toContain('"name":"reply_workspace_message_thread"');
     expect(text).toContain('"name":"list_companies"');
     expect(text).toContain('"name":"get_company"');
     expect(text).toContain('"name":"create_company"');
@@ -855,6 +856,7 @@ describe('protected resource metadata route', () => {
           arguments: {
             thread_id: 'thread-1',
             body: 'Thanks for the update.',
+            confirm_send: true,
           },
         },
       }),

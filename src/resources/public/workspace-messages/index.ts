@@ -9,6 +9,9 @@ export {
   type WorkspaceMessageThreadDetail,
   type WorkspaceMessageThreadDetailResponse,
   type WorkspaceMessageThreadMessage,
+  type WorkspaceMessageThreadReplyData,
+  type WorkspaceMessageThreadReplyParams,
+  type WorkspaceMessageThreadReplyResponse,
   type WorkspaceMessageThreadRetrieveParams,
   type Threads,
 } from './workspace-messages';

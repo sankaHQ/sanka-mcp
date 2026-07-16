@@ -182,6 +182,7 @@ import {
   crmQueryRecordsTool,
   crmReadBinaryDownloadChunkTool,
   crmReplyPrivateMessageThreadTool,
+  crmReplyWorkspaceMessageThreadTool,
   crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
   crmSaveContractPlaceFieldsTool,
@@ -2487,6 +2488,8 @@ describe('ChatGPT CRM tools', () => {
         thread_id: 'thread-1',
         message_id: 'message-2',
         has_unread: false,
+        sender_email: 'haegwan@sanka.com',
+        integration_slug: 'gmail',
       },
     });
 
@@ -2502,7 +2505,12 @@ describe('ChatGPT CRM tools', () => {
         auth: oauthContext(),
         toolProfile: 'full',
       },
-      args: { thread_id: 'thread-1', body: 'Thanks for the update.', language: 'en' },
+      args: {
+        thread_id: 'thread-1',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+        language: 'en',
+      },
     });
 
     expect(reply).toHaveBeenCalledWith(
@@ -2519,7 +2527,34 @@ describe('ChatGPT CRM tools', () => {
       thread_id: 'thread-1',
       message_id: 'message-2',
       has_unread: false,
+      sender_email: 'haegwan@sanka.com',
+      integration_slug: 'gmail',
     });
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Replied to private message thread thread-1 from haegwan@sanka.com.' },
+    ]);
+  });
+
+  it('does not reply to a private message thread without explicit send confirmation', async () => {
+    const reply = jest.fn();
+
+    const result = await crmReplyPrivateMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'thread-1', body: 'Draft only' },
+    });
+
+    expect(reply).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
   });
 
   it('archives a private message thread', async () => {
@@ -2748,6 +2783,86 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+  });
+
+  it('replies to a workspace message thread from the returned sender identity', async () => {
+    const reply = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-workspace-reply',
+      data: {
+        thread_id: 'workspace-thread-1',
+        message_id: 'workspace-message-2',
+        has_unread: false,
+        sender_email: 'hey@sanka.com',
+        integration_slug: 'gmail',
+      },
+    });
+
+    const result = await crmReplyWorkspaceMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        thread_id: 'workspace-thread-1',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+        language: 'en',
+      },
+    });
+
+    expect(reply).toHaveBeenCalledWith(
+      'workspace-thread-1',
+      {
+        body: 'Thanks for the update.',
+        'Accept-Language': 'en',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-workspace-reply',
+      thread_id: 'workspace-thread-1',
+      message_id: 'workspace-message-2',
+      has_unread: false,
+      sender_email: 'hey@sanka.com',
+      integration_slug: 'gmail',
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Replied to shared workspace message thread workspace-thread-1 from hey@sanka.com.',
+      },
+    ]);
+  });
+
+  it('does not reply to a workspace message thread without explicit send confirmation', async () => {
+    const reply = jest.fn();
+
+    const result = await crmReplyWorkspaceMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { thread_id: 'workspace-thread-1', body: 'Draft only' },
+    });
+
+    expect(reply).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
   });
 
   it('lists companies when authentication is present', async () => {

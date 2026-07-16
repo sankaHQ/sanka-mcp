@@ -58,6 +58,15 @@ describe('public workspace messages v2 resource', () => {
       fetch: async (url) => {
         const requestURL = String(url);
         calls.push(requestURL);
+        if (requestURL.includes('/reply')) {
+          return envelope({
+            thread_id: 'workspace-thread-1',
+            has_unread: false,
+            message_id: 'workspace-message-2',
+            sender_email: 'hey@sanka.com',
+            integration_slug: 'gmail',
+          });
+        }
         if (requestURL.includes('/threads/workspace-thread-1')) {
           return envelope(threadData);
         }
@@ -75,6 +84,19 @@ describe('public workspace messages v2 resource', () => {
       data: threadData,
     });
     await expect(
+      client.public.workspaceMessages.threads.reply('workspace-thread-1', {
+        body: 'Thanks for the update.',
+      }),
+    ).resolves.toMatchObject({
+      data: {
+        thread_id: 'workspace-thread-1',
+        has_unread: false,
+        message_id: 'workspace-message-2',
+        sender_email: 'hey@sanka.com',
+        integration_slug: 'gmail',
+      },
+    });
+    await expect(
       client.public.workspaceMessages.sync({ channel_id: 'channel-support', status: 'active' }),
     ).resolves.toMatchObject({
       data: messagesData,
@@ -84,6 +106,7 @@ describe('public workspace messages v2 resource', () => {
     expect(calls).toEqual([
       'http://localhost:5000/api/v2/workspace/messages?status=active',
       'http://localhost:5000/api/v2/workspace/messages/threads/workspace-thread-1',
+      'http://localhost:5000/api/v2/workspace/messages/threads/workspace-thread-1/reply',
       'http://localhost:5000/api/v2/workspace/messages/sync',
     ]);
   });

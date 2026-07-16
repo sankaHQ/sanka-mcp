@@ -57,7 +57,13 @@ describe('public account message resources on V2', () => {
         const requestURL = String(url);
         calls.push(requestURL);
         if (requestURL.includes('/reply')) {
-          return envelope({ thread_id: 'thread-1', has_unread: false, message_id: 'message-2' });
+          return envelope({
+            thread_id: 'thread-1',
+            has_unread: false,
+            message_id: 'message-2',
+            sender_email: 'haegwan@sanka.com',
+            integration_slug: 'gmail',
+          });
         }
         if (requestURL.includes('/threads/thread-1') && !requestURL.includes('/archive')) {
           return envelope(threadData);
@@ -82,7 +88,13 @@ describe('public account message resources on V2', () => {
     await expect(
       client.public.accountMessages.threads.reply('thread-1', { body: 'Thanks' }),
     ).resolves.toMatchObject({
-      data: { thread_id: 'thread-1', has_unread: false, message_id: 'message-2' },
+      data: {
+        thread_id: 'thread-1',
+        has_unread: false,
+        message_id: 'message-2',
+        sender_email: 'haegwan@sanka.com',
+        integration_slug: 'gmail',
+      },
     });
     await expect(client.public.accountMessages.sync()).resolves.toMatchObject({
       data: messagesData,

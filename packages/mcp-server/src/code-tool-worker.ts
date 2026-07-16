@@ -130,7 +130,6 @@ const fuse = new Fuse(
     'client.public.accountMessages.list',
     'client.public.accountMessages.sync',
     'client.public.accountMessages.threads.archive',
-    'client.public.accountMessages.threads.reply',
     'client.public.accountMessages.threads.retrieve',
     'client.public.workspaceMessages.list',
     'client.public.workspaceMessages.sync',
