@@ -4417,7 +4417,9 @@ describe('ChatGPT CRM tools', () => {
         order: {
           external_id: 'ORD-1',
           company_external_id: 'COMP-1',
+          custom_fields: { owner_email: 'owner@example.com' },
           order_at: '2026-04-09T09:00:00Z',
+          send_from: 'Sanka Sales\n100 Market St',
           line_items: [{ item_external_id: 'ITEM-1', quantity: 2, unit_price: 50, tax_rate: 10 }],
         },
       },
@@ -4429,7 +4431,9 @@ describe('ChatGPT CRM tools', () => {
         order: {
           externalId: 'ORD-1',
           companyExternalId: 'COMP-1',
+          custom_fields: { owner_email: 'owner@example.com' },
           orderAt: '2026-04-09T09:00:00Z',
+          send_from: 'Sanka Sales\n100 Market St',
           attachment_file: {
             files: [{ file_id: 'file-1' }],
           },
@@ -4465,9 +4469,9 @@ describe('ChatGPT CRM tools', () => {
         order_id: 'order-1',
         trigger_workflows: false,
         order: {
-          external_id: 'ORD-1',
+          custom_fields: { owner_email: 'updated@example.com' },
           delivery_status: 'shipped',
-          items: [{ item_id: 'item-1', quantity: 1, tax_rate: 0.1 }],
+          send_from: 'Updated Sanka Sales\n100 Market St',
         },
       },
     });
@@ -4477,9 +4481,9 @@ describe('ChatGPT CRM tools', () => {
       {
         triggerWorkflows: false,
         order: {
-          externalId: 'ORD-1',
+          custom_fields: { owner_email: 'updated@example.com' },
           deliveryStatus: 'shipped',
-          items: [{ item_id: 'item-1', quantity: 1, tax_rate: 0.1 }],
+          send_from: 'Updated Sanka Sales\n100 Market St',
         },
       },
       undefined,
@@ -5737,6 +5741,7 @@ describe('ChatGPT CRM tools', () => {
         total_price: 100,
         currency: 'USD',
         attachment_file_ids: ['file-1'],
+        custom_fields: { owner_email: 'estimate-owner@example.com' },
         line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
     });
@@ -5749,6 +5754,7 @@ describe('ChatGPT CRM tools', () => {
         attachment_file: {
           files: [{ file_id: 'file-1' }],
         },
+        custom_fields: { owner_email: 'estimate-owner@example.com' },
         line_items: [{ item_name: 'Discovery', quantity: 2, unit_price: 50, tax_rate: 10 }],
       },
       undefined,
@@ -5780,6 +5786,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         estimate_id: 'estimate-1',
+        custom_fields: { owner_email: 'updated-estimate-owner@example.com' },
         status: 'sent',
         notes: 'Updated notes',
       },
@@ -5788,6 +5795,7 @@ describe('ChatGPT CRM tools', () => {
     expect(update).toHaveBeenCalledWith(
       'estimate-1',
       {
+        custom_fields: { owner_email: 'updated-estimate-owner@example.com' },
         status: 'sent',
         notes: 'Updated notes',
       },
@@ -6281,7 +6289,9 @@ describe('ChatGPT CRM tools', () => {
         total_price: 120,
         currency: 'USD',
         attachment_file_ids: ['file-1'],
+        custom_fields: { owner_email: 'owner@example.com' },
         line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
+        send_from: 'Sanka Billing\n100 Market St',
       },
     });
 
@@ -6293,7 +6303,9 @@ describe('ChatGPT CRM tools', () => {
         attachment_file: {
           files: [{ file_id: 'file-1' }],
         },
+        custom_fields: { owner_email: 'owner@example.com' },
         line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120, tax_rate: 10 }],
+        send_from: 'Sanka Billing\n100 Market St',
       },
       undefined,
     );
@@ -6380,16 +6392,22 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         invoice_id: 'invoice-1',
+        custom_fields: { owner_email: 'updated@example.com' },
         due_date: '2026-06-30',
+        line_items: [{ item_name: 'Retainer', quantity: 1, unit_price: 200, tax_rate: 10 }],
         notes: 'Updated invoice notes',
+        send_from: 'Updated Sanka Billing\n100 Market St',
       },
     });
 
     expect(update).toHaveBeenCalledWith(
       'invoice-1',
       {
+        custom_fields: { owner_email: 'updated@example.com' },
         due_date: '2026-06-30',
+        line_items: [{ item_name: 'Retainer', quantity: 1, unit_price: 200, tax_rate: 10 }],
         notes: 'Updated invoice notes',
+        send_from: 'Updated Sanka Billing\n100 Market St',
       },
       undefined,
     );
