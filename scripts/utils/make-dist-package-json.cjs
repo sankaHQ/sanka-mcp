@@ -1,4 +1,18 @@
-const pkgJson = require(process.env['PKG_JSON_PATH'] || '../../package.json');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const repositoryRoot = path.resolve(__dirname, '../..');
+const packageJsonPath =
+  process.env['PKG_JSON_PATH'] ?
+    path.resolve(process.cwd(), process.env['PKG_JSON_PATH'])
+  : path.join(repositoryRoot, 'package.json');
+const relativePackageJsonPath = path.relative(repositoryRoot, packageJsonPath);
+
+if (relativePackageJsonPath.startsWith('..') || path.isAbsolute(relativePackageJsonPath)) {
+  throw new Error('PKG_JSON_PATH must resolve within the repository.');
+}
+
+const pkgJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 function processExportMap(m) {
   for (const key in m) {

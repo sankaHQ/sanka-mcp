@@ -102,6 +102,26 @@ function getTSDiagnostics(code: string): string[] {
   });
 }
 
+export function buildRunModuleSource(code: string): string {
+  const transpiled = ts.transpileModule(code, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return `${transpiled}\nexport { run as default };`;
+}
+
+async function loadRunFunction(code: string): Promise<(client: Sanka) => unknown> {
+  const moduleSource = buildRunModuleSource(code);
+  const moduleURL = `data:text/javascript;charset=utf-8,${encodeURIComponent(moduleSource)}`;
+  const loaded = (await import(moduleURL)) as { default?: unknown };
+  if (typeof loaded.default !== 'function') {
+    throw new TypeError('The top-level `run` value must be a function.');
+  }
+  return loaded.default as (client: Sanka) => unknown;
+}
+
 const fuse = new Fuse(
   [
     'client.enrich.create',
@@ -401,7 +421,7 @@ const fetch = async (req: Request): Promise<Response> => {
 
   const log_lines: string[] = [];
   const err_lines: string[] = [];
-  const console = {
+  const capturedConsole = {
     log: (...args: unknown[]) => {
       log_lines.push(util.format(...args));
     },
@@ -409,9 +429,10 @@ const fetch = async (req: Request): Promise<Response> => {
       err_lines.push(util.format(...args));
     },
   };
+  const originalConsole = globalThis.console;
   try {
-    let run_ = async (client: any) => {};
-    eval(`${code}\nrun_ = run;`);
+    globalThis.console = capturedConsole as Console;
+    const run_ = await loadRunFunction(code);
     const result = await run_(makeSdkProxy(client, { path: ['client'] }));
     return Response.json({
       is_error: false,
@@ -429,6 +450,8 @@ const fetch = async (req: Request): Promise<Response> => {
       } satisfies WorkerOutput,
       { status: 400, statusText: 'Code execution error' },
     );
+  } finally {
+    globalThis.console = originalConsole;
   }
 };
 

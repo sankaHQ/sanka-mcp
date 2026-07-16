@@ -29,6 +29,34 @@ Variables will not persist between calls, so make sure to return or log any data
 Remember that you are writing TypeScript code, so you need to be careful with your types.
 Always type dynamic key-value stores explicitly as Record<string, YourValueType> instead of {}.`;
 
+const CODE_WORKER_ENV_NAMES = [
+  'SANKA_API_KEY',
+  'SANKA_API_VERSION',
+  'SANKA_BASE_URL',
+  'SANKA_LOG',
+  'SANKA_WORKSPACE_CODE',
+] as const;
+
+export const codeWorkerRunFlags = ({
+  allowRead,
+  baseURLHostname,
+}: {
+  allowRead: string;
+  baseURLHostname: string;
+}): string[] => [
+  '--node-modules-dir=manual',
+  `--allow-read=${allowRead}`,
+  `--allow-net=${baseURLHostname}`,
+  `--allow-env=${CODE_WORKER_ENV_NAMES.join(',')}`,
+];
+
+export const codeWorkerSpawnEnv = (env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv =>
+  Object.fromEntries(
+    ['DENO_DIR', 'HOME', 'NO_COLOR', 'PATH', 'SSL_CERT_DIR', 'SSL_CERT_FILE', 'TMPDIR']
+      .map((name) => [name, env[name]])
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+
 /**
  * A tool that runs code against a copy of the SDK.
  *
@@ -176,18 +204,11 @@ const localDenoHandler = async ({
 
   const worker = await newDenoHTTPWorker(url.pathToFileURL(workerPath), {
     denoExecutable: denoPath,
-    runFlags: [
-      `--node-modules-dir=manual`,
-      `--allow-read=${allowRead}`,
-      `--allow-net=${baseURLHostname}`,
-      // Allow environment variables because instantiating the client will try to read from them,
-      // even though they are not set.
-      '--allow-env',
-    ],
+    runFlags: codeWorkerRunFlags({ allowRead, baseURLHostname }),
     printOutput: true,
     spawnOptions: {
       cwd: path.dirname(workerPath),
-      env: { ...process.env },
+      env: codeWorkerSpawnEnv(),
     },
   });
 

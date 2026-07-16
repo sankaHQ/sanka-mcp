@@ -51,10 +51,12 @@
     "typescript-eslint": "8.31.1"
   },
   "overrides": {
+    "handlebars": "4.7.9",
     "minimatch": "^9.0.5"
   },
   "pnpm": {
     "overrides": {
+      "handlebars": "4.7.9",
       "minimatch": "^9.0.5"
     }
   },

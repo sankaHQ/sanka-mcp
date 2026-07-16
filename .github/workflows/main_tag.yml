@@ -52,14 +52,17 @@ jobs:
 
       - name: Calculate next version
         id: next-tag
+        env:
+          DEPLOY_VERSION: ${{ github.event.inputs.deploy-version }}
+          LATEST_TAG: ${{ steps.latest-tag.outputs.latest }}
         run: |
-          latest="${{ steps.latest-tag.outputs.latest }}"
+          latest="$LATEST_TAG"
           IFS='.' read -ra parts <<< "$latest"
           major=${parts[0]}
           minor=${parts[1]}
           patch=${parts[2]}
 
-          case "${{ github.event.inputs.deploy-version }}" in
+          case "$DEPLOY_VERSION" in
             patch)
               patch=$((patch + 1))
               ;;
@@ -81,8 +84,9 @@ jobs:
         id: check-tag
         env:
           GH_TOKEN: ${{ github.token }}
+          NEXT_VERSION: ${{ steps.next-tag.outputs.version }}
         run: |
-          version="${{ steps.next-tag.outputs.version }}"
+          version="$NEXT_VERSION"
           while gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${version}" >/dev/null 2>&1; do
             echo "Tag $version already exists. Incrementing..."
             IFS='.' read -ra parts <<< "$version"
@@ -93,10 +97,12 @@ jobs:
 
       - name: Create tag and release
         env:
+          FINAL_VERSION: ${{ steps.check-tag.outputs.final_version }}
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.main-ref.outputs.sha }}
         run: |
-          gh release create "${{ steps.check-tag.outputs.final_version }}" \
+          gh release create "$FINAL_VERSION" \
             --repo "${GITHUB_REPOSITORY}" \
-            --target "${{ steps.main-ref.outputs.sha }}" \
-            --title "Release ${{ steps.check-tag.outputs.final_version }}" \
+            --target "$RELEASE_SHA" \
+            --title "Release $FINAL_VERSION" \
             --generate-notes
