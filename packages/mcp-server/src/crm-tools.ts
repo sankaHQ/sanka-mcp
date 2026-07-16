@@ -8569,6 +8569,51 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
   };
 };
 
+const buildMessageSenderConfirmationErrorResult = (error: unknown): ToolCallResult | undefined => {
+  const errorRecord = readRecord(error);
+  const apiEnvelope = readRecord(errorRecord?.['error']);
+  const apiError = readRecord(apiEnvelope?.['error']) ?? apiEnvelope;
+  const code = readString(apiError?.['code']);
+  if (code !== 'SENDER_CONFIRMATION_REQUIRED' && code !== 'SENDER_IDENTITY_MISMATCH') {
+    return undefined;
+  }
+
+  const details = readRecord(apiError?.['details']) ?? {};
+  const availableSenderEmails = readStringArray(details['available_sender_emails']);
+  const resolvedSenderEmail = readString(details['resolved_sender_email']);
+  const expectedSenderEmail = readString(details['expected_sender_email']);
+  const message =
+    readString(apiError?.['message']) ??
+    (code === 'SENDER_CONFIRMATION_REQUIRED' ?
+      'Multiple sender email addresses are connected. Confirm the sender before sending.'
+    : "The confirmed sender email does not match this thread's sender identity.");
+  const requiredUserFacingReply =
+    code === 'SENDER_CONFIRMATION_REQUIRED' ?
+      `Ask the user to confirm sending this exact reply from ${resolvedSenderEmail ?? 'the resolved sender'}${
+        availableSenderEmails.length > 0 ? ` (available: ${availableSenderEmails.join(', ')})` : ''
+      }. Do not retry until the user confirms the sender.`
+    : `Tell the user the confirmed sender ${expectedSenderEmail ?? 'provided'} does not match ${
+        resolvedSenderEmail ?? 'the thread sender'
+      }, and ask which sender to use. Do not retry automatically.`;
+  const meta = readRecord(apiEnvelope?.['meta']);
+
+  return {
+    content: [{ type: 'text', text: `${message} ${requiredUserFacingReply}` }],
+    isError: true,
+    structuredContent: {
+      ok: false,
+      status: 'confirmation_required',
+      code,
+      message,
+      available_sender_emails: availableSenderEmails,
+      resolved_sender_email: resolvedSenderEmail,
+      expected_sender_email: expectedSenderEmail,
+      ctx_id: readString(meta?.['ctx_id']),
+      required_user_facing_reply: requiredUserFacingReply,
+    },
+  };
+};
+
 const buildWorkspaceMessageListParams = (args: Record<string, unknown> | undefined) => {
   const status = readString(args?.['status']);
   const language = readString(args?.['language']);
@@ -21402,17 +21447,21 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
       );
     }
 
-    const payload = (await reqContext.client.public.accountMessages.threads.reply(
-      threadID,
-      buildPrivateMessageReplyParams(args) as {
-        body: string;
-        expected_sender_email?: string;
-        'Accept-Language'?: string;
-      },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    try {
+      const payload = (await reqContext.client.public.accountMessages.threads.reply(
+        threadID,
+        { ...buildPrivateMessageReplyParams(args), body },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
-    return buildPrivateMessageReplyResult(payload);
+      return buildPrivateMessageReplyResult(payload);
+    } catch (error) {
+      const senderConfirmationError = buildMessageSenderConfirmationErrorResult(error);
+      if (senderConfirmationError) {
+        return senderConfirmationError;
+      }
+      throw error;
+    }
   },
 };
 
@@ -21654,17 +21703,21 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
       );
     }
 
-    const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
-      threadID,
-      buildWorkspaceMessageReplyParams(args) as {
-        body: string;
-        expected_sender_email?: string;
-        'Accept-Language'?: string;
-      },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    try {
+      const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
+        threadID,
+        { ...buildWorkspaceMessageReplyParams(args), body },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
-    return buildWorkspaceMessageReplyResult(payload);
+      return buildWorkspaceMessageReplyResult(payload);
+    } catch (error) {
+      const senderConfirmationError = buildMessageSenderConfirmationErrorResult(error);
+      if (senderConfirmationError) {
+        return senderConfirmationError;
+      }
+      throw error;
+    }
   },
 };
 export const crmListInvoicesTool: McpTool = {

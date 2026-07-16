@@ -2559,6 +2559,57 @@ describe('ChatGPT CRM tools', () => {
     expect(result.isError).toBe(true);
   });
 
+  it('returns structured sender confirmation guidance without retrying', async () => {
+    const reply = jest.fn().mockRejectedValue(
+      Object.assign(new Error('409 Multiple sender email addresses are connected.'), {
+        status: 409,
+        error: {
+          success: false,
+          error: {
+            code: 'SENDER_CONFIRMATION_REQUIRED',
+            message: 'Multiple sender email addresses are connected. Confirm the sender before sending.',
+            details: {
+              available_sender_emails: ['haegwan@sanka.com', 'hey@sanka.com'],
+              resolved_sender_email: 'haegwan@sanka.com',
+            },
+          },
+          meta: { ctx_id: 'ctx-sender-confirmation' },
+        },
+      }),
+    );
+
+    const result = await crmReplyPrivateMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            accountMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        thread_id: 'thread-1',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+      },
+    });
+
+    expect(reply).toHaveBeenCalledTimes(1);
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      status: 'confirmation_required',
+      code: 'SENDER_CONFIRMATION_REQUIRED',
+      available_sender_emails: ['haegwan@sanka.com', 'hey@sanka.com'],
+      resolved_sender_email: 'haegwan@sanka.com',
+      ctx_id: 'ctx-sender-confirmation',
+    });
+    expect(result.structuredContent?.['required_user_facing_reply']).toContain('Do not retry');
+  });
+
   it('archives a private message thread', async () => {
     const archive = jest.fn().mockResolvedValue({
       message: 'ok',
