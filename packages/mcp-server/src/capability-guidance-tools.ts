@@ -111,7 +111,7 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'reply_workspace_message_thread',
       ],
       route:
-        'Use workspace message tools for Sanka-connected Gmail, integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox. Use reply_workspace_message_thread only after the user explicitly asks to send the exact reply, pass confirm_send=true, and report the returned sender_email. Drafting or writing is not send authorization. Do not use private message tools unless the user explicitly asks for their private/personal account-level inbox.',
+        'Use workspace message tools for Sanka-connected Gmail, integration inbox, /conversation, Contact Conversation, shared inbox, group inbox, and workspace inbox. Use reply_workspace_message_thread only after the user explicitly asks to send the exact reply and pass confirm_send=true. If multiple distinct senders exist across private and workspace inboxes, ask the user to confirm the resolved sender and then pass expected_sender_email; with one sender, omit it. Never auto-retry SENDER_CONFIRMATION_REQUIRED. Report the returned sender_email. Drafting or writing is not send authorization. Do not use private message tools unless the user explicitly asks for their private/personal account-level inbox.',
       fallback_when_missing:
         'If workspace message tools are not visible in this client session, say the Sanka Skill or MCP tool catalog may be stale and ask the user to update/reconnect the Sanka plugin or start a fresh session.',
     };

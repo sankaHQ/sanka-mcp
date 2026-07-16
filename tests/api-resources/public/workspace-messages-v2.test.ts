@@ -86,6 +86,7 @@ describe('public workspace messages v2 resource', () => {
     await expect(
       client.public.workspaceMessages.threads.reply('workspace-thread-1', {
         body: 'Thanks for the update.',
+        expected_sender_email: 'hey@sanka.com',
       }),
     ).resolves.toMatchObject({
       data: {

@@ -121,6 +121,8 @@ export interface WorkspaceMessageThreadRetrieveParams {
 export interface WorkspaceMessageThreadReplyParams {
   body: string;
 
+  expected_sender_email?: string | null;
+
   /**
    * Header param
    */

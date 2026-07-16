@@ -148,6 +148,8 @@ export interface AccountMessageThreadArchiveParams {
 export interface AccountMessageThreadReplyParams {
   body: string;
 
+  expected_sender_email?: string | null;
+
   /**
    * Header param
    */

@@ -93,11 +93,11 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `list_workspace_messages`: read shared workspace/integration inbox threads from connected channels; prefer this for Sanka-connected Gmail, `/conversation`, Contact Conversation, shared inbox, group inbox, and workspace inbox
 - `sync_workspace_messages`: pull latest shared workspace/integration inbox threads into Sanka; prefer this for connected Gmail integration inbox requests
 - `get_workspace_message_thread`: load one shared workspace/integration inbox thread and its history/body
-- `reply_workspace_message_thread`: send only after explicit user authorization with `confirm_send=true`; returns the actual shared sender email
+- `reply_workspace_message_thread`: send only after explicit user authorization with `confirm_send=true`; if multiple distinct personal/workspace sender addresses are connected, pass `expected_sender_email` only after the user confirms the resolved sender; returns the actual shared sender email
 - `list_private_messages`: read-only private/personal account-level inbox review for the authenticated user only
 - `sync_private_messages`: pull latest private/personal account-level inbox threads into Sanka only
 - `get_private_message_thread`: load one private/personal account-level inbox thread and its history
-- `reply_private_message_thread`: send only after explicit user authorization with `confirm_send=true`; returns the actual personal sender email
+- `reply_private_message_thread`: send only after explicit user authorization with `confirm_send=true`; if multiple distinct personal/workspace sender addresses are connected, pass `expected_sender_email` only after the user confirms the resolved sender; returns the actual personal sender email
 - `archive_private_message_thread`: archive a private/personal account-level inbox thread
 - `list_companies`: read-only company search
 - `get_company`: load a single company

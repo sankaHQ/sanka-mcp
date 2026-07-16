@@ -182,11 +182,16 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     description: 'Send a reply on one private account-level inbox thread.',
     stainlessPath: '(resource) public.accountMessages.threads > (method) reply',
     qualified: 'client.public.accountMessages.threads.reply',
-    params: ['thread_id: string;', 'body: string;', "'Accept-Language'?: string;"],
+    params: [
+      'thread_id: string;',
+      'body: string;',
+      'expected_sender_email?: string;',
+      "'Accept-Language'?: string;",
+    ],
     response:
       '{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }',
     markdown:
-      "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/me/messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.' });\n\nconsole.log(response);\n```",
+      "## reply\n\n`client.public.accountMessages.threads.reply(thread_id: string, body: string, expected_sender_email?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/me/messages/threads/{thread_id}/reply`\n\nReply To Account Message Thread\n\n### Parameters\n\n- `thread_id: string`\n\n- `body: string`\n\n- `expected_sender_email?: string` — optional with one distinct personal/workspace sender; required after user confirmation when multiple senders are connected\n\n- `'Accept-Language'?: string`\n\n### Returns\n\n- `{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }`\n\n### Example\n\n```typescript\nimport Sanka from 'sanka-sdk';\n\nconst client = new Sanka();\n\nconst response = await client.public.accountMessages.threads.reply('thread_id', { body: 'Thanks for the update.', expected_sender_email: 'me@example.com' });\n\nconsole.log(response);\n```",
   },
   {
     name: 'list',
@@ -239,11 +244,16 @@ const EMBEDDED_METHODS: MethodEntry[] = [
     description: 'Send a reply from a shared workspace inbox and return the actual sender email.',
     stainlessPath: '(resource) public.workspaceMessages.threads > (method) reply',
     qualified: 'client.public.workspaceMessages.threads.reply',
-    params: ['thread_id: string;', 'body: string;', "'Accept-Language'?: string;"],
+    params: [
+      'thread_id: string;',
+      'body: string;',
+      'expected_sender_email?: string;',
+      "'Accept-Language'?: string;",
+    ],
     response:
       '{ data: { thread_id: string; has_unread: boolean; sender_email: string; integration_slug: string; message_id?: string; }; message: string; ctx_id?: string; }',
     markdown:
-      "## reply\n\n`client.public.workspaceMessages.threads.reply(thread_id: string, body: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/workspace/messages/threads/{thread_id}/reply`\n\nSend a reply from the shared workspace identity attached to the thread and return the actual sender email.",
+      "## reply\n\n`client.public.workspaceMessages.threads.reply(thread_id: string, body: string, expected_sender_email?: string, 'Accept-Language'?: string): { data: object; message: string; ctx_id?: string; }`\n\n**post** `/api/v2/workspace/messages/threads/{thread_id}/reply`\n\nSend a reply from the shared workspace identity attached to the thread and return the actual sender email. `expected_sender_email` is optional with one distinct personal/workspace sender and required after user confirmation when multiple senders are connected.",
   },
   {
     name: 'create',

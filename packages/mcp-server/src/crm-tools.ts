@@ -2412,6 +2412,11 @@ const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
       description:
         'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
     },
+    expected_sender_email: {
+      type: 'string',
+      description:
+        'Confirmed sender address. Optional when only one distinct send-capable email is connected across personal and workspace inboxes. When multiple addresses are connected, ask the user to confirm the exact sender before setting this value; never infer it or retry a sender-confirmation error without new user approval.',
+    },
     language: {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
@@ -2603,6 +2608,11 @@ const WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA = {
       type: 'boolean',
       description:
         'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+    },
+    expected_sender_email: {
+      type: 'string',
+      description:
+        'Confirmed sender address. Optional when only one distinct send-capable email is connected across personal and workspace inboxes. When multiple addresses are connected, ask the user to confirm the exact sender before setting this value; never infer it or retry a sender-confirmation error without new user approval.',
     },
     language: {
       type: 'string',
@@ -8439,10 +8449,12 @@ const buildPrivateMessageThreadLanguageParams = (args: Record<string, unknown> |
 
 const buildPrivateMessageReplyParams = (args: Record<string, unknown> | undefined) => {
   const body = readString(args?.['body']);
+  const expectedSenderEmail = readString(args?.['expected_sender_email']);
   const language = readString(args?.['language']);
 
   return {
     ...(body ? { body } : undefined),
+    ...(expectedSenderEmail ? { expected_sender_email: expectedSenderEmail } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
@@ -8557,6 +8569,59 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
   };
 };
 
+const buildMessageSenderConfirmationErrorResult = (error: unknown): ToolCallResult | undefined => {
+  const errorRecord = readRecord(error);
+  const errorCandidates: Record<string, unknown>[] = [];
+  let errorCandidate = errorRecord;
+  for (let depth = 0; errorCandidate && depth < 3; depth += 1) {
+    errorCandidates.push(errorCandidate);
+    errorCandidate = readRecord(errorCandidate['error']);
+  }
+  const apiError = errorCandidates.find((candidate) => {
+    const candidateCode = readString(candidate['code']);
+    return candidateCode === 'SENDER_CONFIRMATION_REQUIRED' || candidateCode === 'SENDER_IDENTITY_MISMATCH';
+  });
+  const code = readString(apiError?.['code']);
+  if (code !== 'SENDER_CONFIRMATION_REQUIRED' && code !== 'SENDER_IDENTITY_MISMATCH') {
+    return undefined;
+  }
+
+  const details = readRecord(apiError?.['details']) ?? {};
+  const availableSenderEmails = readStringArray(details['available_sender_emails']);
+  const resolvedSenderEmail = readString(details['resolved_sender_email']);
+  const expectedSenderEmail = readString(details['expected_sender_email']);
+  const message =
+    readString(apiError?.['message']) ??
+    (code === 'SENDER_CONFIRMATION_REQUIRED' ?
+      'Multiple sender email addresses are connected. Confirm the sender before sending.'
+    : "The confirmed sender email does not match this thread's sender identity.");
+  const requiredUserFacingReply =
+    code === 'SENDER_CONFIRMATION_REQUIRED' ?
+      `Ask the user to confirm sending this exact reply from ${resolvedSenderEmail ?? 'the resolved sender'}${
+        availableSenderEmails.length > 0 ? ` (available: ${availableSenderEmails.join(', ')})` : ''
+      }. Do not retry until the user confirms the sender.`
+    : `Tell the user the confirmed sender ${expectedSenderEmail ?? 'provided'} does not match ${
+        resolvedSenderEmail ?? 'the thread sender'
+      }, and ask which sender to use. Do not retry automatically.`;
+  const meta = errorCandidates.map((candidate) => readRecord(candidate['meta'])).find(Boolean);
+
+  return {
+    content: [{ type: 'text', text: `${message} ${requiredUserFacingReply}` }],
+    isError: true,
+    structuredContent: {
+      ok: false,
+      status: 'confirmation_required',
+      code,
+      message,
+      available_sender_emails: availableSenderEmails,
+      resolved_sender_email: resolvedSenderEmail,
+      expected_sender_email: expectedSenderEmail,
+      ctx_id: readString(meta?.['ctx_id']),
+      required_user_facing_reply: requiredUserFacingReply,
+    },
+  };
+};
+
 const buildWorkspaceMessageListParams = (args: Record<string, unknown> | undefined) => {
   const status = readString(args?.['status']);
   const language = readString(args?.['language']);
@@ -8589,10 +8654,12 @@ const buildWorkspaceMessageThreadLanguageParams = (args: Record<string, unknown>
 
 const buildWorkspaceMessageReplyParams = (args: Record<string, unknown> | undefined) => {
   const body = readString(args?.['body']);
+  const expectedSenderEmail = readString(args?.['expected_sender_email']);
   const language = readString(args?.['language']);
 
   return {
     ...(body ? { body } : undefined),
+    ...(expectedSenderEmail ? { expected_sender_email: expectedSenderEmail } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
@@ -21352,7 +21419,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     name: 'reply_private_message_thread',
     title: 'Reply private message thread',
     description:
-      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
+      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. If multiple distinct send-capable email addresses are connected across personal and workspace inboxes, the user must also confirm the exact sender via expected_sender_email; with one address it may be omitted. Drafting or writing a reply is not send authorization. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -21388,13 +21455,21 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
       );
     }
 
-    const payload = (await reqContext.client.public.accountMessages.threads.reply(
-      threadID,
-      buildPrivateMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    try {
+      const payload = (await reqContext.client.public.accountMessages.threads.reply(
+        threadID,
+        { ...buildPrivateMessageReplyParams(args), body },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
-    return buildPrivateMessageReplyResult(payload);
+      return buildPrivateMessageReplyResult(payload);
+    } catch (error) {
+      const senderConfirmationError = buildMessageSenderConfirmationErrorResult(error);
+      if (senderConfirmationError) {
+        return senderConfirmationError;
+      }
+      throw error;
+    }
   },
 };
 
@@ -21600,7 +21675,7 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
     name: 'reply_workspace_message_thread',
     title: 'Reply workspace message thread',
     description:
-      'Send a reply from the shared workspace identity attached to a Sanka workspace/integration inbox thread. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal inbox threads.',
+      'Send a reply from the shared workspace identity attached to a Sanka workspace/integration inbox thread. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. If multiple distinct send-capable email addresses are connected across personal and workspace inboxes, the user must also confirm the exact sender via expected_sender_email; with one address it may be omitted. Drafting or writing a reply is not send authorization. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal inbox threads.',
     inputSchema: WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -21636,13 +21711,21 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
       );
     }
 
-    const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
-      threadID,
-      buildWorkspaceMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    try {
+      const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
+        threadID,
+        { ...buildWorkspaceMessageReplyParams(args), body },
+        undefined,
+      )) as unknown as Record<string, unknown>;
 
-    return buildWorkspaceMessageReplyResult(payload);
+      return buildWorkspaceMessageReplyResult(payload);
+    } catch (error) {
+      const senderConfirmationError = buildMessageSenderConfirmationErrorResult(error);
+      if (senderConfirmationError) {
+        return senderConfirmationError;
+      }
+      throw error;
+    }
   },
 };
 export const crmListInvoicesTool: McpTool = {
