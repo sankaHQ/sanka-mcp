@@ -2610,6 +2610,47 @@ describe('ChatGPT CRM tools', () => {
     expect(result.structuredContent?.['required_user_facing_reply']).toContain('Do not retry');
   });
 
+  it('handles an unwrapped V2 sender confirmation error without retrying', async () => {
+    const reply = jest.fn().mockRejectedValue(
+      Object.assign(new Error('Multiple sender email addresses are connected.'), {
+        code: 'SENDER_CONFIRMATION_REQUIRED',
+        details: {
+          available_sender_emails: ['haegwan@sanka.com', 'hey@sanka.com'],
+          resolved_sender_email: 'hey@sanka.com',
+        },
+        meta: { ctx_id: 'ctx-v2-sender-confirmation' },
+      }),
+    );
+
+    const result = await crmReplyWorkspaceMessageThreadTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: {
+              threads: { reply },
+            },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        thread_id: 'thread-2',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+      },
+    });
+
+    expect(reply).toHaveBeenCalledTimes(1);
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      code: 'SENDER_CONFIRMATION_REQUIRED',
+      available_sender_emails: ['haegwan@sanka.com', 'hey@sanka.com'],
+      resolved_sender_email: 'hey@sanka.com',
+      ctx_id: 'ctx-v2-sender-confirmation',
+    });
+  });
+
   it('archives a private message thread', async () => {
     const archive = jest.fn().mockResolvedValue({
       message: 'ok',

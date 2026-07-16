@@ -8571,8 +8571,16 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
 
 const buildMessageSenderConfirmationErrorResult = (error: unknown): ToolCallResult | undefined => {
   const errorRecord = readRecord(error);
-  const apiEnvelope = readRecord(errorRecord?.['error']);
-  const apiError = readRecord(apiEnvelope?.['error']) ?? apiEnvelope;
+  const errorCandidates: Record<string, unknown>[] = [];
+  let errorCandidate = errorRecord;
+  for (let depth = 0; errorCandidate && depth < 3; depth += 1) {
+    errorCandidates.push(errorCandidate);
+    errorCandidate = readRecord(errorCandidate['error']);
+  }
+  const apiError = errorCandidates.find((candidate) => {
+    const candidateCode = readString(candidate['code']);
+    return candidateCode === 'SENDER_CONFIRMATION_REQUIRED' || candidateCode === 'SENDER_IDENTITY_MISMATCH';
+  });
   const code = readString(apiError?.['code']);
   if (code !== 'SENDER_CONFIRMATION_REQUIRED' && code !== 'SENDER_IDENTITY_MISMATCH') {
     return undefined;
@@ -8595,7 +8603,7 @@ const buildMessageSenderConfirmationErrorResult = (error: unknown): ToolCallResu
     : `Tell the user the confirmed sender ${expectedSenderEmail ?? 'provided'} does not match ${
         resolvedSenderEmail ?? 'the thread sender'
       }, and ask which sender to use. Do not retry automatically.`;
-  const meta = readRecord(apiEnvelope?.['meta']);
+  const meta = errorCandidates.map((candidate) => readRecord(candidate['meta'])).find(Boolean);
 
   return {
     content: [{ type: 'text', text: `${message} ${requiredUserFacingReply}` }],
