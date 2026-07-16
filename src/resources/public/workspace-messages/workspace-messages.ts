@@ -5,6 +5,9 @@ import {
   WorkspaceMessageThreadDetail,
   WorkspaceMessageThreadDetailResponse,
   WorkspaceMessageThreadMessage,
+  WorkspaceMessageThreadReplyData,
+  WorkspaceMessageThreadReplyParams,
+  WorkspaceMessageThreadReplyResponse,
   WorkspaceMessageThreadRetrieveParams,
 } from './threads';
 import { APIPromise } from '../../../core/api-promise';
@@ -156,6 +159,9 @@ export type {
   WorkspaceMessageThreadDetail,
   WorkspaceMessageThreadDetailResponse,
   WorkspaceMessageThreadMessage,
+  WorkspaceMessageThreadReplyData,
+  WorkspaceMessageThreadReplyParams,
+  WorkspaceMessageThreadReplyResponse,
   WorkspaceMessageThreadRetrieveParams,
 };
 
@@ -176,6 +182,9 @@ export declare namespace WorkspaceMessages {
     type WorkspaceMessageThreadMessage as WorkspaceMessageThreadMessage,
     type WorkspaceMessageThreadDetail as WorkspaceMessageThreadDetail,
     type WorkspaceMessageThreadDetailResponse as WorkspaceMessageThreadDetailResponse,
+    type WorkspaceMessageThreadReplyData as WorkspaceMessageThreadReplyData,
+    type WorkspaceMessageThreadReplyParams as WorkspaceMessageThreadReplyParams,
+    type WorkspaceMessageThreadReplyResponse as WorkspaceMessageThreadReplyResponse,
     type WorkspaceMessageThreadRetrieveParams as WorkspaceMessageThreadRetrieveParams,
   };
 }

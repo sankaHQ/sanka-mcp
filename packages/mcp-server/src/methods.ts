@@ -83,6 +83,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/workspace/messages/threads/{thread_id}',
   },
   {
+    clientCallName: 'client.public.workspaceMessages.threads.reply',
+    fullyQualifiedName: 'public.workspaceMessages.threads.reply',
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}/reply',
+  },
+  {
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',

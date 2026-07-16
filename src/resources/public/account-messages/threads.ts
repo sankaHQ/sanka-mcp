@@ -116,6 +116,10 @@ export interface AccountMessageThreadReplyData {
 
   has_unread: boolean;
 
+  sender_email: string;
+
+  integration_slug: string;
+
   message_id?: string | null;
 }
 

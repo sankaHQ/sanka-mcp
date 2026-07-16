@@ -2407,12 +2407,17 @@ const PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA = {
       description:
         'Reply body to send on an authenticated-user private/personal account-level message thread.',
     },
+    confirm_send: {
+      type: 'boolean',
+      description:
+        'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+    },
     language: {
       type: 'string',
       description: 'Optional language override sent as Accept-Language.',
     },
   },
-  required: ['thread_id', 'body'],
+  required: ['thread_id', 'body', 'confirm_send'],
 };
 
 const PRIVATE_MESSAGE_CHANNEL_OUTPUT_SCHEMA = {
@@ -2526,8 +2531,10 @@ const PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA = {
     thread_id: { type: 'string' },
     message_id: { type: 'string' },
     has_unread: { type: 'boolean' },
+    sender_email: { type: 'string' },
+    integration_slug: { type: 'string' },
   },
-  required: ['message', 'thread_id', 'has_unread'],
+  required: ['message', 'thread_id', 'has_unread', 'sender_email', 'integration_slug'],
 };
 
 const WORKSPACE_MESSAGE_LIST_INPUT_SCHEMA = {
@@ -2578,6 +2585,31 @@ const WORKSPACE_MESSAGE_THREAD_INPUT_SCHEMA = {
     },
   },
   required: ['thread_id'],
+};
+
+const WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    thread_id: {
+      type: 'string',
+      description:
+        'Shared workspace/integration inbox thread identifier from /conversation, Contact Conversation, or integration-linked Gmail.',
+    },
+    body: {
+      type: 'string',
+      description: 'Reply body to send from the shared workspace identity attached to the thread.',
+    },
+    confirm_send: {
+      type: 'boolean',
+      description:
+        'Must be true only after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+    },
+    language: {
+      type: 'string',
+      description: 'Optional language override sent as Accept-Language.',
+    },
+  },
+  required: ['thread_id', 'body', 'confirm_send'],
 };
 
 const WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA = {
@@ -8505,13 +8537,16 @@ const buildPrivateMessageThreadResult = (payload: Record<string, unknown>): Tool
 const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
   const data = readRecord(payload['data']) ?? {};
   const threadID = readString(data['thread_id']);
+  const senderEmail = readString(data['sender_email']);
 
   return {
     content: [
       {
         type: 'text',
         text:
-          threadID ? `Replied to private message thread ${threadID}.` : 'Replied to private message thread.',
+          threadID ?
+            `Replied to private message thread ${threadID}${senderEmail ? ` from ${senderEmail}` : ''}.`
+          : `Replied to private message thread${senderEmail ? ` from ${senderEmail}` : ''}.`,
       },
     ],
     structuredContent: {
@@ -8548,6 +8583,16 @@ const buildWorkspaceMessageThreadLanguageParams = (args: Record<string, unknown>
   const language = readString(args?.['language']);
 
   return {
+    ...(language ? { 'Accept-Language': language } : undefined),
+  };
+};
+
+const buildWorkspaceMessageReplyParams = (args: Record<string, unknown> | undefined) => {
+  const body = readString(args?.['body']);
+  const language = readString(args?.['language']);
+
+  return {
+    ...(body ? { body } : undefined),
     ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
@@ -8610,6 +8655,31 @@ const buildWorkspaceMessageThreadResult = (payload: Record<string, unknown>): To
           : `Loaded shared workspace message thread with ${messages.length} message${
               messages.length === 1 ? '' : 's'
             }.`,
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
+const buildWorkspaceMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const threadID = readString(data['thread_id']);
+  const senderEmail = readString(data['sender_email']);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          threadID ?
+            `Replied to shared workspace message thread ${threadID}${
+              senderEmail ? ` from ${senderEmail}` : ''
+            }.`
+          : `Replied to shared workspace message thread${senderEmail ? ` from ${senderEmail}` : ''}.`,
       },
     ],
     structuredContent: {
@@ -21282,7 +21352,7 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     name: 'reply_private_message_thread',
     title: 'Reply private message thread',
     description:
-      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
+      'Send a reply on an authenticated user private/personal account-level inbox thread in Sanka. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. This is not for workspace integration inbox, /conversation, shared inbox, group inbox, or workspace inbox threads.',
     inputSchema: PRIVATE_MESSAGE_REPLY_INPUT_SCHEMA,
     outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -21310,6 +21380,12 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
     const body = readString(args?.['body']);
     if (!body) {
       return asErrorResult('`body` is required.');
+    }
+
+    if (args?.['confirm_send'] !== true) {
+      return asErrorResult(
+        '`confirm_send=true` is required after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+      );
     }
 
     const payload = (await reqContext.client.public.accountMessages.threads.reply(
@@ -21508,6 +21584,65 @@ export const crmGetWorkspaceMessageThreadTool: McpTool = {
     )) as unknown as Record<string, unknown>;
 
     return buildWorkspaceMessageThreadResult(payload);
+  },
+};
+
+export const crmReplyWorkspaceMessageThreadTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace/messages/threads/{thread_id}/reply',
+    operationId: 'public.workspaceMessages.threads.reply',
+  },
+  tool: {
+    name: 'reply_workspace_message_thread',
+    title: 'Reply workspace message thread',
+    description:
+      'Send a reply from the shared workspace identity attached to a Sanka workspace/integration inbox thread. Requires explicit user authorization for the exact reply via confirm_send=true and returns the actual sender email. Drafting or writing a reply is not send authorization. Use this for /conversation, Contact Conversation, shared inbox, group inbox, workspace inbox, and integration-linked Gmail threads, not private/personal inbox threads.',
+    inputSchema: WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA,
+    outputSchema: PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Reply workspace message thread',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Reply workspace message thread',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const threadID = readString(args?.['thread_id']);
+    if (!threadID) {
+      return asErrorResult('`thread_id` is required.');
+    }
+
+    const body = readString(args?.['body']);
+    if (!body) {
+      return asErrorResult('`body` is required.');
+    }
+
+    if (args?.['confirm_send'] !== true) {
+      return asErrorResult(
+        '`confirm_send=true` is required after the user explicitly asks to send this exact reply. Drafting, writing, or revising a reply is not send authorization.',
+      );
+    }
+
+    const payload = (await reqContext.client.public.workspaceMessages.threads.reply(
+      threadID,
+      buildWorkspaceMessageReplyParams(args) as { body: string; 'Accept-Language'?: string },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessageReplyResult(payload);
   },
 };
 export const crmListInvoicesTool: McpTool = {
