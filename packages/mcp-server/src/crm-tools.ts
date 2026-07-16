@@ -2031,6 +2031,41 @@ const CONTRACT_PDF_UPLOAD_INPUT_SCHEMA = {
   required: ['filename', 'content_base64'],
 };
 
+const CONTRACT_PDF_REPLACE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Draft Contract identifier whose PDF will be replaced.',
+    },
+    filename: {
+      type: 'string',
+      description: 'Replacement PDF filename.',
+    },
+    content_base64: {
+      type: 'string',
+      description: 'Base64-encoded replacement PDF bytes. Max decoded size: 20 MiB.',
+    },
+    mime_type: {
+      type: 'string',
+      description: 'Optional MIME type override. Defaults to application/pdf.',
+    },
+    title: {
+      type: 'string',
+      description: 'Optional replacement contract title.',
+    },
+    file_name_override: {
+      type: 'string',
+      description: 'Optional replacement file name override.',
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id', 'filename', 'content_base64'],
+};
+
 const CONTRACT_CREATE_FROM_TEMPLATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -2126,6 +2161,52 @@ const CONTRACT_SIGNERS_INPUT_SCHEMA = {
     },
   },
   required: ['contract_id'],
+};
+
+const CONTRACT_RECIPIENTS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    contract_id: {
+      type: 'string',
+      description: 'Draft Contract identifier.',
+    },
+    signers: {
+      type: 'array',
+      description:
+        'Complete signer list. Existing signer_id values should be retained when editing signer names or emails.',
+      minItems: 1,
+      items: {
+        type: 'object',
+        properties: {
+          signer_id: { type: 'string' },
+          name: { type: 'string' },
+          email: { type: 'string' },
+        },
+        required: ['name', 'email'],
+        additionalProperties: false,
+      },
+    },
+    cc_recipients: {
+      type: 'array',
+      description:
+        'Complete CC recipient list. CC recipients receive separate unsigned and completed PDF copies, never signing links or verification codes.',
+      maxItems: 20,
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          email: { type: 'string' },
+        },
+        required: ['email'],
+        additionalProperties: false,
+      },
+    },
+    workspace_id: {
+      type: 'string',
+      description: WORKSPACE_ID_DESCRIPTION,
+    },
+  },
+  required: ['contract_id', 'signers'],
 };
 
 const CONTRACT_PLACE_FIELDS_INPUT_SCHEMA = {
@@ -10767,8 +10848,17 @@ const buildContractMetadataBody = (args: Record<string, unknown> | undefined) =>
 const normalizeContractSignerRows = (rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
   rows.map((row) => {
     const signer: Record<string, unknown> = {};
-    assignStringFields(signer, row, ['name', 'email']);
+    assignStringFields(signer, row, ['signer_id', 'name', 'email']);
     return signer;
+  });
+
+const normalizeContractCopyRecipientRows = (
+  rows: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> =>
+  rows.map((row) => {
+    const recipient: Record<string, unknown> = {};
+    assignStringFields(recipient, row, ['name', 'email']);
+    return recipient;
   });
 
 const normalizeContractPlaceFieldRows = (
@@ -10798,6 +10888,17 @@ const buildContractSignersBody = (args: Record<string, unknown> | undefined) => 
   }
   assignStringFields(body, args, ['signature_id']);
   assignBooleanFields(body, args, ['add_me_as_signer']);
+  return body;
+};
+
+const buildContractRecipientsBody = (args: Record<string, unknown> | undefined) => {
+  const body: Record<string, unknown> = {};
+  const signers = readObjectArray(args?.['signers']);
+  const ccRecipients = readObjectArray(args?.['cc_recipients']);
+  if (signers) {
+    body['signers'] = normalizeContractSignerRows(signers);
+  }
+  body['cc_recipients'] = ccRecipients ? normalizeContractCopyRecipientRows(ccRecipients) : [];
   return body;
 };
 
@@ -16308,6 +16409,64 @@ export const crmUploadContractPDFTool: McpTool = {
   },
 };
 
+export const crmReplaceContractPDFTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'put',
+    httpPath: '/api/v2/contracts/{contract_id}/pdf',
+    operationId: 'public.contracts.pdf.replace',
+  },
+  tool: {
+    name: 'replace_contract_pdf',
+    title: 'Replace contract PDF',
+    description:
+      'Replace the PDF of an existing draft Sanka Contract. This resets document-derived signature field placements and is rejected after the draft is sent or scheduled.',
+    inputSchema: CONTRACT_PDF_REPLACE_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Replace contract PDF',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Replace contract PDF' });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const formOrError = buildContractUploadBody(args, 'application/pdf');
+    if ('content' in formOrError) {
+      return formOrError;
+    }
+    const title = readString(args?.['title']);
+    const fileNameOverride = readString(args?.['file_name_override']);
+    if (title) {
+      formOrError.append('title', title);
+    }
+    if (fileNameOverride) {
+      formOrError.append('file_name_override', fileNameOverride);
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Put<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/pdf`,
+        { body: formOrError, query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Replaced the draft PDF for contract ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
 export const crmCreateContractFromTemplateTool: McpTool = {
   metadata: {
     resource: 'contracts',
@@ -16373,7 +16532,7 @@ export const crmGetContractWorkflowStateTool: McpTool = {
     name: 'get_contract_workflow_state',
     title: 'Get contract workflow state',
     description:
-      'Load a Sanka Contract workflow state including draft metadata, signers, signature fields, timeline, and editability.',
+      'Load a Sanka Contract workflow state including draft metadata, signers, non-signing CC recipients, signature fields, timeline, and editability.',
     inputSchema: CONTRACT_RETRIEVE_INPUT_SCHEMA,
     outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16501,6 +16660,59 @@ export const crmSaveContractSignersTool: McpTool = {
     );
     return {
       content: [{ type: 'text', text: `Saved signers for contract ${contractID}.` }],
+      structuredContent: payload,
+    };
+  },
+};
+
+export const crmSaveContractRecipientsTool: McpTool = {
+  metadata: {
+    resource: 'contracts',
+    operation: 'write',
+    tags: ['crm', 'contracts'],
+    httpMethod: 'put',
+    httpPath: '/api/v2/contracts/{contract_id}/recipients',
+    operationId: 'public.contracts.recipients.replace',
+  },
+  tool: {
+    name: 'save_contract_recipients',
+    title: 'Save contract recipients',
+    description:
+      'Replace the complete signer and CC recipient lists for a draft Sanka Contract. Preserve signer_id when correcting an existing signer. CC recipients are non-signers and receive separate PDF copy emails.',
+    inputSchema: CONTRACT_RECIPIENTS_INPUT_SCHEMA,
+    outputSchema: RECORD_DETAIL_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Save contract recipients',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Save contract recipients',
+    });
+    if (authError) {
+      return authError;
+    }
+    const contractID = readString(args?.['contract_id']);
+    if (!contractID) {
+      return asErrorResult('`contract_id` is required.');
+    }
+    const body = buildContractRecipientsBody(args);
+    if (!Array.isArray(body['signers']) || body['signers'].length === 0) {
+      return asErrorResult('At least one signer with `name` and `email` is required.');
+    }
+    const payload = normalizeV2MutationEnvelopePayload(
+      (await reqContext.client.v2Put<Record<string, unknown>>(
+        `/contracts/${encodeURIComponent(contractID)}/recipients`,
+        { body, query: buildWorkspaceQuery(args) },
+      )) as unknown as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: 'text', text: `Saved signers and CC recipients for contract ${contractID}.` }],
       structuredContent: payload,
     };
   },

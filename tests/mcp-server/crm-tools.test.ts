@@ -185,6 +185,7 @@ import {
   crmRejectRecordApprovalTool,
   crmRescheduleCalendarAttendanceTool,
   crmSaveContractPlaceFieldsTool,
+  crmSaveContractRecipientsTool,
   crmSaveContractSignersTool,
   crmScheduleContractRequestTool,
   crmScoreRecordTool,
@@ -242,6 +243,7 @@ import {
   crmUpsertApprovalRuleTool,
   crmUploadBillAttachmentTool,
   crmUploadContractPDFTool,
+  crmReplaceContractPDFTool,
   crmUploadContractTemplateTool,
   crmUploadEstimateAttachmentTool,
   crmUploadExpenseAttachmentTool,
@@ -409,10 +411,12 @@ describe('ChatGPT CRM tools', () => {
     expect(crmDownloadContractTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadContractTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadContractPDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmReplaceContractPDFTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmCreateContractFromTemplateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetContractWorkflowStateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUpdateContractMetadataTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSaveContractSignersTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmSaveContractRecipientsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSaveContractPlaceFieldsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSendContractRequestTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmScheduleContractRequestTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -713,6 +717,76 @@ describe('ChatGPT CRM tools', () => {
 
     expect(v2Post).not.toHaveBeenCalled();
     expect(firstTextContent(result)).toContain('must be valid base64 data');
+  });
+
+  it('replaces draft PDFs and authoritative signer and CC recipient lists', async () => {
+    const v2Put = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          contract_id: 'contract-1',
+          file_name: 'contract-documents/corrected.pdf',
+          signature_fields_reset_count: 2,
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          signers: [{ signer_id: 'signer-1', name: 'Yudai Abe' }],
+          cc_recipients: [{ recipient_id: 'recipient-1', email: 'observer@example.com' }],
+        },
+      });
+    const reqContext = {
+      client: { v2Put } as any,
+      auth: oauthContext(),
+      toolProfile: 'full' as const,
+    };
+
+    await crmReplaceContractPDFTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        filename: 'corrected.pdf',
+        content_base64: Buffer.from('%PDF-1.4\ncorrected').toString('base64'),
+        title: 'Corrected contract',
+        workspace_id: 'workspace-1',
+      },
+    });
+    await crmSaveContractRecipientsTool.handler({
+      reqContext,
+      args: {
+        contract_id: 'contract-1',
+        signers: [
+          {
+            signer_id: 'signer-1',
+            name: 'Yudai Abe',
+            email: 'yudai.abe@capitaltokyo.com',
+            ignored: 'value',
+          },
+        ],
+        cc_recipients: [{ name: 'Observer', email: 'observer@example.com', ignored: 'value' }],
+        workspace_id: 'workspace-1',
+      },
+    });
+
+    expect(v2Put).toHaveBeenNthCalledWith(1, '/contracts/contract-1/pdf', {
+      body: expect.any(FormData),
+      query: { workspace_id: 'workspace-1' },
+    });
+    expect(v2Put).toHaveBeenNthCalledWith(2, '/contracts/contract-1/recipients', {
+      body: {
+        signers: [
+          {
+            signer_id: 'signer-1',
+            name: 'Yudai Abe',
+            email: 'yudai.abe@capitaltokyo.com',
+          },
+        ],
+        cc_recipients: [{ name: 'Observer', email: 'observer@example.com' }],
+      },
+      query: { workspace_id: 'workspace-1' },
+    });
   });
 
   it('requires explicit confirmation before sending contract requests', async () => {

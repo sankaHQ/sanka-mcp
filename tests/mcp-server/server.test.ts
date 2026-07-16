@@ -112,10 +112,12 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('download_contract_template');
     expect(toolNames).toContain('upload_contract_template');
     expect(toolNames).toContain('upload_contract_pdf');
+    expect(toolNames).toContain('replace_contract_pdf');
     expect(toolNames).toContain('create_contract_from_template');
     expect(toolNames).toContain('get_contract_workflow_state');
     expect(toolNames).toContain('update_contract_metadata');
     expect(toolNames).toContain('save_contract_signers');
+    expect(toolNames).toContain('save_contract_recipients');
     expect(toolNames).toContain('save_contract_place_fields');
     expect(toolNames).toContain('send_contract_request');
     expect(toolNames).toContain('schedule_contract_request');
