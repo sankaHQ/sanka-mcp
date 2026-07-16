@@ -315,6 +315,8 @@ import {
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
 } from './ferry-diagrams';
+import * as FerryProgramsAPI from './ferry-programs';
+import { FerryPrograms } from './ferry-programs';
 import * as TasksAPI from './tasks';
 import {
   PublicTaskRequest,
@@ -480,6 +482,7 @@ export class Public extends APIResource {
   objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
   projects: ProjectsAPI.Projects = new ProjectsAPI.Projects(this._client);
   ferryDiagrams: FerryDiagramsAPI.FerryDiagrams = new FerryDiagramsAPI.FerryDiagrams(this._client);
+  ferryPrograms: FerryProgramsAPI.FerryPrograms = new FerryProgramsAPI.FerryPrograms(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
   slips: SlipsAPI.Slips = new SlipsAPI.Slips(this._client);
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
@@ -516,6 +519,7 @@ Public.Properties = Properties;
 Public.ObjectSchemas = ObjectSchemas;
 Public.Projects = Projects;
 Public.FerryDiagrams = FerryDiagrams;
+Public.FerryPrograms = FerryPrograms;
 Public.PurchaseOrders = PurchaseOrders;
 Public.Slips = Slips;
 Public.Bills = Bills;
@@ -654,6 +658,8 @@ export declare namespace Public {
     type FerryDiagramUpdateParams as FerryDiagramUpdateParams,
     type FerryDiagramDeleteParams as FerryDiagramDeleteParams,
   };
+
+  export { FerryPrograms as FerryPrograms };
 
   export {
     Tasks as Tasks,

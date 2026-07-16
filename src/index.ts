@@ -12,6 +12,13 @@ export type {
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
 } from './resources/public/ferry-diagrams';
+export type {
+  FerryProgramMeetingCreateParams,
+  FerryProgramMeetingUpdateParams,
+  FerryProgramTodoBatchUpsertItem,
+  FerryProgramTodoCreateParams,
+  FerryProgramTodoUpdateParams,
+} from './resources/public/ferry-programs';
 export {
   V2EnvelopeError,
   isV2Envelope,
