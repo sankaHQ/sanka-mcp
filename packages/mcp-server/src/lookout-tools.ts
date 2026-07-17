@@ -33,6 +33,11 @@ const readString = (value: unknown): string | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const readNumber = (value: unknown): number | undefined => {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
 const readRecord = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) ?
     (value as Record<string, unknown>)
@@ -269,7 +274,7 @@ export const lookoutCreateLpBatchTool: McpTool = {
       query: { motion_id: motionID },
     })) as Record<string, unknown>;
     const runs = readObjectArray(unwrapV2Data(runsResponse)['items']) ?? [];
-    const run = runs.find((item) => readString(item['signal_id']) === signalID) ?? runs[0];
+    const run = signalID ? runs.find((item) => readString(item['signal_id']) === signalID) : undefined;
 
     const structuredContent = compactRecord({
       motion_id: motionID,
@@ -339,13 +344,19 @@ export const lookoutGetRunTool: McpTool = {
     // Provider actions carry the HubSpot execution result (page IDs/URLs).
     // The list endpoint has no run filter yet, so filter client-side.
     let providerActions: Array<Record<string, unknown>> = [];
+    let providerActionsScanned = 0;
+    let providerActionsTotal: number | undefined;
     try {
       const actionsResponse = (await reqContext.client.get(`${LOOKOUT_BASE_PATH}/provider-actions`, {
-        query: { limit: 100 },
+        // An empty status disables the endpoint's queued-only default so completed
+        // actions and their provider results are visible as well.
+        query: { limit: 100, status: '' },
       })) as Record<string, unknown>;
-      providerActions = (readObjectArray(unwrapV2Data(actionsResponse)['items']) ?? []).filter(
-        (item) => readString(item['run_id']) === runID,
-      );
+      const actionsData = unwrapV2Data(actionsResponse);
+      const actions = readObjectArray(actionsData['items']) ?? [];
+      providerActionsScanned = actions.length;
+      providerActionsTotal = readNumber(actionsData['total']);
+      providerActions = actions.filter((item) => readString(item['run_id']) === runID);
     } catch {
       // Non-fatal: run detail already answers status/approval questions.
     }
@@ -360,6 +371,12 @@ export const lookoutGetRunTool: McpTool = {
     const structuredContent = compactRecord({
       ...detail,
       provider_actions: providerActions.length > 0 ? providerActions : undefined,
+      provider_actions_truncated:
+        providerActionsTotal !== undefined && providerActionsTotal > providerActionsScanned ?
+          true
+        : undefined,
+      provider_actions_scanned: providerActionsScanned || undefined,
+      provider_actions_total: providerActionsTotal,
       page_urls: pageURLs.length > 0 ? pageURLs : undefined,
     });
     const status = readString(run?.['status']) ?? 'unknown';
@@ -368,6 +385,9 @@ export const lookoutGetRunTool: McpTool = {
       `Lookout run ${runID}: ${status}`,
       approval && approval !== 'not_required' ? `approval ${approval}` : undefined,
       pageURLs.length > 0 ? `${pageURLs.length} page${pageURLs.length === 1 ? '' : 's'} created` : undefined,
+      structuredContent['provider_actions_truncated'] === true ?
+        `provider-action results may be truncated (inspected ${providerActionsScanned} of ${providerActionsTotal})`
+      : undefined,
     ].filter(Boolean);
     return lookoutResult(structuredContent, `${summaryParts.join(', ')}.`);
   },
