@@ -6412,6 +6412,74 @@ describe('ChatGPT CRM tools', () => {
     expect((result.content[0] as any).text).toContain('Scheduled Invoice No. 1233 email');
   });
 
+  it('requires a workspace hint when sending invoice email by numeric invoice number', async () => {
+    const post = jest.fn();
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: '1262',
+        action: 'schedule',
+        scheduled_at: '2026-07-01T09:00:00+09:00',
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as any).text).toContain('workspace_id');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('passes workspace hint when sending invoice email by numeric invoice number', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'scheduled',
+      workspace_id: 'workspace-1',
+      workspace_code: '39467777',
+      app_url: 'https://app-v2.sanka.com/39467777/commerce/invoices/invoice-1/manage',
+      invoice_id: 'invoice-1',
+      id_inv: 1262,
+      message_thread_ids: ['message-thread-1'],
+      scheduled_at: '2026-07-01T09:00:00+09:00',
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: '1262',
+        workspace_id: '39467777',
+        action: 'schedule',
+        scheduled_at: '2026-07-01T09:00:00+09:00',
+        language: 'ja',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/1262/email', {
+      body: {
+        action: 'schedule',
+        scheduled_at: '2026-07-01T09:00:00+09:00',
+      },
+      query: {
+        workspace_id: '39467777',
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      status: 'scheduled',
+      workspace_code: '39467777',
+      invoice_id: 'invoice-1',
+    });
+    expect((result.content[0] as any).text).toContain('https://app-v2.sanka.com/39467777');
+  });
+
   it('creates draft invoice emails with explicit extra PDF attachments', async () => {
     const post = jest.fn().mockResolvedValue({
       ok: true,
