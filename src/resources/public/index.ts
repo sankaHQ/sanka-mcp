@@ -302,6 +302,23 @@ export {
   type FerryDiagramDeleteParams,
 } from './ferry-diagrams';
 export {
+  FerryPrograms,
+  type FerryProgramTodoStatus,
+  type FerryProgramTodoPriority,
+  type FerryProgramTodo,
+  type FerryProgram,
+  type FerryProgramListData,
+  type FerryProgramMeeting,
+  type FerryProgramMeetingListData,
+  type FerryProgramMeetingCreateParams,
+  type FerryProgramMeetingUpdateParams,
+  type FerryProgramTodoCreateParams,
+  type FerryProgramTodoBatchUpsertItem,
+  type FerryProgramTodoBatchUpsertParams,
+  type FerryProgramTodoUpdateParams,
+  type FerryProgramTodoBatchUpsertData,
+} from './ferry-programs';
+export {
   Tasks,
   type PublicTaskRequest,
   type PublicTaskResponse,
