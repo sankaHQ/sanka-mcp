@@ -8,6 +8,7 @@ import {
   buildOAuthWwwAuthenticateHeader,
   extractMcpSessionId,
   generateMcpSessionId,
+  isServerIssuedMcpSessionId,
   OAuthChallengeError,
   resolveClientAuth,
 } from './auth';
@@ -163,8 +164,25 @@ const createRequestTransport = async ({
     }
   >;
 } | null> => {
-  const incomingSessionId = extractMcpSessionId(req.headers);
-  const mcpSessionId = incomingSessionId || generateMcpSessionId();
+  const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, mcpOptions);
+  const requestedSessionId = extractMcpSessionId(req.headers);
+  const incomingSessionId =
+    (
+      requestedSessionId &&
+      isServerIssuedMcpSessionId({
+        resourceUrl,
+        sessionId: requestedSessionId,
+        sharedSecret: mcpOptions.tokenExchangeSharedSecret,
+      })
+    ) ?
+      requestedSessionId
+    : undefined;
+  const mcpSessionId =
+    incomingSessionId ||
+    generateMcpSessionId({
+      resourceUrl,
+      sharedSecret: mcpOptions.tokenExchangeSharedSecret,
+    });
   const requestMcpClientInfo = extractRequestMcpClientInfo(req) ?? inferRequestMcpClientInfo(req);
   const requestMcpProtocolVersion = extractRequestMcpProtocolVersion(req);
   const requestMcpEnvironment = extractRequestMcpEnvironment(req);
@@ -202,7 +220,6 @@ const createRequestTransport = async ({
     }
   }
 
-  const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, effectiveMcpOptions);
   const requestedToolName = toolCallName(req.body);
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {

@@ -937,6 +937,46 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('resource_metadata=');
   });
 
+  it('replaces caller-chosen session ids with a server-issued resource-bound capability', async () => {
+    const response = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'mcp-session-id': 'attacker-fixed-session',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 70,
+        method: 'tools/call',
+        params: {
+          name: 'auth_status',
+          arguments: {},
+        },
+      }),
+    });
+    const text = await response.text();
+    const issuedSessionId = response.headers.get('mcp-session-id');
+    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
+    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
+    const token = new URL(connectUrl).searchParams.get('token');
+    const payloadPart = String(token).split('.', 1)[0]!;
+    const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as {
+      aud?: string;
+      res?: string;
+      sid?: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(issuedSessionId).toBeTruthy();
+    expect(issuedSessionId).not.toBe('attacker-fixed-session');
+    expect(payload).toMatchObject({
+      aud: 'sanka-mcp',
+      res: `${baseUrl}/mcp`,
+      sid: issuedSessionId,
+    });
+  });
+
   it('keeps auth_status reconnect tokens scoped to MCP access', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
