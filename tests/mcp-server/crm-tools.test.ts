@@ -8620,6 +8620,20 @@ describe('ChatGPT CRM tools', () => {
     expect(createInputSchema.properties.attachment_file_ids.description).toContain(
       'append_expense_attachment_upload_chunk until done',
     );
+    expect(createInputSchema.properties.base_currency).toMatchObject({
+      type: 'number',
+      minimum: 0,
+    });
+    expect(createInputSchema.properties.base_currency.description).toContain(
+      'overrides automatic currency conversion',
+    );
+
+    const updateInputSchema = crmUpdateExpenseTool.tool.inputSchema as any;
+    expect(updateInputSchema.properties.base_currency).toMatchObject({
+      type: 'number',
+      minimum: 0,
+    });
+    expect(updateDescription).toContain('base_currency');
 
     const startOutputSchema = crmStartExpenseAttachmentUploadTool.tool.outputSchema as any;
     expect(startOutputSchema.required).toContain('recommended_upload_strategy');
@@ -8991,6 +9005,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         amount: 100,
+        base_currency: 235_098,
         company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
@@ -9003,6 +9018,7 @@ describe('ChatGPT CRM tools', () => {
     expect(create).toHaveBeenCalledWith(
       {
         amount: 100,
+        base_currency: 235_098,
         company_external_id: 'vendor-ext-1',
         currency: 'USD',
         description: 'Hotel',
@@ -9120,6 +9136,7 @@ describe('ChatGPT CRM tools', () => {
       },
       args: {
         expense_id: 'expense-1',
+        base_currency: 235_098,
         description: 'Updated hotel',
         company_id: 'company-1',
       },
@@ -9128,6 +9145,7 @@ describe('ChatGPT CRM tools', () => {
     expect(update).toHaveBeenCalledWith(
       'expense-1',
       {
+        base_currency: 235_098,
         description: 'Updated hotel',
         company_id: 'company-1',
       },
