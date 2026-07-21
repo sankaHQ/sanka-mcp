@@ -216,6 +216,168 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/buy/offers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Buy Offers */
+    get: operations['list_public_buy_offers_api_v2_public_buy_offers_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/connectors/clay/signals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ingest Clay Signal */
+    post: operations['ingest_clay_signal_api_v2_lookout_connectors_clay_signals_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/connectors/{provider}/signals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ingest Provider Signal */
+    post: operations['ingest_provider_signal_api_v2_lookout_connectors__provider__signals_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/ad-actions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Provider Actions
+     * @deprecated
+     */
+    get: operations['list_provider_actions_api_v2_lookout_ad_actions_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/provider-actions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Provider Actions */
+    get: operations['list_provider_actions_api_v2_lookout_provider_actions_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/ad-actions/{action_id}/claim': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Claim Provider Action
+     * @deprecated
+     */
+    post: operations['claim_provider_action_api_v2_lookout_ad_actions__action_id__claim_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/provider-actions/{action_id}/claim': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Claim Provider Action */
+    post: operations['claim_provider_action_api_v2_lookout_provider_actions__action_id__claim_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/ad-actions/{action_id}/complete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Complete Provider Action
+     * @deprecated
+     */
+    post: operations['complete_provider_action_api_v2_lookout_ad_actions__action_id__complete_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/lookout/provider-actions/{action_id}/complete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Complete Provider Action */
+    post: operations['complete_provider_action_api_v2_lookout_provider_actions__action_id__complete_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/bills': {
     parameters: {
       query?: never;
@@ -818,15 +980,16 @@ export interface paths {
      * @description Create an export job.
      *
      *     Integration-destination exports are validated against the runnable
-     *     delivery matrix (item/order to nextengine, and company/contact/deal/item/
-     *     order to hubspot via the native outbound dispatcher). Provider and
+     *     delivery matrix. HubSpot Company, Contact, Custom Object, Deal, Invoice,
+     *     Item, Order, Subscription, and Ticket exports use the dedicated Hatchet
+     *     bulk workflow, bounded CSV chunks, and HubSpot's Imports API. Invoice
+     *     requires an explicitly selected HubSpot custom-object type id. NextEngine
+     *     Item and Order exports keep their dedicated Hatchet pipelines. Provider and
      *     object pairs without a working delivery pipeline are rejected with HTTP
-     *     400 and error code ``INTEGRATION_EXPORT_NOT_SUPPORTED`` (details:
-     *     ``object_type``, ``provider``, ``reason``) before any job history row or
-     *     outbound event is created. Empty or unknown provider slugs are rejected
-     *     with HTTP 400 and error code ``INTEGRATION_EXPORT_UNKNOWN_PROVIDER``.
-     *     Accepted integration exports are recorded with status ``queued`` while
-     *     background delivery runs.
+     *     400 and error code ``INTEGRATION_EXPORT_NOT_SUPPORTED`` before any job
+     *     history row is created. Empty or unknown provider slugs are rejected with
+     *     ``INTEGRATION_EXPORT_UNKNOWN_PROVIDER``. Accepted jobs stay queued or
+     *     running until provider completion and required post-processing finish.
      */
     post: operations['create_public_export_job_compat_api_v2_public_exports_post'];
     delete?: never;
@@ -867,6 +1030,164 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/diagrams': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Ferry Diagrams */
+    get: operations['list_public_ferry_diagrams_api_v2_public_ferry_diagrams_get'];
+    put?: never;
+    /** Create Public Ferry Diagram */
+    post: operations['create_public_ferry_diagram_api_v2_public_ferry_diagrams_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/diagrams/{diagram_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Ferry Diagram */
+    get: operations['get_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__get'];
+    /** Update Public Ferry Diagram */
+    put: operations['update_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__put'];
+    post?: never;
+    /** Delete Public Ferry Diagram */
+    delete: operations['delete_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Ferry Programs */
+    get: operations['list_public_ferry_programs_api_v2_public_ferry_programs_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Ferry Program */
+    get: operations['get_public_ferry_program_api_v2_public_ferry_programs__program_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/meetings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Ferry Program Meetings */
+    get: operations['list_public_ferry_program_meetings_api_v2_public_ferry_programs__program_id__meetings_get'];
+    put?: never;
+    /** Create Public Ferry Program Meeting */
+    post: operations['create_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/meetings/{meeting_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Public Ferry Program Meeting */
+    patch: operations['update_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings__meeting_id__patch'];
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/todos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Public Ferry Program Todo */
+    post: operations['create_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/todos/batch-upsert': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Batch Upsert Public Ferry Program Todos */
+    post: operations['batch_upsert_public_ferry_program_todos_api_v2_public_ferry_programs__program_id__todos_batch_upsert_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/todos/{todo_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Public Ferry Program Todo */
+    delete: operations['delete_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__delete'];
+    options?: never;
+    head?: never;
+    /** Update Public Ferry Program Todo */
+    patch: operations['update_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__patch'];
     trace?: never;
   };
   '/v2/public/files': {
@@ -2438,6 +2759,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/projects': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Projects */
+    get: operations['list_public_projects_api_v2_public_projects_get'];
+    put?: never;
+    /** Create Public Project */
+    post: operations['create_public_project_api_v2_public_projects_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/projects/{project_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Project */
+    get: operations['get_public_project_api_v2_public_projects__project_id__get'];
+    /** Update Public Project */
+    put: operations['update_public_project_api_v2_public_projects__project_id__put'];
+    post?: never;
+    /** Delete Public Project */
+    delete: operations['delete_public_project_api_v2_public_projects__project_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/tickets': {
     parameters: {
       query?: never;
@@ -3130,6 +3488,12 @@ export interface components {
       /** Workspace Id */
       workspace_id: string;
     };
+    BatchUpsertPublicFerryProgramTodosApiV2PublicFerryProgramsProgramIdTodosBatchUpsertPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramTodoBatchUpsertData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     /** Body_upload_public_bill_file_api_v2_public_bills_files_post */
     Body_upload_public_bill_file_api_v2_public_bills_files_post: {
       /** File */
@@ -3234,6 +3598,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ClaimProviderActionApiV2LookoutAdActionsActionIdClaimPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ClaimProviderActionApiV2LookoutProviderActionsActionIdClaimPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     /** CompanyMutationRequest */
     CompanyMutationRequest: {
       /** View Id */
@@ -3310,6 +3686,18 @@ export interface components {
       field_ref?: string | null;
       /** Discount Price */
       discount_price?: number | null;
+    };
+    CompleteProviderActionApiV2LookoutAdActionsActionIdCompletePost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CompleteProviderActionApiV2LookoutProviderActionsActionIdCompletePost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionData'];
+      meta: components['schemas']['EnvelopeMeta'];
     };
     CreateApprovalRequestApiV2PublicApprovalRequestsPost200Envelope: {
       /** @constant */
@@ -3452,6 +3840,24 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    CreatePublicFerryDiagramApiV2PublicFerryDiagramsPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryDiagramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicFerryProgramMeetingApiV2PublicFerryProgramsProgramIdMeetingsPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramMeetingData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     CreatePublicFinancialStatementViewApiV2PublicJournalsViewsPost200Envelope: {
       /** @constant */
       success: true;
@@ -3576,6 +3982,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicProjectApiV2PublicProjectsPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicProjectMutationData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreatePublicPurchaseOrderApiV2PublicPurchaseOrdersPost200Envelope: {
@@ -3782,6 +4194,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    DeletePublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdDelete200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryDiagramDeleteData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeletePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosTodoIdDelete200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     DeletePublicIncentivePlanApiV2PublicIncentivesPlansPlanIdDelete200Envelope: {
       /** @constant */
       success: true;
@@ -3881,6 +4305,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    DeletePublicProjectApiV2PublicProjectsProjectIdDelete200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicProjectDeleteData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     DeletePublicPurchaseOrderApiV2PublicPurchaseOrdersPurchaseOrderIdDelete200Envelope: {
       /** @constant */
       success: true;
@@ -3953,6 +4383,51 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    /** DisbursementAllocationCreateRequest */
+    DisbursementAllocationCreateRequest: {
+      /** Payable Type */
+      payable_type?: ('bill' | 'expense') | null;
+      /** Payable Id */
+      payable_id?: string | null;
+      /** Bill Id */
+      bill_id?: string | null;
+      /** Expense Id */
+      expense_id?: string | null;
+      /** Amount */
+      amount: number;
+      /** Currency */
+      currency?: string | null;
+      /**
+       * Source
+       * @default manual
+       * @enum {string}
+       */
+      source: 'manual' | 'bank_statement' | 'api' | 'migration';
+      /**
+       * Notes
+       * @default
+       */
+      notes: string;
+    };
+    /** DisbursementAllocationPatchRequest */
+    DisbursementAllocationPatchRequest: {
+      /** Payable Type */
+      payable_type?: ('bill' | 'expense') | null;
+      /** Payable Id */
+      payable_id?: string | null;
+      /** Bill Id */
+      bill_id?: string | null;
+      /** Expense Id */
+      expense_id?: string | null;
+      /** Amount */
+      amount?: number | null;
+      /** Currency */
+      currency?: string | null;
+      /** Source */
+      source?: ('manual' | 'bank_statement' | 'api' | 'migration') | null;
+      /** Notes */
+      notes?: string | null;
+    };
     DownloadPublicPayrollPayslipPdfApiV2PublicPayrollRunsRunIdPayslipsPdfGet200Envelope: {
       /** @constant */
       success: true;
@@ -4002,15 +4477,36 @@ export interface components {
       target_system?: string | null;
       /** Channel Id */
       channel_id?: string | null;
+      /** Mapping Template Id */
+      mapping_template_id?: string | null;
+      /** Mapping Template Revision */
+      mapping_template_revision?: number | null;
+      /** Mapping Template State */
+      mapping_template_state?: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Operation
        * @default update
        */
       operation: string;
+      /**
+       * Request Invoice
+       * @default false
+       */
+      request_invoice: boolean;
       /** Record Ids */
       record_ids?: string[] | null;
       /** Workspace Scope */
       workspace_scope?: string | null;
+      /** View Id */
+      view_id?: string | null;
+      /** Search Query */
+      search_query?: string | null;
+      /** Filter Fields */
+      filter_fields?: components['schemas']['ExportTemplateFilterFieldInput'][];
+      /** Idempotency Key */
+      idempotency_key?: string | null;
       /** Custom Object Id */
       custom_object_id?: string | null;
       /**
@@ -4029,6 +4525,8 @@ export interface components {
       workflow_action_tracker_id?: string | null;
       /** Action Tracker Id */
       action_tracker_id?: string | null;
+      /** Workflow Language */
+      workflow_language?: string | null;
       /** Key Field */
       key_field?: string | null;
       /**
@@ -4056,6 +4554,149 @@ export interface components {
       mapping_type?: string | null;
       /** Selected Custom Object */
       selected_custom_object?: string | null;
+    };
+    /** FerryDiagramCreateRequest */
+    FerryDiagramCreateRequest: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Nodes */
+      nodes?: components['schemas']['FerryDiagramNode'][];
+      /** Edges */
+      edges?: components['schemas']['FerryDiagramEdge'][];
+      viewport?: components['schemas']['FerryDiagramViewport'];
+    };
+    /** FerryDiagramUpdateRequest */
+    FerryDiagramUpdateRequest: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Nodes */
+      nodes?: components['schemas']['FerryDiagramNode'][];
+      /** Edges */
+      edges?: components['schemas']['FerryDiagramEdge'][];
+      viewport?: components['schemas']['FerryDiagramViewport'];
+      /** Revision */
+      revision: number;
+    };
+    /** FerryProgramMeetingCreateRequest */
+    FerryProgramMeetingCreateRequest: {
+      /** Title */
+      title: string;
+      /** Meetingat */
+      meetingAt?: string | null;
+      /**
+       * Contentmarkdown
+       * @default
+       */
+      contentMarkdown: string;
+      /** Sourceref */
+      sourceRef?: string | null;
+    };
+    /** FerryProgramMeetingUpdateRequest */
+    FerryProgramMeetingUpdateRequest: {
+      /** Title */
+      title?: string | null;
+      /** Meetingat */
+      meetingAt?: string | null;
+      /** Contentmarkdown */
+      contentMarkdown?: string | null;
+    };
+    /** FerryProgramTodoBatchUpsertRequest */
+    FerryProgramTodoBatchUpsertRequest: {
+      /** Todos */
+      todos: components['schemas']['FerryProgramTodoBatchUpsertItem'][];
+    };
+    /** FerryProgramTodoCreateRequest */
+    FerryProgramTodoCreateRequest: {
+      /** Title */
+      title: string;
+      /** Titleja */
+      titleJa?: string | null;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Descriptionja */
+      descriptionJa?: string | null;
+      /**
+       * Category
+       * @default custom
+       */
+      category: string;
+      /**
+       * Required
+       * @default false
+       */
+      required: boolean;
+      /**
+       * Status
+       * @default not_started
+       * @enum {string}
+       */
+      status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+      /** Notes */
+      notes?: string | null;
+      /** Startdate */
+      startDate?: string | null;
+      /** Duedate */
+      dueDate?: string | null;
+      /**
+       * Priority
+       * @default P2
+       * @enum {string}
+       */
+      priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+      /** Sourceref */
+      sourceRef?: string | null;
+      /** Phaseid */
+      phaseId?: string | null;
+      /** Parenttodoid */
+      parentTodoId?: string | null;
+      /** Sortorder */
+      sortOrder?: number | null;
+    };
+    /** FerryProgramTodoUpdateRequest */
+    FerryProgramTodoUpdateRequest: {
+      /** Title */
+      title?: string | null;
+      /** Titleja */
+      titleJa?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Descriptionja */
+      descriptionJa?: string | null;
+      /** Category */
+      category?: string | null;
+      /** Required */
+      required?: boolean | null;
+      /** Status */
+      status?: ('not_started' | 'in_progress' | 'completed' | 'blocked') | null;
+      /** Notes */
+      notes?: string | null;
+      /** Startdate */
+      startDate?: string | null;
+      /** Duedate */
+      dueDate?: string | null;
+      /** Priority */
+      priority?: ('P0' | 'P1' | 'P2' | 'P3' | 'P4') | null;
+      /** Sourceref */
+      sourceRef?: string | null;
+      /** Phaseid */
+      phaseId?: string | null;
+      /** Parenttodoid */
+      parentTodoId?: string | null;
+      /** Sortorder */
+      sortOrder?: number | null;
     };
     GetPublicAbsenceApiV2PublicAbsencesAbsenceIdGet200Envelope: {
       /** @constant */
@@ -4210,6 +4851,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    GetPublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryDiagramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicFerryProgramApiV2PublicFerryProgramsProgramIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     GetPublicImportJobCompatApiV2PublicImportsJobIdGet200Envelope: {
       /** @constant */
       success: true;
@@ -4298,6 +4951,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicProjectApiV2PublicProjectsProjectIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicProject'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     GetPublicPurchaseOrderApiV2PublicPurchaseOrdersPurchaseOrderIdGet200Envelope: {
@@ -4412,6 +5071,14 @@ export interface components {
       provider?: string | null;
       /** Channel Id */
       channel_id?: string | null;
+      /** Mapping Template Id */
+      mapping_template_id?: string | null;
+      /** Mapping Template Revision */
+      mapping_template_revision?: number | null;
+      /** Mapping Template State */
+      mapping_template_state?: {
+        [key: string]: unknown;
+      } | null;
       /** Record Ids */
       record_ids?: string[] | null;
       /**
@@ -4444,6 +5111,14 @@ export interface components {
        * @default false
        */
       dry_run: boolean;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
+      /** Workflow Action Tracker Id */
+      workflow_action_tracker_id?: string | null;
+      /** Action Tracker Id */
+      action_tracker_id?: string | null;
+      /** Workflow Language */
+      workflow_language?: string | null;
     };
     /** IncentiveAllocationsReplaceRequest */
     IncentiveAllocationsReplaceRequest: {
@@ -4596,6 +5271,18 @@ export interface components {
       /** Sort Direction */
       sort_direction?: ('asc' | 'desc') | null;
     };
+    IngestClaySignalApiV2LookoutConnectorsClaySignalsPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutSignalData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    IngestProviderSignalApiV2LookoutConnectorsProviderSignalsPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutSignalData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     /** JournalCreateRequest */
     JournalCreateRequest: {
       /** Data */
@@ -4644,6 +5331,18 @@ export interface components {
        */
       limit: number;
     };
+    ListProviderActionsApiV2LookoutAdActionsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListProviderActionsApiV2LookoutProviderActionsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['LookoutProviderActionListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicAbsencesApiV2PublicAbsencesGet200Envelope: {
       /** @constant */
       success: true;
@@ -4687,6 +5386,12 @@ export interface components {
           }
         | components['schemas']['ObjectRecordListData']
         | components['schemas']['ObjectRecordLineItemListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicBuyOffersApiV2PublicBuyOffersGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['OfferSnapshotListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ListPublicCompaniesApiV2PublicCompaniesGet200Envelope: {
@@ -4786,6 +5491,24 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicFerryDiagramsApiV2PublicFerryDiagramsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryDiagramListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicFerryProgramMeetingsApiV2PublicFerryProgramsProgramIdMeetingsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramMeetingListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicFerryProgramsApiV2PublicFerryProgramsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ListPublicImportJobsCompatApiV2PublicImportsGet200Envelope: {
@@ -4962,6 +5685,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ListPublicProjectsApiV2PublicProjectsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicProjectListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicPurchaseOrdersApiV2PublicPurchaseOrdersGet200Envelope: {
       /** @constant */
       success: true;
@@ -5045,6 +5774,59 @@ export interface components {
       success: true;
       data: components['schemas']['WorkflowListData'];
       meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** LookoutProviderActionCompleteRequest */
+    LookoutProviderActionCompleteRequest: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'succeeded' | 'failed';
+      /** Provider Response */
+      provider_response?: {
+        [key: string]: unknown;
+      };
+      /** Error */
+      error?: string | null;
+    };
+    /** LookoutSignalRequest */
+    LookoutSignalRequest: {
+      /**
+       * Provider
+       * @default lookout
+       */
+      provider: string;
+      /** Signal Type */
+      signal_type: string;
+      /** Dedupe Key */
+      dedupe_key: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at?: string;
+      /** Account */
+      account?: {
+        [key: string]: unknown;
+      };
+      /** Contact */
+      contact?: {
+        [key: string]: unknown;
+      };
+      /** Attributes */
+      attributes?: {
+        [key: string]: unknown;
+      };
+      /** Source Url */
+      source_url?: string | null;
+      /** Confidence */
+      confidence?: number | null;
+      /** Raw Payload */
+      raw_payload?: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
     };
     MarkPublicIncentiveBatchPaidApiV2PublicIncentivesBatchesBatchIdMarkPaidPost200Envelope: {
       /** @constant */
@@ -5225,6 +6007,22 @@ export interface components {
        * @default false
        */
       trigger_workflows: boolean;
+    };
+    /** PaymentAllocationsUpdateRequest */
+    PaymentAllocationsUpdateRequest: {
+      /** Allocations */
+      allocations?: components['schemas']['PaymentAllocationSaveInput'][];
+    };
+    /** PayrollJournalEntryRequest */
+    PayrollJournalEntryRequest: {
+      /** Debit Account */
+      debit_account?: string | null;
+      /** Credit Account */
+      credit_account?: string | null;
+      /** Deductions Account */
+      deductions_account?: string | null;
+      /** Notes */
+      notes?: string | null;
     };
     /** PayrollProfileUpsertRequest */
     PayrollProfileUpsertRequest: {
@@ -5526,6 +6324,27 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    /**
+     * PublicExpenseMutationRequest
+     * @description Public expense mutation envelope with typed SDK-friendly overrides.
+     */
+    PublicExpenseMutationRequest: {
+      /** View Id */
+      view_id?: string | null;
+      /** Form View Id */
+      form_view_id?: string | null;
+      /** Properties */
+      properties?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Base Currency
+       * @description Explicit amount in the workspace base currency. When omitted, Sanka calculates the value from the expense amount and currency. A provided value takes precedence over automatic conversion.
+       */
+      base_currency?: number | null;
+    } & {
+      [key: string]: unknown;
+    };
     /** PublicInvoiceEmailRequest */
     PublicInvoiceEmailRequest: {
       /**
@@ -5631,6 +6450,17 @@ export interface components {
       confirm: boolean;
     } & {
       [key: string]: unknown;
+    };
+    /** PublicProjectRequest */
+    PublicProjectRequest: {
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Default */
+      default?: boolean | null;
+      /** Statuses */
+      statuses?: components['schemas']['PublicProjectStatusRequest'][] | null;
     };
     /** PublicPropertyMutationRequest */
     PublicPropertyMutationRequest: {
@@ -6344,6 +7174,24 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UpdatePublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdPut200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryDiagramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicFerryProgramMeetingApiV2PublicFerryProgramsProgramIdMeetingsMeetingIdPatch200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramMeetingData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosTodoIdPatch200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['FerryProgramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     UpdatePublicIncentivePlanApiV2PublicIncentivesPlansPlanIdPatch200Envelope: {
       /** @constant */
       success: true;
@@ -6441,6 +7289,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicProjectApiV2PublicProjectsProjectIdPut200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicProjectMutationData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UpdatePublicPurchaseOrderApiV2PublicPurchaseOrdersPurchaseOrderIdPut200Envelope: {
@@ -6658,8 +7512,12 @@ export interface components {
         | 'payable_balance'
         | 'pnl'
         | 'balance_sheet';
+      /** Group Field Id */
+      group_field_id?: string | null;
       /** Column Field Ids */
       column_field_ids?: string[];
+      /** Subtotal Calculations */
+      subtotal_calculations?: components['schemas']['ViewSubtotalCalculation'][];
     };
     /** ViewUpdateRequest */
     ViewUpdateRequest: {
@@ -6685,6 +7543,8 @@ export interface components {
             | 'balance_sheet'
           )
         | null;
+      /** Group Field Id */
+      group_field_id?: string | null;
     };
     WritebackPublicSalesforceQuoteReadinessApiV2PublicCpqQuoteReadinessSalesforceWritebackPost200Envelope: {
       /** @constant */
@@ -6705,6 +7565,14 @@ export interface components {
       ctx_id: string;
       pagination?: components['schemas']['PaginationMeta'];
       toast?: components['schemas']['ToastMessage'];
+    };
+    /** FerryProgramTodoBatchUpsertData */
+    FerryProgramTodoBatchUpsertData: {
+      program: components['schemas']['FerryProgramData'];
+      /** Createdcount */
+      createdCount: number;
+      /** Updatedcount */
+      updatedCount: number;
     };
     /** ObjectRecordBulkActionData */
     ObjectRecordBulkActionData: {
@@ -6745,6 +7613,59 @@ export interface components {
         [key: string]: unknown;
       } | null;
     };
+    /** LookoutProviderActionData */
+    LookoutProviderActionData: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Run Id */
+      run_id: string;
+      /**
+       * Provider
+       * @enum {string}
+       */
+      provider: 'google_ads' | 'meta_ads' | 'hubspot';
+      /** Action Slug */
+      action_slug: string;
+      /** Target Id */
+      target_id?: string | null;
+      /** Campaign Id */
+      campaign_id?: string | null;
+      /** Input Data */
+      input_data?: {
+        [key: string]: unknown;
+      };
+      /** Safety */
+      safety?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'queued' | 'claimed' | 'succeeded' | 'failed';
+      /** Provider Response */
+      provider_response?: {
+        [key: string]: unknown;
+      };
+      /** Error */
+      error?: string | null;
+      /** Claimed At */
+      claimed_at?: string | null;
+      /** Completed At */
+      completed_at?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** AssociationEdgeMutationData */
     AssociationEdgeMutationData: {
       edge?: components['schemas']['AssociationEdge'] | null;
@@ -6773,6 +7694,216 @@ export interface components {
       meta?: {
         [key: string]: unknown;
       };
+    };
+    /** FerryDiagramData */
+    FerryDiagramData: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Nodes */
+      nodes?: components['schemas']['FerryDiagramNode'][];
+      /** Edges */
+      edges?: components['schemas']['FerryDiagramEdge'][];
+      viewport?: components['schemas']['FerryDiagramViewport'];
+      /** Id */
+      id: string;
+      /** Workspaceid */
+      workspaceId: string;
+      /** Revision */
+      revision: number;
+      /** Createdbyid */
+      createdById?: number | null;
+      /** Updatedbyid */
+      updatedById?: number | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+    };
+    /** FerryProgramMeetingData */
+    FerryProgramMeetingData: {
+      /** Id */
+      id: string;
+      /** Programid */
+      programId: string;
+      /** Workspaceid */
+      workspaceId: string;
+      /** Title */
+      title: string;
+      /** Meetingat */
+      meetingAt?: string | null;
+      /**
+       * Contentmarkdown
+       * @default
+       */
+      contentMarkdown: string;
+      /** Sourceref */
+      sourceRef?: string | null;
+      /** Createdbyid */
+      createdById?: number | null;
+      /** Updatedbyid */
+      updatedById?: number | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+    };
+    /** FerryProgramData */
+    FerryProgramData: {
+      /** Id */
+      id: string;
+      /** Workspaceid */
+      workspaceId: string;
+      /** Templateslug */
+      templateSlug: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'draft' | 'active' | 'ready' | 'completed' | 'archived';
+      /**
+       * Plan
+       * @default self_serve
+       * @enum {string}
+       */
+      plan: 'self_serve' | 'sakura_led' | 'expert_led';
+      /**
+       * Planchangelocked
+       * @default false
+       */
+      planChangeLocked: boolean;
+      /**
+       * Paymentstate
+       * @default active
+       * @enum {string}
+       */
+      paymentState: 'draft' | 'awaiting_payment' | 'active';
+      /**
+       * Billingcurrency
+       * @default jpy
+       * @enum {string}
+       */
+      billingCurrency: 'jpy' | 'usd';
+      /** Recordcount */
+      recordCount?: number | null;
+      /** Listprice */
+      listPrice?: number | null;
+      /** Quotedprice */
+      quotedPrice?: number | null;
+      /**
+       * Feewaived
+       * @default false
+       */
+      feeWaived: boolean;
+      /**
+       * Feewaiverreason
+       * @default
+       */
+      feeWaiverReason: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Expertuserid */
+      expertUserId?: number | null;
+      /** Expertreviewthreadid */
+      expertReviewThreadId?: string | null;
+      /** Expertsettings */
+      expertSettings?: {
+        [key: string]: unknown;
+      };
+      /** Entitlements */
+      entitlements?: {
+        [key: string]: unknown;
+      };
+      /** Name */
+      name: string;
+      /**
+       * Updatesmarkdown
+       * @default
+       */
+      updatesMarkdown: string;
+      /** Sources */
+      sources?: components['schemas']['FerryProgramEndpoint'][];
+      /** Destinations */
+      destinations?: components['schemas']['FerryProgramEndpoint'][];
+      /** Todos */
+      todos?: components['schemas']['FerryProgramTodo'][];
+      /** Taskphases */
+      taskPhases?: components['schemas']['FerryProgramPhase'][];
+      /** Linkedrunids */
+      linkedRunIds?: string[];
+      /** Createdbyid */
+      createdById?: number | null;
+      /** Updatedbyid */
+      updatedById?: number | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+    };
+    /** PublicProjectMutationData */
+    PublicProjectMutationData: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** Id */
+      id?: string | null;
+      /** Project Id */
+      project_id?: string | null;
+      project?: components['schemas']['PublicProject'] | null;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+    };
+    /** FerryDiagramDeleteData */
+    FerryDiagramDeleteData: {
+      /** Id */
+      id: string;
+      /** Deleted */
+      deleted: boolean;
+    };
+    /** PublicProjectDeleteData */
+    PublicProjectDeleteData: {
+      /** Ok */
+      ok: boolean;
+      /** Status */
+      status: string;
+      /** Id */
+      id?: string | null;
+      /** Project Id */
+      project_id?: string | null;
+      /** Replacement Project Id */
+      replacement_project_id?: string | null;
+      /**
+       * Cleared Task Count
+       * @default 0
+       */
+      cleared_task_count: number;
+      /**
+       * Reassigned Task Count
+       * @default 0
+       */
+      reassigned_task_count: number;
+      /** Ctx Id */
+      ctx_id?: string | null;
+      /** Advisories */
+      advisories?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
     };
     /** EnrichData */
     EnrichData: {
@@ -6820,6 +7951,127 @@ export interface components {
       /** External Id */
       external_id?: string | null;
     };
+    /** ExportTemplateFilterFieldInput */
+    ExportTemplateFilterFieldInput: {
+      /**
+       * Filter Type
+       * @default
+       */
+      filter_type: string;
+      /**
+       * Filter Option
+       * @default is
+       */
+      filter_option: string;
+      /** Filter Value */
+      filter_value?: string | null;
+    };
+    /** FerryDiagramEdge */
+    FerryDiagramEdge: {
+      /** Id */
+      id: string;
+      /** Source */
+      source: string;
+      /** Target */
+      target: string;
+      /**
+       * Label
+       * @default
+       */
+      label: string;
+      /**
+       * Type
+       * @default smoothstep
+       * @enum {string}
+       */
+      type: 'default' | 'smoothstep';
+      /** Sourcehandle */
+      sourceHandle?: string | null;
+      /** Targethandle */
+      targetHandle?: string | null;
+    };
+    /** FerryDiagramNode */
+    FerryDiagramNode: {
+      /** Id */
+      id: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: 'objectTable' | 'process' | 'note';
+      position: components['schemas']['FerryDiagramPosition'];
+      data: components['schemas']['FerryDiagramNodeData'];
+    };
+    /** FerryDiagramViewport */
+    FerryDiagramViewport: {
+      /**
+       * X
+       * @default 0
+       */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+      /**
+       * Zoom
+       * @default 1
+       */
+      zoom: number;
+    };
+    /** FerryProgramTodoBatchUpsertItem */
+    FerryProgramTodoBatchUpsertItem: {
+      /** Title */
+      title: string;
+      /** Titleja */
+      titleJa?: string | null;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Descriptionja */
+      descriptionJa?: string | null;
+      /**
+       * Category
+       * @default custom
+       */
+      category: string;
+      /**
+       * Required
+       * @default false
+       */
+      required: boolean;
+      /**
+       * Status
+       * @default not_started
+       * @enum {string}
+       */
+      status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+      /** Notes */
+      notes?: string | null;
+      /** Startdate */
+      startDate?: string | null;
+      /** Duedate */
+      dueDate?: string | null;
+      /**
+       * Priority
+       * @default P2
+       * @enum {string}
+       */
+      priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+      /** Sourceref */
+      sourceRef?: string | null;
+      /** Phaseid */
+      phaseId?: string | null;
+      /** Parenttodoid */
+      parentTodoId?: string | null;
+      /** Sortorder */
+      sortOrder?: number | null;
+      /** Id */
+      id?: string | null;
+    };
     /** ObjectRecordData */
     ObjectRecordData: {
       /** Id */
@@ -6842,6 +8094,38 @@ export interface components {
       display_properties?: {
         [key: string]: components['schemas']['ObjectRecordDisplayValue'];
       };
+    };
+    /** PublicProject */
+    PublicProject: {
+      /** Id */
+      id: string;
+      /** Project Id */
+      project_id: string;
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      /**
+       * Default
+       * @default false
+       */
+      default: boolean;
+      /** Statuses */
+      statuses?: components['schemas']['PublicProjectStatus'][];
+      /**
+       * Task Count
+       * @default 0
+       */
+      task_count: number;
+      /**
+       * Active Task Count
+       * @default 0
+       */
+      active_task_count: number;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
     };
     /** WorkflowDetailData */
     WorkflowDetailData: {
@@ -6875,6 +8159,76 @@ export interface components {
       /** Allocation Percent */
       allocation_percent: number;
     };
+    /** LookoutSignalData */
+    LookoutSignalData: {
+      /**
+       * Provider
+       * @default lookout
+       */
+      provider: string;
+      /** Signal Type */
+      signal_type: string;
+      /** Dedupe Key */
+      dedupe_key: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at?: string;
+      /** Account */
+      account?: {
+        [key: string]: unknown;
+      };
+      /** Contact */
+      contact?: {
+        [key: string]: unknown;
+      };
+      /** Attributes */
+      attributes?: {
+        [key: string]: unknown;
+      };
+      /** Source Url */
+      source_url?: string | null;
+      /** Confidence */
+      confidence?: number | null;
+      /** Raw Payload */
+      raw_payload?: {
+        [key: string]: unknown;
+      };
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /**
+       * Status
+       * @default received
+       */
+      status: string;
+      /**
+       * Received At
+       * Format: date-time
+       */
+      received_at: string;
+      /**
+       * Duplicate
+       * @default false
+       */
+      duplicate: boolean;
+      /** Dispatched Motion Ids */
+      dispatched_motion_ids?: string[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** LookoutProviderActionListData */
+    LookoutProviderActionListData: {
+      /** Items */
+      items?: components['schemas']['LookoutProviderActionData'][];
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+    };
     /** ObjectRecordListData */
     ObjectRecordListData: {
       /** Object Type */
@@ -6896,6 +8250,8 @@ export interface components {
       total: number;
       /** Next Cursor */
       next_cursor?: string | null;
+      /** Subtotals */
+      subtotals?: components['schemas']['ObjectRecordSubtotalResult'][];
       /** Meta */
       meta?: {
         [key: string]: unknown;
@@ -6973,6 +8329,60 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** OfferSnapshotListData */
+    OfferSnapshotListData: {
+      /** Items */
+      items: components['schemas']['OfferSnapshotData'][];
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+      /** Total */
+      total: number;
+      /**
+       * Message
+       * @default OK
+       */
+      message: string;
+    };
+    /** FerryDiagramListData */
+    FerryDiagramListData: {
+      /** Diagrams */
+      diagrams: components['schemas']['FerryDiagramSummary'][];
+      /** Count */
+      count: number;
+    };
+    /** FerryProgramMeetingListData */
+    FerryProgramMeetingListData: {
+      /** Meetings */
+      meetings: components['schemas']['FerryProgramMeetingData'][];
+      /** Count */
+      count: number;
+    };
+    /** FerryProgramListData */
+    FerryProgramListData: {
+      /** Programs */
+      programs: components['schemas']['FerryProgramData'][];
+      /** Count */
+      count: number;
+    };
+    /** PublicProjectListData */
+    PublicProjectListData: {
+      /** Items */
+      items: components['schemas']['PublicProject'][];
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+      /** Total */
+      total: number;
+      /** Next Cursor */
+      next_cursor?: string | null;
+      /** Meta */
+      meta?: {
+        [key: string]: unknown;
+      };
+    };
     /** WorkflowListData */
     WorkflowListData: {
       /** Items */
@@ -7023,6 +8433,32 @@ export interface components {
       /** Currency */
       currency?: string | null;
     };
+    /** PaymentAllocationSaveInput */
+    PaymentAllocationSaveInput: {
+      /** Invoice Id */
+      invoice_id: string;
+      /** Amount */
+      amount: number;
+      /**
+       * Adjustment Amount
+       * @default 0
+       */
+      adjustment_amount: number | null;
+      /** Adjustment Type */
+      adjustment_type?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /**
+       * Source
+       * @default manual
+       */
+      source: string | null;
+      /**
+       * Notes
+       * @default
+       */
+      notes: string | null;
+    };
     /** ProspectCompaniesData */
     ProspectCompaniesData: {
       /** Query */
@@ -7056,6 +8492,17 @@ export interface components {
       template_select?: string | null;
       /** Filename */
       filename?: string | null;
+    };
+    /** PublicProjectStatusRequest */
+    PublicProjectStatusRequest: {
+      /** Id */
+      id?: string | null;
+      /** Name */
+      name?: string | null;
+      /** Internal Value */
+      internal_value?: string | null;
+      /** Order */
+      order?: number | null;
     };
     /** RecordFilterRequest */
     RecordFilterRequest: {
@@ -7146,6 +8593,22 @@ export interface components {
        */
       message: string;
     };
+    /** ViewSubtotalCalculation */
+    ViewSubtotalCalculation: {
+      /** Field Id */
+      field_id: string;
+      /**
+       * Operation
+       * @enum {string}
+       */
+      operation: 'count' | 'sum' | 'avg' | 'median' | 'min' | 'max';
+      /**
+       * Scope
+       * @default view
+       * @enum {string}
+       */
+      scope: 'page' | 'view';
+    };
     ErrorBody: {
       code: string;
       message: string;
@@ -7202,6 +8665,131 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** FerryProgramEndpoint */
+    FerryProgramEndpoint: {
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** Label */
+      label: string;
+      /** Labelja */
+      labelJa?: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'source' | 'destination';
+      /** Integrationslug */
+      integrationSlug?: string | null;
+      /** Channelid */
+      channelId?: string | null;
+      /** Sourcetype */
+      sourceType?: string | null;
+      /** Objecttypes */
+      objectTypes?: string[];
+      /** Metadata */
+      metadata?: {
+        [key: string]: unknown;
+      };
+    };
+    /** FerryProgramPhase */
+    FerryProgramPhase: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Nameja */
+      nameJa?: string | null;
+      /**
+       * Sortorder
+       * @default 0
+       */
+      sortOrder: number;
+    };
+    /** FerryProgramTodo */
+    FerryProgramTodo: {
+      /** Id */
+      id: string;
+      /** Title */
+      title: string;
+      /** Titleja */
+      titleJa?: string | null;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Descriptionja */
+      descriptionJa?: string | null;
+      /**
+       * Category
+       * @default planning
+       */
+      category: string;
+      /**
+       * Required
+       * @default true
+       */
+      required: boolean;
+      /**
+       * Status
+       * @default not_started
+       * @enum {string}
+       */
+      status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+      /** Notes */
+      notes?: string | null;
+      /** Startdate */
+      startDate?: string | null;
+      /** Duedate */
+      dueDate?: string | null;
+      /**
+       * Priority
+       * @default P2
+       * @enum {string}
+       */
+      priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+      /** Sourceref */
+      sourceRef?: string | null;
+      /** Phaseid */
+      phaseId?: string | null;
+      /** Parenttodoid */
+      parentTodoId?: string | null;
+      /** Sortorder */
+      sortOrder?: number | null;
+    };
+    /** FerryDiagramNodeData */
+    FerryDiagramNodeData: {
+      /** Label */
+      label: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Fields */
+      fields?: string[];
+      /** Modulename */
+      moduleName?: string | null;
+      /** Objectkey */
+      objectKey?: string | null;
+      /** Objectslug */
+      objectSlug?: string | null;
+      /**
+       * Color
+       * @default default
+       * @enum {string}
+       */
+      color: 'default' | 'brand' | 'success' | 'warning' | 'danger';
+    };
+    /** FerryDiagramPosition */
+    FerryDiagramPosition: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
     /** ObjectRecordDisplayValue */
     ObjectRecordDisplayValue: {
       /** Type */
@@ -7239,6 +8827,20 @@ export interface components {
         [key: string]: unknown;
       };
       table_cell?: components['schemas']['ObjectRecordTableCellPayload'] | null;
+    };
+    /** PublicProjectStatus */
+    PublicProjectStatus: {
+      /** Id */
+      id?: string | null;
+      /** Name */
+      name: string;
+      /** Internal Value */
+      internal_value: string;
+      /**
+       * Order
+       * @default 0
+       */
+      order: number;
     };
     /** WorkflowListItem */
     WorkflowListItem: {
@@ -7294,6 +8896,33 @@ export interface components {
       created_by?: components['schemas']['WorkflowUserSummary'] | null;
       last_updated_by?: components['schemas']['WorkflowUserSummary'] | null;
       trigger_node?: components['schemas']['WorkflowTriggerNode'] | null;
+    };
+    /** ObjectRecordSubtotalResult */
+    ObjectRecordSubtotalResult: {
+      /** Field Id */
+      field_id: string;
+      /**
+       * Operation
+       * @enum {string}
+       */
+      operation: 'count' | 'sum' | 'avg' | 'median' | 'min' | 'max';
+      /** Value */
+      value?: unknown;
+      /** Value Type */
+      value_type: string;
+      /**
+       * Count
+       * @default 0
+       */
+      count: number;
+      /** Formatted */
+      formatted?: string | null;
+      /**
+       * Scope
+       * @default page
+       * @enum {string}
+       */
+      scope: 'page' | 'view';
     };
     /** ObjectRecordViewData */
     ObjectRecordViewData: {
@@ -7362,6 +8991,100 @@ export interface components {
         [key: string]: components['schemas']['ObjectRecordDisplayValue'];
       };
     };
+    /** OfferSnapshotData */
+    OfferSnapshotData: {
+      /** Id */
+      id: string;
+      /** Buy Request Id */
+      buy_request_id: string;
+      /** Buy Request Line Id */
+      buy_request_line_id: string;
+      /** Sourcing Run Id */
+      sourcing_run_id?: string | null;
+      /** Provider */
+      provider: string;
+      /** Merchant Key */
+      merchant_key: string;
+      /** Merchant Name */
+      merchant_name: string;
+      /** Merchant Domain */
+      merchant_domain?: string | null;
+      /** Provider Product Id */
+      provider_product_id?: string | null;
+      /** Upid */
+      upid?: string | null;
+      /** Title */
+      title: string;
+      /** Variant Title */
+      variant_title?: string | null;
+      /** Product Url */
+      product_url?: string | null;
+      /** Image Url */
+      image_url?: string | null;
+      /** Quantity */
+      quantity: number;
+      /** Unit Price */
+      unit_price?: number | null;
+      /** Shipping Amount */
+      shipping_amount?: number | null;
+      /** Tax Amount */
+      tax_amount?: number | null;
+      /** Total Amount */
+      total_amount?: number | null;
+      /** Currency */
+      currency?: string | null;
+      /** Availability */
+      availability?: string | null;
+      /** Delivery Estimate */
+      delivery_estimate?: string | null;
+      /** Raw Snapshot */
+      raw_snapshot?: {
+        [key: string]: unknown;
+      };
+      /** Snapshot Hash */
+      snapshot_hash: string;
+      /** Snapshot Version */
+      snapshot_version: number;
+      /**
+       * Captured At
+       * Format: date-time
+       */
+      captured_at: string;
+      /** Expires At */
+      expires_at?: string | null;
+    };
+    /** FerryDiagramSummary */
+    FerryDiagramSummary: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /**
+       * Nodecount
+       * @default 0
+       */
+      nodeCount: number;
+      /**
+       * Edgecount
+       * @default 0
+       */
+      edgeCount: number;
+      /** Revision */
+      revision: number;
+      /** Createdbyid */
+      createdById?: number | null;
+      /** Updatedbyid */
+      updatedById?: number | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+    };
     /** WorkflowColumn */
     WorkflowColumn: {
       /** Key */
@@ -7393,6 +9116,12 @@ export interface components {
       total_price_without_tax?: number | null;
       /** Currency */
       currency?: string | null;
+      /** Row Type */
+      row_type?: string | null;
+      /** Section Label */
+      section_label?: string | null;
+      /** Section Type */
+      section_type?: string | null;
       /** Custom Fields */
       custom_fields?: {
         [key: string]: unknown;
@@ -7611,6 +9340,7 @@ export interface operations {
         view_id?: string | null;
         search?: string | null;
         language?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -8098,6 +9828,7 @@ export interface operations {
         search?: string | null;
         language?: string | null;
         status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -8258,6 +9989,288 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  list_public_buy_offers_api_v2_public_buy_offers_get: {
+    parameters: {
+      query?: {
+        request_id?: string | null;
+        provider?: string | null;
+        latest_only?: boolean;
+        page?: number;
+        page_size?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicBuyOffersApiV2PublicBuyOffersGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  ingest_clay_signal_api_v2_lookout_connectors_clay_signals_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LookoutSignalRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IngestClaySignalApiV2LookoutConnectorsClaySignalsPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  ingest_provider_signal_api_v2_lookout_connectors__provider__signals_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        provider: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LookoutSignalRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IngestProviderSignalApiV2LookoutConnectorsProviderSignalsPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_provider_actions_api_v2_lookout_ad_actions_get: {
+    parameters: {
+      query?: {
+        provider?: string | null;
+        status?: string | null;
+        run_id?: string | null;
+        limit?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListProviderActionsApiV2LookoutAdActionsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_provider_actions_api_v2_lookout_provider_actions_get: {
+    parameters: {
+      query?: {
+        provider?: string | null;
+        status?: string | null;
+        run_id?: string | null;
+        limit?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListProviderActionsApiV2LookoutProviderActionsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  claim_provider_action_api_v2_lookout_ad_actions__action_id__claim_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ClaimProviderActionApiV2LookoutAdActionsActionIdClaimPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  claim_provider_action_api_v2_lookout_provider_actions__action_id__claim_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ClaimProviderActionApiV2LookoutProviderActionsActionIdClaimPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  complete_provider_action_api_v2_lookout_ad_actions__action_id__complete_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LookoutProviderActionCompleteRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompleteProviderActionApiV2LookoutAdActionsActionIdCompletePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  complete_provider_action_api_v2_lookout_provider_actions__action_id__complete_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LookoutProviderActionCompleteRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompleteProviderActionApiV2LookoutProviderActionsActionIdCompletePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   list_public_bills_api_v2_public_bills_get: {
     parameters: {
       query?: {
@@ -8267,6 +10280,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -8467,6 +10481,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -8782,6 +10797,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -8959,6 +10975,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -9300,6 +11317,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -9502,6 +11520,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -9712,9 +11731,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
+        'application/json': components['schemas']['DisbursementAllocationCreateRequest'];
       };
     };
     responses: {
@@ -9784,9 +11801,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
+        'application/json': components['schemas']['DisbursementAllocationPatchRequest'];
       };
     };
     responses: {
@@ -9813,6 +11828,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -9855,6 +11871,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -10089,6 +12106,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -10135,7 +12153,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+        'application/json': components['schemas']['PublicExpenseMutationRequest'];
       };
     };
     responses: {
@@ -10232,7 +12250,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+        'application/json': components['schemas']['PublicExpenseMutationRequest'];
       };
     };
     responses: {
@@ -10406,6 +12424,451 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  list_public_ferry_diagrams_api_v2_public_ferry_diagrams_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicFerryDiagramsApiV2PublicFerryDiagramsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_ferry_diagram_api_v2_public_ferry_diagrams_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryDiagramCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicFerryDiagramApiV2PublicFerryDiagramsPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        diagram_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__put: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        diagram_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryDiagramUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdPut200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  delete_public_ferry_diagram_api_v2_public_ferry_diagrams__diagram_id__delete: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        diagram_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeletePublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdDelete200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_ferry_programs_api_v2_public_ferry_programs_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicFerryProgramsApiV2PublicFerryProgramsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_ferry_program_api_v2_public_ferry_programs__program_id__get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicFerryProgramApiV2PublicFerryProgramsProgramIdGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_ferry_program_meetings_api_v2_public_ferry_programs__program_id__meetings_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicFerryProgramMeetingsApiV2PublicFerryProgramsProgramIdMeetingsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryProgramMeetingCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicFerryProgramMeetingApiV2PublicFerryProgramsProgramIdMeetingsPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings__meeting_id__patch: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        meeting_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryProgramMeetingUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicFerryProgramMeetingApiV2PublicFerryProgramsProgramIdMeetingsMeetingIdPatch200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryProgramTodoCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  batch_upsert_public_ferry_program_todos_api_v2_public_ferry_programs__program_id__todos_batch_upsert_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryProgramTodoBatchUpsertRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BatchUpsertPublicFerryProgramTodosApiV2PublicFerryProgramsProgramIdTodosBatchUpsertPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  delete_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__delete: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        todo_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeletePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosTodoIdDelete200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__patch: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        todo_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FerryProgramTodoUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicFerryProgramTodoApiV2PublicFerryProgramsProgramIdTodosTodoIdPatch200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   upload_public_file_api_v2_public_files_post: {
     parameters: {
       query?: {
@@ -10447,6 +12910,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -10616,6 +13080,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -10782,6 +13247,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -11751,6 +14217,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -11921,6 +14388,7 @@ export interface operations {
         search?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -12187,6 +14655,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -12355,6 +14824,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -12587,6 +15057,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -12852,6 +15323,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -13098,9 +15570,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
+        'application/json': components['schemas']['PaymentAllocationsUpdateRequest'];
       };
     };
     responses: {
@@ -13309,9 +15779,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
+        'application/json': components['schemas']['PayrollJournalEntryRequest'];
       };
     };
     responses: {
@@ -13900,6 +16368,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -14196,6 +16665,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -14790,6 +17260,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -15003,6 +17474,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -15160,6 +17632,173 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  list_public_projects_api_v2_public_projects_get: {
+    parameters: {
+      query?: {
+        page?: number;
+        limit?: number;
+        search?: string | null;
+        default?: boolean | null;
+        lang?: string | null;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicProjectsApiV2PublicProjectsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_project_api_v2_public_projects_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicProjectRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicProjectApiV2PublicProjectsPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_project_api_v2_public_projects__project_id__get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicProjectApiV2PublicProjectsProjectIdGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_project_api_v2_public_projects__project_id__put: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicProjectRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicProjectApiV2PublicProjectsProjectIdPut200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  delete_public_project_api_v2_public_projects__project_id__delete: {
+    parameters: {
+      query?: {
+        replacement_project_id?: string | null;
+        clear_task_project?: boolean;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeletePublicProjectApiV2PublicProjectsProjectIdDelete200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   list_public_tickets_api_v2_public_tickets_get: {
     parameters: {
       query?: {
@@ -15169,6 +17808,7 @@ export interface operations {
         language?: string | null;
         status?: string | null;
         usage_status?: string | null;
+        filters?: string | null;
         page?: number;
         limit?: number | null;
         cursor?: string | null;
@@ -15642,6 +18282,7 @@ export interface operations {
         limit?: number;
         q?: string | null;
         status?: string | null;
+        include_lookout?: boolean;
         workspace_id?: string | null;
       };
       header?: {

@@ -30,6 +30,7 @@ const expenseMutationProperties = (
   const {
     amount,
     attachment_file,
+    base_currency,
     company_external_id,
     company_id,
     contact_external_id,
@@ -45,6 +46,7 @@ const expenseMutationProperties = (
   return compactProperties({
     amount,
     attachment_file,
+    base_currency,
     company_external_id,
     company_id,
     contact_external_id,
@@ -216,6 +218,8 @@ export interface Expense {
 
   amount?: number | null;
 
+  base_currency?: number | null;
+
   company_name?: string | null;
 
   contact_name?: string | null;
@@ -271,6 +275,8 @@ export interface ExpenseFile {
 
 export interface PublicExpenseRequest {
   amount?: number | null;
+
+  base_currency?: number | null;
 
   attachment_file?: PublicExpenseRequest.AttachmentFile | null;
 
@@ -338,6 +344,8 @@ export interface ExpenseUploadAttachmentResponse {
 export interface ExpenseCreateParams {
   amount?: number | null;
 
+  base_currency?: number | null;
+
   attachment_file?: ExpenseCreateParams.AttachmentFile | null;
 
   company_external_id?: string | null;
@@ -401,6 +409,8 @@ export interface ExpenseRetrieveParams {
 
 export interface ExpenseUpdateParams {
   amount?: number | null;
+
+  base_currency?: number | null;
 
   attachment_file?: ExpenseUpdateParams.AttachmentFile | null;
 

@@ -1074,6 +1074,12 @@ const EXPENSE_MUTATION_INPUT_PROPERTIES = {
     type: 'number',
     description: 'Expense amount in the provided currency.',
   },
+  base_currency: {
+    type: 'number',
+    minimum: 0,
+    description:
+      'Optional explicit amount in the workspace base currency. This overrides automatic currency conversion while preserving amount and currency. Only set it when the user, receipt, payment record, or other source provides an authoritative base-currency amount.',
+  },
   attachment_file_ids: {
     type: 'array',
     description:
@@ -10813,6 +10819,10 @@ const buildExpenseMutationBody = (args: Record<string, unknown> | undefined) => 
     body['amount'] = args['amount'];
   }
 
+  if (typeof args?.['base_currency'] === 'number' && Number.isFinite(args['base_currency'])) {
+    body['base_currency'] = args['base_currency'];
+  }
+
   for (const key of [
     'company_external_id',
     'company_id',
@@ -17215,7 +17225,7 @@ export const crmCreateExpenseTool: McpTool = {
     name: 'create_expense',
     title: 'Create expense',
     description:
-      'Create an expense in Sanka. Attachments are optional when the user did not provide or require one. When a receipt or invoice is provided or required, upload the original file first: use upload_expense_attachment for already available base64 payloads, or start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Attach uploaded file ids with `attachment_file_ids` in the same create call. Do not silently drop a provided or required attachment unless upload failed or the user explicitly approved skipping it. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
+      'Create an expense in Sanka. Preserve the source amount and currency. Set `base_currency` only when the user or source provides an authoritative workspace-base amount; it overrides automatic conversion without changing the source values. Attachments are optional when the user did not provide or require one. When a receipt or invoice is provided or required, upload the original file first: use upload_expense_attachment for already available base64 payloads, or start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Attach uploaded file ids with `attachment_file_ids` in the same create call. Do not silently drop a provided or required attachment unless upload failed or the user explicitly approved skipping it. Read the created expense back with get_expense when base currency or attachment confirmation matters.',
     inputSchema: EXPENSE_CREATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -17274,7 +17284,7 @@ export const crmUpdateExpenseTool: McpTool = {
     name: 'update_expense',
     title: 'Update expense',
     description:
-      'Update an existing expense in Sanka. To attach a receipt or invoice, upload the original file first with upload_expense_attachment for already available base64 payloads, or with start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Pass returned file_id values in `attachment_file_ids`.',
+      'Update an existing expense in Sanka. Set `base_currency` only when the user or source provides an authoritative workspace-base amount; it overrides automatic conversion without changing the source amount or currency. To attach a receipt or invoice, upload the original file first with upload_expense_attachment for already available base64 payloads, or with start_expense_attachment_upload plus append_expense_attachment_upload_chunk until done and finish_expense_attachment_upload for client-local PDFs or unreliable large payloads. Pass returned file_id values in `attachment_file_ids`.',
     inputSchema: EXPENSE_UPDATE_INPUT_SCHEMA,
     outputSchema: EXPENSE_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
