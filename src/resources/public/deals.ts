@@ -8,6 +8,7 @@ import { path } from '../../internal/utils/path';
 import { V2Envelope, unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
 import { compactProperties } from '../../internal/v2-object-records';
 import { PublicLineItem } from './line-items';
+import { SankaError } from '../../core/error';
 
 type V2ObjectRecord = {
   id: string;
@@ -106,66 +107,21 @@ const compactLocalMutationProperties = (body: Record<string, unknown>): Record<s
   return compactProperties(properties);
 };
 
-const hasLegacyDealCreateArgs = (params: DealCreateParams): boolean =>
-  params.caseStatus != null ||
-  params.channel_id != null ||
-  params.companyExternalId != null ||
-  params.companyId != null ||
-  params.confirm != null ||
-  params.contactExternalId != null ||
-  params.contactId != null ||
-  params.custom_fields != null ||
-  params.dry_run != null ||
-  params.external_object_type != null ||
-  params.operation != null ||
-  params.provider != null ||
-  hasRemoteMutationTarget(params.target);
-
-const hasLegacyDealDeleteArgs = (params: DealDeleteParams | null | undefined): boolean => {
-  if (!params) return false;
-  return (
-    params.channel_id != null ||
-    params.confirm != null ||
-    params.dry_run != null ||
-    params.external_object_type != null ||
-    params.operation != null ||
-    params.provider != null ||
-    hasRemoteMutationTarget(params.target)
-  );
-};
-
-const hasLegacyDealUpdateArgs = (params: DealUpdateParams): boolean =>
-  params.external_id != null ||
-  params.channel_id != null ||
-  params.caseStatus != null ||
-  params.companyExternalId != null ||
-  params.companyId != null ||
-  params.confirm != null ||
-  params.contactExternalId != null ||
-  params.contactId != null ||
-  params.custom_fields != null ||
-  params.dry_run != null ||
-  params.externalId != null ||
-  params.external_object_type != null ||
-  params.operation != null ||
-  params.provider != null ||
-  hasRemoteMutationTarget(params.target);
-
 export class Deals extends APIResource {
   /**
    * Create Deal
    */
   create(body: DealCreateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
-    if (!hasLegacyDealCreateArgs(body)) {
-      const externalID = usableExternalID(body.externalId);
-      return this._client
-        .v2Post<V2ObjectRecord>('/deals', {
-          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope, externalID, 'created'));
+    if (hasRemoteMutationTarget(body.target)) {
+      return unwrapV2DataPromise(this._client.v2Post<PublicCaseResponse>('/deals', { body, ...options }));
     }
-    return this._client.post('/v1/public/deals', { body, ...options });
+    const externalID = usableExternalID(body.externalId);
+    return this._client
+      .v2Post<V2ObjectRecord>('/deals', {
+        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope, externalID, 'created'));
   }
 
   /**
@@ -196,15 +152,22 @@ export class Deals extends APIResource {
    */
   update(caseID: string, params: DealUpdateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
     const { external_id, ...body } = params;
-    if (!hasLegacyDealUpdateArgs(params)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/deals/${caseID}`, {
-          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+    if (hasRemoteMutationTarget(params.target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Patch<PublicCaseResponse>(path`/deals/${caseID}`, {
+          query: { external_id },
+          body,
           ...options,
-        })
-        ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope));
+        }),
+      );
     }
-    return this._client.put(path`/v1/public/deals/${caseID}`, { query: { external_id }, body, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/deals/${caseID}`, {
+        query: { external_id },
+        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope));
   }
 
   /**
@@ -252,20 +215,27 @@ export class Deals extends APIResource {
   ): APIPromise<PublicCaseResponse> {
     const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
-    if (hasLegacyDealDeleteArgs(params)) {
-      return this._client.delete(path`/v1/public/deals/${caseID}`, {
-        query: {
-          channel_id,
-          confirm,
-          dry_run,
-          external_id,
-          external_object_type,
-          operation,
-          provider,
-          target,
-        },
-        ...options,
-      });
+    if (operation != null) {
+      throw new SankaError(
+        'Custom deal delete operations were retired with Public API V1; use the V2 delete operation.',
+      );
+    }
+    if (hasRemoteMutationTarget(target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Delete<PublicCaseResponse>(path`/deals/${caseID}`, {
+          query: {
+            channel_id,
+            confirm,
+            dry_run,
+            external_id,
+            external_object_type,
+            operation,
+            provider,
+            target,
+          },
+          ...options,
+        }),
+      );
     }
     return this._client
       .v2Delete<V2LifecycleData>(path`/deals/${caseID}`, {

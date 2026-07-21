@@ -5,7 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { buildV2PdfRequest } from '../../internal/v2';
+import { buildV2PdfRequest, unwrapV2DataPromise } from '../../internal/v2';
 import {
   V2LifecycleData,
   V2ObjectRecord,
@@ -105,14 +105,16 @@ export class Payments extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PaymentAllocationsResponse> {
     const { 'Accept-Language': acceptLanguage, ...query } = params ?? {};
-    return this._client.get(path`/v1/public/payments/${paymentID}/allocations`, {
-      query,
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return unwrapV2DataPromise(
+      this._client.v2Get<PaymentAllocationsResponse>(path`/payments/${paymentID}/allocations`, {
+        query,
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**
@@ -124,15 +126,17 @@ export class Payments extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PaymentAllocationsResponse> {
     const { external_id, lang, language, 'Accept-Language': acceptLanguage, allocations } = params;
-    return this._client.put(path`/v1/public/payments/${paymentID}/allocations`, {
-      query: { external_id, lang, language },
-      body: { allocations },
-      ...options,
-      headers: buildHeaders([
-        { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-        options?.headers,
-      ]),
-    });
+    return unwrapV2DataPromise(
+      this._client.v2Put<PaymentAllocationsResponse>(path`/payments/${paymentID}/allocations`, {
+        query: { external_id, lang, language },
+        body: { allocations },
+        ...options,
+        headers: buildHeaders([
+          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
+          options?.headers,
+        ]),
+      }),
+    );
   }
 
   /**

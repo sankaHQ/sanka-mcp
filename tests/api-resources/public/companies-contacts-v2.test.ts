@@ -106,20 +106,24 @@ describe('public company and contact resources on V2', () => {
       },
     });
 
-    await expect(client.public.companies.list({ scope: 'sanka', limit: 5 })).resolves.toMatchObject({
+    await expect(
+      client.public.companies.list({ scope: 'sanka', limit: 5, view: 'company-view' }),
+    ).resolves.toMatchObject({
       count: 1,
       total: 1,
       data: [expect.objectContaining({ id: 'company-1', company_id: 111 })],
     });
-    await expect(client.public.contacts.list({ scope: 'sanka', limit: 5 })).resolves.toMatchObject({
+    await expect(
+      client.public.contacts.list({ scope: 'sanka', limit: 5, view: 'contact-view' }),
+    ).resolves.toMatchObject({
       count: 1,
       total: 1,
       data: [expect.objectContaining({ id: 'contact-1', contact_id: 222 })],
     });
 
     expect(calls).toEqual([
-      'GET http://localhost:5000/api/v2/companies?limit=5',
-      'GET http://localhost:5000/api/v2/contacts?limit=5',
+      'GET http://localhost:5000/api/v2/companies?limit=5&view_id=company-view',
+      'GET http://localhost:5000/api/v2/contacts?limit=5&view_id=contact-view',
     ]);
   });
 
@@ -185,38 +189,25 @@ describe('public company and contact resources on V2', () => {
     ]);
   });
 
-  test('keeps integration company and contact list routing on legacy path', async () => {
+  test('rejects retired integration company and contact listing without making a request', () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
       baseURL: 'http://localhost:5000/',
       fetch: async (url, init) => {
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
-        return new Response(
-          JSON.stringify({
-            count: 1,
-            data: [{ id: 'remote-1', name: 'Remote' }],
-            message: 'OK',
-            page: 1,
-            total: 1,
-            scope: 'integration',
-          }),
-          { headers: { 'Content-Type': 'application/json' } },
-        );
+        return envelope({ items: [], page: 1, page_size: 5, total: 0 });
       },
     });
 
-    await expect(
+    expect(() =>
       client.public.companies.list({ scope: 'integration', provider: 'hubspot', limit: 5 }),
-    ).resolves.toMatchObject({ scope: 'integration', total: 1 });
-    await expect(
+    ).toThrow('retired with Public API V1');
+    expect(() =>
       client.public.contacts.list({ scope: 'integration', provider: 'hubspot', limit: 5 }),
-    ).resolves.toMatchObject({ scope: 'integration', total: 1 });
+    ).toThrow('retired with Public API V1');
 
-    expect(calls).toEqual([
-      'GET http://localhost:5000/v1/public/companies?limit=5&scope=integration&provider=hubspot',
-      'GET http://localhost:5000/v1/public/contacts?limit=5&scope=integration&provider=hubspot',
-    ]);
+    expect(calls).toEqual([]);
   });
 
   test('uses V2 create routes for default local company and contact creates', async () => {
