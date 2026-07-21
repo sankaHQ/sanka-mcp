@@ -6,7 +6,7 @@ const envelope = (data: unknown) =>
   });
 
 describe('public inventory transaction resource on V2', () => {
-  test('uses V2 read, list, update, and delete routes', async () => {
+  test('uses V2 create, read, list, update, and delete routes', async () => {
     const calls: string[] = [];
     const record = {
       id: 'transaction-1',
@@ -29,6 +29,18 @@ describe('public inventory transaction resource on V2', () => {
         const requestURL = String(url);
         const method = String(init?.method ?? 'GET').toUpperCase();
         calls.push(`${method} ${requestURL}`);
+        if (method === 'POST') {
+          expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
+            properties: {
+              inventory_external_id: 'INV-EXT',
+              inventory_id: 'inventory-1',
+              transaction_amount: 5,
+              transaction_type: 'in',
+              use_unit_value: true,
+            },
+          });
+          return envelope(record);
+        }
         if (method === 'PATCH') {
           expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
             properties: {
@@ -51,6 +63,21 @@ describe('public inventory transaction resource on V2', () => {
       },
     });
 
+    await expect(
+      client.public.inventoryTransactions.create({
+        inventoryExternalId: 'INV-EXT',
+        inventoryId: 'inventory-1',
+        transactionAmount: 5,
+        transactionType: 'in',
+        useUnitValue: true,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      status: 'created',
+      transaction_id: 'transaction-1',
+      external_id: null,
+      ctx_id: 'ctx-test',
+    });
     await expect(client.public.inventoryTransactions.retrieve('transaction-1')).resolves.toMatchObject({
       id: 'transaction-1',
       transaction_id: 9001,
@@ -93,6 +120,7 @@ describe('public inventory transaction resource on V2', () => {
       ctx_id: 'ctx-test',
     });
     expect(calls).toEqual([
+      'POST http://localhost:5000/api/v2/inventory-transactions',
       'GET http://localhost:5000/api/v2/inventory-transactions/transaction-1',
       'GET http://localhost:5000/api/v2/inventory-transactions?limit=5&page=2&search=Sensor&sort=-created_at&view_id=view-1&workspace_id=ws-1',
       'PATCH http://localhost:5000/api/v2/inventory-transactions/transaction-1',

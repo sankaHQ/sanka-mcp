@@ -88,17 +88,11 @@ const ticketMutationFromV2Lifecycle = (
   };
 };
 
-const hasLegacyTicketUpdateArgs = (params: TicketUpdateParams): boolean =>
-  params.external_id != null || params.body_external_id != null || params.deal_ids != null;
-
 const usableExternalID = (value: string | null | undefined): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim();
   return normalized || undefined;
 };
-
-const hasLegacyTicketCreateArgs = (params: TicketCreateParams): boolean =>
-  usableExternalID(params.body_external_id) == null || params.deal_ids != null;
 
 export class Tickets extends APIResource {
   /**
@@ -106,19 +100,13 @@ export class Tickets extends APIResource {
    */
   create(params: TicketCreateParams, options?: RequestOptions): APIPromise<TicketResponse> {
     const { body_external_id, ...body } = params;
-    if (!hasLegacyTicketCreateArgs(params)) {
-      const externalID = usableExternalID(body_external_id);
-      return this._client
-        .v2Post<V2ObjectRecord>('/tickets', {
-          body: { properties: compactProperties({ external_id: externalID, ...body }) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'created', externalID));
-    }
-    return this._client.post('/v1/public/tickets', {
-      body: { external_id: body_external_id, ...body },
-      ...options,
-    });
+    const externalID = usableExternalID(body_external_id);
+    return this._client
+      .v2Post<V2ObjectRecord>('/tickets', {
+        body: { properties: compactProperties({ external_id: externalID, ...body }) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'created', externalID));
   }
 
   /**
@@ -144,19 +132,15 @@ export class Tickets extends APIResource {
    */
   update(ticketID: string, params: TicketUpdateParams, options?: RequestOptions): APIPromise<TicketResponse> {
     const { external_id, body_external_id, ...body } = params;
-    if (!hasLegacyTicketUpdateArgs(params)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/tickets/${ticketID}`, {
-          body: { properties: compactProperties(body as unknown as Record<string, unknown>) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'updated'));
-    }
-    return this._client.put(path`/v1/public/tickets/${ticketID}`, {
-      query: { external_id },
-      body: { external_id: body_external_id, ...body },
-      ...options,
-    });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/tickets/${ticketID}`, {
+        query: { external_id },
+        body: {
+          properties: compactProperties({ external_id: body_external_id, ...body }),
+        },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => ticketMutationFromV2Record(envelope, 'updated', body_external_id));
   }
 
   /**

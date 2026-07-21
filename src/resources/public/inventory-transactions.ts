@@ -25,8 +25,8 @@ const transactionFromV2Record = (record: V2ObjectRecord): TransactionSchema => {
   });
 };
 
-const inventoryTransactionUpdateProperties = (
-  params: InventoryTransactionUpdateParams,
+const inventoryTransactionMutationProperties = (
+  params: InventoryTransactionCreateParams | InventoryTransactionUpdateParams,
 ): Record<string, unknown> => {
   const {
     inventoryExternalId,
@@ -55,7 +55,14 @@ export class InventoryTransactions extends APIResource {
    * Create Inventory Transaction
    */
   create(body: InventoryTransactionCreateParams, options?: RequestOptions): APIPromise<TransactionResponse> {
-    return this._client.post('/v1/public/inventory-transactions', { body, ...options });
+    return this._client
+      .v2Post<V2ObjectRecord>('/inventory-transactions', {
+        body: { properties: inventoryTransactionMutationProperties(body) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        legacyMutationResponseFromV2<TransactionResponse>(envelope, 'transaction_id', 'created'),
+      );
   }
 
   /**
@@ -89,7 +96,7 @@ export class InventoryTransactions extends APIResource {
   ): APIPromise<TransactionResponse> {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/inventory-transactions/${transactionID}`, {
-        body: { properties: inventoryTransactionUpdateProperties(body) },
+        body: { properties: inventoryTransactionMutationProperties(body) },
         ...options,
       })
       ._thenUnwrap((envelope) =>

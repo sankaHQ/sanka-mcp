@@ -150,6 +150,43 @@ describe('public ticket status resource on V2', () => {
     expect(calls).toEqual(['POST http://localhost:5000/api/v2/tickets']);
   });
 
+  test('uses V2 create and update routes for ticket deal associations', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        if (String(init?.method).toUpperCase() === 'POST') {
+          expect(body).toEqual({ properties: { deal_ids: ['deal-1'], title: 'Payment issue' } });
+        } else {
+          expect(body).toEqual({
+            properties: { deal_ids: ['deal-2'], external_id: 'TICK-333', title: 'Updated issue' },
+          });
+        }
+        return envelope({
+          id: 'ticket-1',
+          record_id: '333',
+          object_type: 'ticket',
+          properties: { title: 'Payment issue' },
+        });
+      },
+    });
+
+    await client.public.tickets.create({ deal_ids: ['deal-1'], title: 'Payment issue' });
+    await client.public.tickets.update('ticket-1', {
+      body_external_id: 'TICK-333',
+      deal_ids: ['deal-2'],
+      title: 'Updated issue',
+    });
+
+    expect(calls).toEqual([
+      'POST http://localhost:5000/api/v2/tickets',
+      'PATCH http://localhost:5000/api/v2/tickets/ticket-1',
+    ]);
+  });
+
   test('uses V2 PATCH for scalar ticket updates', async () => {
     const calls: string[] = [];
     const client = new Sanka({

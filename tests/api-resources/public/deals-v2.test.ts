@@ -108,22 +108,19 @@ describe('public deal resource on V2', () => {
     expect(calls).toEqual(['GET http://localhost:5000/api/v2/deals?limit=10']);
   });
 
-  test('keeps legacy delete path for integration mutation controls', async () => {
+  test('uses V2 delete for integration mutation controls', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
       baseURL: 'http://localhost:5000/',
       fetch: async (url, init) => {
         calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            status: 'dry_run',
-            target: 'integration',
-            dry_run: true,
-          }),
-          { headers: { 'Content-Type': 'application/json' } },
-        );
+        return envelope({
+          ok: true,
+          status: 'dry_run',
+          target: 'integration',
+          dry_run: true,
+        });
       },
     });
 
@@ -141,7 +138,7 @@ describe('public deal resource on V2', () => {
     });
 
     expect(calls).toEqual([
-      'DELETE http://localhost:5000/v1/public/deals/21596739435?dry_run=true&provider=hubspot&target=integration',
+      'DELETE http://localhost:5000/api/v2/deals/21596739435?dry_run=true&provider=hubspot&target=integration',
     ]);
   });
 

@@ -5,8 +5,9 @@ import { APIPromise } from '../../core/api-promise';
 import { buildHeaders } from '../../internal/headers';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { V2Envelope, unwrapV2Data } from '../../internal/v2';
+import { V2Envelope, unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
 import { compactProperties } from '../../internal/v2-object-records';
+import { SankaError } from '../../core/error';
 
 type V2ObjectRecord = {
   id: string;
@@ -112,68 +113,34 @@ const compactLocalMutationProperties = (body: Record<string, unknown>): Record<s
   return compactProperties(properties);
 };
 
-const hasLegacyContactCreateArgs = (body: ContactCreateParams): boolean =>
-  body.channel_id != null ||
-  body.confirm != null ||
-  body.custom_fields != null ||
-  body.dry_run != null ||
-  body.external_object_type != null ||
-  body.operation != null ||
-  body.provider != null ||
-  hasRemoteMutationTarget(body.target);
-
-const hasLegacyContactListArgs = (params: ContactListParams | null | undefined): boolean => {
+const hasRetiredIntegrationContactListArgs = (params: ContactListParams | null | undefined): boolean => {
   if (!params) return false;
   return (
     params.channel_id != null ||
     params.external_object_type != null ||
     params.provider != null ||
     params.reference_id != null ||
-    params.scope === 'integration' ||
-    params.sort != null ||
-    params.view != null
+    params.scope === 'integration'
   );
 };
-
-const hasLegacyContactDeleteArgs = (params: ContactDeleteParams | null | undefined): boolean => {
-  if (!params) return false;
-  return (
-    params.channel_id != null ||
-    params.confirm != null ||
-    params.dry_run != null ||
-    params.external_object_type != null ||
-    params.operation != null ||
-    params.provider != null ||
-    hasRemoteMutationTarget(params.target)
-  );
-};
-
-const hasLegacyContactUpdateArgs = (body: ContactUpdateParams): boolean =>
-  body.channel_id != null ||
-  body.confirm != null ||
-  body.custom_fields != null ||
-  body.dry_run != null ||
-  body.external_id != null ||
-  body.external_object_type != null ||
-  body.operation != null ||
-  body.provider != null ||
-  hasRemoteMutationTarget(body.target);
 
 export class Contacts extends APIResource {
   /**
    * Create Contact
    */
   create(body: ContactCreateParams, options?: RequestOptions): APIPromise<PublicContactResponse> {
-    if (!hasLegacyContactCreateArgs(body)) {
-      const externalID = usableExternalID(body.external_id);
-      return this._client
-        .v2Post<V2ObjectRecord>('/contacts', {
-          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
-          ...options,
-        })
-        ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope, externalID, 'created'));
+    if (hasRemoteMutationTarget(body.target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Post<PublicContactResponse>('/contacts', { body, ...options }),
+      );
     }
-    return this._client.post('/v1/public/contacts', { body, ...options });
+    const externalID = usableExternalID(body.external_id);
+    return this._client
+      .v2Post<V2ObjectRecord>('/contacts', {
+        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope, externalID, 'created'));
   }
 
   /**
@@ -197,15 +164,20 @@ export class Contacts extends APIResource {
     body: ContactUpdateParams,
     options?: RequestOptions,
   ): APIPromise<PublicContactResponse> {
-    if (!hasLegacyContactUpdateArgs(body)) {
-      return this._client
-        .v2Patch<V2ObjectRecord>(path`/contacts/${contactID}`, {
-          body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+    if (hasRemoteMutationTarget(body.target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Patch<PublicContactResponse>(path`/contacts/${contactID}`, {
+          body,
           ...options,
-        })
-        ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope));
+        }),
+      );
     }
-    return this._client.put(path`/v1/public/contacts/${contactID}`, { body, ...options });
+    return this._client
+      .v2Patch<V2ObjectRecord>(path`/contacts/${contactID}`, {
+        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+        ...options,
+      })
+      ._thenUnwrap((envelope) => contactMutationResponseFromV2Record(envelope));
   }
 
   /**
@@ -215,22 +187,20 @@ export class Contacts extends APIResource {
     params: ContactListParams | null | undefined = {},
     options?: RequestOptions,
   ): APIPromise<ContactListResponse> {
-    const { 'Accept-Language': acceptLanguage, limit, scope, ...query } = params ?? {};
+    const { 'Accept-Language': acceptLanguage, limit, scope, view, ...query } = params ?? {};
     void scope;
-    if (hasLegacyContactListArgs(params)) {
-      return this._client.get('/v1/public/contacts', {
-        query: { limit, scope, ...query },
-        ...options,
-        headers: buildHeaders([
-          { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
-          options?.headers,
-        ]),
-      });
+    if (hasRetiredIntegrationContactListArgs(params)) {
+      throw new SankaError(
+        'Integration-scoped contact listing was retired with Public API V1 and has no V2 equivalent.',
+      );
     }
     return this._client
       .v2Get<V2ObjectRecordList>('/contacts', {
-        query,
-        ...(limit != null ? { query: { ...query, limit } } : undefined),
+        query: {
+          ...query,
+          ...(limit != null ? { limit } : undefined),
+          ...(view != null ? { view_id: view } : undefined),
+        },
         ...options,
         headers: buildHeaders([
           { ...(acceptLanguage != null ? { 'Accept-Language': acceptLanguage } : undefined) },
@@ -250,20 +220,27 @@ export class Contacts extends APIResource {
   ): APIPromise<PublicContactResponse> {
     const { channel_id, confirm, dry_run, external_id, external_object_type, operation, provider, target } =
       params ?? {};
-    if (hasLegacyContactDeleteArgs(params)) {
-      return this._client.delete(path`/v1/public/contacts/${contactID}`, {
-        query: {
-          channel_id,
-          confirm,
-          dry_run,
-          external_id,
-          external_object_type,
-          operation,
-          provider,
-          target,
-        },
-        ...options,
-      });
+    if (operation != null) {
+      throw new SankaError(
+        'Custom contact delete operations were retired with Public API V1; use the V2 delete operation.',
+      );
+    }
+    if (hasRemoteMutationTarget(target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Delete<PublicContactResponse>(path`/contacts/${contactID}`, {
+          query: {
+            channel_id,
+            confirm,
+            dry_run,
+            external_id,
+            external_object_type,
+            operation,
+            provider,
+            target,
+          },
+          ...options,
+        }),
+      );
     }
     return this._client
       .v2Delete<V2LifecycleData>(path`/contacts/${contactID}`, {
