@@ -1,6 +1,6 @@
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { IncomingHttpHeaders, IncomingMessage } from 'node:http';
 import { ClientOptions } from 'sanka-sdk';
 import { getLogger } from './logger';
@@ -18,6 +18,7 @@ const INTROSPECTION_CACHE_TTL_MS = 60_000;
 // 10s cap on these small internal auth round-trips is comfortably within it.
 const UPSTREAM_AUTH_REQUEST_TIMEOUT_MS = 10_000;
 const OAUTH_ACCESS_TOKEN_PREFIX = 'soat_';
+const MCP_SESSION_ID_PREFIX = 'ms1_';
 
 const oauthIntrospectionCache = new Map<
   string,
@@ -174,7 +175,80 @@ export const extractMcpSessionId = (headers: IncomingHttpHeaders): string | unde
   return sessionId ? sessionId : undefined;
 };
 
-export const generateMcpSessionId = (): string => randomUUID();
+const mcpSessionSignature = ({
+  nonce,
+  resourceUrl,
+  sharedSecret,
+}: {
+  nonce: string;
+  resourceUrl: string;
+  sharedSecret: string;
+}): Buffer =>
+  createHmac('sha256', sharedSecret).update(`sanka-mcp-session:v1:${resourceUrl}:${nonce}`).digest();
+
+export const generateMcpSessionId = ({
+  resourceUrl,
+  sharedSecret,
+}: {
+  resourceUrl: string;
+  sharedSecret?: string | undefined;
+}): string => {
+  const nonce = randomUUID();
+  const normalizedSecret = sharedSecret?.trim();
+  if (!normalizedSecret) {
+    return nonce;
+  }
+  const signature = mcpSessionSignature({
+    nonce,
+    resourceUrl,
+    sharedSecret: normalizedSecret,
+  }).toString('base64url');
+  return `${MCP_SESSION_ID_PREFIX}${nonce}.${signature}`;
+};
+
+export const isServerIssuedMcpSessionId = ({
+  resourceUrl,
+  sessionId,
+  sharedSecret,
+}: {
+  resourceUrl: string;
+  sessionId: string;
+  sharedSecret?: string | undefined;
+}): boolean => {
+  const normalizedSecret = sharedSecret?.trim();
+  if (!normalizedSecret) {
+    return Boolean(sessionId.trim());
+  }
+
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId.startsWith(MCP_SESSION_ID_PREFIX)) {
+    return false;
+  }
+  const [noncePart, signaturePart, ...extraParts] = normalizedSessionId.split('.');
+  const nonce = noncePart?.slice(MCP_SESSION_ID_PREFIX.length) ?? '';
+  if (!nonce || !signaturePart || extraParts.length > 0) {
+    return false;
+  }
+
+  let providedSignature: Buffer;
+  try {
+    providedSignature = Buffer.from(signaturePart, 'base64url');
+  } catch {
+    return false;
+  }
+  if (providedSignature.toString('base64url') !== signaturePart) {
+    return false;
+  }
+  const expectedSignature = mcpSessionSignature({
+    nonce,
+    resourceUrl,
+    sharedSecret: normalizedSecret,
+  });
+  return (
+    providedSignature.length === expectedSignature.length &&
+    timingSafeEqual(providedSignature, expectedSignature)
+  );
+};
 
 export const buildOAuthWwwAuthenticateHeader = ({
   authorizationServerUrl,
@@ -482,6 +556,7 @@ export const resolveClientAuth = async ({
       (scopes?: string[] | undefined) =>
         buildMcpConnectUrl({
           authorizationServerUrl,
+          resourceUrl,
           scopes,
           sessionId: mcpSessionId,
           sharedSecret: mcpOptions.tokenExchangeSharedSecret,
