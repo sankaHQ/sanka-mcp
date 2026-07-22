@@ -44,6 +44,8 @@ export const SANKA_MCP_DELEGATED_SCOPES = [
   'expenses:write',
   'ferry_diagrams:read',
   'ferry_diagrams:write',
+  'ferry_programs:read',
+  'ferry_programs:write',
   'employees:read',
   'incentives:read',
   'incentives:write',

@@ -21,6 +21,17 @@ import {
   updateFerryDiagramTool,
 } from './ferry-diagram-tools';
 import {
+  batchUpsertFerryTodosTool,
+  createFerryDocTool,
+  createFerryTodoTool,
+  deleteFerryTodoTool,
+  getFerryProgramTool,
+  listFerryDocsTool,
+  listFerryProgramsTool,
+  updateFerryDocTool,
+  updateFerryTodoTool,
+} from './ferry-program-tools';
+import {
   cancelBuyRequestTool,
   confirmBuyOrderTool,
   createBuyBillTool,
@@ -1007,6 +1018,15 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     createFerryDiagramTool,
     updateFerryDiagramTool,
     deleteFerryDiagramTool,
+    listFerryProgramsTool,
+    getFerryProgramTool,
+    listFerryDocsTool,
+    createFerryDocTool,
+    updateFerryDocTool,
+    createFerryTodoTool,
+    batchUpsertFerryTodosTool,
+    updateFerryTodoTool,
+    deleteFerryTodoTool,
     crmListTasksTool,
     crmGetTaskTool,
     crmCreateTaskTool,
