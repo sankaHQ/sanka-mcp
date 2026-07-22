@@ -36,6 +36,18 @@ import {
   WorkspaceMessageThreadRetrieveParams,
   Threads as WorkspaceMessageThreads,
 } from './workspace-messages/workspace-messages';
+import * as WorkspaceUsersAPI from './workspace-users';
+import {
+  WorkspaceInvitationCancelResponse,
+  WorkspaceInvitationCreateParams,
+  WorkspaceInvitationCreateResponse,
+  WorkspaceInvitationListItem,
+  WorkspaceInvitationListParams,
+  WorkspaceInvitationListResponse,
+  WorkspaceUserInvitations,
+  WorkspaceUserRole,
+  WorkspaceUsers,
+} from './workspace-users';
 import * as AssociationsAPI from './associations';
 import {
   Association,
@@ -483,6 +495,7 @@ export class Public extends APIResource {
   workspaceMessages: WorkspaceMessagesAPI.WorkspaceMessages = new WorkspaceMessagesAPI.WorkspaceMessages(
     this._client,
   );
+  workspaceUsers: WorkspaceUsersAPI.WorkspaceUsers = new WorkspaceUsersAPI.WorkspaceUsers(this._client);
   associations: AssociationsAPI.Associations = new AssociationsAPI.Associations(this._client);
   imports: ImportsAPI.Imports = new ImportsAPI.Imports(this._client);
   exports: ExportsAPI.Exports = new ExportsAPI.Exports(this._client);
@@ -521,6 +534,7 @@ export class Public extends APIResource {
 
 Public.AccountMessages = AccountMessages;
 Public.WorkspaceMessages = WorkspaceMessages;
+Public.WorkspaceUsers = WorkspaceUsers;
 Public.Associations = Associations;
 Public.Imports = Imports;
 Public.Exports = Exports;
@@ -591,6 +605,18 @@ export declare namespace Public {
     type WorkspaceMessageThreadDetailResponse as WorkspaceMessageThreadDetailResponse,
     type WorkspaceMessageThreadRetrieveParams as WorkspaceMessageThreadRetrieveParams,
     type WorkspaceMessageThreads as WorkspaceMessageThreads,
+  };
+
+  export {
+    WorkspaceUsers as WorkspaceUsers,
+    WorkspaceUserInvitations as WorkspaceUserInvitations,
+    type WorkspaceUserRole as WorkspaceUserRole,
+    type WorkspaceInvitationCreateParams as WorkspaceInvitationCreateParams,
+    type WorkspaceInvitationCreateResponse as WorkspaceInvitationCreateResponse,
+    type WorkspaceInvitationListParams as WorkspaceInvitationListParams,
+    type WorkspaceInvitationListItem as WorkspaceInvitationListItem,
+    type WorkspaceInvitationListResponse as WorkspaceInvitationListResponse,
+    type WorkspaceInvitationCancelResponse as WorkspaceInvitationCancelResponse,
   };
 
   export {

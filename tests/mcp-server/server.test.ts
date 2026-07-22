@@ -50,6 +50,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('search_docs');
     expect(toolNames).toContain('connect_sanka');
     expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('invite_workspace_user');
+    expect(toolNames).toContain('list_workspace_invitations');
+    expect(toolNames).toContain('cancel_workspace_invitation');
     expect(toolNames).toContain('read_binary_download_chunk');
     expect(toolNames).toContain('list_private_messages');
     expect(toolNames).toContain('sync_private_messages');
@@ -322,6 +325,9 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).not.toContain('search_docs');
     expect(toolNames).toContain('connect_sanka');
     expect(toolNames).toContain('auth_status');
+    expect(toolNames).toContain('invite_workspace_user');
+    expect(toolNames).toContain('list_workspace_invitations');
+    expect(toolNames).toContain('cancel_workspace_invitation');
     expect(toolNames).toContain('list_private_messages');
     expect(toolNames).toContain('sync_private_messages');
     expect(toolNames).toContain('get_private_message_thread');
