@@ -89,6 +89,24 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/workspace/messages/threads/{thread_id}/reply',
   },
   {
+    clientCallName: 'client.public.workspaceUsers.invitations.create',
+    fullyQualifiedName: 'public.workspaceUsers.invitations.create',
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace-users/invitations',
+  },
+  {
+    clientCallName: 'client.public.workspaceUsers.invitations.list',
+    fullyQualifiedName: 'public.workspaceUsers.invitations.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace-users/invitations',
+  },
+  {
+    clientCallName: 'client.public.workspaceUsers.invitations.cancel',
+    fullyQualifiedName: 'public.workspaceUsers.invitations.cancel',
+    httpMethod: 'delete',
+    httpPath: '/api/v2/workspace-users/invitations/{invitation_id}',
+  },
+  {
     clientCallName: 'client.public.orders.create',
     fullyQualifiedName: 'public.orders.create',
     httpMethod: 'post',

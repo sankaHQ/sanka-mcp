@@ -196,6 +196,9 @@ import {
   crmSyncPrivateMessagesTool,
   crmSyncWorkspaceMessagesTool,
   crmSwitchWorkspaceTool,
+  crmInviteWorkspaceUserTool,
+  crmListWorkspaceInvitationsTool,
+  crmCancelWorkspaceInvitationTool,
   crmAppendExpenseAttachmentUploadChunkTool,
   crmFinishBillAttachmentUploadTool,
   crmFinishEstimateAttachmentUploadTool,
@@ -341,6 +344,9 @@ describe('ChatGPT CRM tools', () => {
     expect(crmCurrentWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListWorkspacesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSwitchWorkspaceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmInviteWorkspaceUserTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListWorkspaceInvitationsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmCancelWorkspaceInvitationTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmReadBinaryDownloadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmSyncPrivateMessagesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -1341,6 +1347,122 @@ describe('ChatGPT CRM tools', () => {
         { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: true },
       ],
       message: 'Switched Sanka workspace to Workspace B.',
+    });
+  });
+
+  it('requires confirmation before inviting a workspace user', async () => {
+    const create = jest.fn();
+
+    const result = await crmInviteWorkspaceUserTool.handler({
+      reqContext: {
+        client: { public: { workspaceUsers: { invitations: { create } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: { email: 'dev@sanka.com', role: 'partner' },
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('`confirm=true` is required');
+  });
+
+  it('invites a workspace user through the typed SDK resource', async () => {
+    const create = jest.fn().mockResolvedValue({
+      invitation_id: '638',
+      email: 'dev@sanka.com',
+      role: 'partner',
+      status: 'invited',
+      invited_count: 1,
+      invited: ['dev@sanka.com'],
+      skipped_existing: 0,
+      skipped_invited: 0,
+      skipped_protected: 0,
+      permission_set_id: null,
+      email_delivery: 'sent',
+    });
+
+    const result = await crmInviteWorkspaceUserTool.handler({
+      reqContext: {
+        client: { public: { workspaceUsers: { invitations: { create } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: {
+        email: 'dev@sanka.com',
+        role: 'partner',
+        language: 'ja',
+        simplified_invite: true,
+        confirm: true,
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      email: 'dev@sanka.com',
+      role: 'partner',
+      simplified_invite: true,
+      language: 'ja',
+    });
+    expect(result.structuredContent).toMatchObject({
+      invitation_id: '638',
+      email: 'dev@sanka.com',
+      status: 'invited',
+    });
+  });
+
+  it('lists workspace invitations through the typed SDK resource', async () => {
+    const list = jest.fn().mockResolvedValue({
+      invitations: [{ id: 638, email: 'dev@sanka.com', role: 'partner', status: 'pending' }],
+      total: 1,
+      page: 2,
+      page_size: 25,
+      has_next_page: false,
+      can_edit: true,
+      message: 'OK',
+    });
+
+    const result = await crmListWorkspaceInvitationsTool.handler({
+      reqContext: {
+        client: { public: { workspaceUsers: { invitations: { list } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: { search: 'dev', page: 2, page_size: 25 },
+    });
+
+    expect(list).toHaveBeenCalledWith({ q: 'dev', page: 2, page_size: 25 });
+    expect(result.structuredContent).toMatchObject({
+      count: 1,
+      page: 2,
+      total: 1,
+      results: [{ id: 638, email: 'dev@sanka.com', status: 'pending' }],
+    });
+  });
+
+  it('requires confirmation before canceling and then cancels through the typed SDK resource', async () => {
+    const cancel = jest.fn().mockResolvedValue({ message: 'OK' });
+    const reqContext = {
+      client: { public: { workspaceUsers: { invitations: { cancel } } } } as any,
+      auth: oauthContext(),
+      toolProfile: 'hosted' as const,
+    };
+
+    const blocked = await crmCancelWorkspaceInvitationTool.handler({
+      reqContext,
+      args: { invitation_id: 638 },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(blocked.isError).toBe(true);
+
+    const result = await crmCancelWorkspaceInvitationTool.handler({
+      reqContext,
+      args: { invitation_id: 638, confirm: true },
+    });
+    expect(cancel).toHaveBeenCalledWith(638);
+    expect(result.structuredContent).toEqual({
+      invitation_id: '638',
+      status: 'canceled',
+      message: 'OK',
     });
   });
 

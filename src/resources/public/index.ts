@@ -36,6 +36,17 @@ export {
   type Threads as WorkspaceMessageThreads,
 } from './workspace-messages/index';
 export {
+  WorkspaceUsers,
+  WorkspaceUserInvitations,
+  type WorkspaceUserRole,
+  type WorkspaceInvitationCreateParams,
+  type WorkspaceInvitationCreateResponse,
+  type WorkspaceInvitationListParams,
+  type WorkspaceInvitationListItem,
+  type WorkspaceInvitationListResponse,
+  type WorkspaceInvitationCancelResponse,
+} from './workspace-users';
+export {
   Associations,
   type AssociationObjectRef,
   type AssociationLabel,

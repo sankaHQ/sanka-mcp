@@ -2349,6 +2349,96 @@ const LIST_OUTPUT_SCHEMA = {
   required: ['count', 'page', 'total', 'message', 'results'],
 };
 
+const WORKSPACE_INVITATION_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    email: {
+      type: 'string',
+      description: 'Email address to invite to the authenticated workspace.',
+    },
+    role: {
+      type: 'string',
+      description:
+        'Workspace role. Partner is a protected internal role and is only available to authorized platform actors.',
+      enum: ['admin', 'staff', 'view_only', 'partner'],
+      default: 'staff',
+    },
+    permission_set_id: {
+      type: 'string',
+      description: 'Optional workspace permission-set UUID to assign to the invited user.',
+    },
+    simplified_invite: {
+      type: 'boolean',
+      description: 'Use the role or permission-set defaults instead of explicit permission rules.',
+      default: true,
+    },
+    language: {
+      type: 'string',
+      description: 'Invitation email language, such as ja or en.',
+      enum: ['ja', 'en'],
+      default: 'ja',
+    },
+    confirm: {
+      type: 'boolean',
+      description:
+        'Required true after explicit user approval because inviting a workspace user sends an email and may consume a billable seat.',
+    },
+  },
+  required: ['email', 'confirm'],
+};
+
+const WORKSPACE_INVITATION_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    search: {
+      type: 'string',
+      description: 'Optional email or invitation search query.',
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to return.',
+      minimum: 1,
+      default: 1,
+    },
+    page_size: {
+      type: 'integer',
+      description: 'Number of invitations per page.',
+      minimum: 1,
+      maximum: 100,
+      default: 50,
+    },
+  },
+};
+
+const WORKSPACE_INVITATION_CANCEL_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invitation_id: {
+      type: 'integer',
+      description: 'Workspace invitation id returned by list_workspace_invitations.',
+      minimum: 1,
+    },
+    confirm: {
+      type: 'boolean',
+      description: 'Required true after explicit user approval because this cancels a pending invitation.',
+    },
+  },
+  required: ['invitation_id', 'confirm'],
+};
+
+const WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invitation_id: { type: 'string' },
+    email: { type: 'string' },
+    role: { type: 'string' },
+    status: { type: 'string' },
+    email_delivery: { type: 'string' },
+    message: { type: 'string' },
+  },
+  required: ['message'],
+};
+
 const PRIVATE_MESSAGE_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -15640,6 +15730,186 @@ export const crmSwitchWorkspaceTool: McpTool = {
           { current_workspace_name: currentWorkspace.workspace_name }
         : undefined),
         available_workspaces: availableWorkspaces,
+        message,
+      },
+    };
+  },
+};
+
+export const crmInviteWorkspaceUserTool: McpTool = {
+  metadata: {
+    resource: 'workspace_users',
+    operation: 'write',
+    tags: ['crm', 'admin', 'workspace-users'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/workspace-users/invitations',
+    operationId: 'public.workspaceUsers.invitations.create',
+  },
+  tool: {
+    name: 'invite_workspace_user',
+    title: 'Invite workspace user',
+    description:
+      'Invite one user to the authenticated Sanka workspace. This sends an invitation email and may consume a billable seat, so explicit confirmation is required.',
+    inputSchema: WORKSPACE_INVITATION_CREATE_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Invite workspace user',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Invite workspace user',
+    });
+    if (authError) {
+      return authError;
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult(
+        '`confirm=true` is required after explicit user approval because inviting a workspace user sends an email and may consume a billable seat.',
+      );
+    }
+
+    const email = readString(args?.['email']);
+    if (!email) {
+      return asErrorResult('`email` is required.');
+    }
+    const role = readString(args?.['role']) ?? 'staff';
+    if (!['admin', 'staff', 'view_only', 'partner'].includes(role)) {
+      return asErrorResult('`role` must be admin, staff, view_only, or partner.');
+    }
+
+    const permissionSetID = readString(args?.['permission_set_id']);
+    const language = readString(args?.['language']) ?? 'ja';
+    if (!['ja', 'en'].includes(language)) {
+      return asErrorResult('`language` must be ja or en.');
+    }
+    const response = await reqContext.client.public.workspaceUsers.invitations.create({
+      email,
+      role: role as 'admin' | 'staff' | 'view_only' | 'partner',
+      ...(permissionSetID ? { permission_set_id: permissionSetID } : undefined),
+      simplified_invite: readBoolean(args?.['simplified_invite']) ?? true,
+      language: language as 'ja' | 'en',
+    });
+    const message = `Invited ${response.email} to the current workspace as ${response.role}.`;
+
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: { ...response, message },
+    };
+  },
+};
+
+export const crmListWorkspaceInvitationsTool: McpTool = {
+  metadata: {
+    resource: 'workspace_users',
+    operation: 'read',
+    tags: ['crm', 'admin', 'workspace-users'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace-users/invitations',
+    operationId: 'public.workspaceUsers.invitations.list',
+  },
+  tool: {
+    name: 'list_workspace_invitations',
+    title: 'List workspace invitations',
+    description: 'List pending and historical invitations for the authenticated Sanka workspace.',
+    inputSchema: WORKSPACE_INVITATION_LIST_INPUT_SCHEMA,
+    outputSchema: LIST_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List workspace invitations',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List workspace invitations',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const page = readIntegerArgument(args?.['page'], 1, 1, 1_000_000);
+    const pageSize = readIntegerArgument(args?.['page_size'], 50, 1, 100);
+    const search = readString(args?.['search']);
+    const response = await reqContext.client.public.workspaceUsers.invitations.list({
+      page,
+      page_size: pageSize,
+      ...(search ? { q: search } : undefined),
+    });
+    const invitations = response.invitations ?? [];
+
+    return buildListResult({
+      label: 'workspace invitations',
+      payload: {
+        count: invitations.length,
+        data: invitations as unknown as Array<Record<string, unknown>>,
+        message: response.message || `Returned ${invitations.length} workspace invitations.`,
+        page: response.page,
+        total: response.total,
+      },
+      previewKeys: ['id', 'email', 'role', 'status', 'date_sent', 'permission_set_name'],
+    });
+  },
+};
+
+export const crmCancelWorkspaceInvitationTool: McpTool = {
+  metadata: {
+    resource: 'workspace_users',
+    operation: 'write',
+    tags: ['crm', 'admin', 'workspace-users'],
+    httpMethod: 'delete',
+    httpPath: '/api/v2/workspace-users/invitations/{invitation_id}',
+    operationId: 'public.workspaceUsers.invitations.cancel',
+  },
+  tool: {
+    name: 'cancel_workspace_invitation',
+    title: 'Cancel workspace invitation',
+    description:
+      'Cancel one pending invitation in the authenticated Sanka workspace. Explicit confirmation is required.',
+    inputSchema: WORKSPACE_INVITATION_CANCEL_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Cancel workspace invitation',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Cancel workspace invitation',
+    });
+    if (authError) {
+      return authError;
+    }
+    if (readBoolean(args?.['confirm']) !== true) {
+      return asErrorResult(
+        '`confirm=true` is required after explicit user approval before canceling a workspace invitation.',
+      );
+    }
+
+    const invitationID = readIntegerArgument(args?.['invitation_id'], 0, 0, Number.MAX_SAFE_INTEGER);
+    if (invitationID < 1) {
+      return asErrorResult('`invitation_id` must be a positive integer.');
+    }
+
+    const response = await reqContext.client.public.workspaceUsers.invitations.cancel(invitationID);
+    const message = response.message || `Canceled workspace invitation ${invitationID}.`;
+    return {
+      content: [{ type: 'text', text: message }],
+      structuredContent: {
+        invitation_id: String(invitationID),
+        status: 'canceled',
         message,
       },
     };
