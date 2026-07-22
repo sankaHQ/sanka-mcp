@@ -315,6 +315,34 @@ import {
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
 } from './ferry-diagrams';
+import * as FerryProgramsAPI from './ferry-programs';
+import {
+  FerryProgram,
+  FerryProgramDoc,
+  FerryProgramDocCreateParams,
+  FerryProgramDocListData,
+  FerryProgramDocListParams,
+  FerryProgramDocs,
+  FerryProgramDocUpdateParams,
+  FerryProgramEndpoint,
+  FerryProgramListData,
+  FerryProgramListParams,
+  FerryProgramPhase,
+  FerryProgramPlan,
+  FerryProgramRetrieveParams,
+  FerryPrograms,
+  FerryProgramStatus,
+  FerryProgramTodo,
+  FerryProgramTodoBatchUpsertData,
+  FerryProgramTodoBatchUpsertItem,
+  FerryProgramTodoBatchUpsertParams,
+  FerryProgramTodoCreateParams,
+  FerryProgramTodoDeleteParams,
+  FerryProgramTodoPriority,
+  FerryProgramTodos,
+  FerryProgramTodoStatus,
+  FerryProgramTodoUpdateParams,
+} from './ferry-programs';
 import * as TasksAPI from './tasks';
 import {
   PublicTaskRequest,
@@ -480,6 +508,7 @@ export class Public extends APIResource {
   objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
   projects: ProjectsAPI.Projects = new ProjectsAPI.Projects(this._client);
   ferryDiagrams: FerryDiagramsAPI.FerryDiagrams = new FerryDiagramsAPI.FerryDiagrams(this._client);
+  ferryPrograms: FerryProgramsAPI.FerryPrograms = new FerryProgramsAPI.FerryPrograms(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
   slips: SlipsAPI.Slips = new SlipsAPI.Slips(this._client);
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
@@ -516,6 +545,7 @@ Public.Properties = Properties;
 Public.ObjectSchemas = ObjectSchemas;
 Public.Projects = Projects;
 Public.FerryDiagrams = FerryDiagrams;
+Public.FerryPrograms = FerryPrograms;
 Public.PurchaseOrders = PurchaseOrders;
 Public.Slips = Slips;
 Public.Bills = Bills;
@@ -653,6 +683,34 @@ export declare namespace Public {
     type FerryDiagramCreateParams as FerryDiagramCreateParams,
     type FerryDiagramUpdateParams as FerryDiagramUpdateParams,
     type FerryDiagramDeleteParams as FerryDiagramDeleteParams,
+  };
+
+  export {
+    FerryPrograms as FerryPrograms,
+    FerryProgramDocs as FerryProgramDocs,
+    FerryProgramTodos as FerryProgramTodos,
+    type FerryProgramStatus as FerryProgramStatus,
+    type FerryProgramPlan as FerryProgramPlan,
+    type FerryProgramTodoStatus as FerryProgramTodoStatus,
+    type FerryProgramTodoPriority as FerryProgramTodoPriority,
+    type FerryProgramEndpoint as FerryProgramEndpoint,
+    type FerryProgramPhase as FerryProgramPhase,
+    type FerryProgramTodo as FerryProgramTodo,
+    type FerryProgram as FerryProgram,
+    type FerryProgramListData as FerryProgramListData,
+    type FerryProgramDoc as FerryProgramDoc,
+    type FerryProgramDocListData as FerryProgramDocListData,
+    type FerryProgramListParams as FerryProgramListParams,
+    type FerryProgramRetrieveParams as FerryProgramRetrieveParams,
+    type FerryProgramDocListParams as FerryProgramDocListParams,
+    type FerryProgramDocCreateParams as FerryProgramDocCreateParams,
+    type FerryProgramDocUpdateParams as FerryProgramDocUpdateParams,
+    type FerryProgramTodoCreateParams as FerryProgramTodoCreateParams,
+    type FerryProgramTodoUpdateParams as FerryProgramTodoUpdateParams,
+    type FerryProgramTodoDeleteParams as FerryProgramTodoDeleteParams,
+    type FerryProgramTodoBatchUpsertItem as FerryProgramTodoBatchUpsertItem,
+    type FerryProgramTodoBatchUpsertParams as FerryProgramTodoBatchUpsertParams,
+    type FerryProgramTodoBatchUpsertData as FerryProgramTodoBatchUpsertData,
   };
 
   export {
