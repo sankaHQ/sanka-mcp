@@ -359,6 +359,7 @@ import {
   listWatchtowerFindingsTool,
   updateWatchtowerFindingTool,
 } from './watchtower-tools';
+import { convoyTools } from './convoy-tools';
 import { lookoutCreateLpBatchTool, lookoutGetRunTool } from './lookout-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import { McpRequestContext, ToolCallResult, McpTool } from './types';
@@ -985,6 +986,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     updateWatchtowerFindingTool,
     createBuyRequestFromFindingTool,
     getWatchtowerSummaryTool,
+    ...convoyTools,
     lookoutCreateLpBatchTool,
     lookoutGetRunTool,
     crmListItemsTool,
