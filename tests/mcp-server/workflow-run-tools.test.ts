@@ -62,11 +62,21 @@ describe('workflow run MCP tools', () => {
     expect(workflowTypes).toContain('order_to_purchase_order');
     expect(workflowTypes).toContain('deal_to_order_handoff');
     expect(workflowTypes).toContain('invoice_export');
+    expect(workflowTypes).toContain('bill_export');
     expect(workflowTypes).toContain('revenue_control_summary');
     expect(workflowTypes).toContain('sales_incentive_commission');
     expect(workflowTypes).not.toContain('deal_to_invoice');
     expect(previewOptions.allow_recreate_moneyforward_draft).toEqual({ type: 'boolean' });
     expect(startOptions.allow_recreate_moneyforward_draft).toEqual({ type: 'boolean' });
+    expect(previewOptions.target_system.enum).toContain('quickbooks_online');
+    expect(previewOptions.bill_ids).toEqual({
+      type: 'array',
+      items: { type: 'string' },
+    });
+    expect(previewOptions.qbo_customer_id).toEqual({ type: 'string' });
+    expect(previewOptions.qbo_item_id).toEqual({ type: 'string' });
+    expect(startOptions.quickbooks_online_channel_id).toEqual({ type: 'string' });
+    expect(startOptions.qbo_expense_account_id).toEqual({ type: 'string' });
     expect((startWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
     expect((previewWorkflowTool.tool.inputSchema as any).properties.language.default).toBe('en');
     expect(toolNames).not.toContain('create_order_from_hubspot_deal');
@@ -996,6 +1006,198 @@ describe('workflow run MCP tools', () => {
       run_id: 'moneyforward-run-1',
       workflow_type: 'invoice_export',
       target_system: 'moneyforward',
+      status: 'completed',
+    });
+  });
+
+  it('previews QuickBooks Invoice exports through the accounting runtime', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'invoice_export',
+        target_system: 'quickbooks_online',
+        mode: 'preview',
+        sync_scope: 'selected_invoice_ids',
+        needs_confirmation: false,
+        per_invoice_results: [{ sanka_invoice: { id: 'invoice-1' } }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+          record_id: 'invoice-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_customer_id: 'customer-1',
+          qbo_item_id: 'item-1',
+        },
+        language: 'en',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+          record_id: 'invoice-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_customer_id: 'customer-1',
+          qbo_item_id: 'item-1',
+        },
+        language: 'en',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'invoice_export',
+      target_system: 'quickbooks_online',
+      mode: 'preview',
+      sync_scope: 'selected_invoice_ids',
+      needs_confirmation: false,
+      per_invoice_results: [{ sanka_invoice: { id: 'invoice-1' } }],
+    });
+  });
+
+  it('previews QuickBooks Bill exports with an explicit Sanka Bill', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'bill_export',
+        target_system: 'quickbooks_online',
+        mode: 'preview',
+        sync_scope: 'selected_bill_ids',
+        needs_confirmation: false,
+        per_bill_results: [{ sanka_bill: { id: 'bill-1' } }],
+      },
+      message: 'ok',
+    });
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'bill_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'bill',
+          record_id: 'bill-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_bill_ids',
+          bill_ids: ['bill-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_expense_account_id: 'expense-account-1',
+        },
+        language: 'en',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
+      body: {
+        workflow_type: 'bill_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'bill',
+          record_id: 'bill-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_bill_ids',
+          bill_ids: ['bill-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_expense_account_id: 'expense-account-1',
+        },
+        language: 'en',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      workflow_type: 'bill_export',
+      target_system: 'quickbooks_online',
+      mode: 'preview',
+      sync_scope: 'selected_bill_ids',
+      needs_confirmation: false,
+      per_bill_results: [{ sanka_bill: { id: 'bill-1' } }],
+    });
+  });
+
+  it('starts QuickBooks Bill exports with explicit idempotency', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        run_id: 'qbo-bill-run-1',
+        workflow_type: 'bill_export',
+        target_system: 'quickbooks_online',
+        status: 'completed',
+      },
+      message: 'started',
+    });
+
+    const result = await startWorkflowTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+      },
+      args: {
+        workflow_type: 'bill_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'bill',
+          record_id: 'bill-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_bill_ids',
+          bill_ids: ['bill-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_expense_account_id: 'expense-account-1',
+        },
+        idempotency_key: 'bill-export:qbo:bill-1',
+        language: 'en',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
+      body: {
+        workflow_type: 'bill_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'bill',
+          record_id: 'bill-1',
+        },
+        options: {
+          target_system: 'quickbooks_online',
+          sync_scope: 'selected_bill_ids',
+          bill_ids: ['bill-1'],
+          quickbooks_online_channel_id: 'qbo-channel-1',
+          qbo_expense_account_id: 'expense-account-1',
+        },
+        idempotency_key: 'bill-export:qbo:bill-1',
+        language: 'en',
+      },
+    });
+    expect(result.structuredContent?.['data']).toEqual({
+      run_id: 'qbo-bill-run-1',
+      workflow_type: 'bill_export',
+      target_system: 'quickbooks_online',
       status: 'completed',
     });
   });

@@ -160,15 +160,15 @@ const INTEGRATION_CHANNELS_INPUT_SCHEMA = {
     object_type: {
       type: 'string',
       description:
-        'Object type you plan to export. For export_records integration jobs, runnable pairs are company/contact/deal with hubspot and item/order with hubspot or nextengine. For invoice accounting export, this only discovers accounting channel_id candidates; preview_workflow/start_workflow with workflow_type=invoice_export determines actual readiness.',
-      enum: ['company', 'contact', 'deal', 'item', 'order', 'invoice'],
+        'Object type you plan to export. For export_records integration jobs, runnable pairs are company/contact/deal with hubspot and item/order with hubspot or nextengine. For invoice or Bill accounting export, this only discovers accounting channel_id candidates; preview_workflow/start_workflow with workflow_type=invoice_export or bill_export determines actual readiness.',
+      enum: ['company', 'contact', 'deal', 'item', 'order', 'invoice', 'bill'],
       default: 'deal',
     },
     provider: {
       type: 'string',
       description:
-        'Optional destination provider filter. Use hubspot for company/contact/deal/item/order integration exports, nextengine for item/order integration exports, and freee/moneyforward only to discover invoice_export accounting channel candidates.',
-      enum: ['hubspot', 'nextengine', 'freee', 'moneyforward'],
+        'Optional destination provider filter. Use hubspot for company/contact/deal/item/order integration exports, nextengine for item/order integration exports, freee/moneyforward to discover invoice_export channels, and quickbooks-online to discover invoice_export or bill_export channels.',
+      enum: ['hubspot', 'nextengine', 'freee', 'moneyforward', 'quickbooks-online'],
       default: 'hubspot',
     },
   },
@@ -187,7 +187,7 @@ const EXPORT_INPUT_SCHEMA = {
     destination_kind: {
       type: 'string',
       description:
-        'Destination kind for this tool. export_records creates integration-destination export jobs; invoice accounting sync and file/CSV exports are rejected by this endpoint.',
+        'Destination kind for this tool. export_records creates integration-destination export jobs; Invoice/Bill accounting sync and file/CSV exports are rejected by this endpoint.',
       enum: ['integration'],
       default: 'integration',
     },
@@ -201,7 +201,7 @@ const EXPORT_INPUT_SCHEMA = {
     target_system: {
       type: 'string',
       description:
-        'Legacy accounting target alias. Do not use with export_records; invoice accounting exports must use preview_workflow/start_workflow with workflow_type=invoice_export.',
+        'Legacy accounting target alias. Do not use with export_records; accounting exports must use preview_workflow/start_workflow with workflow_type=invoice_export or bill_export.',
       enum: ['freee', 'moneyforward'],
     },
     channel_id: {
@@ -386,7 +386,7 @@ const readPlainRecord = (value: unknown): Record<string, unknown> | undefined =>
     (value as Record<string, unknown>)
   : undefined;
 
-const ACCOUNTING_EXPORT_PROVIDERS = new Set(['freee', 'moneyforward']);
+const ACCOUNTING_EXPORT_PROVIDERS = new Set(['freee', 'moneyforward', 'quickbooks-online']);
 
 const CHANNEL_REASON_PRIORITY = [
   'shadow_mode',
@@ -552,7 +552,7 @@ const normalizeIntegrationChannelParams = (
     params.provider = requestedProvider;
   }
 
-  if (requestedObjectType !== 'invoice' && !isAccountingProvider) {
+  if (!['invoice', 'bill'].includes(requestedObjectType) && !isAccountingProvider) {
     params.object_type = requestedObjectType;
   }
 
@@ -607,15 +607,22 @@ const normalizeIntegrationChannelResponse = (
   };
 };
 
-const isAccountingInvoiceChannelRequest = (context: {
+const accountingWorkflowType = (context: {
+  requestedObjectType: string;
+  requestedProvider?: string;
+}): 'invoice_export' | 'bill_export' =>
+  context.requestedObjectType === 'bill' ? 'bill_export' : 'invoice_export';
+
+const isAccountingWorkflowChannelRequest = (context: {
   requestedObjectType: string;
   requestedProvider?: string;
 }): boolean =>
-  context.requestedObjectType === 'invoice' ||
+  ['invoice', 'bill'].includes(context.requestedObjectType) ||
   (context.requestedProvider ? ACCOUNTING_EXPORT_PROVIDERS.has(context.requestedProvider) : false);
 
-const normalizeAccountingInvoiceExportChannel = (
+const normalizeAccountingExportChannel = (
   channel: Record<string, unknown>,
+  workflowType: 'invoice_export' | 'bill_export',
 ): Record<string, unknown> => {
   const {
     export_ready: _exportReady,
@@ -624,40 +631,50 @@ const normalizeAccountingInvoiceExportChannel = (
     ...rest
   } = channel;
   const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id');
+  const isBillExport = workflowType === 'bill_export';
   return {
     ...rest,
-    ...(channelID ? { channel_id: channelID, invoice_export_channel_id: channelID } : {}),
-    accounting_invoice_export_candidate: true,
+    ...(channelID ?
+      {
+        channel_id: channelID,
+        accounting_export_channel_id: channelID,
+        ...(isBillExport ? { bill_export_channel_id: channelID } : { invoice_export_channel_id: channelID }),
+      }
+    : {}),
+    ...(isBillExport ?
+      { accounting_bill_export_candidate: true }
+    : { accounting_invoice_export_candidate: true }),
     is_export_blocked: false,
-    invoice_export_readiness_signal: 'preview_or_start_workflow',
-    readiness_guidance:
-      'Use this channel_id as the accounting channel for preview_workflow/start_workflow with workflow_type=invoice_export. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active flags from this channel-list endpoint as MoneyForward/freee invoice_export blockers; preview_workflow/start_workflow returns the actual accounting export blockers.',
+    ...(isBillExport ?
+      { bill_export_readiness_signal: 'preview_or_start_workflow' }
+    : { invoice_export_readiness_signal: 'preview_or_start_workflow' }),
+    readiness_guidance: `Use this channel_id as the accounting channel for preview_workflow/start_workflow with workflow_type=${workflowType}. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active flags from this channel-list endpoint as ${workflowType} blockers; preview_workflow/start_workflow returns the actual accounting export blockers.`,
   };
 };
 
-const normalizeAccountingInvoiceChannelResponse = (
+const normalizeAccountingChannelResponse = (
   response: IntegrationChannelsListResponse,
   context: { requestedObjectType: string; requestedProvider?: string },
 ): IntegrationChannelsListResponse & Record<string, unknown> => {
+  const workflowType = accountingWorkflowType(context);
   const channels = (response.channels ?? [])
     .filter(
       (channel): channel is Record<string, unknown> =>
         Boolean(channel) && typeof channel === 'object' && !Array.isArray(channel),
     )
-    .map(normalizeAccountingInvoiceExportChannel);
+    .map((channel) => normalizeAccountingExportChannel(channel, workflowType));
   return {
     ...response,
     channels,
     requested_object_type: context.requestedObjectType,
     ...(context.requestedProvider ? { requested_provider: context.requestedProvider } : {}),
-    channel_usage: 'accounting_invoice_export_channel_candidates',
-    recommended_workflow_type: 'invoice_export',
+    channel_usage: `accounting_${workflowType}_channel_candidates`,
+    recommended_workflow_type: workflowType,
     has_export_ready_channel: channels.length > 0,
     export_ready_count: channels.length,
     blocked_count: 0,
     blocked_by_shadow_mode: false,
-    readiness_guidance:
-      'For MoneyForward/freee invoice exports, list_integration_channels only discovers accounting channel_id candidates. Use preview_workflow/start_workflow with workflow_type=invoice_export, target_system, sync_scope, invoice ids, and the selected channel_id; do not block on integration-sync shadow/outbound flags from this endpoint.',
+    readiness_guidance: `For ${workflowType}, list_integration_channels only discovers accounting channel_id candidates. Use preview_workflow/start_workflow with workflow_type=${workflowType}, target_system, an explicit sync_scope, record ids, and the selected channel_id; do not block on integration-sync shadow/outbound flags from this endpoint.`,
   };
 };
 
@@ -689,11 +706,14 @@ const buildChannelSummaryLine = (channel: Record<string, unknown>): string => {
   }`;
 };
 
-const buildAccountingInvoiceChannelSummaryLine = (channel: Record<string, unknown>): string => {
+const buildAccountingChannelSummaryLine = (
+  channel: Record<string, unknown>,
+  workflowType: string,
+): string => {
   const channelID = channelString(channel, 'channel_id') ?? channelString(channel, 'id') ?? 'unknown-channel';
   const name = channelString(channel, 'channel_name') ?? channelString(channel, 'name') ?? channelID;
   const provider = channelString(channel, 'provider') ?? 'unknown-provider';
-  return `${name} (${provider}, ${channelID}): accounting invoice_export channel candidate. Use this channel_id with preview_workflow/start_workflow; integration-sync shadow/outbound flags are not invoice_export readiness blockers.`;
+  return `${name} (${provider}, ${channelID}): accounting ${workflowType} channel candidate. Use this channel_id with preview_workflow/start_workflow; integration-sync shadow/outbound flags are not ${workflowType} readiness blockers.`;
 };
 
 const buildChannelListSummary = (response: IntegrationChannelsListResponse): string => {
@@ -712,14 +732,20 @@ const buildChannelListSummary = (response: IntegrationChannelsListResponse): str
   const blockedCount = readNumber(responseMetadata['blocked_count']);
   const blockedByShadowMode = readBoolean(responseMetadata['blocked_by_shadow_mode']);
   const channelUsage = readString(responseMetadata['channel_usage']);
-  if (channelUsage === 'accounting_invoice_export_channel_candidates') {
+  if (
+    channelUsage === 'accounting_invoice_export_channel_candidates' ||
+    channelUsage === 'accounting_bill_export_channel_candidates'
+  ) {
+    const workflowType =
+      readString(responseMetadata['recommended_workflow_type']) ||
+      (channelUsage.includes('bill') ? 'bill_export' : 'invoice_export');
     const providerLabel = requestedProvider ? `${requestedProvider} ` : '';
     return [
       `Found ${count} ${providerLabel}accounting channel candidate${
         count === 1 ? '' : 's'
-      } for invoice_export.`,
-      'Use preview_workflow/start_workflow with workflow_type=invoice_export to check and run MoneyForward/freee invoice export. Do not block on integration-sync shadow/outbound flags from this channel-list endpoint.',
-      ...channels.map(buildAccountingInvoiceChannelSummaryLine),
+      } for ${workflowType}.`,
+      `Use preview_workflow/start_workflow with workflow_type=${workflowType} to check and run the accounting export. Do not block on integration-sync shadow/outbound flags from this channel-list endpoint.`,
+      ...channels.map((channel) => buildAccountingChannelSummaryLine(channel, workflowType)),
     ].join('\n');
   }
   const header: string[] = [`Found ${count} integration channel${count === 1 ? '' : 's'}.`];
@@ -1089,7 +1115,7 @@ export const listIntegrationChannelsTool: McpTool = {
     name: 'list_integration_channels',
     title: 'List integration channels',
     description:
-      'List connected integration channels available for a public export flow. Use this before export_records for HubSpot deal exports. For MoneyForward/freee invoice_export workflows, use this only to discover accounting channel_id candidates when needed; preview_workflow/start_workflow with workflow_type=invoice_export determines actual accounting export readiness. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active fields from this endpoint as MoneyForward/freee invoice_export blockers.',
+      'List connected integration channels available for a public export flow. Use this before export_records for supported HubSpot or NextEngine exports. For freee/MoneyForward invoice_export and QuickBooks Online invoice_export or bill_export workflows, use this only to discover accounting channel_id candidates; preview_workflow/start_workflow determines actual accounting export readiness. Do not treat integration-sync shadow_mode, rollout_stage, is_enabled, or outbound_pipeline_active fields from this endpoint as accounting workflow blockers.',
     inputSchema: INTEGRATION_CHANNELS_INPUT_SCHEMA,
     outputSchema: CHANNELS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -1118,8 +1144,8 @@ export const listIntegrationChannelsTool: McpTool = {
       ...(requestedProvider ? { requestedProvider } : {}),
     };
     const normalizedResponse =
-      isAccountingInvoiceChannelRequest(channelContext) ?
-        normalizeAccountingInvoiceChannelResponse(response, channelContext)
+      isAccountingWorkflowChannelRequest(channelContext) ?
+        normalizeAccountingChannelResponse(response, channelContext)
       : normalizeIntegrationChannelResponse(response, channelContext);
     return {
       content: [{ type: 'text', text: buildChannelListSummary(normalizedResponse) }],
@@ -1141,7 +1167,7 @@ export const exportRecordsTool: McpTool = {
     name: 'export_records',
     title: 'Export records',
     description:
-      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For invoice accounting sync to freee, MoneyForward, Xero, or QuickBooks, use preview_workflow/start_workflow with workflow_type=invoice_export instead. Integration exports are validated against the runnable delivery matrix; provider/object pairs without a working native delivery pipeline are rejected with HTTP 400 and error code INTEGRATION_EXPORT_NOT_SUPPORTED (do not retry those pairs), and HTTP 503 with error code JOB_QUEUE_UNAVAILABLE means the dispatch queue is temporarily unavailable — retry later. Accepted integration exports return status "queued" and deliver asynchronously in the background; treat "queued" as successful submission instead of polling for "completed".',
+      'Create a public export job for Sanka records. Use this for integration exports such as deals to HubSpot. For Invoice accounting sync, use preview_workflow/start_workflow with workflow_type=invoice_export; for QuickBooks Online Bill sync, use workflow_type=bill_export. Integration exports are validated against the runnable delivery matrix; provider/object pairs without a working native delivery pipeline are rejected with HTTP 400 and error code INTEGRATION_EXPORT_NOT_SUPPORTED (do not retry those pairs), and HTTP 503 with error code JOB_QUEUE_UNAVAILABLE means the dispatch queue is temporarily unavailable — retry later. Accepted integration exports return status "queued" and deliver asynchronously in the background; treat "queued" as successful submission instead of polling for "completed".',
     inputSchema: EXPORT_INPUT_SCHEMA,
     outputSchema: JOB_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

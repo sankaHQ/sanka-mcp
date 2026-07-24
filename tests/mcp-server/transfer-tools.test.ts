@@ -68,8 +68,15 @@ describe('public transfer MCP tools', () => {
       'item',
       'order',
       'invoice',
+      'bill',
     ]);
-    expect(channelProperties.provider.enum).toEqual(['hubspot', 'nextengine', 'freee', 'moneyforward']);
+    expect(channelProperties.provider.enum).toEqual([
+      'hubspot',
+      'nextengine',
+      'freee',
+      'moneyforward',
+      'quickbooks-online',
+    ]);
     expect(channelProperties.object_type.description).toContain('company/contact/deal with hubspot');
     expect(channelProperties.object_type.description).toContain('item/order with hubspot or nextengine');
 
@@ -419,6 +426,65 @@ describe('public transfer MCP tools', () => {
     expect(channel).not.toHaveProperty('export_blocker_reason');
     expect(channel).not.toHaveProperty('export_blocker_reasons');
     expect(channel).not.toHaveProperty('export_ready');
+  });
+
+  it('summarizes QuickBooks channels as bill_export candidates', async () => {
+    const listChannels = jest.fn().mockResolvedValue({
+      channels: [
+        {
+          channel_id: 'qbo-1',
+          channel_name: 'QuickBooks Online - Main',
+          provider: 'quickbooks-online',
+          authenticated: true,
+          export_ready: false,
+          export_blocker_reason: 'object_map_missing',
+        },
+      ],
+      message: 'OK',
+    });
+
+    const result = await listIntegrationChannelsTool.handler({
+      reqContext: {
+        client: {
+          public: { integrations: { listChannels } },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_type: 'bill',
+        provider: 'quickbooks-online',
+      },
+    });
+
+    expect(listChannels).toHaveBeenCalledWith({
+      provider: 'quickbooks-online',
+    });
+    expect(result.structuredContent).toMatchObject({
+      channels: [
+        {
+          channel_id: 'qbo-1',
+          bill_export_channel_id: 'qbo-1',
+          accounting_bill_export_candidate: true,
+          is_export_blocked: false,
+          bill_export_readiness_signal: 'preview_or_start_workflow',
+        },
+      ],
+      requested_object_type: 'bill',
+      requested_provider: 'quickbooks-online',
+      channel_usage: 'accounting_bill_export_channel_candidates',
+      recommended_workflow_type: 'bill_export',
+      has_export_ready_channel: true,
+      blocked_count: 0,
+    });
+    const channel = (result.structuredContent?.['channels'] as Array<Record<string, unknown>>)[0];
+    expect(channel).not.toHaveProperty('export_blocker_reason');
+    expect(channel).not.toHaveProperty('export_ready');
+    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
+    expect(text).toContain('Found 1 quickbooks-online accounting channel candidate for bill_export');
+    expect(text).toContain('workflow_type=bill_export');
+    expect(text).toContain('accounting bill_export channel candidate');
+    expect(text).not.toContain('No export-ready');
   });
 
   it('validates export_records channel and selection args', async () => {

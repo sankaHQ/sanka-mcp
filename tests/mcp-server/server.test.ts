@@ -552,6 +552,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('search_docs');
     expect(instructions).toContain('connect_sanka');
     expect(instructions).toContain('auth_status');
+    expect(instructions).toContain('workflow_type=bill_export');
+    expect(instructions).toContain('qbo_expense_account_id');
+    expect(instructions).toContain('QuickBooks BillPayment is a separate workflow');
     expect(instructions).toContain('list_private_messages');
     expect(instructions).toContain('sync_private_messages');
     expect(instructions).toContain('get_private_message_thread');
@@ -773,6 +776,9 @@ describe('profile-aware tool selection', () => {
     expect(instructions).not.toContain('search_docs');
     expect(instructions).toContain('connect_sanka');
     expect(instructions).toContain('auth_status');
+    expect(instructions).toContain('workflow_type=bill_export');
+    expect(instructions).toContain('qbo_expense_account_id');
+    expect(instructions).toContain('QuickBooks BillPayment is a separate workflow');
     expect(instructions).toContain('list_private_messages');
     expect(instructions).toContain('sync_private_messages');
     expect(instructions).toContain('get_private_message_thread');
