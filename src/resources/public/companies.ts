@@ -107,8 +107,18 @@ const hasRemoteMutationTarget = (target: string | null | undefined): boolean =>
 
 const compactLocalMutationProperties = (body: Record<string, unknown>): Record<string, unknown> => {
   const properties = { ...body };
-  if (properties['target'] === 'sanka') {
-    delete properties['target'];
+  for (const controlKey of [
+    'channel_id',
+    'confirm',
+    'dry_run',
+    'external_object_type',
+    'operation',
+    'primary_external_id',
+    'provider',
+    'secondary_external_ids',
+    'target',
+  ]) {
+    delete properties[controlKey];
   }
   return compactProperties(properties);
 };

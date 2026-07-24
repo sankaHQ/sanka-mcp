@@ -285,6 +285,65 @@ describe('public company and contact resources on V2', () => {
     ]);
   });
 
+  test('keeps remote mutation controls out of local company properties', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual({
+          properties: {
+            address: '東京都千代田区テスト1-1-1（架空）',
+            allowed_in_store: false,
+            billing_cycle: 'end',
+            custom_fields: {
+              do_not_fulfill: true,
+              internal_test: true,
+              synthetic: true,
+            },
+            external_id: 'cargo-internal-fake-supplier-20260724-v1',
+            name: '【内部テスト】Sanka QA Supplies株式会社',
+            payment_cycle: 'nmonth_end',
+            status: 'active',
+          },
+        });
+        return envelope({
+          id: 'company-1',
+          record_id: '111',
+          object_type: 'company',
+          properties: { name: '【内部テスト】Sanka QA Supplies株式会社' },
+        });
+      },
+    });
+
+    await expect(
+      client.public.companies.create({
+        target: 'sanka',
+        operation: 'upsert',
+        external_id: 'cargo-internal-fake-supplier-20260724-v1',
+        name: '【内部テスト】Sanka QA Supplies株式会社',
+        address: '東京都千代田区テスト1-1-1（架空）',
+        status: 'active',
+        billing_cycle: 'end',
+        payment_cycle: 'nmonth_end',
+        allowed_in_store: false,
+        custom_fields: {
+          synthetic: true,
+          internal_test: true,
+          do_not_fulfill: true,
+        },
+      }),
+    ).resolves.toMatchObject({
+      company_id: 'company-1',
+      external_id: 'cargo-internal-fake-supplier-20260724-v1',
+      status: 'created',
+    });
+
+    expect(calls).toEqual(['POST http://localhost:5000/api/v2/companies']);
+  });
+
   test('uses V2 PATCH for scalar company and contact updates', async () => {
     const calls: string[] = [];
     const client = new Sanka({
