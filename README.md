@@ -47,6 +47,11 @@ MCP server accepts only Sanka OAuth bearer tokens and validates them through:
 
 The same bearer token is then forwarded to the Sanka public API.
 
+Workspace reads and successful `switch_workspace` calls refresh the resolved
+workspace identity held for the OAuth token or MCP session. Record URL
+enrichment therefore uses the selected workspace code immediately after a
+switch instead of retaining the code captured during the initial connection.
+
 Native OAuth-capable clients such as Codex and Claude receive an MCP OAuth
 challenge during connection or protected tool calls. Clients that do not support
 native MCP OAuth can still use the protected-tool fallback, which returns a

@@ -192,6 +192,28 @@ describe('record URL enrichment', () => {
     ]);
   });
 
+  it('replaces a stale Sanka workspace code in backend-provided record URLs', () => {
+    const result = enrichRecordUrlsForToolResult({
+      result: {
+        content: [{ type: 'text', text: 'ok' }],
+        structuredContent: {
+          id: 'fc86caab-2a62-443f-a600-177c5f978bcc',
+          app_url:
+            'https://app-v2.sanka.com/9983932/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+        },
+      },
+      resource: 'estimates',
+      reqContext,
+      args: {},
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      workspace_code: '39467777',
+      app_url:
+        'https://app-v2.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+    });
+  });
+
   it('builds app-v2 journal URLs when the backend omits app_url', () => {
     const result = enrichRecordUrlsForToolResult({
       result: {

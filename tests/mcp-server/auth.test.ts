@@ -1,7 +1,11 @@
 import http from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { OAuthChallengeError, resolveClientAuth } from '../../packages/mcp-server/src/auth';
+import {
+  OAuthChallengeError,
+  resolveClientAuth,
+  updateResolvedClientAuthWorkspace,
+} from '../../packages/mcp-server/src/auth';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 describe('resolveClientAuth', () => {
@@ -27,20 +31,28 @@ describe('resolveClientAuth', () => {
             res.end(JSON.stringify({ error: 'invalid_service_token' }));
             return;
           }
-          if (payload.session_id !== 'session-approved') {
+          if (payload.session_id !== 'session-approved' && payload.session_id !== 'session-workspace-cache') {
             res.statusCode = 404;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: 'not_found' }));
             return;
           }
+          const workspaceCacheTest = payload.session_id === 'session-workspace-cache';
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.end(
             JSON.stringify({
-              access_token: 'soat_session_token',
+              access_token: workspaceCacheTest ? 'soat_session_workspace_token' : 'soat_session_token',
               token_type: 'bearer',
               expires_in: 300,
               scope: 'mcp:access expenses:read',
+              ...(workspaceCacheTest ?
+                {
+                  workspace_id: 'workspace-old',
+                  workspace_code: '9983932',
+                  workspace_name: 'Old workspace',
+                }
+              : {}),
             }),
           );
         });
@@ -85,6 +97,25 @@ describe('resolveClientAuth', () => {
               client_id: 'client-2',
               scope: 'user-scope api-access',
               session_id: 'session-2',
+            },
+          }),
+        );
+        return;
+      }
+
+      if (authorization === 'Bearer soat_workspace_switch_token') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(
+          JSON.stringify({
+            data: {
+              active: true,
+              client_id: 'client-workspace-switch',
+              scope: 'mcp:access',
+              session_id: 'session-workspace-switch',
+              workspace_id: 'workspace-old',
+              workspace_code: '9983932',
+              workspace_name: 'Old workspace',
             },
           }),
         );
@@ -254,6 +285,39 @@ describe('resolveClientAuth', () => {
     expect(mcpSessionTokenCallCount).toBe(1);
   });
 
+  it('updates cached MCP session workspace identity without exchanging a new token', async () => {
+    const requestContext = {
+      ...authRequestContext({
+        accept: 'application/json',
+      }),
+      mcpOptions: {
+        authorizationServerUrl: authServerBaseUrl,
+        tokenExchangeSharedSecret: 'exchange-secret',
+      },
+      mcpSessionId: 'session-workspace-cache',
+      mcpSessionIdForExchange: 'session-workspace-cache',
+    };
+    const first = await resolveClientAuth(requestContext);
+
+    updateResolvedClientAuthWorkspace({
+      auth: first,
+      mcpSessionId: 'session-workspace-cache',
+      workspace: {
+        workspace_id: 'workspace-new',
+        workspace_code: '94639119',
+        workspace_name: 'Sanka Test',
+      },
+    });
+    const second = await resolveClientAuth(requestContext);
+
+    expect(second.oauth).toMatchObject({
+      workspace_id: 'workspace-new',
+      workspace_code: '94639119',
+      workspace_name: 'Sanka Test',
+    });
+    expect(mcpSessionTokenCallCount).toBe(1);
+  });
+
   it('rejects developer api key headers for MCP access', async () => {
     await expect(
       resolveClientAuth(
@@ -358,6 +422,36 @@ describe('resolveClientAuth', () => {
       },
     });
     expect(second).toEqual(first);
+    expect(introspectionCallCount).toBe(1);
+  });
+
+  it('updates cached workspace identity after a successful workspace switch', async () => {
+    const requestContext = authRequestContext({
+      authorization: 'Bearer soat_workspace_switch_token',
+    });
+    const first = await resolveClientAuth(requestContext);
+
+    updateResolvedClientAuthWorkspace({
+      auth: first,
+      mcpSessionId: 'session-workspace-switch',
+      workspace: {
+        workspace_id: 'workspace-new',
+        workspace_code: '94639119',
+        workspace_name: 'Sanka Test',
+      },
+    });
+    const second = await resolveClientAuth(requestContext);
+
+    expect(first.oauth).toMatchObject({
+      workspace_id: 'workspace-new',
+      workspace_code: '94639119',
+      workspace_name: 'Sanka Test',
+    });
+    expect(second.oauth).toMatchObject({
+      workspace_id: 'workspace-new',
+      workspace_code: '94639119',
+      workspace_name: 'Sanka Test',
+    });
     expect(introspectionCallCount).toBe(1);
   });
 
