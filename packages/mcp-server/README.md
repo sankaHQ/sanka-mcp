@@ -141,7 +141,9 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `sync_buy_rfq`: reconcile linked-RFQ vendor proposals into draft offer snapshots and read invitation state
 - `list_buy_sourcing_runs`: list sourcing runs for a Buy request
 - `get_buy_sourcing_run`: load one Buy sourcing run
-- `select_buy_offer`: select one offer snapshot per Buy request line
+- `select_buy_offer`: select one offer snapshot per Buy request line; pass
+  `acknowledge_fee=true` only after the buyer explicitly accepts a quoted Cargo
+  success fee
 - `preview_buy_approval`: preview approval requirements for selected Buy offers
 - `submit_buy_request`: submit selected Buy offers after explicit confirmation
 - `create_buy_purchase_order`: create Company/Purchase Order handoff records after confirmation

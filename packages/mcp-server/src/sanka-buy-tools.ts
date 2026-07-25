@@ -867,7 +867,7 @@ export const selectBuyOfferTool: McpTool = {
     name: 'select_buy_offer',
     title: 'Select Buy offer',
     description:
-      'Select one immutable offer snapshot per Buy request line. Multi-line and multi-merchant requests must pass line_selections so downstream merchant purchases can be split correctly.',
+      'Select one immutable offer snapshot per Buy request line. Multi-line and multi-merchant requests must pass line_selections so downstream merchant purchases can be split correctly. Pass acknowledge_fee=true only after the buyer explicitly accepts a quoted Cargo success fee.',
     inputSchema: {
       type: 'object',
       required: ['request_id', 'line_selections'],
@@ -879,6 +879,11 @@ export const selectBuyOfferTool: McpTool = {
           type: 'array',
           minItems: 1,
           items: LINE_SELECTION_SCHEMA,
+        },
+        acknowledge_fee: {
+          type: 'boolean',
+          description:
+            'Explicit buyer acknowledgement of the quoted Cargo success fee. This does not bypass agreement, disclosure, or approved-cap requirements.',
         },
         idempotency_key: { type: 'string' },
       },
@@ -904,6 +909,7 @@ export const selectBuyOfferTool: McpTool = {
     const body = compactRecord({
       sourcing_run_id: readString(readArg(args, 'sourcing_run_id', ['sourcingRunId'])),
       line_selections: lineSelections,
+      acknowledge_fee: readBoolean(readArg(args, 'acknowledge_fee', ['acknowledgeFee'])),
     });
     const response = (await reqContext.client.post(
       `${BUY_BASE_PATH}/requests/${encodeURIComponent(requestID)}/select-offer`,

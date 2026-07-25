@@ -247,6 +247,7 @@ describe('Sanka Buy MCP tools', () => {
       args: {
         request_id: 'buy-1',
         sourcing_run_id: 'source-1',
+        acknowledge_fee: true,
         idempotency_key: 'select-1',
         line_selections: [
           {
@@ -269,6 +270,7 @@ describe('Sanka Buy MCP tools', () => {
     expect(post).toHaveBeenCalledWith('/api/v2/buy/requests/buy-1/select-offer', {
       body: {
         sourcing_run_id: 'source-1',
+        acknowledge_fee: true,
         line_selections: [
           {
             buy_request_line_id: 'line-1',
@@ -295,6 +297,14 @@ describe('Sanka Buy MCP tools', () => {
         selected_quantity: 1,
       },
     ]);
+  });
+
+  it('advertises the Cargo fee acknowledgement in the select-offer schema', () => {
+    expect(selectBuyOfferTool.tool.inputSchema.properties).toMatchObject({
+      acknowledge_fee: {
+        type: 'boolean',
+      },
+    });
   });
 
   it('starts procurement RFQ sourcing runs with the linked procurement request id', async () => {
