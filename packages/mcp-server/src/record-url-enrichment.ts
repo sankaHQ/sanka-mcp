@@ -219,13 +219,13 @@ function canonicalRecordAppUrl(
   recordId: string,
   existingAppUrl?: string | undefined,
 ): string {
-  if (!existingAppUrl || isSankaWorkspaceAppUrl(context, existingAppUrl)) {
+  if (!existingAppUrl || isKnownSankaRecordAppUrl(context, existingAppUrl)) {
     return buildRecordAppUrl(context, recordId);
   }
   return existingAppUrl;
 }
 
-function isSankaWorkspaceAppUrl(context: EnrichmentContext, appUrl: string): boolean {
+function isKnownSankaRecordAppUrl(context: EnrichmentContext, appUrl: string): boolean {
   try {
     const url = new URL(appUrl);
     if (!isKnownSankaAppHost(url, context.baseUrl)) {
@@ -233,7 +233,7 @@ function isSankaWorkspaceAppUrl(context: EnrichmentContext, appUrl: string): boo
     }
     const segments = url.pathname.split('/').filter(Boolean);
     const routeSegments = segments[0] === 'ja' ? segments.slice(1) : segments;
-    return routeSegments[0] === context.workspaceCode;
+    return routeSegments.length >= 2;
   } catch {
     return false;
   }

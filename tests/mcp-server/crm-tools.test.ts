@@ -1321,10 +1321,17 @@ describe('ChatGPT CRM tools', () => {
       success: true,
     });
 
+    const auth = oauthContext({
+      workspace: {
+        id: 'workspace-uuid-1',
+        code: '39467777',
+        name: 'Workspace A',
+      },
+    });
     const result = await crmSwitchWorkspaceTool.handler({
       reqContext: {
         client: { get, post } as any,
-        auth: oauthContext(),
+        auth,
         mcpSessionId: 'mcp-session-1',
         toolProfile: 'hosted',
       },
@@ -1347,6 +1354,11 @@ describe('ChatGPT CRM tools', () => {
         { id: 'workspace-uuid-2', name: 'Workspace B', workspace_code: '48803074', selected: true },
       ],
       message: 'Switched Sanka workspace to Workspace B.',
+    });
+    expect(auth.oauth).toMatchObject({
+      workspace_id: 'workspace-uuid-2',
+      workspace_code: '48803074',
+      workspace_name: 'Workspace B',
     });
   });
 

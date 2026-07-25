@@ -66,6 +66,12 @@ export type ResolvedClientAuth = {
   };
 };
 
+export type ResolvedWorkspaceIdentity = {
+  workspace_id?: string | undefined;
+  workspace_code?: string | undefined;
+  workspace_name?: string | undefined;
+};
+
 type OAuthIntrospectionPayload = {
   active?: boolean;
   client_id?: string | null;
@@ -350,6 +356,63 @@ const writeCachedMcpSessionToken = ({
     ...(workspace_code ? { workspace_code } : undefined),
     ...(workspace_name ? { workspace_name } : undefined),
   });
+};
+
+export const updateResolvedClientAuthWorkspace = ({
+  auth,
+  mcpSessionId,
+  workspace,
+}: {
+  auth?: ResolvedClientAuth | undefined;
+  mcpSessionId?: string | undefined;
+  workspace: ResolvedWorkspaceIdentity;
+}): void => {
+  const workspaceID = workspace.workspace_id?.trim();
+  const workspaceCode = workspace.workspace_code?.trim();
+  const workspaceName = workspace.workspace_name?.trim();
+  const workspacePatch = {
+    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
+    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
+    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
+  };
+  if (Object.keys(workspacePatch).length === 0) {
+    return;
+  }
+
+  if (auth) {
+    Object.assign(auth.oauth, workspacePatch);
+  }
+
+  const rawAccessToken = auth?.clientOptions.apiKey;
+  const accessToken = typeof rawAccessToken === 'string' ? rawAccessToken.trim() : '';
+  if (accessToken) {
+    const introspectionCacheKey = cacheKeyForToken(accessToken);
+    const introspection = oauthIntrospectionCache.get(introspectionCacheKey);
+    if (introspection) {
+      oauthIntrospectionCache.set(introspectionCacheKey, {
+        ...introspection,
+        payload: {
+          ...introspection.payload,
+          ...workspacePatch,
+        },
+      });
+    }
+  }
+
+  const normalizedSessionID = mcpSessionId?.trim();
+  for (const [cacheKey, cached] of mcpSessionTokenCache.entries()) {
+    const matchesSession = Boolean(normalizedSessionID && cacheKey.endsWith(`:${normalizedSessionID}`));
+    const matchesAccessToken = Boolean(
+      !normalizedSessionID && accessToken && cached.accessToken === accessToken,
+    );
+    if (!matchesAccessToken && !matchesSession) {
+      continue;
+    }
+    mcpSessionTokenCache.set(cacheKey, {
+      ...cached,
+      ...workspacePatch,
+    });
+  }
 };
 
 const exchangeMcpSessionForAccessToken = async ({

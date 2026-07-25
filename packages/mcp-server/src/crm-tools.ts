@@ -1,5 +1,5 @@
 import { File } from 'node:buffer';
-import { buildOAuthWwwAuthenticateHeader } from './auth';
+import { buildOAuthWwwAuthenticateHeader, updateResolvedClientAuthWorkspace } from './auth';
 import { LEGACY_RECONNECT_SERVER_NAME, resolveReconnectServerName } from './reconnect-name';
 import {
   BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
@@ -15560,6 +15560,11 @@ export const crmCurrentWorkspaceTool: McpTool = {
     const response = await reqContext.client.public.auth.getCurrentIdentity(undefined);
     const data = readRecord((response as unknown as Record<string, unknown>)['data']);
     const workspace = workspaceIdentityFromRecord(data);
+    updateResolvedClientAuthWorkspace({
+      auth: reqContext.auth,
+      mcpSessionId: reqContext.mcpSessionId,
+      workspace,
+    });
     const authMode = readString(data?.['auth_mode']) ?? reqContext.auth?.authMode ?? 'oauth_bearer';
     const message =
       workspace.workspace_id ?
@@ -15618,6 +15623,11 @@ export const crmListWorkspacesTool: McpTool = {
     const data = readRecord((response as unknown as Record<string, unknown>)['data']);
     const availableWorkspaces = normalizeSessionWorkspaceOptions(data);
     const currentWorkspace = workspaceIdentityFromSessionRecord(data);
+    updateResolvedClientAuthWorkspace({
+      auth: reqContext.auth,
+      mcpSessionId: reqContext.mcpSessionId,
+      workspace: currentWorkspace,
+    });
     const message = `Returned ${availableWorkspaces.length} available Sanka workspaces.`;
     const workspacePreview = buildStructuredTextPreview('Available Sanka workspaces preview', {
       current_workspace: currentWorkspace,
@@ -15715,6 +15725,11 @@ export const crmSwitchWorkspaceTool: McpTool = {
       ...workspaceIdentityFromSessionRecord(switchData),
       ...workspaceIdentityFromSessionRecord(sessionData),
     };
+    updateResolvedClientAuthWorkspace({
+      auth: reqContext.auth,
+      mcpSessionId: reqContext.mcpSessionId,
+      workspace: currentWorkspace,
+    });
     const message = `Switched Sanka workspace to ${currentWorkspaceLabel(currentWorkspace)}.`;
 
     return {
