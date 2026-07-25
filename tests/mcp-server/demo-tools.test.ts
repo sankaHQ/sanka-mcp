@@ -18,8 +18,8 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
   });
 
   it('exposes operation ids that match the Sanka HTTP endpoints', () => {
-    expect(demoGenerateTool.metadata.operationId).toBe('demo.generate.create');
-    expect(demoGenerateTool.metadata.httpPath).toBe('/v1/demo/generate');
+    expect(demoGenerateTool.metadata.operationId).toBe('manage_data.demo_data.trigger');
+    expect(demoGenerateTool.metadata.httpPath).toBe('/api/v2/manage-data/demo-data');
     expect(demoGenerateTool.metadata.httpMethod).toBe('post');
 
     expect(integrationSyncPushTool.metadata.operationId).toBe('integration_sync.push.create');
@@ -160,23 +160,40 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
       }
     });
 
-    it('passes through workspace_id for existing-workspace reseeding', async () => {
-      const generate = jest.fn().mockResolvedValue({
-        workspace_id: 'existing-ws',
-        workspace_name: 'Existing',
-        template: 'dtc_subscription',
-        country: 'jp',
-        seed: 1,
-        created: false,
-        counts: { companies: 10 },
-        sample_record_ids: {},
-        message: 'Seeded existing workspace Existing',
+    it('uses the native V2 manage-data API for existing-workspace reseeding', async () => {
+      const generate = jest.fn();
+      const get = jest.fn().mockResolvedValue({
+        data: {
+          workspaces: [{ id: 'existing-ws', name: 'Existing', short_id: 42424242 }],
+        },
+      });
+      const post = jest.fn().mockResolvedValue({
+        data: {
+          ok: true,
+          message: 'Generated V2 demo data for workspace existing-ws: created 10 record set(s).',
+          imported_rows: 10,
+          imported_sections: [
+            'company',
+            'contact',
+            'contact_company_link',
+            'item',
+            'order',
+            'order_line_item',
+            'invoice',
+            'invoice_line_item',
+            'payment',
+            'payment_line_item',
+          ],
+          skipped_sections: [],
+        },
       });
 
       const result = await demoGenerateTool.handler({
         reqContext: {
           client: {
             demo: { generate },
+            get,
+            post,
           } as any,
           auth: oauthContext(),
           toolProfile: 'full',
@@ -188,13 +205,33 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
         },
       });
 
-      expect(generate).toHaveBeenCalledWith({
-        template: 'dtc_subscription',
-        country: 'jp',
-        workspace_id: 'existing-ws',
+      expect(get).toHaveBeenCalledWith('/api/v2/manage-data', {
+        query: { q: 'existing-ws' },
       });
+      expect(post).toHaveBeenCalledWith('/api/v2/manage-data/demo-data', {
+        body: {
+          workspace_id: 'existing-ws',
+          days: 0,
+        },
+      });
+      expect(generate).not.toHaveBeenCalled();
       expect(result.isError).toBeUndefined();
       expect(result.structuredContent?.['created']).toBe(false);
+      expect(result.structuredContent).toMatchObject({
+        workspace_id: 'existing-ws',
+        workspace_name: 'Existing',
+        workspace_short_id: 42424242,
+        target: 'sanka',
+        counts: {
+          companies: 1,
+          contacts: 1,
+          items: 1,
+          orders: 1,
+          invoices: 1,
+          receipts: 1,
+        },
+        warnings: ['v2_bounded_demo_seed'],
+      });
     });
 
     it('passes direct integration demo dry-run arguments through generate_demo_workspace', async () => {
