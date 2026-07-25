@@ -12593,6 +12593,47 @@ const buildPurchaseOrderMutationBody = (args: Record<string, unknown> | undefine
   return body;
 };
 
+const buildV2PurchaseOrderMutationBody = (body: Record<string, unknown>) => {
+  const {
+    attachment_file: _attachmentFile,
+    company_external_id: _companyExternalID,
+    contact_external_id: _contactExternalID,
+    external_id: _externalID,
+    line_items: lineItems,
+    ...properties
+  } = body;
+  void _attachmentFile;
+  void _companyExternalID;
+  void _contactExternalID;
+  void _externalID;
+  return {
+    properties,
+    ...(Array.isArray(lineItems) ? { line_items: lineItems } : undefined),
+  };
+};
+
+const buildV2PurchaseOrderMutationResult = ({
+  response,
+  status,
+  purchaseOrderID,
+  externalID,
+}: {
+  response: Record<string, unknown>;
+  status: 'created' | 'updated';
+  purchaseOrderID?: string;
+  externalID?: string;
+}) => {
+  const normalized = normalizeV2MutationEnvelopePayload(response);
+  return {
+    ok: true,
+    status,
+    purchase_order_id:
+      readString(normalized['purchase_order_id']) ?? readString(normalized['id']) ?? purchaseOrderID ?? null,
+    external_id: externalID ?? null,
+    ctx_id: readString(normalized['ctx_id']) ?? null,
+  };
+};
+
 const buildPurchaseOrderListParams = (args: Record<string, unknown> | undefined) =>
   buildEstimateInvoiceListParams(args);
 
@@ -20433,10 +20474,21 @@ export const crmCreatePurchaseOrderTool: McpTool = {
       return asErrorResult(DIRECT_CRM_SOURCE_LOCK_MESSAGE);
     }
 
-    const response = (await reqContext.client.public.purchaseOrders.create(
-      buildPurchaseOrderMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const body = buildPurchaseOrderMutationBody(args);
+    const externalID = readString(args?.['external_id']);
+    const response =
+      Array.isArray(body['line_items']) ?
+        buildV2PurchaseOrderMutationResult({
+          response: (await reqContext.client.v2Post<Record<string, unknown>>('/purchase-orders', {
+            body: buildV2PurchaseOrderMutationBody(body),
+          })) as unknown as Record<string, unknown>,
+          status: 'created',
+          ...(externalID ? { externalID } : undefined),
+        })
+      : ((await reqContext.client.public.purchaseOrders.create(body, undefined)) as unknown as Record<
+          string,
+          unknown
+        >);
 
     return {
       content: [
@@ -20493,11 +20545,27 @@ export const crmUpdatePurchaseOrderTool: McpTool = {
       return asErrorResult('`purchase_order_id` is required.');
     }
 
-    const response = (await reqContext.client.public.purchaseOrders.update(
-      purchaseOrderID,
-      buildPurchaseOrderMutationBody(args),
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const body = buildPurchaseOrderMutationBody(args);
+    const externalID = readString(args?.['external_id']);
+    const response =
+      Array.isArray(body['line_items']) ?
+        buildV2PurchaseOrderMutationResult({
+          response: (await reqContext.client.v2Patch<Record<string, unknown>>(
+            `/purchase-orders/${encodeURIComponent(purchaseOrderID)}`,
+            {
+              body: buildV2PurchaseOrderMutationBody(body),
+              ...(externalID ? { query: { external_id: externalID } } : undefined),
+            },
+          )) as unknown as Record<string, unknown>,
+          status: 'updated',
+          purchaseOrderID,
+          ...(externalID ? { externalID } : undefined),
+        })
+      : ((await reqContext.client.public.purchaseOrders.update(
+          purchaseOrderID,
+          body,
+          undefined,
+        )) as unknown as Record<string, unknown>);
 
     return {
       content: [
