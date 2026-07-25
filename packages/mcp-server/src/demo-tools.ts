@@ -1,6 +1,8 @@
-// Hand-written Phase 5 tools for /v1/demo/generate and
-// /api/v2/integration-sync/push. Kept separate from the Stainless-
-// generated code so they survive the next regeneration pass.
+// Hand-written demo and integration-sync tools. Existing Sanka workspace
+// seeding uses the native V2 manage-data API; new-workspace provisioning and
+// direct CRM demo generation retain the legacy endpoint until their V2
+// replacements ship. Kept separate from the Stainless-generated code so these
+// tools survive the next regeneration pass.
 
 import type Sanka from 'sanka-sdk';
 import { McpTool, ToolCallResult } from './types';
@@ -28,6 +30,8 @@ type DemoGenerateResponse = Sanka.DemoGenerateResponse & {
 type IntegrationSyncPushParams = Sanka.IntegrationSyncPushParams;
 type IntegrationSyncPushResponse = Sanka.IntegrationSyncPushResponse;
 
+const V2_MANAGE_DATA_PATH = '/api/v2/manage-data';
+const V2_MANAGE_DEMO_PATH = `${V2_MANAGE_DATA_PATH}/demo-data`;
 const SUPPORTED_TEMPLATES = ['b2b_saas', 'dtc_subscription', 'agency_services'] as const;
 const SUPPORTED_COUNTRIES = ['us', 'jp'] as const;
 
@@ -308,6 +312,85 @@ const readCustomObjectPlans = (value: unknown): Array<Record<string, unknown>> |
   return plans.length > 0 ? plans : undefined;
 };
 
+const demoCountsFromSections = (sections: string[]): Record<string, number> => {
+  const present = new Set(sections);
+  return {
+    companies: present.has('company') ? 1 : 0,
+    contacts: present.has('contact') ? 1 : 0,
+    items: present.has('item') ? 1 : 0,
+    orders: present.has('order') ? 1 : 0,
+    deals: 0,
+    subscriptions: 0,
+    invoices: present.has('invoice') ? 1 : 0,
+    receipts: present.has('payment') ? 1 : 0,
+  };
+};
+
+const generateExistingWorkspaceDemoV2 = async ({
+  client,
+  workspaceId,
+  template,
+  country,
+  seed,
+}: {
+  client: Sanka;
+  workspaceId: string;
+  template: string;
+  country: string;
+  seed?: number;
+}): Promise<DemoGenerateResponse> => {
+  const workspaceEnvelope = readPlainObject(
+    await client.get(V2_MANAGE_DATA_PATH, {
+      query: { q: workspaceId },
+    }),
+  );
+  const workspaceData = readPlainObject(workspaceEnvelope?.['data']);
+  const workspaces = Array.isArray(workspaceData?.['workspaces']) ? workspaceData['workspaces'] : [];
+  const workspace =
+    workspaces
+      .map((entry) => readPlainObject(entry))
+      .find((entry) => readString(entry?.['id']) === workspaceId) ?? undefined;
+
+  const seedEnvelope = readPlainObject(
+    await client.post(V2_MANAGE_DEMO_PATH, {
+      body: {
+        workspace_id: workspaceId,
+        days: 0,
+      },
+    }),
+  );
+  const seedData = readPlainObject(seedEnvelope?.['data']) ?? seedEnvelope;
+  if (!seedData) {
+    throw new Error('The V2 demo-data endpoint returned an invalid response.');
+  }
+
+  const importedSections = readStringArray(seedData['imported_sections']) ?? [];
+  const workspaceName = readString(workspace?.['name']) ?? workspaceId;
+  const workspaceShortId = readNumber(workspace?.['short_id']);
+  const message =
+    readString(seedData['message']) ?? `Generated bounded V2 demo data for workspace ${workspaceName}.`;
+
+  return {
+    workspace_id: workspaceId,
+    workspace_name: workspaceName,
+    workspace_short_id: workspaceShortId ?? null,
+    target: 'sanka',
+    provider: null,
+    channel_id: null,
+    channel_name: null,
+    dry_run: null,
+    template,
+    country,
+    seed: seed ?? 0,
+    created: false,
+    counts: demoCountsFromSections(importedSections),
+    sample_record_ids: {},
+    remote: null,
+    warnings: ['v2_bounded_demo_seed'],
+    message,
+  } as DemoGenerateResponse;
+};
+
 const buildDemoSummary = (response: DemoGenerateResponse): string => {
   const parts: string[] = [];
   parts.push(
@@ -345,8 +428,8 @@ export const demoGenerateTool: McpTool = {
     operation: 'write',
     tags: ['demo', 'onboarding'],
     httpMethod: 'post',
-    httpPath: '/v1/demo/generate',
-    operationId: 'demo.generate.create',
+    httpPath: V2_MANAGE_DEMO_PATH,
+    operationId: 'manage_data.demo_data.trigger',
   },
   tool: {
     name: 'generate_demo_workspace',
@@ -419,11 +502,22 @@ export const demoGenerateTool: McpTool = {
       body.workspace_id = workspaceId;
     }
     const seed = readNumber(args?.['seed']);
+    const normalizedSeed = seed !== undefined ? Math.trunc(seed) : undefined;
     if (seed !== undefined) {
       body.seed = Math.trunc(seed);
     }
 
-    const response = (await reqContext.client.demo.generate(body)) as DemoGenerateResponse;
+    const useV2ExistingWorkspaceSeed = Boolean(workspaceId) && (target === undefined || target === 'sanka');
+    const response =
+      useV2ExistingWorkspaceSeed && workspaceId ?
+        await generateExistingWorkspaceDemoV2({
+          client: reqContext.client,
+          workspaceId,
+          template,
+          country,
+          ...(normalizedSeed !== undefined ? { seed: normalizedSeed } : {}),
+        })
+      : ((await reqContext.client.demo.generate(body)) as DemoGenerateResponse);
 
     return {
       content: [
