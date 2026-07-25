@@ -5073,9 +5073,31 @@ describe('ChatGPT CRM tools', () => {
       status: 'deleted',
       purchase_order_id: 'purchase-order-1',
     });
+    const v2Post = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'purchase-order-1',
+        record_id: '901',
+        object_type: 'purchase_order',
+        properties: {},
+      },
+      meta: { ctx_id: 'ctx-purchase-order-create' },
+    });
+    const v2Patch = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'purchase-order-1',
+        record_id: '901',
+        object_type: 'purchase_order',
+        properties: {},
+      },
+      meta: { ctx_id: 'ctx-purchase-order-update' },
+    });
 
     const reqContext = {
       client: {
+        v2Patch,
+        v2Post,
         public: {
           purchaseOrders: { list, retrieve, create, update, delete: del },
         },
@@ -5177,28 +5199,29 @@ describe('ChatGPT CRM tools', () => {
         date: '2026-04-09',
         tax_rate: 10,
         attachment_file_ids: ['file-1'],
+        external_id: 'PO-1',
         line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
     });
-    expect(create).toHaveBeenCalledWith(
-      {
-        company_id: 'company-1',
-        contact_id: 'contact-1',
-        currency: 'USD',
-        date: '2026-04-09',
-        tax_rate: 10,
-        attachment_file: {
-          files: [{ file_id: 'file-1' }],
+    expect(v2Post).toHaveBeenCalledWith('/purchase-orders', {
+      body: {
+        properties: {
+          company_id: 'company-1',
+          contact_id: 'contact-1',
+          currency: 'USD',
+          date: '2026-04-09',
+          tax_rate: 10,
         },
         line_items: [{ item_name: 'Purchased item', quantity: 2, unit_price: 500, tax_rate: 10 }],
       },
-      undefined,
-    );
+    });
+    expect(create).not.toHaveBeenCalled();
     expect(createResult.structuredContent).toEqual({
       ok: true,
       status: 'created',
       purchase_order_id: 'purchase-order-1',
       external_id: 'PO-1',
+      ctx_id: 'ctx-purchase-order-create',
     });
 
     const updateResult = await crmUpdatePurchaseOrderTool.handler({
@@ -5221,6 +5244,29 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'updated',
       purchase_order_id: 'purchase-order-1',
+    });
+
+    const lineItemUpdateResult = await crmUpdatePurchaseOrderTool.handler({
+      reqContext,
+      args: {
+        purchase_order_id: 'purchase-order-1',
+        external_id: 'PO-1',
+        line_items: [{ item_name: 'Purchased item', quantity: 1, unit_price: 3600 }],
+      },
+    });
+    expect(v2Patch).toHaveBeenCalledWith('/purchase-orders/purchase-order-1', {
+      body: {
+        properties: {},
+        line_items: [{ item_name: 'Purchased item', quantity: 1, unit_price: 3600 }],
+      },
+      query: { external_id: 'PO-1' },
+    });
+    expect(lineItemUpdateResult.structuredContent).toEqual({
+      ok: true,
+      status: 'updated',
+      purchase_order_id: 'purchase-order-1',
+      external_id: 'PO-1',
+      ctx_id: 'ctx-purchase-order-update',
     });
 
     const deleteResult = await crmDeletePurchaseOrderTool.handler({
