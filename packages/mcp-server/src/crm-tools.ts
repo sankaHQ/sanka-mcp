@@ -6099,7 +6099,7 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
     },
   },
   required: ['invoice_id'],
@@ -13214,7 +13214,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
     args?.['attachment_templates'];
   const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
   const externalID = readString(args?.['external_id']);
-  const language = readString(args?.['language']);
+  const language = readDocumentPDFLanguage(args);
   const additionalPdfAttachments =
     Array.isArray(additionalPdfAttachmentsRaw) ?
       additionalPdfAttachmentsRaw
