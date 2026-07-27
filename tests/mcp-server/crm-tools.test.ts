@@ -6769,7 +6769,9 @@ describe('ChatGPT CRM tools', () => {
           },
         ],
       },
-      query: {},
+      query: {
+        language: 'ja',
+      },
     });
     expect(result.structuredContent).toMatchObject({
       ok: true,
