@@ -2383,8 +2383,13 @@ const WORKSPACE_INVITATION_CREATE_INPUT_SCHEMA = {
       description:
         'Required true after explicit user approval because inviting a workspace user sends an email and may consume a billable seat.',
     },
+    expected_workspace_id: {
+      type: 'string',
+      description:
+        'Required internal workspace UUID from a fresh current_workspace check. The invitation is blocked unless this exact API request resolves to the same workspace.',
+    },
   },
-  required: ['email', 'confirm'],
+  required: ['email', 'expected_workspace_id', 'confirm'],
 };
 
 const WORKSPACE_INVITATION_LIST_INPUT_SCHEMA = {
@@ -2422,8 +2427,13 @@ const WORKSPACE_INVITATION_CANCEL_INPUT_SCHEMA = {
       type: 'boolean',
       description: 'Required true after explicit user approval because this cancels a pending invitation.',
     },
+    expected_workspace_id: {
+      type: 'string',
+      description:
+        'Required internal workspace UUID from a fresh current_workspace check. Cancellation is blocked unless this exact API request resolves to the same workspace.',
+    },
   },
-  required: ['invitation_id', 'confirm'],
+  required: ['invitation_id', 'expected_workspace_id', 'confirm'],
 };
 
 const WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA = {
@@ -2434,6 +2444,9 @@ const WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA = {
     role: { type: 'string' },
     status: { type: 'string' },
     email_delivery: { type: 'string' },
+    workspace_id: { type: 'string' },
+    workspace_code: { type: 'string' },
+    workspace_name: { type: 'string' },
     message: { type: 'string' },
   },
   required: ['message'],
@@ -9728,6 +9741,43 @@ const workspaceIdentityFromOauth = (reqContext: McpRequestContext): WorkspaceIde
 const currentWorkspaceLabel = (workspace: WorkspaceIdentity): string =>
   workspace.workspace_name ?? workspace.workspace_code ?? workspace.workspace_id ?? 'unknown workspace';
 
+const workspaceIdentityLabel = (workspace: WorkspaceIdentity): string => {
+  const identifiers = [workspace.workspace_code, workspace.workspace_id].filter(Boolean).join('; ');
+  return identifiers ?
+      `${currentWorkspaceLabel(workspace)} (${identifiers})`
+    : currentWorkspaceLabel(workspace);
+};
+
+const verifyExpectedWorkspaceForMutation = async ({
+  expectedWorkspaceID,
+  reqContext,
+}: {
+  expectedWorkspaceID: string;
+  reqContext: McpRequestContext;
+}): Promise<
+  { error?: undefined; workspace: WorkspaceIdentity } | { error: ToolCallResult; workspace?: undefined }
+> => {
+  const sessionResponse = await reqContext.client.get<Record<string, unknown>>(
+    '/api/v2/auth/session',
+    undefined,
+  );
+  const sessionEnvelope = unwrapV2EnvelopeRecord(sessionResponse);
+  const sessionData =
+    readRecord(sessionEnvelope?.data) ?? readRecord((sessionResponse as Record<string, unknown>)['data']);
+  const workspace = workspaceIdentityFromSessionRecord(sessionData);
+
+  if (!workspace.workspace_id || workspace.workspace_id !== expectedWorkspaceID) {
+    const currentLabel = workspace.workspace_id ? workspaceIdentityLabel(workspace) : 'no resolved workspace';
+    return {
+      error: asErrorResult(
+        `Workspace precondition failed: expected ${expectedWorkspaceID}, but this request is bound to ${currentLabel}. No changes were made.`,
+      ),
+    };
+  }
+
+  return { workspace };
+};
+
 const buildCurrentWorkspaceStructuredContent = ({
   authMode,
   connected,
@@ -15598,9 +15648,10 @@ export const crmCurrentWorkspaceTool: McpTool = {
       return authError;
     }
 
-    const response = await reqContext.client.public.auth.getCurrentIdentity(undefined);
-    const data = readRecord((response as unknown as Record<string, unknown>)['data']);
-    const workspace = workspaceIdentityFromRecord(data);
+    const response = await reqContext.client.get<Record<string, unknown>>('/api/v2/auth/session', undefined);
+    const envelope = unwrapV2EnvelopeRecord(response);
+    const data = readRecord(envelope?.data) ?? readRecord((response as Record<string, unknown>)['data']);
+    const workspace = workspaceIdentityFromSessionRecord(data);
     updateResolvedClientAuthWorkspace({
       auth: reqContext.auth,
       mcpSessionId: reqContext.mcpSessionId,
@@ -15805,7 +15856,7 @@ export const crmInviteWorkspaceUserTool: McpTool = {
     name: 'invite_workspace_user',
     title: 'Invite workspace user',
     description:
-      'Invite one user to the authenticated Sanka workspace. This sends an invitation email and may consume a billable seat, so explicit confirmation is required.',
+      'Invite one user to an explicitly verified Sanka workspace. Call current_workspace immediately before this tool and pass its internal workspace_id as expected_workspace_id. The tool and API both block on a mismatch. This sends an invitation email and may consume a billable seat, so explicit confirmation is required.',
     inputSchema: WORKSPACE_INVITATION_CREATE_INPUT_SCHEMA,
     outputSchema: WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15844,18 +15895,45 @@ export const crmInviteWorkspaceUserTool: McpTool = {
     if (!['ja', 'en'].includes(language)) {
       return asErrorResult('`language` must be ja or en.');
     }
-    const response = await reqContext.client.public.workspaceUsers.invitations.create({
-      email,
-      role: role as 'admin' | 'staff' | 'view_only' | 'partner',
-      ...(permissionSetID ? { permission_set_id: permissionSetID } : undefined),
-      simplified_invite: readBoolean(args?.['simplified_invite']) ?? true,
-      language: language as 'ja' | 'en',
+    const expectedWorkspaceID = readString(args?.['expected_workspace_id']);
+    if (!expectedWorkspaceID) {
+      return asErrorResult(
+        '`expected_workspace_id` is required. Call current_workspace immediately before this operation and pass its internal workspace_id.',
+      );
+    }
+    const workspacePrecondition = await verifyExpectedWorkspaceForMutation({
+      expectedWorkspaceID,
+      reqContext,
     });
-    const message = `Invited ${response.email} to the current workspace as ${response.role}.`;
+    if (workspacePrecondition.error) {
+      return workspacePrecondition.error;
+    }
+
+    const response = await reqContext.client.public.workspaceUsers.invitations.create(
+      {
+        email,
+        role: role as 'admin' | 'staff' | 'view_only' | 'partner',
+        ...(permissionSetID ? { permission_set_id: permissionSetID } : undefined),
+        simplified_invite: readBoolean(args?.['simplified_invite']) ?? true,
+        language: language as 'ja' | 'en',
+      },
+      {
+        headers: {
+          'X-Sanka-Expected-Workspace-ID': expectedWorkspaceID,
+        },
+      },
+    );
+    const message = `Invited ${response.email} to ${workspaceIdentityLabel(
+      workspacePrecondition.workspace,
+    )} as ${response.role}.`;
 
     return {
       content: [{ type: 'text', text: message }],
-      structuredContent: { ...response, message },
+      structuredContent: {
+        ...response,
+        ...workspacePrecondition.workspace,
+        message,
+      },
     };
   },
 };
@@ -15929,7 +16007,7 @@ export const crmCancelWorkspaceInvitationTool: McpTool = {
     name: 'cancel_workspace_invitation',
     title: 'Cancel workspace invitation',
     description:
-      'Cancel one pending invitation in the authenticated Sanka workspace. Explicit confirmation is required.',
+      'Cancel one pending invitation in an explicitly verified Sanka workspace. Call current_workspace immediately before this tool and pass its internal workspace_id as expected_workspace_id. The tool and API both block on a mismatch. Explicit confirmation is required.',
     inputSchema: WORKSPACE_INVITATION_CANCEL_INPUT_SCHEMA,
     outputSchema: WORKSPACE_INVITATION_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15959,13 +16037,32 @@ export const crmCancelWorkspaceInvitationTool: McpTool = {
       return asErrorResult('`invitation_id` must be a positive integer.');
     }
 
-    const response = await reqContext.client.public.workspaceUsers.invitations.cancel(invitationID);
+    const expectedWorkspaceID = readString(args?.['expected_workspace_id']);
+    if (!expectedWorkspaceID) {
+      return asErrorResult(
+        '`expected_workspace_id` is required. Call current_workspace immediately before this operation and pass its internal workspace_id.',
+      );
+    }
+    const workspacePrecondition = await verifyExpectedWorkspaceForMutation({
+      expectedWorkspaceID,
+      reqContext,
+    });
+    if (workspacePrecondition.error) {
+      return workspacePrecondition.error;
+    }
+
+    const response = await reqContext.client.public.workspaceUsers.invitations.cancel(invitationID, {
+      headers: {
+        'X-Sanka-Expected-Workspace-ID': expectedWorkspaceID,
+      },
+    });
     const message = response.message || `Canceled workspace invitation ${invitationID}.`;
     return {
       content: [{ type: 'text', text: message }],
       structuredContent: {
         invitation_id: String(invitationID),
         status: 'canceled',
+        ...workspacePrecondition.workspace,
         message,
       },
     };
