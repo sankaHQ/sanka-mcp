@@ -90,9 +90,9 @@ the MCP server.
 The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 - `auth_status`: read-only CRM auth readiness check
-- `invite_workspace_user`: invite one user to the authenticated workspace after explicit approval with `confirm=true`
+- `invite_workspace_user`: invite one user after explicit approval with `confirm=true`; requires `expected_workspace_id` from a fresh `current_workspace` check and blocks if the write-time workspace differs
 - `list_workspace_invitations`: list pending and historical invitations for the authenticated workspace
-- `cancel_workspace_invitation`: cancel one pending invitation after explicit approval with `confirm=true`
+- `cancel_workspace_invitation`: cancel one pending invitation after explicit approval with `confirm=true`; requires the same write-time `expected_workspace_id` precondition
 - `list_workspace_messages`: read shared workspace/integration inbox threads from connected channels; prefer this for Sanka-connected Gmail, `/conversation`, Contact Conversation, shared inbox, group inbox, and workspace inbox
 - `sync_workspace_messages`: pull latest shared workspace/integration inbox threads into Sanka; prefer this for connected Gmail integration inbox requests
 - `get_workspace_message_thread`: load one shared workspace/integration inbox thread and its history/body

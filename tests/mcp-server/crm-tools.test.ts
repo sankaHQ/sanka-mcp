@@ -1223,31 +1223,30 @@ describe('ChatGPT CRM tools', () => {
     );
   });
 
-  it('returns the current Sanka workspace from the public auth identity endpoint', async () => {
-    const getCurrentIdentity = jest.fn().mockResolvedValue({
+  it('returns the current Sanka workspace from the same auth session endpoint as list_workspaces', async () => {
+    const get = jest.fn().mockResolvedValue({
       data: {
         auth_mode: 'oauth_app',
-        workspace_id: 'workspace-uuid-1',
-        workspace_code: '48803074',
-        workspace_name: 'Production Workspace',
+        current_workspace: {
+          id: 'workspace-uuid-1',
+          code: '48803074',
+          name: 'Production Workspace',
+        },
       },
-      message: 'ok',
+      meta: { ctx_id: 'ctx-1' },
+      success: true,
     });
 
     const result = await crmCurrentWorkspaceTool.handler({
       reqContext: {
-        client: {
-          public: {
-            auth: { getCurrentIdentity },
-          },
-        } as any,
+        client: { get } as any,
         auth: oauthContext(),
         toolProfile: 'hosted',
       },
       args: {},
     });
 
-    expect(getCurrentIdentity).toHaveBeenCalledWith(undefined);
+    expect(get).toHaveBeenCalledWith('/api/v2/auth/session', undefined);
     expect(result.structuredContent).toEqual({
       connected: true,
       auth_mode: 'oauth_app',
@@ -1379,7 +1378,74 @@ describe('ChatGPT CRM tools', () => {
     expect(firstTextContent(result)).toContain('`confirm=true` is required');
   });
 
-  it('invites a workspace user through the typed SDK resource', async () => {
+  it('requires an explicit expected workspace before inviting a workspace user', async () => {
+    const get = jest.fn();
+    const create = jest.fn();
+
+    const result = await crmInviteWorkspaceUserTool.handler({
+      reqContext: {
+        client: { get, public: { workspaceUsers: { invitations: { create } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: {
+        email: 'dev@sanka.com',
+        role: 'partner',
+        confirm: true,
+      },
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('`expected_workspace_id` is required');
+  });
+
+  it('blocks a workspace invitation when the write-time workspace preflight does not match', async () => {
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        current_workspace: {
+          id: 'workspace-uuid-2',
+          code: '39467777',
+          name: 'Wrong Workspace',
+        },
+      },
+      success: true,
+    });
+    const create = jest.fn();
+
+    const result = await crmInviteWorkspaceUserTool.handler({
+      reqContext: {
+        client: { get, public: { workspaceUsers: { invitations: { create } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'hosted',
+      },
+      args: {
+        email: 'dev@sanka.com',
+        role: 'partner',
+        expected_workspace_id: 'workspace-uuid-1',
+        confirm: true,
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/auth/session', undefined);
+    expect(create).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('Workspace precondition failed');
+    expect(firstTextContent(result)).toContain('Wrong Workspace');
+  });
+
+  it('invites a workspace user through the typed SDK resource with a write-time workspace precondition', async () => {
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        current_workspace: {
+          id: 'workspace-uuid-1',
+          code: '92006272',
+          name: 'JVTA',
+        },
+      },
+      success: true,
+    });
     const create = jest.fn().mockResolvedValue({
       invitation_id: '638',
       email: 'dev@sanka.com',
@@ -1396,7 +1462,7 @@ describe('ChatGPT CRM tools', () => {
 
     const result = await crmInviteWorkspaceUserTool.handler({
       reqContext: {
-        client: { public: { workspaceUsers: { invitations: { create } } } } as any,
+        client: { get, public: { workspaceUsers: { invitations: { create } } } } as any,
         auth: oauthContext(),
         toolProfile: 'hosted',
       },
@@ -1405,20 +1471,31 @@ describe('ChatGPT CRM tools', () => {
         role: 'partner',
         language: 'ja',
         simplified_invite: true,
+        expected_workspace_id: 'workspace-uuid-1',
         confirm: true,
       },
     });
 
-    expect(create).toHaveBeenCalledWith({
-      email: 'dev@sanka.com',
-      role: 'partner',
-      simplified_invite: true,
-      language: 'ja',
-    });
+    expect(create).toHaveBeenCalledWith(
+      {
+        email: 'dev@sanka.com',
+        role: 'partner',
+        simplified_invite: true,
+        language: 'ja',
+      },
+      {
+        headers: {
+          'X-Sanka-Expected-Workspace-ID': 'workspace-uuid-1',
+        },
+      },
+    );
     expect(result.structuredContent).toMatchObject({
       invitation_id: '638',
       email: 'dev@sanka.com',
       status: 'invited',
+      workspace_id: 'workspace-uuid-1',
+      workspace_code: '92006272',
+      workspace_name: 'JVTA',
     });
   });
 
@@ -1451,10 +1528,32 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
-  it('requires confirmation before canceling and then cancels through the typed SDK resource', async () => {
+  it('requires confirmation and a matching workspace before canceling an invitation', async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          current_workspace: {
+            id: 'workspace-uuid-2',
+            code: '39467777',
+            name: 'Wrong Workspace',
+          },
+        },
+        success: true,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          current_workspace: {
+            id: 'workspace-uuid-1',
+            code: '92006272',
+            name: 'JVTA',
+          },
+        },
+        success: true,
+      });
     const cancel = jest.fn().mockResolvedValue({ message: 'OK' });
     const reqContext = {
-      client: { public: { workspaceUsers: { invitations: { cancel } } } } as any,
+      client: { get, public: { workspaceUsers: { invitations: { cancel } } } } as any,
       auth: oauthContext(),
       toolProfile: 'hosted' as const,
     };
@@ -1466,14 +1565,37 @@ describe('ChatGPT CRM tools', () => {
     expect(cancel).not.toHaveBeenCalled();
     expect(blocked.isError).toBe(true);
 
+    const mismatched = await crmCancelWorkspaceInvitationTool.handler({
+      reqContext,
+      args: {
+        invitation_id: 638,
+        expected_workspace_id: 'workspace-uuid-1',
+        confirm: true,
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(mismatched.isError).toBe(true);
+    expect(firstTextContent(mismatched)).toContain('Workspace precondition failed');
+
     const result = await crmCancelWorkspaceInvitationTool.handler({
       reqContext,
-      args: { invitation_id: 638, confirm: true },
+      args: {
+        invitation_id: 638,
+        expected_workspace_id: 'workspace-uuid-1',
+        confirm: true,
+      },
     });
-    expect(cancel).toHaveBeenCalledWith(638);
+    expect(cancel).toHaveBeenCalledWith(638, {
+      headers: {
+        'X-Sanka-Expected-Workspace-ID': 'workspace-uuid-1',
+      },
+    });
     expect(result.structuredContent).toEqual({
       invitation_id: '638',
       status: 'canceled',
+      workspace_id: 'workspace-uuid-1',
+      workspace_code: '92006272',
+      workspace_name: 'JVTA',
       message: 'OK',
     });
   });
