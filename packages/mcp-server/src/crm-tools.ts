@@ -6106,6 +6106,11 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional SMTP/email channel UUID. Omit to use Sanka default sending.',
     },
+    replace_draft_message_id: {
+      type: 'string',
+      description:
+        'Existing invoice email draft message UUID whose generated PDF attachments should be replaced in place. Requires action="draft". Omit to, cc, subject, body, scheduled_at, and channel_id so the existing message fields and thread are preserved. This never sends the email.',
+    },
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -7211,7 +7216,18 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
     ctx_id: { type: 'string' },
     invoice_id: { type: 'string' },
     id_inv: { type: 'integer' },
+    formatted_invoice_id: { type: 'integer' },
     message_thread_ids: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    thread_id: { type: 'string' },
+    message_id: { type: 'string' },
+    to: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    cc: {
       type: 'array',
       items: { type: 'string' },
     },
@@ -7219,7 +7235,7 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
     attachment_count: { type: 'integer' },
     message: { type: 'string' },
   },
-  required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
+  required: ['ok', 'status', 'invoice_id'],
 };
 
 const SLIP_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
@@ -13263,6 +13279,12 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
     args?.['additionalPdfAttachments'] ??
     args?.['attachment_templates'];
   const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
+  const replaceDraftMessageID = readString(
+    args?.['replace_draft_message_id'] ??
+      args?.['replaceDraftMessageId'] ??
+      args?.['draft_message_id'] ??
+      args?.['draftMessageId'],
+  );
   const externalID = readString(args?.['external_id']);
   const language = readDocumentPDFLanguage(args);
   const additionalPdfAttachments =
@@ -13297,6 +13319,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   if (templateSelect) body['template_select'] = templateSelect;
   if (additionalPdfAttachments.length > 0) body['additional_pdf_attachments'] = additionalPdfAttachments;
   if (channelID) body['channel_id'] = channelID;
+  if (replaceDraftMessageID) body['replace_draft_message_id'] = replaceDraftMessageID;
   if (externalID) body['external_id'] = externalID;
 
   return {
@@ -13310,12 +13333,21 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
 const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
   const status = readString(payload['status']) ?? 'sent';
   const invoiceID = readString(payload['invoice_id']);
-  const invoiceNumber = typeof payload['id_inv'] === 'number' ? payload['id_inv'] : undefined;
+  const invoiceNumber =
+    typeof payload['id_inv'] === 'number' ? payload['id_inv']
+    : typeof payload['formatted_invoice_id'] === 'number' ? payload['formatted_invoice_id']
+    : undefined;
   const invoiceLabel =
     invoiceNumber !== undefined ? `Invoice No. ${invoiceNumber}`
     : invoiceID ? `invoice ${invoiceID}`
     : 'invoice';
   const threadIDs = readStringArray(payload['message_thread_ids']);
+  const threadID = readString(payload['thread_id']);
+  if (threadID && !threadIDs.includes(threadID)) {
+    threadIDs.push(threadID);
+  }
+  const messageID = readString(payload['message_id']);
+  const message = readString(payload['message']);
   const scheduledAt = readString(payload['scheduled_at']);
   if (status === 'scheduled') {
     return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
@@ -13323,6 +13355,11 @@ const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
     }.`;
   }
   if (status === 'draft') {
+    if (message?.toLowerCase().includes('attachments replaced')) {
+      return `Replaced generated PDF attachments on draft ${invoiceLabel}${
+        messageID ? ` message ${messageID}` : ''
+      }${threadID ? ` in thread ${threadID}` : ''}.`;
+    }
     return `Created draft ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
   }
   return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
@@ -23080,7 +23117,7 @@ export const crmSendInvoiceEmailTool: McpTool = {
     name: 'send_invoice_email',
     title: 'Send invoice email',
     description:
-      'Send or schedule an invoice PDF email from Sanka. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
+      'Create a draft, send, or schedule an invoice PDF email from Sanka. To replace only the generated PDF attachments on an existing draft, use action="draft" with replace_draft_message_id and omit all message fields; this preserves the existing thread and never sends it. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
     inputSchema: INVOICE_EMAIL_INPUT_SCHEMA,
     outputSchema: INVOICE_EMAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

@@ -6719,7 +6719,7 @@ describe('ChatGPT CRM tools', () => {
       ok: true,
       status: 'draft',
       invoice_id: 'invoice-1',
-      id_inv: 1233,
+      formatted_invoice_id: 1233,
       message_thread_ids: ['message-thread-1'],
       attachment_count: 3,
     });
@@ -6779,6 +6779,54 @@ describe('ChatGPT CRM tools', () => {
       attachment_count: 3,
     });
     expect((result.content[0] as any).text).toContain('Created draft Invoice No. 1233 email');
+  });
+
+  it('replaces generated PDF attachments on an existing invoice email draft in place', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'draft',
+      invoice_id: 'invoice-1',
+      id_inv: 1233,
+      thread_id: 'thread-existing',
+      message_id: 'message-existing',
+      to: ['finance@example.com'],
+      cc: [],
+      attachment_count: 1,
+      message: 'Invoice email draft attachments replaced.',
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'draft',
+        replace_draft_message_id: 'message-existing',
+        language: 'ja',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/email', {
+      body: {
+        action: 'draft',
+        replace_draft_message_id: 'message-existing',
+      },
+      query: {
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({
+      status: 'draft',
+      thread_id: 'thread-existing',
+      message_id: 'message-existing',
+      attachment_count: 1,
+    });
+    expect((result.content[0] as any).text).toContain(
+      'Replaced generated PDF attachments on draft Invoice No. 1233 message message-existing in thread thread-existing.',
+    );
   });
 
   it('creates an invoice', async () => {
