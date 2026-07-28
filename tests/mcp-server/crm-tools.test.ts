@@ -6840,6 +6840,7 @@ describe('ChatGPT CRM tools', () => {
       message_id: 'message-existing',
       channel_id: 'channel-gmail',
       from_email: 'hey@sanka.com',
+      reply_to_email: 'hey@sanka.com',
       provider: 'gmail',
       provider_message_id: 'gmail-message-1',
       history_locations: ['sanka', 'gmail_sent'],
@@ -6873,11 +6874,55 @@ describe('ChatGPT CRM tools', () => {
         thread_id: 'thread-existing',
         message_id: 'message-existing',
         from_email: 'hey@sanka.com',
+        reply_to_email: 'hey@sanka.com',
         provider: 'gmail',
       }),
     );
     expect((result.content[0] as any).text).toBe(
-      'Sent Invoice No. 1310 email from hey@sanka.com via gmail. History: Sanka, Gmail Sent. Thread: thread-existing.',
+      'Sent Invoice No. 1310 email from hey@sanka.com via gmail. Reply-To: hey@sanka.com. History: Sanka, Gmail Sent. Thread: thread-existing.',
+    );
+  });
+
+  it('reports the managed invoice sender and reply route when no channel is saved', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      action: 'send',
+      status: 'sent',
+      invoice_id: 'invoice-1',
+      formatted_invoice_id: 1311,
+      thread_id: 'thread-managed',
+      message_id: 'message-managed',
+      channel_id: null,
+      from_email: 'invoices@sanka.com',
+      reply_to_email: 'hey@sanka.com',
+      provider: 'sendgrid',
+      provider_message_id: 'sendgrid-message-1',
+      history_locations: ['sanka'],
+      attachment_count: 1,
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'send',
+        send_draft_message_id: 'message-managed',
+      },
+    });
+
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        from_email: 'invoices@sanka.com',
+        reply_to_email: 'hey@sanka.com',
+        provider: 'sendgrid',
+      }),
+    );
+    expect((result.content[0] as any).text).toBe(
+      'Sent Invoice No. 1311 email from invoices@sanka.com via sendgrid. Reply-To: hey@sanka.com. History: Sanka. Thread: thread-managed.',
     );
   });
 

@@ -7239,6 +7239,7 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
     scheduled_at: { type: 'string' },
     channel_id: { type: ['string', 'null'] as any },
     from_email: { type: ['string', 'null'] as any },
+    reply_to_email: { type: ['string', 'null'] as any },
     provider: { type: ['string', 'null'] as any },
     provider_message_id: { type: ['string', 'null'] as any },
     history_locations: {
@@ -13378,6 +13379,7 @@ const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
     return `Created draft ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
   }
   const fromEmail = readString(payload['from_email']);
+  const replyToEmail = readString(payload['reply_to_email']);
   const provider = readString(payload['provider']);
   const historyLocations = readStringArray(payload['history_locations']);
   const historyLabels = historyLocations.map((location) => {
@@ -13387,9 +13389,10 @@ const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
   });
   const sender = fromEmail ? ` from ${fromEmail}` : '';
   const transport = provider ? ` via ${provider}` : '';
+  const replyTo = replyToEmail ? ` Reply-To: ${replyToEmail}.` : '';
   const history = historyLabels.length > 0 ? ` History: ${historyLabels.join(', ')}.` : '';
   const thread = threadID ? ` Thread: ${threadID}.` : ` Message threads: ${threadIDs.length}.`;
-  return `Sent ${invoiceLabel} email${sender}${transport}.${history}${thread}`;
+  return `Sent ${invoiceLabel} email${sender}${transport}.${replyTo}${history}${thread}`;
 };
 
 const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
@@ -23144,7 +23147,7 @@ export const crmSendInvoiceEmailTool: McpTool = {
     name: 'send_invoice_email',
     title: 'Send invoice email',
     description:
-      'Create a draft, send, or schedule an invoice PDF email from Sanka. To replace only the generated PDF attachments on an existing draft, use action="draft" with replace_draft_message_id and omit all message fields; this preserves the existing thread and never sends it. To send an existing draft without changing its sender, channel, thread, message fields, or attachments, use action="send" with send_draft_message_id and omit all message fields. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
+      'Create a draft, send, or schedule an invoice PDF email from Sanka. To replace only the generated PDF attachments on an existing draft, use action="draft" with replace_draft_message_id and omit all message fields; this preserves the existing thread and never sends it. To send an existing draft without changing its sender, channel, thread, message fields, or attachments, use action="send" with send_draft_message_id and omit all message fields. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email. Confirm the returned from_email, reply_to_email, provider, and history_locations; a saved Gmail/SMTP channel is preserved, while a draft without a channel uses the managed invoice sender.',
     inputSchema: INVOICE_EMAIL_INPUT_SCHEMA,
     outputSchema: INVOICE_EMAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
