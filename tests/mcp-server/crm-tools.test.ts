@@ -12674,6 +12674,50 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('clears a subscription end date when end_date is explicitly null', async () => {
+    const updateSchema = crmUpdateSubscriptionTool.tool.inputSchema as any;
+    const outputSchema = crmUpdateSubscriptionTool.tool.outputSchema as any;
+    expect(updateSchema.properties.end_date.type).toEqual(['string', 'null']);
+    expect(outputSchema.properties.end_date.type).toEqual(['string', 'null']);
+
+    const update = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      subscription_status: 'active',
+      start_date: '2026-05-01',
+      end_date: null,
+      created_at: '2026-05-01T00:00:00Z',
+      items: [],
+    });
+
+    const result = await crmUpdateSubscriptionTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { update },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        subscription_id: 'sub-1',
+        end_date: null,
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      'sub-1',
+      {
+        end_date: null,
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      id: 'sub-1',
+      end_date: null,
+    });
+  });
+
   it('rejects query_records filter entries that are missing a string field', async () => {
     const post = jest.fn();
 

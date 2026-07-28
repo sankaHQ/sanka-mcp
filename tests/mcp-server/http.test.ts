@@ -12,6 +12,7 @@ import {
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 const TEST_ADVERTISED_SCOPE = 'api-access';
+const HTTP_INTEGRATION_TEST_TIMEOUT_MS = 15_000;
 const RECONNECT_INSTRUCTIONS =
   'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
 
@@ -78,8 +79,9 @@ describe('protected resource metadata route', () => {
         }
         resolve();
       });
+      server.closeAllConnections();
     });
-  });
+  }, HTTP_INTEGRATION_TEST_TIMEOUT_MS);
 
   afterEach(() => {
     resetBinaryDownloadStoreForTests();
@@ -1154,66 +1156,70 @@ describe('protected resource metadata route', () => {
     expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
   });
 
-  it('uses initialized Codex clientInfo for later native OAuth auth decisions', async () => {
-    const initializeResponse = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: {
-            name: 'Codex Desktop',
-            version: '0.128.0',
+  it(
+    'uses initialized Codex clientInfo for later native OAuth auth decisions',
+    async () => {
+      const initializeResponse = await fetch(`${baseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: {
+              name: 'Codex Desktop',
+              version: '0.128.0',
+            },
           },
+        }),
+      });
+      const sessionId = initializeResponse.headers.get('mcp-session-id');
+      const initializeBody = await initializeResponse.json();
+
+      expect(initializeResponse.status).toBe(401);
+      expect(initializeBody).toEqual({
+        error: 'authentication_required',
+        error_description: 'Authentication required to connect Sanka MCP.',
+      });
+
+      const response = await fetch(`${baseUrl}/mcp`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'Content-Type': 'application/json',
+          'mcp-protocol-version': '2025-11-25',
+          ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
         },
-      }),
-    });
-    const sessionId = initializeResponse.headers.get('mcp-session-id');
-    const initializeBody = await initializeResponse.json();
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 8,
+          method: 'tools/call',
+          params: {
+            name: 'list_expenses',
+            arguments: {},
+          },
+        }),
+      });
+      const body = await response.json();
 
-    expect(initializeResponse.status).toBe(401);
-    expect(initializeBody).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to connect Sanka MCP.',
-    });
-
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'mcp-protocol-version': '2025-11-25',
-        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'list_expenses',
-          arguments: {},
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(sessionId).toBeTruthy();
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use list_expenses.',
-    });
-    expect(JSON.stringify(body)).not.toContain('/oauth/mcp/connect');
-    expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
-  });
+      expect(sessionId).toBeTruthy();
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+      expect(body).toEqual({
+        error: 'authentication_required',
+        error_description: 'Authentication required to use list_expenses.',
+      });
+      expect(JSON.stringify(body)).not.toContain('/oauth/mcp/connect');
+      expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
+    },
+    HTTP_INTEGRATION_TEST_TIMEOUT_MS,
+  );
 
   it('returns a native OAuth challenge for Claude tool calls when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {

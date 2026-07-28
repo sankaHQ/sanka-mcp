@@ -692,6 +692,7 @@ describe('public object-record updates on V2', () => {
       payment_term_days: 30,
       auto_gen_invoice: true,
       auto_gen_invoice_statuses: 'active',
+      end_date: null,
       custom_fields: { custom_note: 'June cleanup' },
       line_items: [{ item_name: 'Replacement plan', quantity: 1, unit_price: 800 }],
       discount_value: 10,
@@ -745,6 +746,7 @@ describe('public object-record updates on V2', () => {
           payment_term_days: 30,
           auto_gen_invoice: true,
           auto_gen_invoice_statuses: 'active',
+          end_date: null,
           number_item: 1,
           line_items: [
             {

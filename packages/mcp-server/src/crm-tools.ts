@@ -8162,8 +8162,9 @@ const SUBSCRIPTION_UPDATE_INPUT_SCHEMA = {
       description: 'Subscription start date in ISO format.',
     },
     end_date: {
-      type: 'string',
-      description: 'Subscription end date in ISO format.',
+      type: ['string', 'null'] as any,
+      description:
+        'Subscription end date in ISO format. Pass null to clear the end date and keep the subscription open-ended.',
     },
     currency: {
       type: 'string',
@@ -8320,7 +8321,7 @@ const SUBSCRIPTION_OUTPUT_SCHEMA = {
     total_price: { type: 'number' },
     created_at: { type: 'string' },
     start_date: { type: 'string' },
-    end_date: { type: 'string' },
+    end_date: { type: ['string', 'null'] as any },
     contract_info: {
       type: 'array',
       items: {
@@ -14867,7 +14868,6 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
     'status',
     'subscription_status',
     'start_date',
-    'end_date',
     'frequency_time',
     'prior_to_time',
     'billing_timing',
@@ -14887,6 +14887,16 @@ const buildSubscriptionUpdateParams = (args: Record<string, unknown> | undefined
     'discount_tax_option',
     'discount_mode',
   ]);
+  if (Object.prototype.hasOwnProperty.call(args ?? {}, 'end_date')) {
+    if (args?.['end_date'] === null) {
+      body['end_date'] = null;
+    } else {
+      const endDate = readString(args?.['end_date']);
+      if (endDate) {
+        body['end_date'] = endDate;
+      }
+    }
+  }
   if (!body['discount_number_format']) {
     const discountOption = readString(args?.['discount_option']);
     if (discountOption) {
@@ -27097,7 +27107,7 @@ export const crmUpdateSubscriptionTool: McpTool = {
         status?: string;
         subscription_status?: string;
         start_date?: string;
-        end_date?: string;
+        end_date?: string | null;
         currency?: string;
         frequency?: number;
         frequency_time?: string;
