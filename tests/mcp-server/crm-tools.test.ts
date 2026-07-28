@@ -5119,6 +5119,56 @@ describe('ChatGPT CRM tools', () => {
     expect((result.content[0] as any).text).toContain('Scheduled Invoice No. 1233 email');
   });
 
+  it('sends an existing invoice draft through its saved sender and thread', async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      action: 'send',
+      status: 'sent',
+      invoice_id: 'invoice-1',
+      formatted_invoice_id: 1310,
+      thread_id: 'thread-existing',
+      message_id: 'message-existing',
+      channel_id: 'channel-gmail',
+      from_email: 'hey@sanka.com',
+      provider: 'gmail',
+      provider_message_id: 'gmail-message-1',
+      history_locations: ['sanka', 'gmail_sent'],
+      attachment_count: 1,
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'send',
+        send_draft_message_id: 'message-existing',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/email', {
+      body: {
+        action: 'send',
+        send_draft_message_id: 'message-existing',
+      },
+      query: {},
+    });
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        thread_id: 'thread-existing',
+        message_id: 'message-existing',
+        from_email: 'hey@sanka.com',
+        provider: 'gmail',
+      }),
+    );
+    expect((result.content[0] as any).text).toBe(
+      'Sent Invoice No. 1310 email from hey@sanka.com via gmail. History: Sanka, Gmail Sent. Thread: thread-existing.',
+    );
+  });
+
   it('creates an invoice', async () => {
     const create = jest.fn().mockResolvedValue({
       ok: true,

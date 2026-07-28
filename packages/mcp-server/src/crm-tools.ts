@@ -5031,6 +5031,11 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
       type: 'string',
       description: 'Optional SMTP/email channel UUID. Omit to use Sanka default sending.',
     },
+    send_draft_message_id: {
+      type: 'string',
+      description:
+        'Existing Sanka invoice-email draft message UUID to send in place. The saved sender/channel, thread, recipients, subject, body, and attachments are preserved; omit message fields when this is set.',
+    },
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -6140,9 +6145,20 @@ const INVOICE_EMAIL_OUTPUT_SCHEMA = {
       items: { type: 'string' },
     },
     scheduled_at: { type: 'string' },
+    thread_id: { type: 'string' },
+    message_id: { type: 'string' },
+    channel_id: { type: ['string', 'null'] as any },
+    from_email: { type: ['string', 'null'] as any },
+    provider: { type: ['string', 'null'] as any },
+    provider_message_id: { type: ['string', 'null'] as any },
+    history_locations: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    attachment_count: { type: 'integer' },
     message: { type: 'string' },
   },
-  required: ['ok', 'status', 'invoice_id', 'message_thread_ids'],
+  required: ['ok', 'status', 'invoice_id'],
 };
 
 const SLIP_OUTPUT_SCHEMA = V2_RECORD_DETAIL_OUTPUT_SCHEMA;
@@ -11561,6 +11577,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   const scheduledAt = readString(args?.['scheduled_at'] ?? args?.['schedule_at'] ?? args?.['scheduledAt']);
   const templateSelect = readString(args?.['template_select']);
   const channelID = readString(args?.['channel_id'] ?? args?.['smtp_channel_id']);
+  const sendDraftMessageID = readString(args?.['send_draft_message_id'] ?? args?.['sendDraftMessageId']);
   const externalID = readString(args?.['external_id']);
   const language = readString(args?.['language']);
 
@@ -11572,6 +11589,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
   if (scheduledAt) body['scheduled_at'] = scheduledAt;
   if (templateSelect) body['template_select'] = templateSelect;
   if (channelID) body['channel_id'] = channelID;
+  if (sendDraftMessageID) body['send_draft_message_id'] = sendDraftMessageID;
   if (externalID) body['external_id'] = externalID;
 
   return {
@@ -11585,19 +11603,33 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
 const buildInvoiceEmailSummary = (payload: Record<string, unknown>) => {
   const status = readString(payload['status']) ?? 'sent';
   const invoiceID = readString(payload['invoice_id']);
-  const invoiceNumber = typeof payload['id_inv'] === 'number' ? payload['id_inv'] : undefined;
+  const invoiceNumberValue = payload['formatted_invoice_id'] ?? payload['id_inv'];
+  const invoiceNumber = typeof invoiceNumberValue === 'number' ? invoiceNumberValue : undefined;
   const invoiceLabel =
     invoiceNumber !== undefined ? `Invoice No. ${invoiceNumber}`
     : invoiceID ? `invoice ${invoiceID}`
     : 'invoice';
   const threadIDs = readStringArray(payload['message_thread_ids']);
+  const threadID = readString(payload['thread_id']) ?? threadIDs[0];
   const scheduledAt = readString(payload['scheduled_at']);
   if (status === 'scheduled') {
     return `Scheduled ${invoiceLabel} email${scheduledAt ? ` for ${scheduledAt}` : ''}. Message threads: ${
       threadIDs.length
     }.`;
   }
-  return `Sent ${invoiceLabel} email. Message threads: ${threadIDs.length}.`;
+  const fromEmail = readString(payload['from_email']);
+  const provider = readString(payload['provider']);
+  const historyLocations = readStringArray(payload['history_locations']);
+  const historyLabels = historyLocations.map((location) => {
+    if (location === 'gmail_sent') return 'Gmail Sent';
+    if (location === 'sanka') return 'Sanka';
+    return location;
+  });
+  const sender = fromEmail ? ` from ${fromEmail}` : '';
+  const transport = provider ? ` via ${provider}` : '';
+  const history = historyLabels.length > 0 ? ` History: ${historyLabels.join(', ')}.` : '';
+  const thread = threadID ? ` Thread: ${threadID}.` : ` Message threads: ${threadIDs.length}.`;
+  return `Sent ${invoiceLabel} email${sender}${transport}.${history}${thread}`;
 };
 
 const buildPaymentDownloadPDFParams = (args: Record<string, unknown> | undefined) => {
@@ -20378,7 +20410,7 @@ export const crmSendInvoiceEmailTool: McpTool = {
     name: 'send_invoice_email',
     title: 'Send invoice email',
     description:
-      'Send or schedule an invoice PDF email from Sanka. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
+      'Send or schedule an invoice PDF email from Sanka. To send an existing draft without changing its sender, channel, thread, message fields, or attachments, pass action="send" with send_draft_message_id. Use action="schedule" with scheduled_at for future sending; omit to to use the invoice customer email.',
     inputSchema: INVOICE_EMAIL_INPUT_SCHEMA,
     outputSchema: INVOICE_EMAIL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
