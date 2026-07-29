@@ -431,6 +431,140 @@ describe('workflow run MCP tools', () => {
     expect((result.content[0] as any).text).toContain('order_to_subscription');
   });
 
+  it('binds workflow preview to the current MCP session workspace', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        current_workspace: {
+          id: 'workspace-ht',
+          code: '09983932',
+          name: 'Healthcare Technologies',
+        },
+      },
+    });
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'invoice_export',
+        dry_run: true,
+      },
+      message: 'ok',
+    });
+
+    await previewWorkflowTool.handler({
+      reqContext: {
+        client: { get, post } as any,
+        auth: oauthContext(),
+        mcpSessionId: 'mcp-session-1',
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+        },
+      },
+    });
+
+    expect(get).toHaveBeenCalledWith('/api/v2/public/auth/session', {
+      headers: {
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
+    });
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/preview', {
+      body: expect.objectContaining({
+        workflow_type: 'invoice_export',
+      }),
+      headers: {
+        'X-Sanka-Expected-Workspace-ID': 'workspace-ht',
+        'X-Sanka-MCP': 'true',
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
+    });
+  });
+
+  it('binds workflow start to the current MCP session workspace', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        current_workspace: {
+          id: 'workspace-ht',
+          code: '09983932',
+          name: 'Healthcare Technologies',
+        },
+      },
+    });
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        workflow_type: 'invoice_export',
+        status: 'queued',
+      },
+      message: 'ok',
+    });
+
+    await startWorkflowTool.handler({
+      reqContext: {
+        client: { get, post } as any,
+        auth: oauthContext(),
+        mcpSessionId: 'mcp-session-1',
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+        options: {
+          target_system: 'freee',
+          sync_scope: 'selected_invoice_ids',
+          invoice_ids: ['invoice-1'],
+        },
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/workflow-runs/start', {
+      body: expect.objectContaining({
+        workflow_type: 'invoice_export',
+      }),
+      headers: {
+        'X-Sanka-Expected-Workspace-ID': 'workspace-ht',
+        'X-Sanka-MCP': 'true',
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
+    });
+  });
+
+  it('blocks workflow calls when the MCP session workspace cannot be resolved', async () => {
+    const get = jest.fn().mockResolvedValue({
+      success: true,
+      data: {},
+    });
+    const post = jest.fn();
+
+    const result = await previewWorkflowTool.handler({
+      reqContext: {
+        client: { get, post } as any,
+        auth: oauthContext(),
+        mcpSessionId: 'mcp-session-1',
+      },
+      args: {
+        workflow_type: 'invoice_export',
+        source_record: {
+          source_system: 'sanka',
+          object_type: 'invoice',
+        },
+      },
+    });
+
+    expect(post).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as any).text).toContain('workspace could not be resolved');
+  });
+
   it('starts estimate_to_invoice workflows through the public endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
@@ -1584,6 +1718,47 @@ describe('workflow run MCP tools', () => {
     expect(result.structuredContent?.['data']).toEqual({
       run_id: 'run/1',
       status: 'completed',
+    });
+  });
+
+  it('loads workflow runs from the current MCP session workspace', async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          current_workspace: {
+            id: 'workspace-ht',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { run_id: 'run-1', status: 'completed' },
+        message: 'ok',
+      });
+
+    await getWorkflowRunTool.handler({
+      reqContext: {
+        client: { get } as any,
+        auth: oauthContext(),
+        mcpSessionId: 'mcp-session-1',
+      },
+      args: {
+        run_id: 'run-1',
+      },
+    });
+
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v2/public/auth/session', {
+      headers: {
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v2/public/workflow-runs/run-1', {
+      headers: {
+        'X-Sanka-Expected-Workspace-ID': 'workspace-ht',
+        'X-Sanka-MCP': 'true',
+        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
+      },
     });
   });
 });
