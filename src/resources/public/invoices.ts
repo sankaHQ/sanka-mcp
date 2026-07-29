@@ -28,6 +28,14 @@ type V2InvoiceOverdueListData = {
   total?: number;
 };
 
+type V2InvoiceLineItemListData = {
+  id?: string;
+  items?: Array<PublicLineItem>;
+  line_item_type?: string;
+  object_type?: string;
+  total?: number;
+};
+
 const invoiceFromV2Record = (record: V2ObjectRecord): InvoiceSchema => {
   const properties = record.properties ?? {};
   return legacyObjectRecordFromV2<InvoiceSchema>(record, 'id_inv', {
@@ -131,6 +139,15 @@ export class Invoices extends APIResource {
       }),
       invoiceFromV2Record,
     );
+  }
+
+  /**
+   * List Invoice Line Items
+   */
+  listLineItems(invoiceID: string, options?: RequestOptions): APIPromise<Array<PublicLineItem>> {
+    return this._client
+      .v2Get<V2InvoiceLineItemListData>(path`/invoices/${invoiceID}/line-items`, options)
+      ._thenUnwrap((envelope: V2Envelope<V2InvoiceLineItemListData>) => unwrapV2Data(envelope).items ?? []);
   }
 
   /**
