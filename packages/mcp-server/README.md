@@ -94,6 +94,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `invite_workspace_user`: invite one user after explicit approval with `confirm=true`; requires `expected_workspace_id` from a fresh `current_workspace` check and blocks if the write-time workspace differs
 - `list_workspace_invitations`: list pending and historical invitations for the authenticated workspace
 - `cancel_workspace_invitation`: cancel one pending invitation after explicit approval with `confirm=true`; requires the same write-time `expected_workspace_id` precondition
+- `preview_workflow` / `start_workflow`: resolve the current MCP session workspace immediately before each request, pass it as a server-enforced precondition, and stop without previewing or writing if the request resolves to another workspace
 - `list_workspace_messages`: read shared workspace/integration inbox threads from connected channels; prefer this for Sanka-connected Gmail, `/conversation`, Contact Conversation, shared inbox, group inbox, and workspace inbox
 - `sync_workspace_messages`: pull latest shared workspace/integration inbox threads into Sanka; prefer this for connected Gmail integration inbox requests
 - `get_workspace_message_thread`: load one shared workspace/integration inbox thread and its history/body
