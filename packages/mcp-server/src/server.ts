@@ -363,6 +363,15 @@ import {
 import { convoyTools } from './convoy-tools';
 import { lookoutCreateLpBatchTool, lookoutGetRunTool } from './lookout-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
+import {
+  createSandboxTool,
+  deleteSandboxTool,
+  getSandboxContextTool,
+  getSandboxDiffTool,
+  listSandboxesTool,
+  refreshSandboxTool,
+  syncSandboxDataTool,
+} from './sandbox-tools';
 import { McpRequestContext, ToolCallResult, McpTool } from './types';
 import { requireScopes } from './tool-auth';
 import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './tool-scope-requirements';
@@ -958,6 +967,13 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmComparePipelineSnapshotsTool,
     crmSyncPipelineSnapshotHubSpotPropertiesTool,
     createWorkflowTool,
+    listSandboxesTool,
+    getSandboxContextTool,
+    createSandboxTool,
+    syncSandboxDataTool,
+    getSandboxDiffTool,
+    refreshSandboxTool,
+    deleteSandboxTool,
     updateWorkflowTool,
     runWorkflowTool,
     resolveRecordTool,

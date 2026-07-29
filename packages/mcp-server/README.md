@@ -90,6 +90,7 @@ the MCP server.
 The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 - `auth_status`: read-only CRM auth readiness check
+- Sandboxes — `list_sandboxes`, `get_sandbox_context`, `create_sandbox`, `sync_sandbox_data`, `get_sandbox_diff`, `refresh_sandbox`, `delete_sandbox`: manage a sandbox copy of the current workspace configuration; destructive refresh/delete require `confirm=true` after explicit user approval
 - `invite_workspace_user`: invite one user after explicit approval with `confirm=true`; requires `expected_workspace_id` from a fresh `current_workspace` check and blocks if the write-time workspace differs
 - `list_workspace_invitations`: list pending and historical invitations for the authenticated workspace
 - `cancel_workspace_invitation`: cancel one pending invitation after explicit approval with `confirm=true`; requires the same write-time `expected_workspace_id` precondition
