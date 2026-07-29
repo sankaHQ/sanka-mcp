@@ -3454,6 +3454,11 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
     description:
       'Provider-specific field type override, for example HubSpot "select" or Salesforce "Picklist". Usually omit it.',
   },
+  calculation_formula: {
+    type: 'string',
+    description:
+      'HubSpot calculation formula for an integration property. When supplied, the API creates a calculation_equation field. Do not use for Sanka-only properties.',
+  },
   group_name: {
     type: 'string',
     description:
@@ -13700,6 +13705,7 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
     'badge_color',
+    'calculation_formula',
     'channel_id',
     'description',
     'external_id',
