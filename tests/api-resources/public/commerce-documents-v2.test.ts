@@ -6,6 +6,54 @@ const envelope = (data: unknown) =>
   });
 
 describe('public commerce document resources on V2', () => {
+  test('lists invoice line items with custom property values', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        return envelope({
+          id: 'invoice-1',
+          object_type: 'invoice',
+          line_item_type: 'normal',
+          total: 1,
+          items: [
+            {
+              line_item_id: 'line-item-1',
+              custom_item_name: 'Implementation',
+              quantity: 2,
+              unit_price: 300,
+              custom_fields: {
+                'property-1': {
+                  value: '12',
+                  value_number_format: 'number',
+                },
+              },
+            },
+          ],
+        });
+      },
+    });
+
+    await expect(client.public.invoices.listLineItems('invoice-1')).resolves.toEqual([
+      {
+        line_item_id: 'line-item-1',
+        custom_item_name: 'Implementation',
+        quantity: 2,
+        unit_price: 300,
+        custom_fields: {
+          'property-1': {
+            value: '12',
+            value_number_format: 'number',
+          },
+        },
+      },
+    ]);
+    expect(calls).toEqual(['GET http://localhost:5000/api/v2/invoices/invoice-1/line-items']);
+  });
+
   test('uses V2 read list and delete routes for document resources', async () => {
     const calls: string[] = [];
     const records = {

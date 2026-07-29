@@ -6002,6 +6002,22 @@ const INVOICE_RETRIEVE_INPUT_SCHEMA = {
   required: ['invoice_id'],
 };
 
+const INVOICE_LINE_ITEMS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    invoice_id: { type: 'string' },
+    count: { type: 'integer' },
+    line_items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  required: ['invoice_id', 'count', 'line_items'],
+};
+
 const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -23078,11 +23094,14 @@ export const crmGetInvoiceTool: McpTool = {
       return asErrorResult('`invoice_id` is required.');
     }
 
-    const invoice = (await reqContext.client.public.invoices.retrieve(
-      invoiceID,
-      params,
-      undefined,
-    )) as unknown as Record<string, unknown>;
+    const [invoicePayload, lineItems] = await Promise.all([
+      reqContext.client.public.invoices.retrieve(invoiceID, params, undefined),
+      reqContext.client.public.invoices.listLineItems(invoiceID, undefined),
+    ]);
+    const invoice: Record<string, unknown> = {
+      ...(invoicePayload as unknown as Record<string, unknown>),
+      line_items: lineItems,
+    };
     const summary = buildEntityDetailSummary({
       entity: 'invoice',
       payload: invoice,
@@ -23098,6 +23117,63 @@ export const crmGetInvoiceTool: McpTool = {
         },
       ],
       structuredContent: invoice,
+    };
+  },
+};
+
+export const crmListInvoiceLineItemsTool: McpTool = {
+  metadata: {
+    resource: 'invoices',
+    operation: 'read',
+    tags: ['crm', 'invoices', 'line-items'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/invoices/{invoice_id}/line-items',
+    operationId: 'public.invoices.listLineItems',
+  },
+  tool: {
+    name: 'list_invoice_line_items',
+    title: 'List invoice line items',
+    description:
+      'List one invoice’s line items, including custom property values transferred from source records.',
+    inputSchema: INVOICE_RETRIEVE_INPUT_SCHEMA,
+    outputSchema: INVOICE_LINE_ITEMS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List invoice line items',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List invoice line items',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const { invoiceID } = buildInvoiceRetrieveParams(args);
+    if (!invoiceID) {
+      return asErrorResult('`invoice_id` is required.');
+    }
+
+    const lineItems = await reqContext.client.public.invoices.listLineItems(invoiceID, undefined);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Returned ${lineItems.length} line item${
+            lineItems.length === 1 ? '' : 's'
+          } for invoice ${invoiceID}.`,
+        },
+      ],
+      structuredContent: {
+        invoice_id: invoiceID,
+        count: lineItems.length,
+        line_items: lineItems,
+      },
     };
   },
 };

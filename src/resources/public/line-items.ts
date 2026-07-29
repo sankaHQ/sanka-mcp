@@ -7,13 +7,19 @@ export interface PublicLineItem {
 
   currency?: string | null;
 
+  custom_item_name?: string | null;
+
   custom_fields?: Record<string, unknown>;
 
   id?: string | null;
 
   item_id?: string | null;
 
+  item_record_id?: string | null;
+
   item_name?: string | null;
+
+  line_item_id?: string | null;
 
   linked_item_name?: string | null;
 

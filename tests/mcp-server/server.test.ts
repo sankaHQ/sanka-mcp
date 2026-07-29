@@ -133,6 +133,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_invoices');
     expect(toolNames).toContain('list_overdue_invoices');
     expect(toolNames).toContain('get_invoice');
+    expect(toolNames).toContain('list_invoice_line_items');
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
@@ -394,6 +395,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('list_invoices');
     expect(toolNames).toContain('list_overdue_invoices');
     expect(toolNames).toContain('get_invoice');
+    expect(toolNames).toContain('list_invoice_line_items');
     expect(toolNames).toContain('send_invoice_email');
     expect(toolNames).toContain('create_invoice');
     expect(toolNames).toContain('update_invoice');
@@ -617,6 +619,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_invoices');
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
+    expect(instructions).toContain('list_invoice_line_items');
     expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('Do not render Sanka record numbers as Markdown issue references');
     expect(instructions).toContain('売上請求番号 7');
@@ -841,6 +844,7 @@ describe('profile-aware tool selection', () => {
     expect(instructions).toContain('list_invoices');
     expect(instructions).toContain('list_overdue_invoices');
     expect(instructions).toContain('get_invoice');
+    expect(instructions).toContain('list_invoice_line_items');
     expect(instructions).toContain('send_invoice_email');
     expect(instructions).toContain('additional_pdf_attachments');
     expect(instructions).toContain('action="draft"');
