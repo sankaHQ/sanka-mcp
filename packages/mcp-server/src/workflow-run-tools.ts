@@ -639,6 +639,43 @@ const workflowResult = (payload: Record<string, unknown>, fallbackSummary: strin
   };
 };
 
+const workflowWorkspaceHeaders = async (
+  reqContext: Parameters<McpTool['handler']>[0]['reqContext'],
+): Promise<{ error?: ToolCallResult; headers?: Record<string, string> }> => {
+  const mcpSessionID = reqContext.mcpSessionId?.trim();
+  if (!mcpSessionID) {
+    return {};
+  }
+
+  const sessionResponse = (await reqContext.client.get('/api/v2/public/auth/session', {
+    headers: {
+      'X-Sanka-MCP-Session-ID': mcpSessionID,
+    },
+  })) as Record<string, unknown>;
+  const sessionData = readObject(sessionResponse['data']);
+  const currentWorkspace =
+    readObject(sessionData?.['current_workspace']) ?? readObject(sessionData?.['workspace']);
+  const workspaceID =
+    readString(currentWorkspace?.['id']) ??
+    readString(currentWorkspace?.['workspace_id']) ??
+    readString(sessionData?.['workspace_id']);
+  if (!workspaceID) {
+    return {
+      error: asErrorResult(
+        'The current MCP session workspace could not be resolved. No workflow request was sent.',
+      ),
+    };
+  }
+
+  return {
+    headers: {
+      'X-Sanka-Expected-Workspace-ID': workspaceID,
+      'X-Sanka-MCP': 'true',
+      'X-Sanka-MCP-Session-ID': mcpSessionID,
+    },
+  };
+};
+
 const postWorkflowRunEndpoint = async ({
   reqContext,
   path,
@@ -658,7 +695,14 @@ const postWorkflowRunEndpoint = async ({
     return authError;
   }
 
-  const response = (await reqContext.client.post(path, { body })) as Record<string, unknown>;
+  const workspaceBinding = await workflowWorkspaceHeaders(reqContext);
+  if (workspaceBinding.error) {
+    return workspaceBinding.error;
+  }
+  const response = (await reqContext.client.post(path, {
+    body,
+    ...(workspaceBinding.headers ? { headers: workspaceBinding.headers } : undefined),
+  })) as Record<string, unknown>;
   return workflowResult(response, summary);
 };
 
@@ -869,9 +913,14 @@ export const getWorkflowRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const response = (await reqContext.client.get(
-      `/api/v2/public/workflow-runs/${encodeURIComponent(runID)}`,
-    )) as Record<string, unknown>;
+    const workspaceBinding = await workflowWorkspaceHeaders(reqContext);
+    if (workspaceBinding.error) {
+      return workspaceBinding.error;
+    }
+    const path = `/api/v2/public/workflow-runs/${encodeURIComponent(runID)}`;
+    const response = (await (workspaceBinding.headers ?
+      reqContext.client.get(path, { headers: workspaceBinding.headers })
+    : reqContext.client.get(path))) as Record<string, unknown>;
     return workflowResult(response, 'Loaded workflow run');
   },
 };

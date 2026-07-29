@@ -51,6 +51,10 @@ Workspace reads and successful `switch_workspace` calls refresh the resolved
 workspace identity held for the OAuth token or MCP session. Record URL
 enrichment therefore uses the selected workspace code immediately after a
 switch instead of retaining the code captured during the initial connection.
+Workflow preview/start calls also re-read the current MCP session immediately
+before posting, bind the request to that workspace, and fail closed if the API
+resolves a different workspace. This keeps accounting dry-runs and workflow
+writes in the same tenant shown by `current_workspace`.
 
 Native OAuth-capable clients such as Codex and Claude receive an MCP OAuth
 challenge during connection or protected tool calls. Clients that do not support
