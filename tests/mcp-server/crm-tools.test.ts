@@ -152,6 +152,7 @@ import {
   crmListIncentivePlansTool,
   crmListIncentivesTool,
   crmListInvoicesTool,
+  crmListInvoiceLineItemsTool,
   crmListItemsTool,
   crmListLocationsTool,
   crmListObjectSchemasTool,
@@ -438,6 +439,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmDeleteEstimateTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmListInvoicesTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmGetInvoiceTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
+    expect(crmListInvoiceLineItemsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmUploadInvoiceAttachmentTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmStartInvoiceAttachmentUploadTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(crmAppendInvoiceAttachmentUploadChunkTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
@@ -6464,16 +6466,26 @@ describe('ChatGPT CRM tools', () => {
       app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
       workspace_code: '99112888',
       company_name: 'Acme',
-      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
+    const listLineItems = jest.fn().mockResolvedValue([
+      {
+        line_item_id: 'line-item-1',
+        item_name: 'Implementation',
+        quantity: 1,
+        unit_price: 120,
+        custom_fields: {
+          'property-1': { value: '2', value_number_format: 'number' },
+        },
+      },
+    ]);
 
     const result = await crmGetInvoiceTool.handler({
       reqContext: {
         client: {
           public: {
-            invoices: { retrieve },
+            invoices: { listLineItems, retrieve },
           },
         } as any,
         auth: oauthContext(),
@@ -6490,13 +6502,24 @@ describe('ChatGPT CRM tools', () => {
       },
       undefined,
     );
+    expect(listLineItems).toHaveBeenCalledWith('invoice-1', undefined);
     expect(result.structuredContent).toEqual({
       id: 'invoice-1',
       id_inv: 1,
       app_url: 'https://app.sanka.com/ja/99112888/invoices/?id=invoice-1',
       workspace_code: '99112888',
       company_name: 'Acme',
-      line_items: [{ item_name: 'Implementation', quantity: 1, unit_price: 120 }],
+      line_items: [
+        {
+          line_item_id: 'line-item-1',
+          item_name: 'Implementation',
+          quantity: 1,
+          unit_price: 120,
+          custom_fields: {
+            'property-1': { value: '2', value_number_format: 'number' },
+          },
+        },
+      ],
       created_at: '2026-04-08T00:00:00Z',
       updated_at: '2026-04-09T00:00:00Z',
     });
@@ -6506,6 +6529,49 @@ describe('ChatGPT CRM tools', () => {
       expect(firstContent.text).toContain('Loaded invoice successfully: Invoice No. 1.');
       expect(firstContent.text).toContain('app_url');
     }
+  });
+
+  it('lists invoice line items with custom property values', async () => {
+    const listLineItems = jest.fn().mockResolvedValue([
+      {
+        line_item_id: 'line-item-1',
+        item_name: 'Implementation',
+        quantity: 1,
+        custom_fields: {
+          'property-1': { value: '2', value_number_format: 'number' },
+        },
+      },
+    ]);
+
+    const result = await crmListInvoiceLineItemsTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            invoices: { listLineItems },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: { invoice_id: 'invoice-1' },
+    });
+
+    expect(listLineItems).toHaveBeenCalledWith('invoice-1', undefined);
+    expect(result.structuredContent).toEqual({
+      invoice_id: 'invoice-1',
+      count: 1,
+      line_items: [
+        {
+          line_item_id: 'line-item-1',
+          item_name: 'Implementation',
+          quantity: 1,
+          custom_fields: {
+            'property-1': { value: '2', value_number_format: 'number' },
+          },
+        },
+      ],
+    });
+    expect(firstTextContent(result)).toContain('Returned 1 line item for invoice invoice-1.');
   });
 
   it('downloads invoice PDFs with structured base64 content', async () => {
