@@ -333,6 +333,9 @@ describe('ChatGPT CRM tools', () => {
     expect(createPropertySchema.properties.custom_object.description).toContain(
       'Alias for custom_object_slug',
     );
+    expect(createPropertySchema.properties.calculation_formula.description).toContain(
+      'HubSpot calculation formula',
+    );
     expect(crmCreatePropertyTool.tool.description).toContain(
       'Do not use this for company billing_cycle or payment_cycle',
     );
@@ -10378,6 +10381,61 @@ describe('ChatGPT CRM tools', () => {
       target: 'integration',
       provider: 'salesforce',
       dry_run: true,
+    });
+  });
+
+  it('forwards a HubSpot calculation formula for integration property creation', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'created',
+      object: 'contacts',
+      property_id: 'ctis_student_display_name_calc',
+      target: 'integration',
+      provider: 'hubspot',
+    });
+    const formula =
+      'concatenate([properties.ctis_form_student_last_name], " ", [properties.ctis_form_student_first_name])';
+
+    const result = await crmCreatePropertyTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            properties: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        object_name: 'contacts',
+        provider: 'hubspot',
+        channel_id: 'channel-1',
+        external_object_type: 'contacts',
+        external_id: 'ctis_student_display_name_calc',
+        name: 'Student display name',
+        type: 'text',
+        calculation_formula: formula,
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      'contacts',
+      {
+        calculation_formula: formula,
+        channel_id: 'channel-1',
+        external_id: 'ctis_student_display_name_calc',
+        external_object_type: 'contacts',
+        name: 'Student display name',
+        provider: 'hubspot',
+        target: 'integration',
+        type: 'text',
+      },
+      undefined,
+    );
+    expect(result.structuredContent).toMatchObject({
+      property_id: 'ctis_student_display_name_calc',
+      target: 'integration',
+      provider: 'hubspot',
     });
   });
 
