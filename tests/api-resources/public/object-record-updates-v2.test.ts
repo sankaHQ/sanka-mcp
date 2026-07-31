@@ -671,6 +671,7 @@ describe('public object-record updates on V2', () => {
       subscription_status: 'active',
       start_date: '2026-05-01',
       end_date: '2026-05-31',
+      tax_rate: 10,
       discount_value: 10,
       discount_number_format: '%',
       discount_tax_option: 'pre_tax',
@@ -714,6 +715,7 @@ describe('public object-record updates on V2', () => {
           number_item: 1,
           start_date: '2026-05-01',
           end_date: '2026-05-31',
+          tax_rate: 10,
           line_items: [
             {
               item_id: 'item-1',

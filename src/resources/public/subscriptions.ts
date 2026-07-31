@@ -407,6 +407,8 @@ export interface SubscriptionCreateParams {
 
   tax?: number | null;
 
+  tax_rate?: number | null;
+
   total_price?: number | null;
 
   total_price_without_tax?: number | null;

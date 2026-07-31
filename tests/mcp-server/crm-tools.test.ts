@@ -11646,6 +11646,9 @@ describe('ChatGPT CRM tools', () => {
   });
 
   it('creates a subscription for a company customer with copied invoice line items', async () => {
+    const createSchema = crmCreateSubscriptionTool.tool.inputSchema as any;
+    expect(createSchema.properties.tax_rate).toBeDefined();
+
     const create = jest.fn().mockResolvedValue({
       id: 'sub-1',
       status: 'active',
@@ -11691,6 +11694,7 @@ describe('ChatGPT CRM tools', () => {
         frequency: 1,
         frequency_time: 'months',
         currency: 'JPY',
+        tax_rate: 10,
         discount_value: 10,
         discount_number_format: '%',
         discount_tax_option: 'post_tax',
@@ -11714,6 +11718,7 @@ describe('ChatGPT CRM tools', () => {
         frequency_time: 'months',
         start_date: '2026-06-01',
         frequency: 1,
+        tax_rate: 10,
         discount_value: 10,
         discount_number_format: '%',
         discount_tax_option: 'post_tax',
@@ -11783,6 +11788,49 @@ describe('ChatGPT CRM tools', () => {
         text: '`contact_id`, `company_id`, or `customer_id` is required.',
       },
     ]);
+  });
+
+  it('maps common legacy Japanese tax values to tax_rate when it is omitted', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'sub-1',
+      status: 'active',
+      items: [],
+      contact_info: [],
+      created_at: '2026-06-01T00:00:00Z',
+      number_item: 1,
+    });
+    const handlerContext = {
+      reqContext: {
+        client: {
+          public: {
+            subscriptions: { create },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full' as const,
+      },
+    };
+    const baseArgs = {
+      company_id: 'company-1',
+      subscription_status: 'active',
+      items: [{ item_name: 'Plan', quantity: 1, unit_price: 100 }],
+    };
+
+    await crmCreateSubscriptionTool.handler({
+      ...handlerContext,
+      args: { ...baseArgs, tax: 10 },
+    });
+    await crmCreateSubscriptionTool.handler({
+      ...handlerContext,
+      args: { ...baseArgs, tax: 100 },
+    });
+
+    expect(create).toHaveBeenNthCalledWith(1, expect.objectContaining({ tax: 10, tax_rate: 10 }), undefined);
+    expect(create).toHaveBeenNthCalledWith(
+      2,
+      expect.not.objectContaining({ tax_rate: expect.anything() }),
+      undefined,
+    );
   });
 
   it('updates a subscription with lookup_external_id', async () => {
