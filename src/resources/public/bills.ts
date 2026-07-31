@@ -12,6 +12,7 @@ import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  buildV2ObjectMutationBody,
   compactProperties,
   legacyDeleteResponseFromV2,
   legacyMutationResponseFromV2,
@@ -23,48 +24,59 @@ import { PublicLineItem } from './line-items';
 
 const billFromV2Record = (record: V2ObjectRecord): Bill => legacyObjectRecordFromV2<Bill>(record, 'id_bill');
 
-const billMutationProperties = (params: BillCreateParams | BillUpdateParams): Record<string, unknown> => {
+const billMutationProperties = (
+  params: BillCreateParams | BillUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> => {
   const {
     amount,
     amount_without_tax,
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
-    external_id: _externalID,
+    external_id,
     issued_date,
+    line_items: _lineItems,
     notes,
     payment_date,
     status,
-    tax_inclusive: _taxInclusive,
-    tax_option: _taxOption,
+    tax_inclusive,
+    tax_option,
     tax_rate,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
-  void _taxInclusive;
-  void _taxOption;
+  void _lineItems;
   return compactProperties({
     amount,
     amount_without_tax,
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
     description,
     due_date,
+    external_id: options.includeExternalID ? external_id : undefined,
     issued_date,
     notes,
     payment_date,
     status,
+    tax_inclusive,
+    tax_option,
     tax_rate,
   });
 };
+
+const billMutationBody = (
+  params: BillCreateParams | BillUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> =>
+  buildV2ObjectMutationBody(billMutationProperties(params, options), params.line_items);
 
 export class Bills extends APIResource {
   /**
@@ -72,7 +84,10 @@ export class Bills extends APIResource {
    */
   create(body: BillCreateParams, options?: RequestOptions): APIPromise<PublicBillResponse> {
     return this._client
-      .v2Post<V2ObjectRecord>('/bills', { body: { properties: billMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/bills', {
+        body: billMutationBody(body, { includeExternalID: true }),
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
         legacyMutationResponseFromV2<PublicBillResponse>(envelope, 'bill_id', 'created', body.external_id),
       );
@@ -109,7 +124,7 @@ export class Bills extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/bills/${billID}`, {
         query: { external_id: params.external_id },
-        body: { properties: billMutationProperties(params) },
+        body: billMutationBody(params),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -232,6 +247,8 @@ export interface PublicBillRequest {
 
   issued_date?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   payment_date?: string | null;
@@ -310,6 +327,8 @@ export interface BillCreateParams {
 
   issued_date?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   payment_date?: string | null;
@@ -385,6 +404,8 @@ export interface BillUpdateParams {
   external_id?: string | null;
 
   issued_date?: string | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 

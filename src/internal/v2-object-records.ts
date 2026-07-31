@@ -33,6 +33,14 @@ export const numericRecordID = (recordID: string | null | undefined): number | u
 export const compactProperties = (value: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 
+export const buildV2ObjectMutationBody = (
+  properties: Record<string, unknown>,
+  lineItems?: ReadonlyArray<unknown> | null,
+): Record<string, unknown> => ({
+  properties,
+  ...(lineItems != null ? { line_items: lineItems } : undefined),
+});
+
 export const legacyObjectRecordFromV2 = <T>(
   record: V2ObjectRecord,
   formattedIDKey?: string,

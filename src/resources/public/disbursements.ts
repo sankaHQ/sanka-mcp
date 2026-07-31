@@ -9,6 +9,7 @@ import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  buildV2ObjectMutationBody,
   compactProperties,
   legacyDeleteResponseFromV2,
   legacyMutationResponseFromV2,
@@ -16,48 +17,58 @@ import {
   unwrapV2ObjectRecord,
   unwrapV2ObjectRecordArray,
 } from '../../internal/v2-object-records';
+import { PublicLineItem } from './line-items';
 
 const disbursementFromV2Record = (record: V2ObjectRecord): Disbursement =>
   legacyObjectRecordFromV2<Disbursement>(record, 'id_dsb');
 
 const disbursementMutationProperties = (
   body: DisbursementCreateParams | DisbursementUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
   const {
-    company_external_id: _companyExternalID,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
-    external_id: _externalID,
+    external_id,
     fee,
+    line_items: _lineItems,
     notes,
     start_date,
     status,
-    tax_inclusive: _taxInclusive,
-    tax_option: _taxOption,
+    tax_inclusive,
+    tax_option,
     tax_rate,
     total_price,
     total_price_without_tax,
   } = body;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
-  void _taxInclusive;
-  void _taxOption;
+  void _lineItems;
   return compactProperties({
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
+    external_id: options.includeExternalID ? external_id : undefined,
     fee,
     notes,
     start_date,
     status,
+    tax_inclusive,
+    tax_option,
     tax_rate,
     total_price,
     total_price_without_tax,
   });
 };
+
+const disbursementMutationBody = (
+  params: DisbursementCreateParams | DisbursementUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> =>
+  buildV2ObjectMutationBody(disbursementMutationProperties(params, options), params.line_items);
 
 export class Disbursements extends APIResource {
   /**
@@ -66,7 +77,7 @@ export class Disbursements extends APIResource {
   create(body: DisbursementCreateParams, options?: RequestOptions): APIPromise<PublicDisbursementResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/disbursements', {
-        body: { properties: disbursementMutationProperties(body) },
+        body: disbursementMutationBody(body, { includeExternalID: true }),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -115,7 +126,7 @@ export class Disbursements extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/disbursements/${disbursementID}`, {
         query: { external_id },
-        body: { properties: disbursementMutationProperties(body) },
+        body: disbursementMutationBody(body),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -215,6 +226,8 @@ export interface PublicDisbursementRequest {
 
   fee?: number | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   start_date?: string | null;
@@ -260,6 +273,8 @@ export interface DisbursementCreateParams {
   external_id?: string | null;
 
   fee?: number | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 
@@ -314,6 +329,8 @@ export interface DisbursementUpdateParams {
   external_id?: string | null;
 
   fee?: number | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 

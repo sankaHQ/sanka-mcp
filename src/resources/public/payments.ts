@@ -10,6 +10,7 @@ import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  buildV2ObjectMutationBody,
   compactProperties,
   legacyDeleteResponseFromV2,
   legacyMutationResponseFromV2,
@@ -26,36 +27,49 @@ const paymentMutationProperties = (
   params: PaymentCreateParams | PaymentUpdateParams,
 ): Record<string, unknown> => {
   const {
-    companyExternalId: _companyExternalID,
+    companyExternalId,
     companyId,
-    contactExternalId: _contactExternalID,
+    contactExternalId,
     contactId,
     currency,
     entryType,
-    externalId: _bodyExternalID,
+    externalId,
+    line_items: _lineItems,
+    manualPrice,
     notes,
     startDate,
     status,
+    taxInclusive,
+    taxOption,
+    taxRate,
     totalPrice,
     totalPriceWithoutTax,
   } = params;
   const _externalID = 'external_id' in params ? params.external_id : undefined;
   void _externalID;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _bodyExternalID;
+  void _lineItems;
   return compactProperties({
+    company_external_id: companyExternalId,
     company_id: companyId,
+    contact_external_id: contactExternalId,
     contact_id: contactId,
     currency,
     entry_type: entryType,
+    external_id: externalId,
+    manual_price: manualPrice,
     notes,
     start_date: startDate,
     status,
+    tax_inclusive: taxInclusive,
+    tax_option: taxOption,
+    tax_rate: taxRate,
     total_price: totalPrice,
     total_price_without_tax: totalPriceWithoutTax,
   });
 };
+
+const paymentMutationBody = (params: PaymentCreateParams | PaymentUpdateParams): Record<string, unknown> =>
+  buildV2ObjectMutationBody(paymentMutationProperties(params), params.line_items);
 
 export class Payments extends APIResource {
   /**
@@ -64,7 +78,7 @@ export class Payments extends APIResource {
   create(body: PaymentCreateParams, options?: RequestOptions): APIPromise<PaymentResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/payments', {
-        body: { properties: paymentMutationProperties(body) },
+        body: paymentMutationBody(body),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -151,7 +165,7 @@ export class Payments extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/payments/${paymentID}`, {
         query: { external_id },
-        body: { properties: paymentMutationProperties(params) },
+        body: paymentMutationBody(params),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -241,11 +255,21 @@ export interface PaymentRequest {
 
   externalId?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
+  manualPrice?: number | null;
+
   notes?: string | null;
 
   startDate?: string | null;
 
   status?: string | null;
+
+  taxInclusive?: boolean | null;
+
+  taxOption?: string | null;
+
+  taxRate?: number | null;
 
   totalPrice?: number | null;
 
@@ -341,11 +365,21 @@ export interface PaymentCreateParams {
 
   externalId?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
+  manualPrice?: number | null;
+
   notes?: string | null;
 
   startDate?: string | null;
 
   status?: string | null;
+
+  taxInclusive?: boolean | null;
+
+  taxOption?: string | null;
+
+  taxRate?: number | null;
 
   totalPrice?: number | null;
 
@@ -494,6 +528,16 @@ export interface PaymentUpdateParams {
   /**
    * Body param
    */
+  line_items?: Array<PublicLineItem> | null;
+
+  /**
+   * Body param
+   */
+  manualPrice?: number | null;
+
+  /**
+   * Body param
+   */
   notes?: string | null;
 
   /**
@@ -505,6 +549,21 @@ export interface PaymentUpdateParams {
    * Body param
    */
   status?: string | null;
+
+  /**
+   * Body param
+   */
+  taxInclusive?: boolean | null;
+
+  /**
+   * Body param
+   */
+  taxOption?: string | null;
+
+  /**
+   * Body param
+   */
+  taxRate?: number | null;
 
   /**
    * Body param

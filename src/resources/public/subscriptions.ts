@@ -56,6 +56,8 @@ const subscriptionMutationProperties = (
   const status = 'subscription_status' in params ? params.subscription_status : params.status;
   return compactProperties({
     status,
+    contract_id: 'contract_id' in params ? params.contract_id : undefined,
+    contract_ids: 'contract_ids' in params ? params.contract_ids : undefined,
     contact_id: companyID ? undefined : contactID,
     company_id: companyID,
     owner_id: 'owner_id' in params ? params.owner_id : undefined,
@@ -373,6 +375,10 @@ export interface SubscriptionCreateParams {
 
   company_id?: string | null;
 
+  contract_id?: string | null;
+
+  contract_ids?: Array<string> | null;
+
   customer_id?: string | null;
 
   items: Array<SubscriptionItemInput>;
@@ -438,6 +444,16 @@ export interface SubscriptionUpdateParams {
    * Body param
    */
   company_id?: string | null;
+
+  /**
+   * Body param
+   */
+  contract_id?: string | null;
+
+  /**
+   * Body param
+   */
+  contract_ids?: Array<string> | null;
 
   /**
    * Body param
