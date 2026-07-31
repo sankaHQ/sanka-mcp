@@ -8084,9 +8084,15 @@ const SUBSCRIPTION_CREATE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Recurring frequency unit.',
     },
+    tax_rate: {
+      type: 'number',
+      description:
+        'Subscription tax rate percentage used for generated invoices. For standard Japanese consumption tax, pass 10.',
+    },
     tax: {
       type: 'number',
-      description: 'Tax amount.',
+      description:
+        'Legacy tax value retained for compatibility. Common Japanese values 0, 8, and 10 are mirrored to tax_rate only when tax_rate is omitted; pass tax_rate explicitly for generated invoices.',
     },
     shipping_cost_tax_status: {
       type: 'string',
@@ -14805,6 +14811,8 @@ const buildItemMutationBody = (args: Record<string, unknown> | undefined) => {
   return body;
 };
 
+const LEGACY_SUBSCRIPTION_TAX_RATE_VALUES = new Set([0, 8, 10]);
+
 const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
 
@@ -14845,10 +14853,17 @@ const buildSubscriptionCreateBody = (args: Record<string, unknown> | undefined) 
   assignMappedIntegerFields(body, args, [['frequency', 'frequency']]);
   assignMappedNumberFields(body, args, [
     ['tax', 'tax'],
+    ['tax_rate', 'tax_rate'],
     ['total_price', 'total_price'],
     ['total_price_without_tax', 'total_price_without_tax'],
     ['discount_value', 'discount_value'],
   ]);
+  if (!Object.prototype.hasOwnProperty.call(body, 'tax_rate')) {
+    const legacyTax = readOptionalNumber(args?.['tax']);
+    if (legacyTax !== undefined && LEGACY_SUBSCRIPTION_TAX_RATE_VALUES.has(legacyTax)) {
+      body['tax_rate'] = legacyTax;
+    }
+  }
   assignMappedBooleanFields(body, args, [['clear_discount', 'clear_discount']]);
 
   assignPublicLineItems(body, args, {
@@ -27098,6 +27113,7 @@ export const crmCreateSubscriptionTool: McpTool = {
         start_date?: string;
         end_date?: string;
         tax?: number;
+        tax_rate?: number;
         total_price?: number;
         total_price_without_tax?: number;
         contract_id?: string;
