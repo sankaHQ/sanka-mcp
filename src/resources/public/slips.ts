@@ -10,6 +10,7 @@ import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  buildV2ObjectMutationBody,
   compactProperties,
   legacyDeleteResponseFromV2,
   legacyMutationResponseFromV2,
@@ -21,42 +22,53 @@ import { PublicLineItem } from './line-items';
 
 const slipFromV2Record = (record: V2ObjectRecord): Slip => legacyObjectRecordFromV2<Slip>(record, 'id_slip');
 
-const slipMutationProperties = (body: SlipCreateParams | SlipUpdateParams): Record<string, unknown> => {
+const slipMutationProperties = (
+  body: SlipCreateParams | SlipUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> => {
   const {
-    company_external_id: _companyExternalID,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
-    external_id: _externalID,
+    external_id,
+    line_items: _lineItems,
     notes,
     slip_type,
     start_date,
     status,
-    tax_inclusive: _taxInclusive,
-    tax_option: _taxOption,
-    tax_rate: _taxRate,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
     total_price,
     total_price_without_tax,
   } = body;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
-  void _taxInclusive;
-  void _taxOption;
-  void _taxRate;
+  void _lineItems;
   return compactProperties({
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
+    external_id: options.includeExternalID ? external_id : undefined,
     notes,
     revenue_mode: slip_type,
     start_date,
     status,
+    tax_inclusive,
+    tax_option,
+    tax_rate,
     total_price,
     total_price_without_tax,
   });
 };
+
+const slipMutationBody = (
+  params: SlipCreateParams | SlipUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> =>
+  buildV2ObjectMutationBody(slipMutationProperties(params, options), params.line_items);
 
 export class Slips extends APIResource {
   /**
@@ -64,7 +76,10 @@ export class Slips extends APIResource {
    */
   create(body: SlipCreateParams, options?: RequestOptions): APIPromise<SlipResponse> {
     return this._client
-      .v2Post<V2ObjectRecord>('/revenues', { body: { properties: slipMutationProperties(body) }, ...options })
+      .v2Post<V2ObjectRecord>('/revenues', {
+        body: slipMutationBody(body, { includeExternalID: true }),
+        ...options,
+      })
       ._thenUnwrap((envelope) =>
         legacyMutationResponseFromV2<SlipResponse>(envelope, 'slip_id', 'created', body.external_id),
       );
@@ -102,7 +117,7 @@ export class Slips extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/revenues/${slipID}`, {
         query: { external_id },
-        body: { properties: slipMutationProperties(body) },
+        body: slipMutationBody(body),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -216,6 +231,8 @@ export interface SlipRequest {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   slip_type?: string | null;
@@ -261,6 +278,8 @@ export interface SlipCreateParams {
   currency?: string | null;
 
   external_id?: string | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 
@@ -342,6 +361,8 @@ export interface SlipUpdateParams {
   currency?: string | null;
 
   external_id?: string | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 

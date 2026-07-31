@@ -12,6 +12,7 @@ import {
   V2LifecycleData,
   V2ObjectRecord,
   V2ObjectRecordList,
+  buildV2ObjectMutationBody,
   compactProperties,
   legacyDeleteResponseFromV2,
   legacyMutationResponseFromV2,
@@ -26,16 +27,18 @@ const purchaseOrderFromV2Record = (record: V2ObjectRecord): PurchaseOrder =>
 
 const purchaseOrderMutationProperties = (
   params: PurchaseOrderCreateParams | PurchaseOrderUpdateParams,
+  options: { includeExternalID?: boolean } = {},
 ): Record<string, unknown> => {
   const {
-    attachment_file: _attachmentFile,
-    company_external_id: _companyExternalID,
+    attachment_file,
+    company_external_id,
     company_id,
-    contact_external_id: _contactExternalID,
+    contact_external_id,
     contact_id,
     currency,
     date,
-    external_id: _externalID,
+    external_id,
+    line_items: _lineItems,
     notes,
     status,
     tax_option,
@@ -43,15 +46,16 @@ const purchaseOrderMutationProperties = (
     total_price,
     total_price_without_tax,
   } = params;
-  void _attachmentFile;
-  void _companyExternalID;
-  void _contactExternalID;
-  void _externalID;
+  void _lineItems;
   return compactProperties({
+    attachment_file,
+    company_external_id,
     company_id,
+    contact_external_id,
     contact_id,
     currency,
     date,
+    external_id: options.includeExternalID ? external_id : undefined,
     notes,
     status,
     tax_option,
@@ -61,6 +65,12 @@ const purchaseOrderMutationProperties = (
   });
 };
 
+const purchaseOrderMutationBody = (
+  params: PurchaseOrderCreateParams | PurchaseOrderUpdateParams,
+  options: { includeExternalID?: boolean } = {},
+): Record<string, unknown> =>
+  buildV2ObjectMutationBody(purchaseOrderMutationProperties(params, options), params.line_items);
+
 export class PurchaseOrders extends APIResource {
   /**
    * Create Purchase Order
@@ -68,7 +78,7 @@ export class PurchaseOrders extends APIResource {
   create(body: PurchaseOrderCreateParams, options?: RequestOptions): APIPromise<PurchaseOrderResponse> {
     return this._client
       .v2Post<V2ObjectRecord>('/purchase-orders', {
-        body: { properties: purchaseOrderMutationProperties(body) },
+        body: purchaseOrderMutationBody(body, { includeExternalID: true }),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -116,7 +126,7 @@ export class PurchaseOrders extends APIResource {
     return this._client
       .v2Patch<V2ObjectRecord>(path`/purchase-orders/${purchaseOrderID}`, {
         query: { external_id: params.external_id },
-        body: { properties: purchaseOrderMutationProperties(params) },
+        body: purchaseOrderMutationBody(params),
         ...options,
       })
       ._thenUnwrap((envelope) =>
@@ -255,6 +265,8 @@ export interface PurchaseOrderRequest {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   status?: string | null;
@@ -325,6 +337,8 @@ export interface PurchaseOrderCreateParams {
 
   external_id?: string | null;
 
+  line_items?: Array<PublicLineItem> | null;
+
   notes?: string | null;
 
   status?: string | null;
@@ -392,6 +406,8 @@ export interface PurchaseOrderUpdateParams {
   date?: string | null;
 
   external_id?: string | null;
+
+  line_items?: Array<PublicLineItem> | null;
 
   notes?: string | null;
 
