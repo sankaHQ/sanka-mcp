@@ -6941,6 +6941,71 @@ describe('ChatGPT CRM tools', () => {
     );
   });
 
+  it('schedules an existing invoice draft in place through its saved channel', async () => {
+    expect(
+      (crmSendInvoiceEmailTool.tool.inputSchema as any).properties.schedule_draft_message_id,
+    ).toMatchObject({
+      type: 'string',
+    });
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      action: 'schedule',
+      status: 'scheduled',
+      invoice_id: 'invoice-1',
+      formatted_invoice_id: 1310,
+      thread_id: 'thread-existing',
+      message_id: 'message-existing',
+      channel_id: 'channel-gmail',
+      scheduled_at: '2026-08-03T08:00:00+09:00',
+      to: ['finance@example.com'],
+      cc: [],
+      attachment_count: 1,
+      attachments: [
+        {
+          object_type: 'invoice',
+          record_id: 'invoice-1',
+          filename: '請求書-1310.pdf',
+        },
+      ],
+    });
+
+    const result = await crmSendInvoiceEmailTool.handler({
+      reqContext: {
+        client: { post } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        invoice_id: 'invoice-1',
+        action: 'schedule',
+        scheduled_at: '2026-08-03T08:00:00+09:00',
+        schedule_draft_message_id: 'message-existing',
+      },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/public/invoices/invoice-1/email', {
+      body: {
+        action: 'schedule',
+        scheduled_at: '2026-08-03T08:00:00+09:00',
+        schedule_draft_message_id: 'message-existing',
+      },
+      query: {
+        language: 'ja',
+      },
+    });
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        thread_id: 'thread-existing',
+        message_id: 'message-existing',
+        channel_id: 'channel-gmail',
+        attachment_count: 1,
+      }),
+    );
+    expect((result.content[0] as any).text).toBe(
+      'Scheduled Invoice No. 1310 email for 2026-08-03T08:00:00+09:00. Message threads: 1.',
+    );
+  });
+
   it('reports the managed invoice sender and reply route when no channel is saved', async () => {
     const post = jest.fn().mockResolvedValue({
       ok: true,
