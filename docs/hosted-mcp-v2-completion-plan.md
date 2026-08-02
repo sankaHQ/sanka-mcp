@@ -11,7 +11,7 @@ Sanka API V2 host:
 - MCP release: Fly release `v608`
 - MCP image: `registry.fly.io/sanka-mcp:deployment-01KSZY5HSPC673GDS4DM4FGG27`
 - MCP commit: `4b24356f9d9947139ba15339c5a69605beb16509`
-- API base URL: `https://sanka-api.fly.dev`
+- API base URL: `https://api-v2.sanka.com`
 
 Smoke evidence confirms the hosted MCP tools are calling V2 API routes for the
 covered read surfaces:
@@ -38,7 +38,7 @@ Status: done for the currently smoked production path.
 
 Definition of done:
 
-- Hosted MCP has `SANKA_BASE_URL=https://sanka-api.fly.dev`.
+- Hosted MCP has `SANKA_BASE_URL=https://api-v2.sanka.com`.
 - Current workspace/read/list/get tools return V2 `http_path` metadata.
 - `limit` handling is honored by V2 list tools.
 - API health checks pass before MCP deploy checks.
