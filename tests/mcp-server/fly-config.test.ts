@@ -9,3 +9,12 @@ describe.each(['fly.toml', 'fly.staging.toml'])('%s OAuth routing', (configPath)
     expect(config).toContain('MCP_SERVER_INTERNAL_AUTHORIZATION_SERVER_URL = "https://api.prv.sanka.com"');
   });
 });
+
+describe('production API routing', () => {
+  const config = readFileSync(resolve(process.cwd(), 'fly.toml'), 'utf8');
+
+  it('routes hosted MCP API traffic through the Cloudflare-fronted host', () => {
+    expect(config).toContain('SANKA_BASE_URL = "https://api-v2.sanka.com"');
+    expect(config).not.toContain('SANKA_BASE_URL = "https://sanka-api.fly.dev"');
+  });
+});

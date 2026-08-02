@@ -18,7 +18,7 @@ primary_region = "nrt"
   MCP_SERVER_STREAMABLE_AUTH_FALLBACK = "tool_result"
   NODE_ENV = "production"
   PORT = "8080"
-  SANKA_BASE_URL = "https://sanka-api.fly.dev"
+  SANKA_BASE_URL = "https://api-v2.sanka.com"
 
 [http_service]
   internal_port = 8080
