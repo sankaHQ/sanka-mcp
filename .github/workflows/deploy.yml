@@ -14,6 +14,10 @@ on:
         description: 'Optional upstream Sanka deploy identifier for audit/log correlation.'
         required: false
         type: string
+      upstream_deploy_id:
+        description: 'Sanka PR flow deploy identifier for audit/log correlation.'
+        required: false
+        type: string
 
 concurrency:
   group: deploy-production
@@ -41,7 +45,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.expected_sha != ''
         env:
           EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
-          TRIGGER_ID: ${{ github.event.inputs.trigger_id }}
+          TRIGGER_ID: ${{ github.event.inputs.upstream_deploy_id || github.event.inputs.trigger_id }}
         run: |
           set -euo pipefail
           actual_sha="$(git rev-parse HEAD)"
