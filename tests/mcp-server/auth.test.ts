@@ -2,6 +2,8 @@ import http from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
+  generateMcpSessionId,
+  isServerIssuedMcpSessionId,
   OAuthChallengeError,
   resolveClientAuth,
   updateResolvedClientAuthWorkspace,
@@ -485,6 +487,37 @@ describe('resolveClientAuth', () => {
     });
 
     expect(introspectionCallCount).toBe(0);
+  });
+});
+
+describe('MCP session capabilities', () => {
+  it('binds server-issued session ids to the protected resource', () => {
+    const sessionId = generateMcpSessionId({
+      resourceUrl: 'https://mcp.sanka.com/mcp',
+      sharedSecret: 'exchange-secret',
+    });
+
+    expect(
+      isServerIssuedMcpSessionId({
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        sessionId,
+        sharedSecret: 'exchange-secret',
+      }),
+    ).toBe(true);
+    expect(
+      isServerIssuedMcpSessionId({
+        resourceUrl: 'https://other.example/mcp',
+        sessionId,
+        sharedSecret: 'exchange-secret',
+      }),
+    ).toBe(false);
+    expect(
+      isServerIssuedMcpSessionId({
+        resourceUrl: 'https://mcp.sanka.com/mcp',
+        sessionId: `${sessionId.slice(0, -1)}x`,
+        sharedSecret: 'exchange-secret',
+      }),
+    ).toBe(false);
   });
 });
 
