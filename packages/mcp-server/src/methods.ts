@@ -190,6 +190,77 @@ export const sdkMethods: SdkMethod[] = [
     httpMethod: 'delete',
     httpPath: '/api/v2/public/projects/{project_id}',
   },
+  ...(['jobPostings', 'applicants', 'interviews'] as const).flatMap((resource) => {
+    const pathSegment = resource === 'jobPostings' ? 'job-postings' : resource;
+    return [
+      {
+        clientCallName: `client.public.${resource}.list`,
+        fullyQualifiedName: `public.${resource}.list`,
+        httpMethod: 'get' as const,
+        httpPath: `/api/v2/public/${pathSegment}`,
+      },
+      {
+        clientCallName: `client.public.${resource}.retrieve`,
+        fullyQualifiedName: `public.${resource}.retrieve`,
+        httpMethod: 'get' as const,
+        httpPath: `/api/v2/public/${pathSegment}/{record_ref}`,
+      },
+      {
+        clientCallName: `client.public.${resource}.create`,
+        fullyQualifiedName: `public.${resource}.create`,
+        httpMethod: 'post' as const,
+        httpPath: `/api/v2/public/${pathSegment}`,
+      },
+      {
+        clientCallName: `client.public.${resource}.update`,
+        fullyQualifiedName: `public.${resource}.update`,
+        httpMethod: 'patch' as const,
+        httpPath: `/api/v2/public/${pathSegment}/{record_ref}`,
+      },
+      {
+        clientCallName: `client.public.${resource}.archive`,
+        fullyQualifiedName: `public.${resource}.archive`,
+        httpMethod: 'post' as const,
+        httpPath: `/api/v2/public/${pathSegment}/{record_ref}/archive`,
+      },
+      {
+        clientCallName: `client.public.${resource}.activate`,
+        fullyQualifiedName: `public.${resource}.activate`,
+        httpMethod: 'post' as const,
+        httpPath: `/api/v2/public/${pathSegment}/{record_ref}/activate`,
+      },
+    ];
+  }),
+  {
+    clientCallName: 'client.public.workforcePlanning.retrieveOrganization',
+    fullyQualifiedName: 'public.workforcePlanning.retrieveOrganization',
+    httpMethod: 'get',
+    httpPath: '/api/v2/public/workforce-planning/organization',
+  },
+  {
+    clientCallName: 'client.public.workforcePlanning.createPosition',
+    fullyQualifiedName: 'public.workforcePlanning.createPosition',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/workforce-planning/positions',
+  },
+  {
+    clientCallName: 'client.public.workforcePlanning.updatePosition',
+    fullyQualifiedName: 'public.workforcePlanning.updatePosition',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/public/workforce-planning/positions/{position_id}',
+  },
+  {
+    clientCallName: 'client.public.workforcePlanning.setPositionJob',
+    fullyQualifiedName: 'public.workforcePlanning.setPositionJob',
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/workforce-planning/positions/{position_id}/job',
+  },
+  {
+    clientCallName: 'client.public.workforcePlanning.setPositionOccupant',
+    fullyQualifiedName: 'public.workforcePlanning.setPositionOccupant',
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/workforce-planning/positions/{position_id}/occupant',
+  },
   {
     clientCallName: 'client.public.ferryDiagrams.list',
     fullyQualifiedName: 'public.ferryDiagrams.list',
