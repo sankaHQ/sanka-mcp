@@ -50,6 +50,9 @@ describe('talent MCP tools', () => {
     expect(names).toEqual(expect.arrayContaining(expected));
     expect(tool('archive_job_posting').tool.annotations?.destructiveHint).toBe(true);
     expect(tool('activate_job_posting').tool.annotations?.destructiveHint).toBe(false);
+    expect(tool('set_org_position_job').tool.inputSchema.required).toContain('job_id');
+    expect(tool('set_org_position_occupant').tool.inputSchema.required).toContain('employee_id');
+    expect(tool('update_org_position').tool.inputSchema.required).not.toContain('job_id');
     expect(talentTools.every((candidate) => candidate.tool.securitySchemes?.[0]?.type === 'oauth2')).toBe(
       true,
     );
@@ -209,5 +212,28 @@ describe('talent MCP tools', () => {
 
     expect(result.isError).toBe(true);
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit nullable targets before changing organization links', async () => {
+    const setPositionJob = jest.fn();
+    const setPositionOccupant = jest.fn();
+    const reqContext = {
+      client: { public: { workforcePlanning: { setPositionJob, setPositionOccupant } } } as any,
+      auth: oauthContext(),
+    };
+
+    const jobResult = await tool('set_org_position_job').handler({
+      reqContext,
+      args: { position_id: 'position-1', expected_version: 2 },
+    });
+    const occupantResult = await tool('set_org_position_occupant').handler({
+      reqContext,
+      args: { position_id: 'position-1', expected_version: 2 },
+    });
+
+    expect(jobResult.isError).toBe(true);
+    expect(occupantResult.isError).toBe(true);
+    expect(setPositionJob).not.toHaveBeenCalled();
+    expect(setPositionOccupant).not.toHaveBeenCalled();
   });
 });

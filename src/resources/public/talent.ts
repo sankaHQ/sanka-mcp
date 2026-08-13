@@ -47,7 +47,6 @@ export interface PublicTalentRecordListResponse {
 
 export interface PublicTalentRecordListParams {
   workspace_id?: string | null;
-  view_id?: string | null;
   search?: string | null;
   language?: string | null;
   status?: string | null;
@@ -55,7 +54,6 @@ export interface PublicTalentRecordListParams {
   filters?: string | null;
   page?: number | null;
   limit?: number | null;
-  cursor?: string | null;
   sort?: string | null;
   created_at_from?: string | null;
   created_at_to?: string | null;
@@ -292,12 +290,12 @@ export interface WorkforcePositionUpdateParams extends WorkforceWorkspaceParams 
 
 export interface WorkforcePositionJobParams extends WorkforceWorkspaceParams {
   expected_version: number;
-  job_id?: string | null;
+  job_id: string | null;
 }
 
 export interface WorkforcePositionOccupantParams extends WorkforceWorkspaceParams {
   expected_version: number;
-  employee_id?: string | null;
+  employee_id: string | null;
   source_applicant_id?: string | null;
 }
 

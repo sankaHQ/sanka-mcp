@@ -9792,7 +9792,7 @@ export interface components {
       /** Expected Version */
       expected_version: number;
       /** Job Id */
-      job_id?: string | null;
+      job_id: string | null;
     };
     SetPublicWorkforcePositionJob200Envelope: {
       /** @constant */
@@ -9805,7 +9805,7 @@ export interface components {
       /** Expected Version */
       expected_version: number;
       /** Employee Id */
-      employee_id?: string | null;
+      employee_id: string | null;
       /** Source Applicant Id */
       source_applicant_id?: string | null;
     };
@@ -19790,7 +19790,6 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
-        view_id?: string | null;
         search?: string | null;
         language?: string | null;
         status?: string | null;
@@ -19798,7 +19797,6 @@ export interface operations {
         filters?: string | null;
         page?: number;
         limit?: number | null;
-        cursor?: string | null;
         sort?: string | null;
         created_at_from?: string | null;
         created_at_to?: string | null;
@@ -19984,7 +19982,6 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
-        view_id?: string | null;
         search?: string | null;
         language?: string | null;
         status?: string | null;
@@ -19992,7 +19989,6 @@ export interface operations {
         filters?: string | null;
         page?: number;
         limit?: number | null;
-        cursor?: string | null;
         sort?: string | null;
         created_at_from?: string | null;
         created_at_to?: string | null;
@@ -20178,7 +20174,6 @@ export interface operations {
     parameters: {
       query?: {
         workspace_id?: string | null;
-        view_id?: string | null;
         search?: string | null;
         language?: string | null;
         status?: string | null;
@@ -20186,7 +20181,6 @@ export interface operations {
         filters?: string | null;
         page?: number;
         limit?: number | null;
-        cursor?: string | null;
         sort?: string | null;
         created_at_from?: string | null;
         created_at_to?: string | null;

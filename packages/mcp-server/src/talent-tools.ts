@@ -98,7 +98,6 @@ const RECORD_LIST_INPUT_SCHEMA = {
   properties: {
     ...WORKSPACE_PROPERTY,
     ...LANGUAGE_PROPERTIES,
-    view_id: { type: 'string', description: 'Optional saved view UUID.' },
     search: { type: 'string', description: 'Free-text record search.' },
     status: { type: 'string', description: 'Object-specific record status.' },
     usage_status: {
@@ -112,7 +111,6 @@ const RECORD_LIST_INPUT_SCHEMA = {
     },
     page: { type: 'integer', minimum: 1, description: 'Page number.' },
     limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Records per page.' },
-    cursor: { type: 'string', description: 'Cursor returned by a previous request.' },
     sort: {
       type: 'string',
       description: 'Property key to sort ascending, or prefix it with - for descending.',
@@ -249,19 +247,16 @@ const defineRecruitingListTool = (definition: RecruitingToolDefinition): McpTool
 
     const filters = args?.['filters'];
     const listParams: PublicTalentRecordListParams = buildContextParams(args);
-    const viewID = readString(args?.['view_id']);
     const search = readString(args?.['search']);
     const status = readString(args?.['status']);
     const usageStatus = readString(args?.['usage_status']);
     const page = readInteger(args?.['page']);
     const limit = readInteger(args?.['limit']);
-    const cursor = readString(args?.['cursor']);
     const sort = readString(args?.['sort']);
     const createdAtFrom = readString(args?.['created_at_from']);
     const createdAtTo = readString(args?.['created_at_to']);
     const updatedAtFrom = readString(args?.['updated_at_from']);
     const updatedAtTo = readString(args?.['updated_at_to']);
-    if (viewID) listParams.view_id = viewID;
     if (search) listParams.search = search;
     if (status) listParams.status = status;
     if (usageStatus) listParams.usage_status = usageStatus as 'active' | 'archived';
@@ -269,7 +264,6 @@ const defineRecruitingListTool = (definition: RecruitingToolDefinition): McpTool
       listParams.filters = typeof filters === 'string' ? filters : JSON.stringify(filters);
     if (page) listParams.page = page;
     if (limit) listParams.limit = limit;
-    if (cursor) listParams.cursor = cursor;
     if (sort) listParams.sort = sort;
     if (createdAtFrom) listParams.created_at_from = createdAtFrom;
     if (createdAtTo) listParams.created_at_to = createdAtTo;
@@ -503,7 +497,7 @@ const POSITION_LINK_JOB_INPUT_SCHEMA = {
     },
     ...WORKSPACE_PROPERTY,
   },
-  required: ['position_id', 'expected_version'],
+  required: ['position_id', 'expected_version', 'job_id'],
   additionalProperties: false,
 };
 
@@ -522,7 +516,7 @@ const POSITION_SET_OCCUPANT_INPUT_SCHEMA = {
     },
     ...WORKSPACE_PROPERTY,
   },
-  required: ['position_id', 'expected_version'],
+  required: ['position_id', 'expected_version', 'employee_id'],
   additionalProperties: false,
 };
 
@@ -699,9 +693,10 @@ export const setOrgPositionJobTool: McpTool = {
     const expectedVersion = readInteger(args?.['expected_version']);
     if (!positionID) return asErrorResult('`position_id` is required.');
     if (!expectedVersion) return asErrorResult('`expected_version` is required.');
+    if (!hasOwn(args, 'job_id')) return asErrorResult('`job_id` is required (pass null to detach).');
     const position = await reqContext.client.public.workforcePlanning.setPositionJob(positionID, {
       ...buildContextParams(args),
-      ...(hasOwn(args, 'job_id') ? { job_id: args?.['job_id'] as string | null } : undefined),
+      job_id: args?.['job_id'] as string | null,
       expected_version: expectedVersion,
     });
     return positionResult('job link updated', position as unknown as Record<string, unknown>);
@@ -738,9 +733,12 @@ export const setOrgPositionOccupantTool: McpTool = {
     const expectedVersion = readInteger(args?.['expected_version']);
     if (!positionID) return asErrorResult('`position_id` is required.');
     if (!expectedVersion) return asErrorResult('`expected_version` is required.');
+    if (!hasOwn(args, 'employee_id'))
+      return asErrorResult('`employee_id` is required (pass null to clear the occupant).');
     const position = await reqContext.client.public.workforcePlanning.setPositionOccupant(positionID, {
       ...buildContextParams(args),
-      ...copyOwn(args, ['employee_id', 'source_applicant_id']),
+      employee_id: args?.['employee_id'] as string | null,
+      ...copyOwn(args, ['source_applicant_id']),
       expected_version: expectedVersion,
     });
     return positionResult('occupant updated', position as unknown as Record<string, unknown>);
