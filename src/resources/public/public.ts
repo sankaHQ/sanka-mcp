@@ -305,6 +305,31 @@ import {
   PublicProjectsListResponse,
   PublicProjectStatus,
 } from './projects';
+import * as TalentAPI from './talent';
+import {
+  Applicants,
+  Interviews,
+  JobPostings,
+  PositionJobData,
+  PositionOccupantData,
+  PublicTalentPlanningStatus,
+  PublicTalentRecord,
+  PublicTalentRecordCreateParams,
+  PublicTalentRecordListParams,
+  PublicTalentRecordListResponse,
+  PublicTalentRecordRetrieveParams,
+  PublicTalentRecordUpdateParams,
+  PublicTalentStaffingPhase,
+  PublicTalentUsageStatus,
+  WorkforceOrganizationData,
+  WorkforcePlanning,
+  WorkforcePositionCreateParams,
+  WorkforcePositionData,
+  WorkforcePositionJobParams,
+  WorkforcePositionOccupantParams,
+  WorkforcePositionUpdateParams,
+  WorkforceWorkspaceParams,
+} from './talent';
 import * as FerryDiagramsAPI from './ferry-diagrams';
 import {
   FerryDiagram,
@@ -520,6 +545,10 @@ export class Public extends APIResource {
   properties: PropertiesAPI.Properties = new PropertiesAPI.Properties(this._client);
   objectSchemas: ObjectSchemasAPI.ObjectSchemas = new ObjectSchemasAPI.ObjectSchemas(this._client);
   projects: ProjectsAPI.Projects = new ProjectsAPI.Projects(this._client);
+  jobPostings: TalentAPI.JobPostings = new TalentAPI.JobPostings(this._client);
+  applicants: TalentAPI.Applicants = new TalentAPI.Applicants(this._client);
+  interviews: TalentAPI.Interviews = new TalentAPI.Interviews(this._client);
+  workforcePlanning: TalentAPI.WorkforcePlanning = new TalentAPI.WorkforcePlanning(this._client);
   ferryDiagrams: FerryDiagramsAPI.FerryDiagrams = new FerryDiagramsAPI.FerryDiagrams(this._client);
   ferryPrograms: FerryProgramsAPI.FerryPrograms = new FerryProgramsAPI.FerryPrograms(this._client);
   purchaseOrders: PurchaseOrdersAPI.PurchaseOrders = new PurchaseOrdersAPI.PurchaseOrders(this._client);
@@ -687,6 +716,31 @@ export declare namespace Public {
     type ProjectCreateParams as ProjectCreateParams,
     type ProjectUpdateParams as ProjectUpdateParams,
     type ProjectDeleteParams as ProjectDeleteParams,
+  };
+
+  export {
+    JobPostings as JobPostings,
+    Applicants as Applicants,
+    Interviews as Interviews,
+    WorkforcePlanning as WorkforcePlanning,
+    type PublicTalentUsageStatus as PublicTalentUsageStatus,
+    type PublicTalentPlanningStatus as PublicTalentPlanningStatus,
+    type PublicTalentStaffingPhase as PublicTalentStaffingPhase,
+    type PublicTalentRecord as PublicTalentRecord,
+    type PublicTalentRecordListResponse as PublicTalentRecordListResponse,
+    type PublicTalentRecordListParams as PublicTalentRecordListParams,
+    type PublicTalentRecordRetrieveParams as PublicTalentRecordRetrieveParams,
+    type PublicTalentRecordCreateParams as PublicTalentRecordCreateParams,
+    type PublicTalentRecordUpdateParams as PublicTalentRecordUpdateParams,
+    type PositionOccupantData as PositionOccupantData,
+    type PositionJobData as PositionJobData,
+    type WorkforcePositionData as WorkforcePositionData,
+    type WorkforceOrganizationData as WorkforceOrganizationData,
+    type WorkforceWorkspaceParams as WorkforceWorkspaceParams,
+    type WorkforcePositionCreateParams as WorkforcePositionCreateParams,
+    type WorkforcePositionUpdateParams as WorkforcePositionUpdateParams,
+    type WorkforcePositionJobParams as WorkforcePositionJobParams,
+    type WorkforcePositionOccupantParams as WorkforcePositionOccupantParams,
   };
 
   export {

@@ -3352,6 +3352,301 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/job-postings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_job_postings'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_job_posting'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_job_posting'];
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_applicants'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_applicant'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_applicant'];
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_interviews'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_interview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_interview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_interview'];
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_interview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_interview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/organization': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Workforce Organization */
+    get: operations['get_public_workforce_organization'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Public Workforce Position */
+    post: operations['create_public_workforce_position'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Public Workforce Position */
+    patch: operations['update_public_workforce_position'];
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}/job': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Workforce Position Job */
+    put: operations['set_public_workforce_position_job'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}/occupant': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Workforce Position Occupant */
+    put: operations['set_public_workforce_position_occupant'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9302,6 +9597,377 @@ export interface components {
       model_provider?: string | null;
       /** Model Name */
       model_name?: string | null;
+    };
+    ListPublicJobPostings200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ArchivePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ActivatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicApplicants200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ArchivePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ActivatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicInterviews200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ArchivePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ActivatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicWorkforceOrganization200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforceOrganizationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PositionCreateRequest */
+    PositionCreateRequest: {
+      /** Title */
+      title: string;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /**
+       * Fte
+       * @default 1
+       */
+      fte: number;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /**
+       * Planning Status
+       * @default draft
+       * @enum {string}
+       */
+      planning_status: 'draft' | 'approved' | 'cancelled';
+      /** Job Id */
+      job_id?: string | null;
+      /** Employee Id */
+      employee_id?: string | null;
+    };
+    CreatePublicWorkforcePosition200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PositionUpdateRequest */
+    PositionUpdateRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Title */
+      title?: string | null;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /** Fte */
+      fte?: number | null;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /** Planning Status */
+      planning_status?: ('draft' | 'approved' | 'cancelled') | null;
+      /** Job Id */
+      job_id?: string | null;
+      /** Employee Id */
+      employee_id?: string | null;
+    };
+    UpdatePublicWorkforcePosition200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PositionJobRequest */
+    PositionJobRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Job Id */
+      job_id?: string | null;
+    };
+    SetPublicWorkforcePositionJob200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PositionOccupantRequest */
+    PositionOccupantRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Employee Id */
+      employee_id?: string | null;
+      /** Source Applicant Id */
+      source_applicant_id?: string | null;
+    };
+    SetPublicWorkforcePositionOccupant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** WorkforceOrganizationData */
+    WorkforceOrganizationData: {
+      /**
+       * Can Manage Occupants
+       * @default false
+       */
+      can_manage_occupants: boolean;
+      /** Nodes */
+      nodes?: components['schemas']['WorkforcePositionData'][];
+      /** Unassigned Jobs */
+      unassigned_jobs?: components['schemas']['UnassignedJobData'][];
+      summary?: components['schemas']['WorkforceOrganizationSummary'];
+    };
+    /** WorkforcePositionData */
+    WorkforcePositionData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Title */
+      title: string;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /**
+       * Fte
+       * @default 1
+       */
+      fte: number;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /**
+       * Planning Status
+       * @enum {string}
+       */
+      planning_status: 'draft' | 'approved' | 'cancelled';
+      /**
+       * Staffing Phase
+       * @enum {string}
+       */
+      staffing_phase: 'planned' | 'ready_to_hire' | 'recruiting' | 'interviewing' | 'offer' | 'filled';
+      /** Version */
+      version: number;
+      occupant?: components['schemas']['PositionOccupantData'] | null;
+      job?: components['schemas']['PositionJobData'] | null;
+    };
+    /** UnassignedJobData */
+    UnassignedJobData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /**
+       * Applicant Count
+       * @default 0
+       */
+      applicant_count: number;
+      /**
+       * Interview Count
+       * @default 0
+       */
+      interview_count: number;
+    };
+    /** WorkforceOrganizationSummary */
+    WorkforceOrganizationSummary: {
+      /**
+       * Positions
+       * @default 0
+       */
+      positions: number;
+      /**
+       * Planned
+       * @default 0
+       */
+      planned: number;
+      /**
+       * Ready To Hire
+       * @default 0
+       */
+      ready_to_hire: number;
+      /**
+       * Recruiting
+       * @default 0
+       */
+      recruiting: number;
+      /**
+       * Interviewing
+       * @default 0
+       */
+      interviewing: number;
+      /**
+       * Offer
+       * @default 0
+       */
+      offer: number;
+      /**
+       * Filled
+       * @default 0
+       */
+      filled: number;
+      /**
+       * Unassigned Jobs
+       * @default 0
+       */
+      unassigned_jobs: number;
+    };
+    /** PositionOccupantData */
+    PositionOccupantData: {
+      /** Employee Id */
+      employee_id?: string | null;
+      /** Display Name */
+      display_name?: string | null;
+      /** Profile Photo Url */
+      profile_photo_url?: string | null;
+      /**
+       * Redacted
+       * @default false
+       */
+      redacted: boolean;
+    };
+    /** PositionJobData */
+    PositionJobData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /**
+       * Applicant Count
+       * @default 0
+       */
+      applicant_count: number;
+      /**
+       * Interview Count
+       * @default 0
+       */
+      interview_count: number;
     };
   };
   responses: {
@@ -19114,6 +19780,745 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['WritebackPublicSalesforceQuoteReadinessApiV2PublicCpqQuoteReadinessSalesforceWritebackPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_job_postings: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        view_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        cursor?: string | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicJobPostings200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_applicants: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        view_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        cursor?: string | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicApplicants200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_interviews: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        view_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        cursor?: string | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicInterviews200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_workforce_organization: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicWorkforceOrganization200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_workforce_position: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicWorkforcePosition200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_workforce_position: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicWorkforcePosition200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_workforce_position_job: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionJobRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicWorkforcePositionJob200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_workforce_position_occupant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionOccupantRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicWorkforcePositionOccupant200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
