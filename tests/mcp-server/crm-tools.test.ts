@@ -196,6 +196,7 @@ import {
   crmSyncPipelineSnapshotHubSpotPropertiesTool,
   crmSyncPrivateMessagesTool,
   crmSyncWorkspaceMessagesTool,
+  crmUpdateWorkspaceMessageDraftTool,
   crmSwitchWorkspaceTool,
   crmInviteWorkspaceUserTool,
   crmListWorkspaceInvitationsTool,
@@ -3138,6 +3139,88 @@ describe('ChatGPT CRM tools', () => {
         },
       ],
     });
+  });
+
+  it('updates one workspace message draft in place without sending', async () => {
+    const updateDraft = jest.fn().mockResolvedValue({
+      message: 'ok',
+      ctx_id: 'ctx-workspace-draft',
+      data: {
+        thread_id: 'workspace-thread-1',
+        message_id: 'workspace-message-1',
+        status: 'draft',
+        channel_id: 'channel-support',
+        subject: 'August invoice',
+        body: 'Updated body',
+        recipients: ['okai@example.com'],
+        cc: ['uenoyama@example.com', 'utsumi@example.com'],
+        bcc: [],
+        scheduled_at: null,
+      },
+    });
+
+    const result = await crmUpdateWorkspaceMessageDraftTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            workspaceMessages: { updateDraft },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        message_id: 'workspace-message-1',
+        subject: 'August invoice',
+        body: 'Updated body',
+        to: ['okai@example.com'],
+        cc: ['uenoyama@example.com', 'utsumi@example.com'],
+        bcc: [],
+      },
+    });
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      'workspace-message-1',
+      {
+        subject: 'August invoice',
+        body: 'Updated body',
+        recipients: ['okai@example.com'],
+        cc: ['uenoyama@example.com', 'utsumi@example.com'],
+        bcc: [],
+      },
+      undefined,
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      message_id: 'workspace-message-1',
+      status: 'draft',
+      recipients: ['okai@example.com'],
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Updated workspace message draft workspace-message-1 in place without sending.',
+      },
+    ]);
+  });
+
+  it('rejects workspace draft updates without a complete replacement payload', async () => {
+    const updateDraft = jest.fn();
+    const result = await crmUpdateWorkspaceMessageDraftTool.handler({
+      reqContext: {
+        client: { public: { workspaceMessages: { updateDraft } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        message_id: 'workspace-message-1',
+        body: 'Updated body',
+        to: [],
+      },
+    });
+
+    expect(updateDraft).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
   });
 
   it('replies to a workspace message thread from the returned sender identity', async () => {

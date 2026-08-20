@@ -68,6 +68,7 @@ describe('profile-aware tool selection', () => {
     expect(toolNames).toContain('archive_private_message_thread');
     expect(toolNames).toContain('list_workspace_messages');
     expect(toolNames).toContain('sync_workspace_messages');
+    expect(toolNames).toContain('update_workspace_message_draft');
     expect(toolNames).toContain('get_workspace_message_thread');
     expect(toolNames).toContain('reply_workspace_message_thread');
     expect(toolNames).toContain('list_associations');

@@ -67,6 +67,67 @@ export class WorkspaceMessages extends APIResource {
       }),
     );
   }
+
+  /**
+   * Replace the editable fields of an existing draft or scheduled message.
+   * The message and thread identities are preserved and this operation never sends.
+   */
+  updateDraft(
+    messageID: string,
+    body: WorkspaceMessageDraftUpdateParams,
+    options?: RequestOptions,
+  ): APIPromise<WorkspaceMessageDraftUpdateResponse> {
+    return wrapV2WorkspaceMessageEnvelope(
+      this._client.patch(`/api/v2/workspace/messages/drafts/${encodeURIComponent(messageID)}`, {
+        body,
+        ...options,
+      }),
+    );
+  }
+}
+
+export interface WorkspaceMessageDraftUpdateParams {
+  body: string;
+
+  recipients: Array<string>;
+
+  cc?: Array<string>;
+
+  bcc?: Array<string>;
+
+  subject?: string | null;
+
+  schedule_at?: string | null;
+}
+
+export interface WorkspaceMessageDraftUpdateData {
+  thread_id: string;
+
+  message_id: string;
+
+  status: string;
+
+  channel_id: string;
+
+  subject: string;
+
+  body: string;
+
+  recipients: Array<string>;
+
+  cc: Array<string>;
+
+  bcc: Array<string>;
+
+  scheduled_at?: string | null;
+}
+
+export interface WorkspaceMessageDraftUpdateResponse {
+  data: WorkspaceMessageDraftUpdateData;
+
+  message: string;
+
+  ctx_id?: string | null;
 }
 
 export interface WorkspaceMessageChannel {
@@ -175,6 +236,9 @@ export declare namespace WorkspaceMessages {
     type WorkspaceMessagesResponse as WorkspaceMessagesResponse,
     type WorkspaceMessageListParams as WorkspaceMessageListParams,
     type WorkspaceMessageSyncParams as WorkspaceMessageSyncParams,
+    type WorkspaceMessageDraftUpdateParams as WorkspaceMessageDraftUpdateParams,
+    type WorkspaceMessageDraftUpdateData as WorkspaceMessageDraftUpdateData,
+    type WorkspaceMessageDraftUpdateResponse as WorkspaceMessageDraftUpdateResponse,
   };
 
   export {
