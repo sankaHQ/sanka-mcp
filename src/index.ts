@@ -7,6 +7,7 @@ export { APIPromise } from './core/api-promise';
 export { Sanka, type APIVersionMode, type ClientOptions } from './client';
 export type {
   FerryDiagramCreateParams,
+  FerryDiagramCardinality,
   FerryDiagramEdge,
   FerryDiagramNode,
   FerryDiagramUpdateParams,

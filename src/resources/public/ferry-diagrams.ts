@@ -80,7 +80,8 @@ export class FerryDiagrams extends APIResource {
 
 export type FerryDiagramNodeType = 'objectTable' | 'process' | 'note';
 export type FerryDiagramColor = 'default' | 'brand' | 'success' | 'warning' | 'danger';
-export type FerryDiagramEdgeType = 'default' | 'smoothstep';
+export type FerryDiagramEdgeType = 'default' | 'smoothstep' | 'straight';
+export type FerryDiagramCardinality = 'one' | 'zero_or_one' | 'one_or_many' | 'zero_or_many';
 
 export interface FerryDiagramPosition {
   x: number;
@@ -116,6 +117,11 @@ export interface FerryDiagramEdge {
   type?: FerryDiagramEdgeType;
   sourceHandle?: string | null;
   targetHandle?: string | null;
+  sourceArrow?: boolean;
+  targetArrow?: boolean;
+  strokeWidth?: number | null;
+  sourceCardinality?: FerryDiagramCardinality | null;
+  targetCardinality?: FerryDiagramCardinality | null;
 }
 
 export interface FerryDiagramDocument {
@@ -180,6 +186,7 @@ export declare namespace FerryDiagrams {
     type FerryDiagramNodeType as FerryDiagramNodeType,
     type FerryDiagramColor as FerryDiagramColor,
     type FerryDiagramEdgeType as FerryDiagramEdgeType,
+    type FerryDiagramCardinality as FerryDiagramCardinality,
     type FerryDiagramPosition as FerryDiagramPosition,
     type FerryDiagramViewport as FerryDiagramViewport,
     type FerryDiagramNodeData as FerryDiagramNodeData,
