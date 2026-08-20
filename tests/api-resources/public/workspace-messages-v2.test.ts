@@ -103,12 +103,22 @@ describe('public workspace messages v2 resource', () => {
       data: messagesData,
       ctx_id: 'ctx-test',
     });
+    await expect(
+      client.public.workspaceMessages.updateDraft('workspace-message-1', {
+        body: 'Updated body',
+        recipients: ['okai@example.com'],
+        cc: ['uenoyama@example.com', 'utsumi@example.com'],
+        bcc: [],
+        subject: 'August invoice',
+      }),
+    ).resolves.toMatchObject({ data: messagesData });
 
     expect(calls).toEqual([
       'http://localhost:5000/api/v2/workspace/messages?status=active',
       'http://localhost:5000/api/v2/workspace/messages/threads/workspace-thread-1',
       'http://localhost:5000/api/v2/workspace/messages/threads/workspace-thread-1/reply',
       'http://localhost:5000/api/v2/workspace/messages/sync',
+      'http://localhost:5000/api/v2/workspace/messages/drafts/workspace-message-1',
     ]);
   });
 });

@@ -97,6 +97,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `preview_workflow` / `start_workflow`: resolve the current MCP session workspace immediately before each request, pass it as a server-enforced precondition, and stop without previewing or writing if the request resolves to another workspace
 - `list_workspace_messages`: read shared workspace/integration inbox threads from connected channels; prefer this for Sanka-connected Gmail, `/conversation`, Contact Conversation, shared inbox, group inbox, and workspace inbox
 - `sync_workspace_messages`: pull latest shared workspace/integration inbox threads into Sanka; prefer this for connected Gmail integration inbox requests
+- `update_workspace_message_draft`: replace the reviewed subject, body, To, CC, and BCC on one existing draft or scheduled workspace message; preserves the same thread, message id, channel, and attachments and never sends or creates a duplicate
 - `get_workspace_message_thread`: load one shared workspace/integration inbox thread and its history/body
 - `reply_workspace_message_thread`: send only after explicit user authorization with `confirm_send=true`; if multiple distinct personal/workspace sender addresses are connected, pass `expected_sender_email` only after the user confirms the resolved sender; returns the actual shared sender email
 - `list_private_messages`: read-only private/personal account-level inbox review for the authenticated user only

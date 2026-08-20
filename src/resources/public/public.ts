@@ -24,6 +24,9 @@ import {
 import * as WorkspaceMessagesAPI from './workspace-messages/workspace-messages';
 import {
   WorkspaceMessageChannel,
+  WorkspaceMessageDraftUpdateData,
+  WorkspaceMessageDraftUpdateParams,
+  WorkspaceMessageDraftUpdateResponse,
   WorkspaceMessageListParams,
   WorkspaceMessages,
   WorkspaceMessagesData,
@@ -625,6 +628,9 @@ export declare namespace Public {
   export {
     WorkspaceMessages as WorkspaceMessages,
     type WorkspaceMessageChannel as WorkspaceMessageChannel,
+    type WorkspaceMessageDraftUpdateData as WorkspaceMessageDraftUpdateData,
+    type WorkspaceMessageDraftUpdateParams as WorkspaceMessageDraftUpdateParams,
+    type WorkspaceMessageDraftUpdateResponse as WorkspaceMessageDraftUpdateResponse,
     type WorkspaceMessageThread as WorkspaceMessageThread,
     type WorkspaceMessagesData as WorkspaceMessagesData,
     type WorkspaceMessagesResponse as WorkspaceMessagesResponse,

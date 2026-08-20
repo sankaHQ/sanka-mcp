@@ -2731,6 +2731,77 @@ const WORKSPACE_MESSAGE_REPLY_INPUT_SCHEMA = {
   required: ['thread_id', 'body', 'confirm_send'],
 };
 
+const WORKSPACE_MESSAGE_DRAFT_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message_id: {
+      type: 'string',
+      description:
+        'Existing draft or scheduled workspace message identifier. Retrieve the thread first and reuse this exact message id; this operation never creates or sends a message.',
+    },
+    subject: {
+      type: 'string',
+      description: 'Complete replacement subject. Pass the currently reviewed subject when unchanged.',
+    },
+    body: {
+      type: 'string',
+      description: 'Complete replacement draft body.',
+    },
+    to: {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 1,
+      description: 'Complete replacement To list. Do not infer addresses; pass every reviewed recipient.',
+    },
+    cc: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Complete replacement CC list. Pass an empty array to clear CC.',
+    },
+    bcc: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Complete replacement BCC list. Pass an empty array to clear BCC.',
+    },
+    scheduled_at: {
+      type: 'string',
+      description:
+        'Existing scheduled time as an ISO datetime when editing a scheduled message. Omit for a plain draft.',
+    },
+  },
+  required: ['message_id', 'subject', 'body', 'to', 'cc', 'bcc'],
+};
+
+const WORKSPACE_MESSAGE_DRAFT_UPDATE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    message: { type: 'string' },
+    ctx_id: { type: 'string' },
+    thread_id: { type: 'string' },
+    message_id: { type: 'string' },
+    status: { type: 'string' },
+    channel_id: { type: 'string' },
+    subject: { type: 'string' },
+    body: { type: 'string' },
+    recipients: { type: 'array', items: { type: 'string' } },
+    cc: { type: 'array', items: { type: 'string' } },
+    bcc: { type: 'array', items: { type: 'string' } },
+    scheduled_at: { type: ['string', 'null'] as any },
+  },
+  required: [
+    'message',
+    'thread_id',
+    'message_id',
+    'status',
+    'channel_id',
+    'subject',
+    'body',
+    'recipients',
+    'cc',
+    'bcc',
+  ],
+};
+
 const WORKSPACE_MESSAGE_THREAD_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -8919,6 +8990,28 @@ const buildWorkspaceMessageReplyResult = (payload: Record<string, unknown>): Too
               senderEmail ? ` from ${senderEmail}` : ''
             }.`
           : `Replied to shared workspace message thread${senderEmail ? ` from ${senderEmail}` : ''}.`,
+      },
+    ],
+    structuredContent: {
+      message: readString(payload['message']) ?? 'ok',
+      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ...data,
+    },
+  };
+};
+
+const buildWorkspaceMessageDraftUpdateResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const data = readRecord(payload['data']) ?? {};
+  const messageID = readString(data['message_id']);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text:
+          messageID ?
+            `Updated workspace message draft ${messageID} in place without sending.`
+          : 'Updated workspace message draft in place without sending.',
       },
     ],
     structuredContent: {
@@ -22176,6 +22269,81 @@ export const crmGetWorkspaceMessageThreadTool: McpTool = {
     )) as unknown as Record<string, unknown>;
 
     return buildWorkspaceMessageThreadResult(payload);
+  },
+};
+
+export const crmUpdateWorkspaceMessageDraftTool: McpTool = {
+  metadata: {
+    resource: 'workspace_messages',
+    operation: 'write',
+    tags: ['crm', 'messages'],
+    httpMethod: 'patch',
+    httpPath: '/api/v2/workspace/messages/drafts/{message_id}',
+    operationId: 'public.workspaceMessages.updateDraft',
+  },
+  tool: {
+    name: 'update_workspace_message_draft',
+    title: 'Update workspace message draft',
+    description:
+      'Edit one existing draft or scheduled workspace message in place. Replaces subject, body, To, CC, and BCC while preserving the same thread, message, channel, and attachments. This operation never sends and never creates a duplicate. Retrieve and review the existing thread before supplying the complete replacement payload.',
+    inputSchema: WORKSPACE_MESSAGE_DRAFT_UPDATE_INPUT_SCHEMA,
+    outputSchema: WORKSPACE_MESSAGE_DRAFT_UPDATE_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update workspace message draft',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update workspace message draft',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const messageID = readString(args?.['message_id']);
+    if (!messageID) {
+      return asErrorResult('`message_id` is required.');
+    }
+    const subject = readString(args?.['subject']);
+    if (!subject) {
+      return asErrorResult('`subject` is required for the complete replacement payload.');
+    }
+    const body = readString(args?.['body']);
+    if (!body) {
+      return asErrorResult('`body` is required.');
+    }
+    const recipients = readStringArray(args?.['to']);
+    if (recipients.length === 0) {
+      return asErrorResult('`to` must contain at least one reviewed recipient.');
+    }
+    if (!Array.isArray(args?.['cc']) || !Array.isArray(args?.['bcc'])) {
+      return asErrorResult(
+        '`cc` and `bcc` are required complete replacement arrays; pass [] to clear either list.',
+      );
+    }
+    const cc = readStringArray(args?.['cc']);
+    const bcc = readStringArray(args?.['bcc']);
+    const scheduledAt = readString(args?.['scheduled_at']);
+
+    const payload = (await reqContext.client.public.workspaceMessages.updateDraft(
+      messageID,
+      {
+        subject,
+        body,
+        recipients,
+        cc,
+        bcc,
+        ...(scheduledAt ? { schedule_at: scheduledAt } : undefined),
+      },
+      undefined,
+    )) as unknown as Record<string, unknown>;
+
+    return buildWorkspaceMessageDraftUpdateResult(payload);
   },
 };
 
