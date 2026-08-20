@@ -62,9 +62,35 @@ const EDGE_SCHEMA = {
     source: { type: 'string' },
     target: { type: 'string' },
     label: { type: 'string' },
-    type: { type: 'string', enum: ['default', 'smoothstep'] },
+    type: { type: 'string', enum: ['default', 'smoothstep', 'straight'] },
     sourceHandle: { type: ['string', 'null'] as any },
     targetHandle: { type: ['string', 'null'] as any },
+    sourceArrow: {
+      type: 'boolean',
+      description: 'Render an arrowhead at the source when no source cardinality is set.',
+    },
+    targetArrow: {
+      type: 'boolean',
+      description: 'Render an arrowhead at the target when no target cardinality is set.',
+    },
+    strokeWidth: {
+      type: 'number',
+      minimum: 0.5,
+      maximum: 24,
+      description: 'Connector stroke width in CSS pixels.',
+    },
+    sourceCardinality: {
+      type: 'string',
+      enum: ['one', 'zero_or_one', 'one_or_many', 'zero_or_many'],
+      description:
+        "ER cardinality at the source endpoint: bar, circle plus bar, bar plus Crow's Foot, or circle plus Crow's Foot.",
+    },
+    targetCardinality: {
+      type: 'string',
+      enum: ['one', 'zero_or_one', 'one_or_many', 'zero_or_many'],
+      description:
+        "ER cardinality at the target endpoint: bar, circle plus bar, bar plus Crow's Foot, or circle plus Crow's Foot.",
+    },
   },
   required: ['id', 'source', 'target'],
   additionalProperties: false,
@@ -92,7 +118,8 @@ const DOCUMENT_PROPERTIES = {
   edges: {
     type: 'array',
     items: EDGE_SCHEMA,
-    description: 'Complete edge document. Every source and target must reference a supplied node id.',
+    description:
+      "Complete edge document. Every source and target must reference a supplied node id. For ER diagrams, set sourceCardinality and targetCardinality to render standard bar, circle, and Crow's Foot notation.",
   },
   viewport: VIEWPORT_SCHEMA,
 };

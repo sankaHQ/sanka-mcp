@@ -92,6 +92,49 @@ describe('Ferry diagram MCP tools', () => {
     expect(result.structuredContent).toEqual(diagram);
   });
 
+  it('publishes and forwards the complete ER connector contract', async () => {
+    const edgeProperties = (createFerryDiagramTool.tool.inputSchema as any).properties.edges.items.properties;
+    expect(edgeProperties.type.enum).toEqual(['default', 'smoothstep', 'straight']);
+    expect(edgeProperties.sourceArrow.type).toBe('boolean');
+    expect(edgeProperties.targetArrow.type).toBe('boolean');
+    expect(edgeProperties.strokeWidth).toMatchObject({ minimum: 0.5, maximum: 24 });
+    expect(edgeProperties.sourceCardinality.enum).toEqual([
+      'one',
+      'zero_or_one',
+      'one_or_many',
+      'zero_or_many',
+    ]);
+    expect(edgeProperties.targetCardinality.enum).toEqual(edgeProperties.sourceCardinality.enum);
+
+    const create = jest.fn().mockResolvedValue(diagram);
+    const client = { public: { ferryDiagrams: { create } } } as any;
+    const edge = {
+      id: 'company-contact',
+      source: 'company',
+      sourceArrow: true,
+      sourceCardinality: 'one',
+      strokeWidth: 2.5,
+      target: 'contact',
+      targetArrow: true,
+      targetCardinality: 'zero_or_many',
+      type: 'straight',
+    };
+
+    await createFerryDiagramTool.handler({
+      reqContext: { client, auth: oauthContext() },
+      args: {
+        name: 'Customer ER model',
+        edges: [edge],
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        edges: [edge],
+      }),
+    );
+  });
+
   it('preserves omitted graph fields during revision-safe updates', async () => {
     const retrieve = jest.fn().mockResolvedValue(diagram);
     const update = jest.fn().mockResolvedValue({ ...diagram, name: 'JVTA target model', revision: 5 });

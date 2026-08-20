@@ -46,6 +46,16 @@ describe('public Ferry diagrams resource', () => {
         return envelope(diagram);
       },
     });
+    const erEdge = {
+      id: 'company-contact',
+      source: 'company',
+      sourceArrow: true,
+      sourceCardinality: 'one' as const,
+      strokeWidth: 2.5,
+      target: 'contact',
+      targetCardinality: 'zero_or_many' as const,
+      type: 'straight' as const,
+    };
 
     await expect(client.public.ferryDiagrams.list({ workspace_id: 'workspace-1' })).resolves.toMatchObject({
       count: 1,
@@ -58,7 +68,7 @@ describe('public Ferry diagrams resource', () => {
         name: diagram.name,
         description: diagram.description,
         nodes: diagram.nodes as any,
-        edges: [],
+        edges: [erEdge],
         viewport: diagram.viewport,
       }),
     ).resolves.toEqual(diagram);
@@ -95,7 +105,7 @@ describe('public Ferry diagrams resource', () => {
           name: diagram.name,
           description: diagram.description,
           nodes: diagram.nodes,
-          edges: [],
+          edges: [erEdge],
           viewport: diagram.viewport,
         },
       },
