@@ -51,6 +51,14 @@ describe('Ferry diagram MCP tools', () => {
     );
     expect(listFerryDiagramsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(deleteFerryDiagramTool.tool.annotations?.destructiveHint).toBe(true);
+    expect(listFerryDiagramsTool.tool.title).toBe('List Sanka diagrams');
+    expect(listFerryDiagramsTool.tool.description).toBe(
+      'List saved Sanka migration and object-design diagrams in the current workspace.',
+    );
+    expect((getFerryDiagramTool.tool.inputSchema as any).properties.diagram_id.description).toBe(
+      'Sanka diagram UUID.',
+    );
+    expect(deleteFerryDiagramTool.tool.title).toBe('Delete Sanka diagram');
   });
 
   it('lists and gets diagrams through the public SDK resource', async () => {
@@ -175,7 +183,10 @@ describe('Ferry diagram MCP tools', () => {
 
     expect(update).not.toHaveBeenCalled();
     expect(result.isError).toBe(true);
-    expect(result.content[0]).toMatchObject({ type: 'text' });
+    expect(result.content[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('Sanka diagram revision conflict'),
+    });
   });
 
   it('clears the description only when an empty description is explicit', async () => {

@@ -50,6 +50,15 @@ describe('Ferry Programs MCP tools', () => {
     );
     expect(listFerryProgramsTool.tool.securitySchemes).toEqual([{ type: 'oauth2' }]);
     expect(deleteFerryTodoTool.tool.annotations?.destructiveHint).toBe(true);
+    expect(listFerryProgramsTool.tool.title).toBe('List Sanka programs');
+    expect(listFerryProgramsTool.tool.description).toBe(
+      'List Sanka migration programs in the current workspace.',
+    );
+    expect((getFerryProgramTool.tool.inputSchema as any).properties.program_id.description).toBe(
+      'Sanka program UUID.',
+    );
+    expect(createFerryDocTool.tool.title).toBe('Create Sanka Doc');
+    expect(createFerryTodoTool.tool.title).toBe('Create Sanka Todo');
   });
 
   it('lists and gets Ferry programs through the SDK resource', async () => {
