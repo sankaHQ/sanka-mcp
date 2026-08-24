@@ -17,15 +17,15 @@ const WORKSPACE_PROPERTY = {
 };
 
 const PROGRAM_ID_PROPERTY = {
-  program_id: { type: 'string', minLength: 1, description: 'Ferry program UUID.' },
+  program_id: { type: 'string', minLength: 1, description: 'Sanka program UUID.' },
 };
 
 const DOC_ID_PROPERTY = {
-  doc_id: { type: 'string', minLength: 1, description: 'Ferry Doc UUID (meeting update id).' },
+  doc_id: { type: 'string', minLength: 1, description: 'Sanka Doc UUID (meeting update id).' },
 };
 
 const TODO_ID_PROPERTY = {
-  todo_id: { type: 'string', minLength: 1, description: 'Ferry Todo id.' },
+  todo_id: { type: 'string', minLength: 1, description: 'Sanka Todo id.' },
 };
 
 const TODO_WRITE_PROPERTIES = {
@@ -208,24 +208,24 @@ export const listFerryProgramsTool: McpTool = {
   },
   tool: {
     name: 'list_ferry_programs',
-    title: 'List Ferry programs',
-    description: 'List Ferry migration programs in the current Sanka workspace.',
+    title: 'List Sanka programs',
+    description: 'List Sanka migration programs in the current workspace.',
     inputSchema: { type: 'object', properties: WORKSPACE_PROPERTY },
     outputSchema: PROGRAM_LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Ferry programs',
+      title: 'List Sanka programs',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'List Ferry programs' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List Sanka programs' });
     if (authError) return authError;
     const payload = await reqContext.client.public.ferryPrograms.list(readWorkspaceParams(args));
     return {
-      content: [{ type: 'text', text: `Found ${payload.count} Ferry program(s).` }],
+      content: [{ type: 'text', text: `Found ${payload.count} Sanka program(s).` }],
       structuredContent: asRecord(payload),
     };
   },
@@ -242,8 +242,8 @@ export const getFerryProgramTool: McpTool = {
   },
   tool: {
     name: 'get_ferry_program',
-    title: 'Get Ferry program',
-    description: 'Get one Ferry migration program, including its current phases and Todos.',
+    title: 'Get Sanka program',
+    description: 'Get one Sanka migration program, including its current phases and Todos.',
     inputSchema: {
       type: 'object',
       properties: { ...PROGRAM_ID_PROPERTY, ...WORKSPACE_PROPERTY },
@@ -252,14 +252,14 @@ export const getFerryProgramTool: McpTool = {
     outputSchema: PROGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Ferry program',
+      title: 'Get Sanka program',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Get Ferry program' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get Sanka program' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     if (!programID) return asErrorResult('`program_id` is required.');
@@ -267,7 +267,7 @@ export const getFerryProgramTool: McpTool = {
       programID,
       readWorkspaceParams(args),
     );
-    return asMutationResult(payload, `Loaded Ferry program ${payload.name || programID}.`);
+    return asMutationResult(payload, `Loaded Sanka program ${payload.name || programID}.`);
   },
 };
 
@@ -282,8 +282,8 @@ export const listFerryDocsTool: McpTool = {
   },
   tool: {
     name: 'list_ferry_docs',
-    title: 'List Ferry Docs',
-    description: 'List Docs (meeting updates) attached to a Ferry migration program.',
+    title: 'List Sanka Docs',
+    description: 'List Docs (meeting updates) attached to a Sanka migration program.',
     inputSchema: {
       type: 'object',
       properties: { ...PROGRAM_ID_PROPERTY, ...WORKSPACE_PROPERTY },
@@ -292,14 +292,14 @@ export const listFerryDocsTool: McpTool = {
     outputSchema: DOC_LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Ferry Docs',
+      title: 'List Sanka Docs',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'List Ferry Docs' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List Sanka Docs' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     if (!programID) return asErrorResult('`program_id` is required.');
@@ -308,7 +308,7 @@ export const listFerryDocsTool: McpTool = {
       readWorkspaceParams(args),
     );
     return {
-      content: [{ type: 'text', text: `Found ${payload.count} Ferry Doc(s).` }],
+      content: [{ type: 'text', text: `Found ${payload.count} Sanka Doc(s).` }],
       structuredContent: asRecord(payload),
     };
   },
@@ -325,8 +325,8 @@ export const createFerryDocTool: McpTool = {
   },
   tool: {
     name: 'create_ferry_doc',
-    title: 'Create Ferry Doc',
-    description: 'Create a Markdown Doc (meeting update) in an existing Ferry migration program.',
+    title: 'Create Sanka Doc',
+    description: 'Create a Markdown Doc (meeting update) in an existing Sanka migration program.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -342,21 +342,21 @@ export const createFerryDocTool: McpTool = {
     outputSchema: DOC_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Ferry Doc',
+      title: 'Create Sanka Doc',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Ferry Doc' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Sanka Doc' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     if (!programID) return asErrorResult('`program_id` is required.');
     const body = buildDocBody(args, true) as FerryProgramDocCreateParams | undefined;
     if (!body) return asErrorResult('`title` is required.');
     const payload = await reqContext.client.public.ferryPrograms.docs.create(programID, body);
-    return asMutationResult(payload, `Created Ferry Doc ${payload.title}.`);
+    return asMutationResult(payload, `Created Sanka Doc ${payload.title}.`);
   },
 };
 
@@ -371,8 +371,8 @@ export const updateFerryDocTool: McpTool = {
   },
   tool: {
     name: 'update_ferry_doc',
-    title: 'Update Ferry Doc',
-    description: 'Update the title, date, Markdown content, pinned state, or archive state of a Ferry Doc.',
+    title: 'Update Sanka Doc',
+    description: 'Update the title, date, Markdown content, pinned state, or archive state of a Sanka Doc.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -390,14 +390,14 @@ export const updateFerryDocTool: McpTool = {
     outputSchema: DOC_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Update Ferry Doc',
+      title: 'Update Sanka Doc',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Ferry Doc' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Sanka Doc' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     const docID = readString(args?.['doc_id']);
@@ -408,11 +408,11 @@ export const updateFerryDocTool: McpTool = {
     }
     const mutableKeys = ['title', 'meeting_at', 'content_markdown', 'pinned', 'archived_at'];
     if (!mutableKeys.some((key) => hasOwn(args, key))) {
-      return asErrorResult('Pass at least one Ferry Doc field to update.');
+      return asErrorResult('Pass at least one Sanka Doc field to update.');
     }
     const body = buildDocBody(args, false) as FerryProgramDocUpdateParams;
     const payload = await reqContext.client.public.ferryPrograms.docs.update(programID, docID, body);
-    return asMutationResult(payload, `Updated Ferry Doc ${payload.title}.`);
+    return asMutationResult(payload, `Updated Sanka Doc ${payload.title}.`);
   },
 };
 
@@ -427,8 +427,8 @@ export const createFerryTodoTool: McpTool = {
   },
   tool: {
     name: 'create_ferry_todo',
-    title: 'Create Ferry Todo',
-    description: 'Create a Todo in an existing Ferry migration program.',
+    title: 'Create Sanka Todo',
+    description: 'Create a Todo in an existing Sanka migration program.',
     inputSchema: {
       type: 'object',
       properties: { ...PROGRAM_ID_PROPERTY, ...TODO_WRITE_PROPERTIES, ...WORKSPACE_PROPERTY },
@@ -437,21 +437,21 @@ export const createFerryTodoTool: McpTool = {
     outputSchema: PROGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Ferry Todo',
+      title: 'Create Sanka Todo',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Ferry Todo' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Sanka Todo' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     if (!programID) return asErrorResult('`program_id` is required.');
     const body = buildTodoBody(args, { requireTitle: true }) as FerryProgramTodoCreateParams | undefined;
     if (!body) return asErrorResult('`title` is required.');
     const payload = await reqContext.client.public.ferryPrograms.todos.create(programID, body);
-    return asMutationResult(payload, `Created a Todo in Ferry program ${payload.name || programID}.`);
+    return asMutationResult(payload, `Created a Todo in Sanka program ${payload.name || programID}.`);
   },
 };
 
@@ -466,8 +466,8 @@ export const batchUpsertFerryTodosTool: McpTool = {
   },
   tool: {
     name: 'batch_upsert_ferry_todos',
-    title: 'Batch upsert Ferry Todos',
-    description: 'Create or update up to 100 Ferry Todos. Every item must include id or source_ref.',
+    title: 'Batch upsert Sanka Todos',
+    description: 'Create or update up to 100 Sanka Todos. Every item must include id or source_ref.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -492,14 +492,14 @@ export const batchUpsertFerryTodosTool: McpTool = {
     outputSchema: BATCH_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Batch upsert Ferry Todos',
+      title: 'Batch upsert Sanka Todos',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Batch upsert Ferry Todos' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Batch upsert Sanka Todos' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     if (!programID) return asErrorResult('`program_id` is required.');
@@ -524,7 +524,7 @@ export const batchUpsertFerryTodosTool: McpTool = {
     const payload = await reqContext.client.public.ferryPrograms.todos.batchUpsert(programID, body);
     return asMutationResult(
       payload,
-      `Upserted Ferry Todos: ${payload.createdCount} created, ${payload.updatedCount} updated.`,
+      `Upserted Sanka Todos: ${payload.createdCount} created, ${payload.updatedCount} updated.`,
     );
   },
 };
@@ -540,8 +540,8 @@ export const updateFerryTodoTool: McpTool = {
   },
   tool: {
     name: 'update_ferry_todo',
-    title: 'Update Ferry Todo',
-    description: 'Update one Ferry Todo while preserving omitted fields.',
+    title: 'Update Sanka Todo',
+    description: 'Update one Sanka Todo while preserving omitted fields.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -555,14 +555,14 @@ export const updateFerryTodoTool: McpTool = {
     outputSchema: PROGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Update Ferry Todo',
+      title: 'Update Sanka Todo',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Ferry Todo' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Sanka Todo' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     const todoID = readString(args?.['todo_id']);
@@ -573,11 +573,11 @@ export const updateFerryTodoTool: McpTool = {
     }
     const mutableKeys = Object.keys(TODO_WRITE_PROPERTIES);
     if (!mutableKeys.some((key) => hasOwn(args, key))) {
-      return asErrorResult('Pass at least one Ferry Todo field to update.');
+      return asErrorResult('Pass at least one Sanka Todo field to update.');
     }
     const body = buildTodoBody(args) as FerryProgramTodoUpdateParams;
     const payload = await reqContext.client.public.ferryPrograms.todos.update(programID, todoID, body);
-    return asMutationResult(payload, `Updated Ferry Todo ${todoID}.`);
+    return asMutationResult(payload, `Updated Sanka Todo ${todoID}.`);
   },
 };
 
@@ -592,8 +592,8 @@ export const deleteFerryTodoTool: McpTool = {
   },
   tool: {
     name: 'delete_ferry_todo',
-    title: 'Delete Ferry Todo',
-    description: 'Permanently delete one Todo from a Ferry migration program.',
+    title: 'Delete Sanka Todo',
+    description: 'Permanently delete one Todo from a Sanka migration program.',
     inputSchema: {
       type: 'object',
       properties: { ...PROGRAM_ID_PROPERTY, ...TODO_ID_PROPERTY, ...WORKSPACE_PROPERTY },
@@ -602,14 +602,14 @@ export const deleteFerryTodoTool: McpTool = {
     outputSchema: PROGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete Ferry Todo',
+      title: 'Delete Sanka Todo',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete Ferry Todo' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete Sanka Todo' });
     if (authError) return authError;
     const programID = readString(args?.['program_id']);
     const todoID = readString(args?.['todo_id']);
@@ -620,6 +620,6 @@ export const deleteFerryTodoTool: McpTool = {
       todoID,
       readWorkspaceParams(args),
     );
-    return asMutationResult(payload, `Deleted Ferry Todo ${todoID}.`);
+    return asMutationResult(payload, `Deleted Sanka Todo ${todoID}.`);
   },
 };

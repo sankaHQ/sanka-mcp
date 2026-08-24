@@ -12,6 +12,14 @@ const oauthContext = () => ({
 });
 
 describe('Lookout landing-page MCP tools', () => {
+  it('presents the compatibility tools as Sanka Monitor', () => {
+    expect(lookoutCreateLpBatchTool.tool.title).toBe('Create Sanka Monitor HubSpot LP batch');
+    expect(lookoutCreateLpBatchTool.tool.description).toContain('Sanka Monitor Motion');
+    expect(lookoutCreateLpBatchTool.tool.description).not.toContain('Lookout');
+    expect(lookoutGetRunTool.tool.title).toBe('Get Sanka Monitor run');
+    expect(lookoutGetRunTool.tool.description).toContain('Sanka Monitor Motion run');
+  });
+
   it('does not report an older run when the new signal has no matching run yet', async () => {
     const post = jest.fn().mockResolvedValue({
       data: { id: 'signal-new', status: 'processed' },

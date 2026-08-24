@@ -1,10 +1,10 @@
-// Hand-written Lookout tools for the guarded HubSpot landing-page batch flow.
+// Hand-written Sanka Monitor tools for the guarded HubSpot landing-page batch flow.
 //
 // lookout_create_lp_batch drives the shipped Motion mechanic end to end:
 // ensure a Motion exists, configure its graph with the guarded
 // `lookout-hubspot-create-landing-page` action (approval always required),
 // send the trigger signal, and return the awaiting-approval run. A workspace
-// admin then approves in the Lookout console; the in-repo executor calls the
+// admin then approves in the Sanka Monitor console; the in-repo executor calls the
 // HubSpot CMS API and lookout_get_run reports the resulting page URLs.
 
 import { randomUUID } from 'node:crypto';
@@ -73,7 +73,7 @@ const lookoutResult = (structuredContent: Record<string, unknown>, summary: stri
     { type: 'text', text: summary },
     {
       type: 'text',
-      text: `Structured Lookout data:\n${JSON.stringify(structuredContent, null, 2)}`,
+      text: `Structured Sanka Monitor data:\n${JSON.stringify(structuredContent, null, 2)}`,
     },
   ],
   structuredContent,
@@ -123,9 +123,9 @@ export const lookoutCreateLpBatchTool: McpTool = {
   },
   tool: {
     name: 'lookout_create_lp_batch',
-    title: 'Create Lookout HubSpot LP batch',
+    title: 'Create Sanka Monitor HubSpot LP batch',
     description:
-      'Queue a batch of HubSpot CMS landing-page drafts through a Lookout Motion. Configures the guarded lookout-hubspot-create-landing-page action (master-page allowlist, slug namespace, volume caps) and triggers it; the returned run stays awaiting_approval until a workspace admin approves it in the Lookout console, after which the managed executor clones the master page and PATCHes each draft. Pages are created as drafts only — publishing is a separate, always-approval-gated action. Check progress with lookout_get_run.',
+      'Queue a batch of HubSpot CMS landing-page drafts through a Sanka Monitor Motion. Configures the guarded lookout-hubspot-create-landing-page action (master-page allowlist, slug namespace, volume caps) and triggers it; the returned run stays awaiting_approval until a workspace admin approves it in the Sanka Monitor console, after which the managed executor clones the master page and PATCHes each draft. Pages are created as drafts only — publishing is a separate, always-approval-gated action. Check progress with lookout_get_run.',
     inputSchema: {
       type: 'object',
       required: ['master_page_id', 'campaign_id', 'pages'],
@@ -169,21 +169,21 @@ export const lookoutCreateLpBatchTool: McpTool = {
         channel_id: {
           type: 'string',
           description:
-            'Optional HubSpot integration-channel ID override; defaults to the Lookout hubspot connector configuration.',
+            'Optional HubSpot integration-channel ID override; defaults to the Sanka Monitor HubSpot connector configuration.',
         },
       },
     },
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Lookout HubSpot LP batch',
+      title: 'Create Sanka Monitor HubSpot LP batch',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = lookoutToolAuthError(reqContext, 'Create Lookout HubSpot LP batch');
+    const authError = lookoutToolAuthError(reqContext, 'Create Sanka Monitor HubSpot LP batch');
     if (authError) return authError;
 
     const masterPageID = readString(readArg(args, 'master_page_id', ['masterPageId']));
@@ -292,7 +292,7 @@ export const lookoutCreateLpBatchTool: McpTool = {
       runID ?
         `Queued ${pages.length} landing-page draft${pages.length === 1 ? '' : 's'} as run ${runID} (${String(
           structuredContent['run_status'] ?? 'unknown',
-        )}). A workspace admin must approve it in the Lookout console before anything is created in HubSpot.`
+        )}). A workspace admin must approve it in the Sanka Monitor console before anything is created in HubSpot.`
       : 'Signal sent, but no run was found — check that the Motion is active and the signal type matches.',
     );
   },
@@ -309,9 +309,9 @@ export const lookoutGetRunTool: McpTool = {
   },
   tool: {
     name: 'lookout_get_run',
-    title: 'Get Lookout run',
+    title: 'Get Sanka Monitor run',
     description:
-      'Inspect one Lookout Motion run: status, approval state, the triggering signal, configured action inputs, and — for executed HubSpot landing-page actions — the provider result including created page IDs and URLs.',
+      'Inspect one Sanka Monitor Motion run: status, approval state, the triggering signal, configured action inputs, and — for executed HubSpot landing-page actions — the provider result including created page IDs and URLs.',
     inputSchema: {
       type: 'object',
       required: ['run_id'],
@@ -323,14 +323,14 @@ export const lookoutGetRunTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Lookout run',
+      title: 'Get Sanka Monitor run',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = lookoutToolAuthError(reqContext, 'Get Lookout run');
+    const authError = lookoutToolAuthError(reqContext, 'Get Sanka Monitor run');
     if (authError) return authError;
     const runID = readString(readArg(args, 'run_id', ['runId']));
     if (!runID) return asErrorResult('`run_id` is required.');
@@ -382,7 +382,7 @@ export const lookoutGetRunTool: McpTool = {
     const status = readString(run?.['status']) ?? 'unknown';
     const approval = readString(run?.['approval_status']);
     const summaryParts = [
-      `Lookout run ${runID}: ${status}`,
+      `Sanka Monitor run ${runID}: ${status}`,
       approval && approval !== 'not_required' ? `approval ${approval}` : undefined,
       pageURLs.length > 0 ? `${pageURLs.length} page${pageURLs.length === 1 ? '' : 's'} created` : undefined,
       structuredContent['provider_actions_truncated'] === true ?

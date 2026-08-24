@@ -132,7 +132,7 @@ const LIST_INPUT_SCHEMA = {
 const GET_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    diagram_id: { type: 'string', description: 'Ferry diagram UUID.' },
+    diagram_id: { type: 'string', description: 'Sanka diagram UUID.' },
     ...WORKSPACE_PROPERTY,
   },
   required: ['diagram_id'],
@@ -150,7 +150,7 @@ const CREATE_INPUT_SCHEMA = {
 const UPDATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    diagram_id: { type: 'string', description: 'Ferry diagram UUID.' },
+    diagram_id: { type: 'string', description: 'Sanka diagram UUID.' },
     revision: {
       type: 'integer',
       minimum: 1,
@@ -233,7 +233,7 @@ const asDiagramResult = (payload: Record<string, unknown>, verb: string): ToolCa
   content: [
     {
       type: 'text',
-      text: `${verb} Ferry diagram ${String(payload['name'] ?? payload['id'] ?? '').trim()}.`,
+      text: `${verb} Sanka diagram ${String(payload['name'] ?? payload['id'] ?? '').trim()}.`,
     },
   ],
   structuredContent: payload,
@@ -267,24 +267,24 @@ export const listFerryDiagramsTool: McpTool = {
   },
   tool: {
     name: 'list_ferry_diagrams',
-    title: 'List Ferry diagrams',
-    description: 'List saved Ferry migration and object-design diagrams in the current Sanka workspace.',
+    title: 'List Sanka diagrams',
+    description: 'List saved Sanka migration and object-design diagrams in the current workspace.',
     inputSchema: LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Ferry diagrams',
+      title: 'List Sanka diagrams',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'List Ferry diagrams' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'List Sanka diagrams' });
     if (authError) return authError;
     const payload = await reqContext.client.public.ferryDiagrams.list(readWorkspaceParams(args));
     return {
-      content: [{ type: 'text', text: `Found ${payload.count} Ferry diagram(s).` }],
+      content: [{ type: 'text', text: `Found ${payload.count} Sanka diagram(s).` }],
       structuredContent: payload as unknown as Record<string, unknown>,
     };
   },
@@ -301,20 +301,20 @@ export const getFerryDiagramTool: McpTool = {
   },
   tool: {
     name: 'get_ferry_diagram',
-    title: 'Get Ferry diagram',
-    description: 'Load one saved Ferry diagram, including its complete nodes, edges, viewport, and revision.',
+    title: 'Get Sanka diagram',
+    description: 'Load one saved Sanka diagram, including its complete nodes, edges, viewport, and revision.',
     inputSchema: GET_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Ferry diagram',
+      title: 'Get Sanka diagram',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Get Ferry diagram' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Get Sanka diagram' });
     if (authError) return authError;
     const diagramID = readString(args?.['diagram_id']);
     if (!diagramID) return asErrorResult('`diagram_id` is required.');
@@ -337,20 +337,20 @@ export const createFerryDiagramTool: McpTool = {
   },
   tool: {
     name: 'create_ferry_diagram',
-    title: 'Create Ferry diagram',
-    description: 'Create a saved Ferry migration or object-design diagram from nodes and edges.',
+    title: 'Create Sanka diagram',
+    description: 'Create a saved Sanka migration or object-design diagram from nodes and edges.',
     inputSchema: CREATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Ferry diagram',
+      title: 'Create Sanka diagram',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Ferry diagram' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Create Sanka diagram' });
     if (authError) return authError;
     const body = buildCreateBody(args);
     if (!body) return asErrorResult('`name` is required.');
@@ -370,21 +370,21 @@ export const updateFerryDiagramTool: McpTool = {
   },
   tool: {
     name: 'update_ferry_diagram',
-    title: 'Update Ferry diagram',
+    title: 'Update Sanka diagram',
     description:
-      'Update selected fields of a Ferry diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected.',
+      'Update selected fields of a Sanka diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected.',
     inputSchema: UPDATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Update Ferry diagram',
+      title: 'Update Sanka diagram',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Ferry diagram' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Update Sanka diagram' });
     if (authError) return authError;
     const diagramID = readString(args?.['diagram_id']);
     const revision = Number(args?.['revision']);
@@ -395,14 +395,14 @@ export const updateFerryDiagramTool: McpTool = {
     const current = await reqContext.client.public.ferryDiagrams.retrieve(diagramID, workspaceParams);
     if (current.revision !== revision) {
       return asErrorResult(
-        `Ferry diagram revision conflict: current revision is ${current.revision}; reload with get_ferry_diagram and retry.`,
+        `Sanka diagram revision conflict: current revision is ${current.revision}; reload with get_ferry_diagram and retry.`,
       );
     }
     const nodes = hasOwn(args, 'nodes') ? readObjectArray(args?.['nodes']) : current.nodes;
     const edges = hasOwn(args, 'edges') ? readObjectArray(args?.['edges']) : current.edges;
     const viewport = hasOwn(args, 'viewport') ? readViewport(args?.['viewport']) : current.viewport;
     if (!nodes || !edges || !viewport) {
-      return asErrorResult('`nodes`, `edges`, and `viewport` must use valid Ferry diagram object shapes.');
+      return asErrorResult('`nodes`, `edges`, and `viewport` must use valid Sanka diagram object shapes.');
     }
     const body: FerryDiagramUpdateParams = {
       name: hasOwn(args, 'name') ? readString(args?.['name']) ?? '' : current.name,
@@ -433,26 +433,26 @@ export const deleteFerryDiagramTool: McpTool = {
   },
   tool: {
     name: 'delete_ferry_diagram',
-    title: 'Delete Ferry diagram',
-    description: 'Permanently delete a saved Ferry diagram by UUID.',
+    title: 'Delete Sanka diagram',
+    description: 'Permanently delete a saved Sanka diagram by UUID.',
     inputSchema: GET_INPUT_SCHEMA,
     outputSchema: DELETE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete Ferry diagram',
+      title: 'Delete Sanka diagram',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete Ferry diagram' });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Delete Sanka diagram' });
     if (authError) return authError;
     const diagramID = readString(args?.['diagram_id']);
     if (!diagramID) return asErrorResult('`diagram_id` is required.');
     const payload = await reqContext.client.public.ferryDiagrams.delete(diagramID, readWorkspaceParams(args));
     return {
-      content: [{ type: 'text', text: `Deleted Ferry diagram ${payload.id}.` }],
+      content: [{ type: 'text', text: `Deleted Sanka diagram ${payload.id}.` }],
       structuredContent: payload as unknown as Record<string, unknown>,
     };
   },
