@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 
 export const MCP_ACCESS_SCOPE = 'mcp:access';
+export const SANKA_MCP_CONNECT_AUDIENCE = 'sanka-mcp';
 
 const DEFAULT_CONNECT_TOKEN_TTL_SECONDS = 15 * 60;
 const MCP_CONNECT_PATH = '/oauth/mcp/connect';
@@ -35,12 +36,14 @@ export const buildMcpConnectStructuredReply = (
 
 export const buildMcpConnectToken = ({
   now = Date.now(),
+  resource,
   scopes,
   sessionId,
   sharedSecret,
   ttlSeconds = DEFAULT_CONNECT_TOKEN_TTL_SECONDS,
 }: {
   now?: number;
+  resource: string;
   scopes?: string[] | undefined;
   sessionId: string;
   sharedSecret: string;
@@ -48,7 +51,8 @@ export const buildMcpConnectToken = ({
 }): string | undefined => {
   const normalizedSecret = sharedSecret.trim();
   const normalizedSessionId = sessionId.trim();
-  if (!normalizedSecret || !normalizedSessionId) {
+  const normalizedResource = resource.trim();
+  if (!normalizedSecret || !normalizedSessionId || !normalizedResource) {
     return undefined;
   }
 
@@ -56,6 +60,8 @@ export const buildMcpConnectToken = ({
   const payload = base64UrlEncode(
     JSON.stringify({
       v: 1,
+      aud: SANKA_MCP_CONNECT_AUDIENCE,
+      res: normalizedResource,
       sid: normalizedSessionId,
       scp: normalizeMcpConnectScopes(scopes),
       iat: issuedAt,
@@ -68,11 +74,13 @@ export const buildMcpConnectToken = ({
 
 export const buildMcpConnectUrl = ({
   authorizationServerUrl,
+  resource,
   scopes,
   sessionId,
   sharedSecret,
 }: {
   authorizationServerUrl: string;
+  resource: string;
   scopes?: string[] | undefined;
   sessionId: string;
   sharedSecret?: string | undefined;
@@ -81,6 +89,7 @@ export const buildMcpConnectUrl = ({
     return undefined;
   }
   const token = buildMcpConnectToken({
+    resource,
     scopes,
     sessionId,
     sharedSecret,

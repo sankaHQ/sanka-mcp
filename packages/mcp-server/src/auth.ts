@@ -456,6 +456,7 @@ export const resolveClientAuth = async ({
       (scopes?: string[] | undefined) =>
         buildMcpConnectUrl({
           authorizationServerUrl,
+          resource: resourceUrl,
           scopes,
           sessionId: mcpSessionId,
           sharedSecret: mcpOptions.tokenExchangeSharedSecret,
