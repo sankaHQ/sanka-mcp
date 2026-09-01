@@ -32,23 +32,20 @@ Staging endpoint:
 
 ## Auth
 
-`sanka-mcp` does not run its own OAuth stack. It uses Sanka OAuth directly:
+Hosted HTTP clients authenticate through Connect Sanka. The MCP server issues a
+resource-bound session id, returns a signed `https://app.sanka.com/oauth/mcp/connect`
+URL from `connect_sanka` or a protected tool result, and exchanges the approved
+session internally for a short-lived Sanka access token through
+`POST /oauth/internal/mcp-session-token`.
 
-- Authorization server: `https://app.sanka.com`
-- Authorization page: `/oauth/authorize`
-- Token endpoint: `/api/v1/oauth/token`
-- Revocation endpoint: `/api/v1/oauth/revoke`
-
-For hosted or local HTTP transport, MCP clients should use native OAuth against
-the Sanka authorization server exposed in the protected resource metadata. The
-MCP server accepts only Sanka OAuth bearer tokens and validates them through:
-
-- `GET /api/v1/oauth/introspect`
-
-The same bearer token is then forwarded to the Sanka public API.
+Native MCP OAuth is intentionally disabled until Sanka V2 implements the full
+authorization-code server. The MCP service does not publish OAuth authorization
+server or protected-resource metadata, and it rejects client-supplied
+`Authorization` and `X-Sanka-API-Key` headers. The token-exchange secret is used
+only between `sanka-mcp` and `sanka-api`; it must never be sent to MCP clients.
 
 Workspace reads and successful `switch_workspace` calls refresh the resolved
-workspace identity held for the OAuth token or MCP session. Record URL
+workspace identity held for the MCP session. Record URL
 enrichment therefore uses the selected workspace code immediately after a
 switch instead of retaining the code captured during the initial connection.
 Workflow preview/start calls also re-read the current MCP session immediately
@@ -56,10 +53,9 @@ before posting, bind the request to that workspace, and fail closed if the API
 resolves a different workspace. This keeps accounting dry-runs and workflow
 writes in the same tenant shown by `current_workspace`.
 
-Native OAuth-capable clients such as Codex and Claude receive an MCP OAuth
-challenge during connection or protected tool calls. Clients that do not support
-native MCP OAuth can still use the protected-tool fallback, which returns a
-Connect Sanka URL for the user to open.
+All hosted clients, including Codex and Claude, use the same Connect Sanka URL
+flow. Unauthenticated initialize and tool-list requests remain available so the
+client can load `connect_sanka` and the protected-tool fallback.
 
 Developer API tokens are intentionally not supported for MCP access. They remain
 valid for direct Sanka API and SDK usage outside MCP.
@@ -70,26 +66,22 @@ valid for direct Sanka API and SDK usage outside MCP.
 pnpm install
 pnpm build
 export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
-export MCP_SERVER_OAUTH_CLIENT_ID="your-public-oauth-client-id"
+export MCP_SERVER_INTERNAL_AUTHORIZATION_SERVER_URL="http://api.localhost:8000"
+export MCP_SERVER_TOKEN_EXCHANGE_SHARED_SECRET="local-shared-secret"
 export SANKA_BASE_URL="http://api.localhost:8000"
 node packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
 
-`MCP_SERVER_OAUTH_CLIENT_ID` is optional. When present, the server advertises
-that OAuth `client_id` in its authorization server metadata.
-
 Local Sanka prerequisites:
 
-- `app.localhost:8000` serves `/oauth/authorize` and `/api/v1/oauth/token`
+- `app.localhost:8000` serves `/oauth/mcp/connect`
 - `api.localhost:8000` serves `/api/v2/public/*`
-- create the OAuth app/client in Sanka first:
-  - first-party: `/manage/oauth`
-  - third-party: `/:wsid/developers/oauth`
-- register the MCP redirect URI/origin on that OAuth client
+- `api.localhost:8000` serves `/oauth/internal/mcp-session-token`
+- the MCP server and API use the same local token-exchange secret
 
-If you want to use stdio locally instead of HTTP transport, native OAuth is not
-part of the stdio handshake. In that case pass an already-issued Sanka OAuth
-access token through `SANKA_API_KEY` as a local development convenience.
+Stdio remains a local-development transport. `SANKA_API_KEY` there is process
+configuration, not a client-supplied bearer mode; hosted clients must use
+Connect Sanka.
 
 Then verify:
 
@@ -101,21 +93,13 @@ curl -sS -D - http://127.0.0.1:8080/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
 ```
 
-For a native OAuth-capable MCP client, point the client at `http://127.0.0.1:8080/mcp` without static auth headers and let the client follow the protected resource metadata to Sanka OAuth.
-
-For manual bearer-token testing:
-
-```sh
-curl -sS -D - http://127.0.0.1:8080/mcp \
-  -H 'content-type: application/json' \
-  -H 'accept: application/json, text/event-stream' \
-  -H 'authorization: Bearer soat_your_access_token' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
-```
+Point HTTP MCP clients at `http://127.0.0.1:8080/mcp` without static auth
+headers. Call `connect_sanka` or a protected tool, open the returned Connect
+Sanka URL, and retry with the server-issued MCP session id.
 
 ## Browser Use worker
 
-The `browser_use` MCP tool dispatches allowlisted browser workflows to a separate worker. The MCP server keeps OAuth, audit metadata, workflow routing, and confirmation gates; the worker owns browser state and third-party UI interaction. The first registered workflow is:
+The `browser_use` MCP tool dispatches allowlisted browser workflows to a separate worker. The MCP server keeps session authentication, audit metadata, workflow routing, and confirmation gates; the worker owns browser state and third-party UI interaction. The first registered workflow is:
 
 - `demo.hubspot.company_avatar`: update HubSpot demo company avatars through the HubSpot UI when CRM APIs cannot set the visible avatar.
 

@@ -1,6 +1,5 @@
 import { File } from 'node:buffer';
-import { buildOAuthWwwAuthenticateHeader, updateResolvedClientAuthWorkspace } from './auth';
-import { LEGACY_RECONNECT_SERVER_NAME, resolveReconnectServerName } from './reconnect-name';
+import { updateResolvedClientAuthWorkspace } from './auth';
 import {
   BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
   readBinaryDownloadChunk,
@@ -10,10 +9,8 @@ import {
   buildMcpConnectMarkdownLink,
   buildMcpConnectStructuredReply,
   buildMcpConnectUserFacingReply,
-  buildOAuthAuthorizationUrl,
   normalizeMcpConnectScopes,
 } from './mcp-connect';
-import { mcpClientLooksLikeClaude, mcpClientLooksLikeCodex } from './mcp-client-info';
 import {
   appendGovernanceAdvisorySummary,
   buildEntityDetailSummary,
@@ -4597,7 +4594,7 @@ const AUTH_STATUS_INPUT_SCHEMA = {
     required_scopes: {
       type: 'array',
       description:
-        'Optional Sanka feature scopes for diagnostics. MCP OAuth connects with mcp:access; feature access is enforced by Sanka user permissions.',
+        'Optional Sanka feature scopes for diagnostics. Connect Sanka sessions use mcp:access; feature access is enforced by Sanka user permissions.',
       items: { type: 'string' },
     },
   },
@@ -4615,14 +4612,11 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
       items: { type: 'string' },
     },
     message: { type: 'string' },
-    authorization_server_url: { type: 'string' },
-    authorization_url: { type: 'string' },
     connect_url: { type: 'string' },
     connect_scopes: {
       type: 'array',
       items: { type: 'string' },
     },
-    resource_metadata_url: { type: 'string' },
     resource_url: { type: 'string' },
     required_scopes: {
       type: 'array',
@@ -4646,8 +4640,6 @@ const AUTH_STATUS_OUTPUT_SCHEMA = {
     },
     reconnect_mode: { type: 'string' },
     reconnect_instructions: { type: 'string' },
-    reconnect_rpc_method: { type: 'string' },
-    reconnect_server_name: { type: 'string' },
   },
   required: ['connected', 'auth_mode', 'tool_profile', 'scopes', 'message'],
 };
@@ -15454,66 +15446,20 @@ const buildReconnectMetadata = ({
 
   const reconnectScopes = connectScopes ?? requiredScopes;
   const connectUrl = oauth.connectUrlForScopes?.(reconnectScopes);
-  const authorizationUrl = oauth.authorizationUrl ?? buildOAuthAuthorizationUrl(oauth.authorizationServerUrl);
   const clientName = reqContext.mcpClientInfo?.name?.trim();
-  const isHosted = reqContext.toolProfile === 'hosted';
-  const isCodex = mcpClientLooksLikeCodex(reqContext.mcpClientInfo);
-  const isClaude = mcpClientLooksLikeClaude(reqContext.mcpClientInfo);
-  const isNativeOAuthClient = isCodex || isClaude;
-  const shouldIncludeConnectUrl = !isNativeOAuthClient;
-  const base: Record<string, unknown> = {
+  return {
     ...(clientName ? { client_name: clientName } : {}),
-    authorization_server_url: oauth.authorizationServerUrl,
-    authorization_url: authorizationUrl,
-    ...(connectUrl && shouldIncludeConnectUrl ?
+    ...(connectUrl ?
       {
         connect_url: connectUrl,
         connect_scopes: normalizeMcpConnectScopes(reconnectScopes),
         ...buildMcpConnectStructuredReply(connectUrl),
       }
     : undefined),
-    resource_metadata_url: oauth.resourceMetadataUrl,
     resource_url: oauth.resourceUrl,
-    reconnect_mode: 'client_native_oauth',
-  };
-  const hostedCodexReconnect =
-    isHosted ?
-      {
-        reconnect_rpc_method: 'mcpServer/oauth/login',
-        reconnect_server_name: resolveReconnectServerName(reqContext.reconnectServerName),
-      }
-    : {};
-
-  if (isCodex) {
-    return {
-      ...base,
-      ...hostedCodexReconnect,
-      reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
-    };
-  }
-
-  if (isClaude) {
-    return {
-      ...base,
-      reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
-    };
-  }
-
-  if (isHosted) {
-    return {
-      ...base,
-      ...hostedCodexReconnect,
-      reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
-    };
-  }
-
-  return {
-    ...base,
+    reconnect_mode: 'connect_sanka',
     reconnect_instructions:
-      'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
+      'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
   };
 };
 
@@ -15536,20 +15482,6 @@ const buildReconnectVisibleMessage = ({
     typeof reconnectMetadata['connect_url'] === 'string' ?
       `Required user-facing reply: ${buildMcpConnectUserFacingReply(reconnectMetadata['connect_url'])}`
     : undefined,
-    typeof reconnectMetadata['authorization_url'] === 'string' ?
-      `OAuth authorization URL: ${reconnectMetadata['authorization_url']}`
-    : undefined,
-    typeof reconnectMetadata['resource_metadata_url'] === 'string' ?
-      `MCP resource metadata URL: ${reconnectMetadata['resource_metadata_url']}`
-    : undefined,
-    typeof reconnectMetadata['reconnect_rpc_method'] === 'string' ?
-      `Codex reconnect action: ${reconnectMetadata['reconnect_rpc_method']} for server ${String(
-        reconnectMetadata['reconnect_server_name'] || LEGACY_RECONNECT_SERVER_NAME,
-      )}.`
-    : undefined,
-    typeof reconnectMetadata['connect_url'] === 'string' ?
-      'Claude: open the Connect Sanka URL or approve the Sanka connector OAuth prompt, then retry.'
-    : undefined,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -15558,7 +15490,6 @@ const buildReconnectVisibleMessage = ({
 const buildAuthStatusChallenge = ({
   connected = false,
   connectScopes,
-  error = 'invalid_token',
   message,
   missingScopes,
   reqContext,
@@ -15566,24 +15497,12 @@ const buildAuthStatusChallenge = ({
 }: {
   connected?: boolean;
   connectScopes?: string[] | undefined;
-  error?: 'insufficient_scope' | 'invalid_token';
   message: string;
   missingScopes?: string[] | undefined;
   reqContext: McpRequestContext;
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
-  const oauth = reqContext.auth?.oauth;
   const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
-  const wwwAuthenticate =
-    oauth ?
-      buildOAuthWwwAuthenticateHeader({
-        authorizationServerUrl: oauth.authorizationServerUrl,
-        description: message,
-        error,
-        resourceMetadataUrl: oauth.resourceMetadataUrl,
-        ...(missingScopes?.length ? { scope: missingScopes.join(' ') } : undefined),
-      })
-    : undefined;
 
   return {
     content: [{ type: 'text', text: buildReconnectVisibleMessage({ message, reconnectMetadata }) }],
@@ -15598,13 +15517,6 @@ const buildAuthStatusChallenge = ({
       ...(missingScopes?.length ? { missing_scopes: missingScopes } : undefined),
       ...reconnectMetadata,
     },
-    ...(wwwAuthenticate ?
-      {
-        _meta: {
-          'mcp/www_authenticate': [wwwAuthenticate],
-        },
-      }
-    : undefined),
   };
 };
 
@@ -15642,7 +15554,7 @@ const buildConnectedAuthStatusResult = ({
 };
 
 const CONNECT_SANKA_PROMPT_MESSAGE =
-  'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.';
+  'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.';
 
 const requestedScopesFromArgs = (args: Record<string, unknown> | undefined): string[] =>
   [...new Set(readStringArray(args?.['required_scopes']))].sort();
@@ -15678,7 +15590,7 @@ export const crmConnectSankaTool: McpTool = {
     name: 'connect_sanka',
     title: 'Connect Sanka CRM',
     description:
-      'Start or resume the Sanka OAuth connection flow. Use this when the user explicitly asks to connect or reconnect Sanka.',
+      'Start or resume the Connect Sanka session flow. Use this when the user explicitly asks to connect or reconnect Sanka.',
     inputSchema: AUTH_STATUS_INPUT_SCHEMA,
     outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'noauth' }],
@@ -15712,10 +15624,9 @@ export const crmConnectSankaTool: McpTool = {
     if (missingScopes.length > 0) {
       return buildAuthStatusChallenge({
         connected: true,
-        error: 'insufficient_scope',
-        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(
+        message: `Sanka CRM is connected, but missing required Sanka access scopes: ${missingScopes.join(
           ', ',
-        )}. Reconnect and approve the requested permissions, then retry.`,
+        )}. Reconnect Sanka, then retry.`,
         missingScopes,
         requiredScopes,
         reqContext,
@@ -15723,7 +15634,7 @@ export const crmConnectSankaTool: McpTool = {
     }
 
     return buildConnectedAuthStatusResult({
-      message: 'Sanka CRM is already connected with Sanka OAuth.',
+      message: 'Sanka CRM is already connected through this MCP session.',
       requiredScopes,
       reqContext,
     });
@@ -15772,10 +15683,9 @@ export const crmAuthStatusTool: McpTool = {
     if (missingScopes.length > 0) {
       return buildAuthStatusChallenge({
         connected: true,
-        error: 'insufficient_scope',
-        message: `Sanka CRM is connected, but missing required OAuth scopes: ${missingScopes.join(
+        message: `Sanka CRM is connected, but missing required Sanka access scopes: ${missingScopes.join(
           ', ',
-        )}. Reconnect and approve the requested permissions, then retry.`,
+        )}. Reconnect Sanka, then retry.`,
         missingScopes,
         requiredScopes,
         reqContext,
@@ -15783,7 +15693,7 @@ export const crmAuthStatusTool: McpTool = {
     }
 
     return buildConnectedAuthStatusResult({
-      message: 'Sanka CRM is connected with Sanka OAuth.',
+      message: 'Sanka CRM is connected through this MCP session.',
       requiredScopes,
       reqContext,
     });
@@ -15803,7 +15713,7 @@ export const crmCurrentWorkspaceTool: McpTool = {
     name: 'current_workspace',
     title: 'Get current Sanka workspace',
     description:
-      'Return the Sanka workspace currently bound to this OAuth credential, including workspace_name, workspace_code, and internal workspace_id. Use this to verify workspace context before live Sanka operations.',
+      'Return the Sanka workspace currently bound to this MCP session, including workspace_name, workspace_code, and internal workspace_id. Use this to verify workspace context before live Sanka operations.',
     inputSchema: { type: 'object', properties: {} },
     outputSchema: CURRENT_WORKSPACE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -15863,7 +15773,7 @@ export const crmListWorkspacesTool: McpTool = {
     name: 'list_workspaces',
     title: 'List available Sanka workspaces',
     description:
-      'List workspaces available to the authenticated Sanka OAuth session. Use the returned internal id with switch_workspace; do not use the short workspace_code as workspace_id.',
+      'List workspaces available to the authenticated Sanka MCP session. Use the returned internal id with switch_workspace; do not use the short workspace_code as workspace_id.',
     inputSchema: { type: 'object', properties: {} },
     outputSchema: LIST_WORKSPACES_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

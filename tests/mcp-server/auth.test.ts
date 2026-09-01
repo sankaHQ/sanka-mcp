@@ -2,9 +2,9 @@ import http from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
+  AuthenticationError,
   generateMcpSessionId,
   isServerIssuedMcpSessionId,
-  OAuthChallengeError,
   resolveClientAuth,
   updateResolvedClientAuthWorkspace,
 } from '../../packages/mcp-server/src/auth';
@@ -13,138 +13,55 @@ import { configureLogger } from '../../packages/mcp-server/src/logger';
 describe('resolveClientAuth', () => {
   let authServer: http.Server;
   let authServerBaseUrl: string;
-  let introspectionCallCount = 0;
   let mcpSessionTokenCallCount = 0;
 
   beforeAll(async () => {
     configureLogger({ level: 'error', pretty: false });
     authServer = http.createServer((req, res) => {
-      if (req.url === '/oauth/internal/mcp-session-token' && req.method === 'POST') {
-        mcpSessionTokenCallCount += 1;
-        let rawBody = '';
-        req.on('data', (chunk) => {
-          rawBody += String(chunk);
-        });
-        req.on('end', () => {
-          const payload = JSON.parse(rawBody || '{}') as { session_id?: string };
-          if (req.headers['x-sanka-mcp-token-exchange-secret'] !== 'exchange-secret') {
-            res.statusCode = 403;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: 'invalid_service_token' }));
-            return;
-          }
-          if (payload.session_id !== 'session-approved' && payload.session_id !== 'session-workspace-cache') {
-            res.statusCode = 404;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: 'not_found' }));
-            return;
-          }
-          const workspaceCacheTest = payload.session_id === 'session-workspace-cache';
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(
-            JSON.stringify({
-              access_token: workspaceCacheTest ? 'soat_session_workspace_token' : 'soat_session_token',
-              token_type: 'bearer',
-              expires_in: 300,
-              scope: 'mcp:access expenses:read',
-              ...(workspaceCacheTest ?
-                {
-                  workspace_id: 'workspace-old',
-                  workspace_code: '9983932',
-                  workspace_name: 'Old workspace',
-                }
-              : {}),
-            }),
-          );
-        });
-        return;
-      }
-
-      if (req.url !== '/api/v1/oauth/introspect' || req.method !== 'GET') {
+      if (req.url !== '/oauth/internal/mcp-session-token' || req.method !== 'POST') {
         res.statusCode = 404;
         res.end('Not found');
         return;
       }
 
-      introspectionCallCount += 1;
-      const authorization = req.headers.authorization ?? '';
-
-      if (authorization === 'Bearer soat_valid_token' || authorization === 'Bearer soat_internal_token') {
+      mcpSessionTokenCallCount += 1;
+      let rawBody = '';
+      req.on('data', (chunk) => {
+        rawBody += String(chunk);
+      });
+      req.on('end', () => {
+        const payload = JSON.parse(rawBody || '{}') as { session_id?: string };
+        if (req.headers['x-sanka-mcp-token-exchange-secret'] !== 'exchange-secret') {
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'invalid_service_token' }));
+          return;
+        }
+        if (payload.session_id !== 'session-approved' && payload.session_id !== 'session-workspace-cache') {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'not_found' }));
+          return;
+        }
+        const workspaceCacheTest = payload.session_id === 'session-workspace-cache';
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
-            data: {
-              active: true,
-              client_id: 'client-1',
-              scope: 'companies:read expenses:write',
-              session_id: 'session-1',
-              user_id: 'user-1',
-              workspace_id: 'workspace-1',
-              workspace_name: 'Workspace One',
-            },
+            access_token: workspaceCacheTest ? 'soat_session_workspace_token' : 'soat_session_token',
+            token_type: 'bearer',
+            expires_in: 300,
+            scope: 'mcp:access expenses:read',
+            ...(workspaceCacheTest ?
+              {
+                workspace_id: 'workspace-old',
+                workspace_code: '9983932',
+                workspace_name: 'Old workspace',
+              }
+            : {}),
           }),
         );
-        return;
-      }
-
-      if (authorization === 'Bearer soat_cache_token') {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(
-          JSON.stringify({
-            data: {
-              active: true,
-              client_id: 'client-2',
-              scope: 'user-scope api-access',
-              session_id: 'session-2',
-            },
-          }),
-        );
-        return;
-      }
-
-      if (authorization === 'Bearer soat_workspace_switch_token') {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(
-          JSON.stringify({
-            data: {
-              active: true,
-              client_id: 'client-workspace-switch',
-              scope: 'mcp:access',
-              session_id: 'session-workspace-switch',
-              workspace_id: 'workspace-old',
-              workspace_code: '9983932',
-              workspace_name: 'Old workspace',
-            },
-          }),
-        );
-        return;
-      }
-
-      if (authorization === 'Bearer soat_inactive_token') {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(
-          JSON.stringify({
-            data: {
-              active: false,
-            },
-          }),
-        );
-        return;
-      }
-
-      res.statusCode = 401;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          error: 'invalid_token',
-          message: 'OAuth token introspection failed with status 401.',
-        }),
-      );
+      });
     });
 
     await new Promise<void>((resolve) => {
@@ -157,10 +74,6 @@ describe('resolveClientAuth', () => {
   });
 
   afterAll(async () => {
-    if (!authServer) {
-      return;
-    }
-
     await new Promise<void>((resolve, reject) => {
       authServer.close((error) => {
         if (error) {
@@ -173,7 +86,6 @@ describe('resolveClientAuth', () => {
   });
 
   beforeEach(() => {
-    introspectionCallCount = 0;
     mcpSessionTokenCallCount = 0;
   });
 
@@ -188,33 +100,25 @@ describe('resolveClientAuth', () => {
     resourceUrl: 'https://mcp.sanka.com/mcp',
   });
 
-  it('returns none when the request is unauthenticated', async () => {
-    const resolved = await resolveClientAuth(
-      authRequestContext({
-        accept: 'application/json',
-      }),
-    );
+  it('returns an unauthenticated Connect Sanka context when no session is approved', async () => {
+    const resolved = await resolveClientAuth(authRequestContext({ accept: 'application/json' }));
 
     expect(resolved).toEqual({
       authMode: 'none',
       clientOptions: {},
       oauth: {
         authorizationServerUrl: authServerBaseUrl,
-        authorizationUrl: `${authServerBaseUrl}/oauth/authorize`,
         resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
         resourceUrl: 'https://mcp.sanka.com/mcp',
         scopes: [],
       },
     });
-    expect(introspectionCallCount).toBe(0);
     expect(mcpSessionTokenCallCount).toBe(0);
   });
 
-  it('returns a signed connect URL when a session id and shared secret are available', async () => {
+  it('returns a signed Connect Sanka URL when a session id and shared secret are available', async () => {
     const resolved = await resolveClientAuth({
-      ...authRequestContext({
-        accept: 'application/json',
-      }),
+      ...authRequestContext({ accept: 'application/json' }),
       mcpOptions: {
         authorizationServerUrl: authServerBaseUrl,
         tokenExchangeSharedSecret: 'exchange-secret',
@@ -231,7 +135,7 @@ describe('resolveClientAuth', () => {
     expect(mcpSessionTokenCallCount).toBe(1);
   });
 
-  it('falls back to reconnect details when mcp-session-id exchange cannot be reached', async () => {
+  it('falls back to Connect Sanka details when session exchange cannot be reached', async () => {
     const realFetch = globalThis.fetch;
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       if (String(input).includes('/oauth/internal/mcp-session-token')) {
@@ -242,9 +146,7 @@ describe('resolveClientAuth', () => {
 
     try {
       const resolved = await resolveClientAuth({
-        ...authRequestContext({
-          accept: 'application/json',
-        }),
+        ...authRequestContext({ accept: 'application/json' }),
         mcpOptions: {
           authorizationServerUrl: authServerBaseUrl,
           tokenExchangeSharedSecret: 'exchange-secret',
@@ -260,11 +162,9 @@ describe('resolveClientAuth', () => {
     }
   });
 
-  it('exchanges an approved mcp-session-id for a short-lived Sanka access token', async () => {
+  it('exchanges an approved MCP session for a short-lived Sanka access token', async () => {
     const resolved = await resolveClientAuth({
-      ...authRequestContext({
-        accept: 'application/json',
-      }),
+      ...authRequestContext({ accept: 'application/json' }),
       mcpOptions: {
         authorizationServerUrl: authServerBaseUrl,
         tokenExchangeSharedSecret: 'exchange-secret',
@@ -278,7 +178,6 @@ describe('resolveClientAuth', () => {
       clientOptions: { apiKey: 'soat_session_token' },
       oauth: {
         authorizationServerUrl: authServerBaseUrl,
-        authorizationUrl: `${authServerBaseUrl}/oauth/authorize`,
         resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
         resourceUrl: 'https://mcp.sanka.com/mcp',
         scopes: ['mcp:access', 'expenses:read'],
@@ -287,11 +186,27 @@ describe('resolveClientAuth', () => {
     expect(mcpSessionTokenCallCount).toBe(1);
   });
 
+  it('uses the internal server only for MCP session exchange', async () => {
+    const resolved = await resolveClientAuth({
+      ...authRequestContext({ accept: 'application/json' }),
+      resourceUrl: 'https://mcp.sanka.com/mcp/internal-server-test',
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.sankastaging.com',
+        internalAuthorizationServerUrl: authServerBaseUrl,
+        tokenExchangeSharedSecret: 'exchange-secret',
+      },
+      mcpSessionId: 'session-approved',
+      mcpSessionIdForExchange: 'session-approved',
+    });
+
+    expect(resolved.authMode).toBe('oauth_bearer');
+    expect(resolved.oauth.authorizationServerUrl).toBe('https://app.sankastaging.com');
+    expect(mcpSessionTokenCallCount).toBe(1);
+  });
+
   it('updates cached MCP session workspace identity without exchanging a new token', async () => {
     const requestContext = {
-      ...authRequestContext({
-        accept: 'application/json',
-      }),
+      ...authRequestContext({ accept: 'application/json' }),
       mcpOptions: {
         authorizationServerUrl: authServerBaseUrl,
         tokenExchangeSharedSecret: 'exchange-secret',
@@ -320,174 +235,34 @@ describe('resolveClientAuth', () => {
     expect(mcpSessionTokenCallCount).toBe(1);
   });
 
-  it('rejects developer api key headers for MCP access', async () => {
+  it('rejects developer API key headers without contacting the upstream API', async () => {
     await expect(
-      resolveClientAuth(
-        authRequestContext({
-          'x-sanka-api-key': 'sk_localapitoken',
-        }),
-      ),
-    ).rejects.toMatchObject<Partial<OAuthChallengeError>>({
-      name: 'OAuthChallengeError',
+      resolveClientAuth(authRequestContext({ 'x-sanka-api-key': 'sk_localapitoken' })),
+    ).rejects.toMatchObject<Partial<AuthenticationError>>({
+      name: 'AuthenticationError',
       statusCode: 401,
       message:
-        'Sanka MCP accepts only Sanka OAuth access tokens. Developer API tokens are not supported for MCP access.',
+        'Direct API key authentication is not supported. Connect Sanka through this MCP session instead.',
     });
 
-    expect(introspectionCallCount).toBe(0);
+    expect(mcpSessionTokenCallCount).toBe(0);
   });
 
-  it('rejects opaque bearer tokens that are not Sanka OAuth access tokens', async () => {
-    await expect(
-      resolveClientAuth(
-        authRequestContext({
-          authorization: 'Bearer sk_live_example',
-        }),
-      ),
-    ).rejects.toMatchObject<Partial<OAuthChallengeError>>({
-      name: 'OAuthChallengeError',
-      statusCode: 401,
-      message: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
-    });
+  it.each(['Bearer soat_valid_token', 'Bearer sk_live_example', 'Basic encoded-credential'])(
+    'rejects direct Authorization headers without introspection: %s',
+    async (authorization) => {
+      await expect(resolveClientAuth(authRequestContext({ authorization }))).rejects.toMatchObject<
+        Partial<AuthenticationError>
+      >({
+        name: 'AuthenticationError',
+        statusCode: 401,
+        message:
+          'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
+      });
 
-    expect(introspectionCallCount).toBe(0);
-  });
-
-  it('introspects Sanka OAuth access tokens and forwards the same bearer token', async () => {
-    const resolved = await resolveClientAuth(
-      authRequestContext({
-        authorization: 'Bearer soat_valid_token',
-      }),
-    );
-
-    expect(resolved).toEqual({
-      authMode: 'oauth_bearer',
-      clientOptions: { apiKey: 'soat_valid_token' },
-      oauth: {
-        authorizationServerUrl: authServerBaseUrl,
-        authorizationUrl: `${authServerBaseUrl}/oauth/authorize`,
-        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-        resourceUrl: 'https://mcp.sanka.com/mcp',
-        scopes: ['companies:read', 'expenses:write'],
-        workspace_id: 'workspace-1',
-        workspace_name: 'Workspace One',
-      },
-    });
-    expect(introspectionCallCount).toBe(1);
-  });
-
-  it('uses an internal authorization server for introspection while advertising the public one', async () => {
-    const publicAuthServerUrl = 'https://app.sankastaging.com';
-    const resolved = await resolveClientAuth({
-      ...authRequestContext({
-        authorization: 'Bearer soat_internal_token',
-      }),
-      mcpOptions: {
-        authorizationServerUrl: publicAuthServerUrl,
-        internalAuthorizationServerUrl: authServerBaseUrl,
-      },
-    });
-
-    expect(resolved).toEqual({
-      authMode: 'oauth_bearer',
-      clientOptions: { apiKey: 'soat_internal_token' },
-      oauth: {
-        authorizationServerUrl: publicAuthServerUrl,
-        authorizationUrl: `${publicAuthServerUrl}/oauth/authorize`,
-        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-        resourceUrl: 'https://mcp.sanka.com/mcp',
-        scopes: ['companies:read', 'expenses:write'],
-        workspace_id: 'workspace-1',
-        workspace_name: 'Workspace One',
-      },
-    });
-    expect(introspectionCallCount).toBe(1);
-  });
-
-  it('caches successful introspection responses briefly', async () => {
-    const requestContext = authRequestContext({
-      authorization: 'Bearer soat_cache_token',
-    });
-
-    const first = await resolveClientAuth(requestContext);
-    const second = await resolveClientAuth(requestContext);
-
-    expect(first).toEqual({
-      authMode: 'oauth_bearer',
-      clientOptions: { apiKey: 'soat_cache_token' },
-      oauth: {
-        authorizationServerUrl: authServerBaseUrl,
-        authorizationUrl: `${authServerBaseUrl}/oauth/authorize`,
-        resourceMetadataUrl: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-        resourceUrl: 'https://mcp.sanka.com/mcp',
-        scopes: ['user-scope', 'api-access'],
-      },
-    });
-    expect(second).toEqual(first);
-    expect(introspectionCallCount).toBe(1);
-  });
-
-  it('updates cached workspace identity after a successful workspace switch', async () => {
-    const requestContext = authRequestContext({
-      authorization: 'Bearer soat_workspace_switch_token',
-    });
-    const first = await resolveClientAuth(requestContext);
-
-    updateResolvedClientAuthWorkspace({
-      auth: first,
-      mcpSessionId: 'session-workspace-switch',
-      workspace: {
-        workspace_id: 'workspace-new',
-        workspace_code: '94639119',
-        workspace_name: 'Sanka Test',
-      },
-    });
-    const second = await resolveClientAuth(requestContext);
-
-    expect(first.oauth).toMatchObject({
-      workspace_id: 'workspace-new',
-      workspace_code: '94639119',
-      workspace_name: 'Sanka Test',
-    });
-    expect(second.oauth).toMatchObject({
-      workspace_id: 'workspace-new',
-      workspace_code: '94639119',
-      workspace_name: 'Sanka Test',
-    });
-    expect(introspectionCallCount).toBe(1);
-  });
-
-  it('returns an OAuth challenge for inactive Sanka OAuth access tokens', async () => {
-    await expect(
-      resolveClientAuth(
-        authRequestContext({
-          authorization: 'Bearer soat_inactive_token',
-        }),
-      ),
-    ).rejects.toMatchObject<Partial<OAuthChallengeError>>({
-      name: 'OAuthChallengeError',
-      statusCode: 401,
-      message: 'OAuth access token is invalid or inactive.',
-    });
-
-    expect(introspectionCallCount).toBe(1);
-  });
-
-  it('rejects legacy JWT bearer tokens', async () => {
-    await expect(
-      resolveClientAuth(
-        authRequestContext({
-          authorization: 'Bearer header.payload.signature',
-        }),
-      ),
-    ).rejects.toMatchObject<Partial<OAuthChallengeError>>({
-      name: 'OAuthChallengeError',
-      statusCode: 401,
-      message: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
-    });
-
-    expect(introspectionCallCount).toBe(0);
-  });
+      expect(mcpSessionTokenCallCount).toBe(0);
+    },
+  );
 });
 
 describe('MCP session capabilities', () => {
@@ -521,50 +296,65 @@ describe('MCP session capabilities', () => {
   });
 });
 
-describe('upstream auth request hardening', () => {
-  const introspectionContext = (token: string): Parameters<typeof resolveClientAuth>[0] => ({
-    mcpOptions: {
-      authorizationServerUrl: 'https://app.example.com',
-    },
-    req: { headers: { authorization: `Bearer ${token}` } } as IncomingMessage,
-    resourceMetadataUrl: 'https://mcp.example.com/.well-known/oauth-protected-resource',
-    resourceUrl: 'https://mcp.example.com/mcp',
-  });
-
-  const spyOnFetch = () => jest.spyOn(global as unknown as { fetch: typeof fetch }, 'fetch');
-
+describe('upstream session exchange hardening', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('sends an abort signal with the introspection request', async () => {
-    const fetchMock = spyOnFetch().mockResolvedValue(
-      new Response(JSON.stringify({ data: { active: true, scope: 'api-access' } }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+  it('sends an abort signal with the internal session exchange request', async () => {
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: 'soat_signal_probe_token',
+          expires_in: 300,
+          scope: 'mcp:access',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
     );
 
-    await resolveClientAuth(introspectionContext('soat_signal_probe_token'));
+    const resolved = await resolveClientAuth({
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.example.com',
+        internalAuthorizationServerUrl: 'https://api.internal.example.com',
+        tokenExchangeSharedSecret: 'exchange-secret',
+      },
+      mcpSessionId: 'session-signal-probe',
+      mcpSessionIdForExchange: 'session-signal-probe',
+      req: { headers: {} } as IncomingMessage,
+      resourceMetadataUrl: 'https://mcp.example.com/.well-known/oauth-protected-resource',
+      resourceUrl: 'https://mcp.example.com/mcp',
+    });
 
+    expect(resolved.authMode).toBe('oauth_bearer');
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://app.example.com/api/v1/oauth/introspect',
+      'https://api.internal.example.com/oauth/internal/mcp-session-token',
       expect.objectContaining({
-        method: 'GET',
+        method: 'POST',
         signal: expect.any(AbortSignal),
       }),
     );
   });
 
-  it('turns introspection timeouts into a 401 OAuth challenge instead of an unhandled error', async () => {
-    spyOnFetch().mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'));
+  it('falls back to an unauthenticated Connect Sanka context on session exchange timeout', async () => {
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'));
 
-    const resolving = resolveClientAuth(introspectionContext('soat_timeout_probe_token'));
-
-    await expect(resolving).rejects.toBeInstanceOf(OAuthChallengeError);
-    await expect(resolving).rejects.toMatchObject({
-      statusCode: 401,
-      message: 'OAuth token introspection request failed or timed out.',
+    const resolved = await resolveClientAuth({
+      mcpOptions: {
+        authorizationServerUrl: 'https://app.example.com',
+        internalAuthorizationServerUrl: 'https://api.internal.example.com',
+        tokenExchangeSharedSecret: 'exchange-secret',
+      },
+      mcpSessionId: 'session-timeout-probe',
+      mcpSessionIdForExchange: 'session-timeout-probe',
+      req: { headers: {} } as IncomingMessage,
+      resourceMetadataUrl: 'https://mcp.example.com/.well-known/oauth-protected-resource',
+      resourceUrl: 'https://mcp.example.com/mcp',
     });
+
+    expect(resolved.authMode).toBe('none');
+    expect(resolved.oauth.connectUrl).toContain('https://app.example.com/oauth/mcp/connect?token=');
   });
 });

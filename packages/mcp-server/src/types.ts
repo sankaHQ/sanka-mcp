@@ -78,8 +78,6 @@ export type McpRequestContext = {
   toolProfile?: ToolProfile | undefined;
   auth?: ResolvedClientAuth | undefined;
   downloadBaseUrl?: string | undefined;
-  /** Client-declared local server key for reconnect RPCs (see reconnect-name.ts). */
-  reconnectServerName?: string | undefined;
 };
 
 export type HandlerFunction = ({

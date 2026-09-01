@@ -20,23 +20,18 @@ cd sanka-mcp
 
 ```sh
 export MCP_SERVER_AUTHORIZATION_SERVER_URL="http://app.localhost:8000"
-export MCP_SERVER_OAUTH_CLIENT_ID="your-public-oauth-client-id"
+export MCP_SERVER_INTERNAL_AUTHORIZATION_SERVER_URL="http://api.localhost:8000"
+export MCP_SERVER_TOKEN_EXCHANGE_SHARED_SECRET="local-shared-secret"
 export SANKA_BASE_URL="http://api.localhost:8000"
 node ./packages/mcp-server/dist/index.js --transport=http --port=8080
 ```
 
-`MCP_SERVER_OAUTH_CLIENT_ID` is optional. When set, the MCP server includes
-that `client_id` in its advertised OAuth authorization server metadata.
-
-Before running locally, create the OAuth app/client in Sanka and register the
-local redirect URI on that client:
-
-- first-party: `/manage/oauth`
-- third-party: `/:wsid/developers/oauth`
+The local web app must serve `/oauth/mcp/connect`; the local API must serve
+`/oauth/internal/mcp-session-token` and use the same token-exchange secret.
 
 ## MCP client examples
 
-Remote MCP config using Sanka OAuth:
+Remote MCP config using Connect Sanka:
 
 ```json
 {
@@ -48,22 +43,10 @@ Remote MCP config using Sanka OAuth:
 }
 ```
 
-The MCP server advertises Sanka's OAuth authorization server and protected resource metadata. OAuth-capable clients should authenticate against Sanka directly instead of expecting MCP-specific `/oauth/*` endpoints.
-
-Manual bearer-token config:
-
-```json
-{
-  "mcpServers": {
-    "sakura": {
-      "url": "https://mcp.sanka.com/mcp",
-      "headers": {
-        "Authorization": "Bearer soat_your_sanka_oauth_access_token"
-      }
-    }
-  }
-}
-```
+Do not configure static auth headers. The MCP server returns a signed Connect
+Sanka URL from `connect_sanka` or protected tool results, then exchanges the
+approved MCP session internally. Native MCP OAuth discovery and direct bearer
+authentication are intentionally disabled.
 
 Local stdio config with an already-issued Sanka token:
 
@@ -81,9 +64,8 @@ Local stdio config with an already-issued Sanka token:
 }
 ```
 
-`SANKA_API_KEY` in local stdio mode should contain an already-issued
-`soat_...` Sanka OAuth access token. Developer API tokens are not supported by
-the MCP server.
+`SANKA_API_KEY` is a local stdio process setting only. Hosted HTTP clients must
+use Connect Sanka and cannot submit bearer or developer API tokens directly.
 
 ## Runtime model
 

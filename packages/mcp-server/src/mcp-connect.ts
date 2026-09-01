@@ -10,9 +10,6 @@ const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
 const base64UrlEncode = (value: Buffer | string): string => Buffer.from(value).toString('base64url');
 
-export const buildOAuthAuthorizationUrl = (authorizationServerUrl: string): string =>
-  `${stripTrailingSlash(authorizationServerUrl)}/oauth/authorize`;
-
 export const normalizeMcpConnectScopes = (_scopes?: string[] | undefined): string[] => [MCP_ACCESS_SCOPE];
 
 export const buildMcpConnectMarkdownLink = (connectUrl: string): string => `[${connectUrl}](${connectUrl})`;

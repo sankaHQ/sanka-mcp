@@ -117,9 +117,8 @@ describe('public transfer MCP tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(uploadFile).not.toHaveBeenCalled();
   });
 

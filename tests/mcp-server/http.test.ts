@@ -11,37 +11,34 @@ import {
 } from '../../packages/mcp-server/src/local-docs-search';
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
-const TEST_ADVERTISED_SCOPE = 'api-access';
 const HTTP_INTEGRATION_TEST_TIMEOUT_MS = 15_000;
 const RECONNECT_INSTRUCTIONS =
-  'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry.';
+  'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.';
 
-const oauthReconnectChallengeBody = (baseUrl: string, toolName: string) => ({
+const connectSankaRequiredBody = (baseUrl: string, toolName: string) => ({
   asymmetricMatch: (body: Record<string, unknown>) =>
     body?.['error'] === 'authentication_required' &&
     typeof body['error_description'] === 'string' &&
     body['error_description'].includes(`Authentication required to use ${toolName}.`) &&
     body['error_description'].includes('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=') &&
     body['error_description'].includes('Required user-facing reply: Sanka MCP authentication is required.') &&
-    body['error_description'].includes('OAuth authorization URL: https://app.sanka.com/oauth/authorize') &&
-    body['authorization_server_url'] === 'https://app.sanka.com' &&
-    body['authorization_url'] === 'https://app.sanka.com/oauth/authorize' &&
     typeof body['connect_url'] === 'string' &&
     body['connect_url'].startsWith('https://app.sanka.com/oauth/mcp/connect?token=') &&
     typeof body['connect_url_markdown'] === 'string' &&
     body['connect_url_markdown'] === `[${body['connect_url']}](${body['connect_url']})` &&
     typeof body['required_user_facing_reply'] === 'string' &&
     body['required_user_facing_reply'].includes(`[${body['connect_url']}](${body['connect_url']})`) &&
-    body['resource_metadata_url'] === `${baseUrl}/.well-known/oauth-protected-resource` &&
     body['resource_url'] === `${baseUrl}/mcp` &&
     body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
-    body['reconnect_mode'] === 'client_native_oauth' &&
-    body['reconnect_rpc_method'] === 'mcpServer/oauth/login' &&
-    body['reconnect_server_name'] === 'sanka',
-  toString: () => 'OAuth reconnect challenge body',
+    body['reconnect_mode'] === 'connect_sanka' &&
+    body['authorization_server_url'] === undefined &&
+    body['authorization_url'] === undefined &&
+    body['resource_metadata_url'] === undefined &&
+    body['reconnect_rpc_method'] === undefined,
+  toString: () => 'Connect Sanka required body',
 });
 
-describe('protected resource metadata route', () => {
+describe('streamable HTTP transport', () => {
   let server: http.Server;
   let baseUrl: string;
 
@@ -51,7 +48,6 @@ describe('protected resource metadata route', () => {
     const app = streamableHTTPApp({
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com/',
-        scopesSupported: [TEST_ADVERTISED_SCOPE],
         streamableAuthFallback: 'tool_result',
         tokenExchangeSharedSecret: 'test-secret',
       },
@@ -87,44 +83,20 @@ describe('protected resource metadata route', () => {
     resetBinaryDownloadStoreForTests();
   });
 
-  it('serves metadata using the request origin when resourceUrl is unset', async () => {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`);
-    const body = await response.json();
+  it.each([
+    '/.well-known/oauth-protected-resource',
+    '/.well-known/oauth-protected-resource/mcp',
+    '/mcp/.well-known/oauth-protected-resource',
+    '/.well-known/oauth-authorization-server',
+    '/.well-known/oauth-authorization-server/mcp',
+    '/mcp/.well-known/oauth-authorization-server',
+    '/.well-known/openid-configuration',
+    '/.well-known/openid-configuration/mcp',
+    '/mcp/.well-known/openid-configuration',
+  ])('does not advertise retired native OAuth metadata at %s', async (path) => {
+    const response = await fetch(`${baseUrl}${path}`);
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      resource: `${baseUrl}/mcp`,
-      authorization_servers: ['https://app.sanka.com'],
-      bearer_methods_supported: ['header'],
-      resource_name: 'Sanka MCP Server',
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-  });
-
-  it('serves the configured HTTPS resource URL in production metadata', async () => {
-    const configuredApp = streamableHTTPApp({
-      mcpOptions: {
-        authorizationServerUrl: 'https://app.sanka.com/',
-        resourceUrl: 'https://mcp.sanka.com/mcp',
-        scopesSupported: [TEST_ADVERTISED_SCOPE],
-      },
-    });
-    const configuredServer = await new Promise<http.Server>((resolve) => {
-      const listener = configuredApp.listen(0, () => resolve(listener));
-    });
-
-    try {
-      const address = configuredServer.address() as AddressInfo;
-      const response = await fetch(`http://127.0.0.1:${address.port}/.well-known/oauth-protected-resource`);
-      const body = (await response.json()) as { resource?: string };
-
-      expect(response.status).toBe(200);
-      expect(body.resource).toBe('https://mcp.sanka.com/mcp');
-    } finally {
-      await new Promise<void>((resolve, reject) => {
-        configuredServer.close((error) => (error ? reject(error) : resolve()));
-      });
-    }
+    expect(response.status).toBe(404);
   });
 
   it('returns a generic JSON response for malformed JSON without framework headers', async () => {
@@ -155,19 +127,6 @@ describe('protected resource metadata route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('x-powered-by')).toBeNull();
-  });
-
-  it('ignores forwarded host headers when deriving protected resource metadata', async () => {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
-      headers: {
-        'x-forwarded-host': 'evil.example',
-        'x-forwarded-proto': 'https',
-      },
-    });
-    const body = (await response.json()) as { resource?: string };
-
-    expect(response.status).toBe(200);
-    expect(body.resource).toBe(`${baseUrl}/mcp`);
   });
 
   it('serves prepared binary downloads without base64 chunk transport', async () => {
@@ -245,113 +204,7 @@ describe('protected resource metadata route', () => {
     });
   });
 
-  it('serves the same metadata from the /mcp alias path', async () => {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-protected-resource/mcp`);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      resource: `${baseUrl}/mcp`,
-      authorization_servers: ['https://app.sanka.com'],
-      bearer_methods_supported: ['header'],
-      resource_name: 'Sanka MCP Server',
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-  });
-
-  it('serves same-origin authorization server metadata for native Codex OAuth', async () => {
-    const response = await fetch(`${baseUrl}/.well-known/oauth-authorization-server`);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      issuer: 'https://app.sanka.com',
-      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
-      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
-      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
-      registration_endpoint: 'https://app.sanka.com/api/v1/oauth/register',
-      response_types_supported: ['code'],
-      response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code'],
-      token_endpoint_auth_methods_supported: ['none'],
-      revocation_endpoint_auth_methods_supported: ['none'],
-      code_challenge_methods_supported: ['S256'],
-      client_id_metadata_document_supported: false,
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-  });
-
-  it('serves the same authorization metadata from resource-specific alias paths', async () => {
-    const suffixResponse = await fetch(`${baseUrl}/.well-known/oauth-authorization-server/mcp`);
-    const suffixBody = await suffixResponse.json();
-
-    expect(suffixResponse.status).toBe(200);
-    expect(suffixBody).toEqual({
-      issuer: 'https://app.sanka.com',
-      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
-      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
-      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
-      registration_endpoint: 'https://app.sanka.com/api/v1/oauth/register',
-      response_types_supported: ['code'],
-      response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code'],
-      token_endpoint_auth_methods_supported: ['none'],
-      revocation_endpoint_auth_methods_supported: ['none'],
-      code_challenge_methods_supported: ['S256'],
-      client_id_metadata_document_supported: false,
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-
-    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/oauth-authorization-server`);
-    const prefixedBody = await prefixedResponse.json();
-
-    expect(prefixedResponse.status).toBe(200);
-    expect(prefixedBody).toEqual(suffixBody);
-  });
-
-  it('serves the same OpenID configuration from resource-specific alias paths', async () => {
-    const suffixResponse = await fetch(`${baseUrl}/.well-known/openid-configuration/mcp`);
-    const suffixBody = await suffixResponse.json();
-
-    expect(suffixResponse.status).toBe(200);
-    expect(suffixBody).toEqual({
-      issuer: 'https://app.sanka.com',
-      authorization_endpoint: 'https://app.sanka.com/oauth/authorize',
-      token_endpoint: 'https://app.sanka.com/api/v1/oauth/token',
-      revocation_endpoint: 'https://app.sanka.com/api/v1/oauth/revoke',
-      registration_endpoint: 'https://app.sanka.com/api/v1/oauth/register',
-      response_types_supported: ['code'],
-      response_modes_supported: ['query'],
-      grant_types_supported: ['authorization_code'],
-      token_endpoint_auth_methods_supported: ['none'],
-      revocation_endpoint_auth_methods_supported: ['none'],
-      code_challenge_methods_supported: ['S256'],
-      client_id_metadata_document_supported: false,
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-
-    const prefixedResponse = await fetch(`${baseUrl}/mcp/.well-known/openid-configuration`);
-    const prefixedBody = await prefixedResponse.json();
-
-    expect(prefixedResponse.status).toBe(200);
-    expect(prefixedBody).toEqual(suffixBody);
-  });
-
-  it('serves protected resource metadata from the /mcp-prefixed alias path', async () => {
-    const response = await fetch(`${baseUrl}/mcp/.well-known/oauth-protected-resource`);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      resource: `${baseUrl}/mcp`,
-      authorization_servers: ['https://app.sanka.com'],
-      bearer_methods_supported: ['header'],
-      resource_name: 'Sanka MCP Server',
-      scopes_supported: [TEST_ADVERTISED_SCOPE],
-    });
-  });
-
-  it('returns an OAuth challenge when the bearer token is not a Sanka OAuth access token', async () => {
+  it('rejects direct bearer authentication without advertising an OAuth challenge', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -368,14 +221,15 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
+    expect(response.headers.get('www-authenticate')).toBeNull();
     expect(body).toEqual({
       error: 'authentication_failed',
-      error_description: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
+      error_description:
+        'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
     });
   });
 
-  it('keeps the default /mcp resource metadata on initialize', async () => {
+  it('rejects direct bearer authentication on initialize without advertising metadata', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -399,13 +253,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain(
-      `resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
-    );
-    expect(response.headers.get('www-authenticate')).not.toContain('/mcp/crm');
+    expect(response.headers.get('www-authenticate')).toBeNull();
     expect(body).toEqual({
       error: 'authentication_failed',
-      error_description: 'Sanka MCP accepts only Sanka OAuth access tokens that start with soat_.',
+      error_description:
+        'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
     });
   });
 
@@ -438,7 +290,7 @@ describe('protected resource metadata route', () => {
     expect(body).toContain('"serverInfo"');
   });
 
-  it('returns a native OAuth challenge for Claude initialize without authentication', async () => {
+  it('allows Claude initialize without forcing native OAuth', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -459,19 +311,16 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const body = await response.text();
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
     expect(response.headers.get('mcp-session-id')).toBeTruthy();
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).toContain('authorization_uri=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to connect Sanka MCP.',
-    });
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toContain('"protocolVersion"');
+    expect(body).toContain('"serverInfo"');
   });
 
-  it('returns a native OAuth challenge for Claude tools/list without authentication', async () => {
+  it('allows Claude tools/list without forcing native OAuth', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -486,14 +335,12 @@ describe('protected resource metadata route', () => {
         params: {},
       }),
     });
-    const body = await response.json();
+    const body = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to list Sanka MCP tools.',
-    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toContain('"tools"');
+    expect(body).toContain('"connect_sanka"');
   });
 
   it('supports stateless follow-up requests after authenticated initialize', async () => {
@@ -577,6 +424,7 @@ describe('protected resource metadata route', () => {
     const text = await response.text();
     expect(text).toContain('"name":"connect_sanka"');
     expect(text).toContain('"name":"auth_status"');
+    expect(text).not.toContain('"type":"oauth2"');
     expect(text).toContain('"name":"list_private_messages"');
     expect(text).toContain('"name":"sync_private_messages"');
     expect(text).toContain('"name":"get_private_message_thread"');
@@ -788,7 +636,7 @@ describe('protected resource metadata route', () => {
     }
   });
 
-  it('returns an OAuth challenge for protected CRM tool calls without authentication', async () => {
+  it('returns Connect Sanka details for protected CRM tool calls without authentication', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -810,9 +658,8 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_companies'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'list_companies'));
   });
 
   it('accepts receipt-sized JSON-RPC payloads before authentication preflight', async () => {
@@ -839,10 +686,10 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'append_expense_attachment_upload_chunk'));
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'append_expense_attachment_upload_chunk'));
   });
 
-  it('returns an OAuth challenge for reply_private_message_thread when authentication is missing', async () => {
+  it('returns Connect Sanka details for reply_private_message_thread when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -866,34 +713,8 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'reply_private_message_thread'));
-  });
-
-  it('echoes the client-declared reconnect server name from the hint header', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'X-Mcp-Reconnect-Server-Name': 'sakura',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'auth_status',
-          arguments: {},
-        },
-      }),
-    });
-    const text = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(text).toContain('"reconnect_server_name":"sakura"');
-    expect(text).not.toContain('"reconnect_server_name":"sanka"');
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'reply_private_message_thread'));
   });
 
   it('returns the auth_status fallback payload when authentication is missing', async () => {
@@ -922,21 +743,20 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"auth_mode":"none"');
     expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
-      'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
     );
-    expect(text).toContain('"mcp/www_authenticate"');
-    expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
-    expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
+    expect(text).not.toContain('"mcp/www_authenticate"');
+    expect(text).not.toContain('"authorization_server_url"');
+    expect(text).not.toContain('"authorization_url"');
     expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
+    expect(text).not.toContain('"resource_metadata_url"');
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
-    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka"');
-    expect(text).toContain('the assistant must include required_user_facing_reply');
-    expect(text).toContain('resource_metadata=');
+    expect(text).toContain('"reconnect_mode":"connect_sanka"');
+    expect(text).not.toContain('"reconnect_rpc_method"');
+    expect(text).not.toContain('"reconnect_server_name"');
+    expect(text).toContain('The assistant must include required_user_facing_reply');
   });
 
   it('replaces caller-chosen session ids with a server-issued resource capability', async () => {
@@ -1040,23 +860,23 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('"auth_mode":"none"');
     expect(text).toContain('"tool_profile":"hosted"');
     expect(text).toContain(
-      'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
+      'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
     );
-    expect(text).toContain('"mcp/www_authenticate"');
-    expect(text).toContain('"authorization_server_url":"https://app.sanka.com"');
-    expect(text).toContain('"authorization_url":"https://app.sanka.com/oauth/authorize"');
+    expect(text).not.toContain('"mcp/www_authenticate"');
+    expect(text).not.toContain('"authorization_server_url"');
+    expect(text).not.toContain('"authorization_url"');
     expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).toContain(`"resource_metadata_url":"${baseUrl}/.well-known/oauth-protected-resource"`);
+    expect(text).not.toContain('"resource_metadata_url"');
     expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"reconnect_mode":"client_native_oauth"');
-    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka"');
-    expect(text).toContain('the assistant must include required_user_facing_reply');
+    expect(text).toContain('"reconnect_mode":"connect_sanka"');
+    expect(text).not.toContain('"reconnect_rpc_method"');
+    expect(text).not.toContain('"reconnect_server_name"');
+    expect(text).toContain('The assistant must include required_user_facing_reply');
   });
 
-  it('returns an OAuth challenge for list_expenses when authentication is missing', async () => {
+  it('returns Connect Sanka details for list_expenses when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1076,16 +896,14 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'list_expenses'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'list_expenses'));
   });
 
-  it('keeps the HTTP challenge for streamable tool calls unless tool-result fallback is enabled', async () => {
+  it('keeps the HTTP 401 response for streamable tool calls unless tool-result fallback is enabled', async () => {
     const defaultApp = streamableHTTPApp({
       mcpOptions: {
         authorizationServerUrl: 'https://app.sanka.com',
-        scopesSupported: [TEST_ADVERTISED_SCOPE],
         tokenExchangeSharedSecret: 'test-secret',
       },
     });
@@ -1120,8 +938,8 @@ describe('protected resource metadata route', () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-      expect(body).toEqual(oauthReconnectChallengeBody(defaultBaseUrl, 'list_expenses'));
+      expect(response.headers.get('www-authenticate')).toBeNull();
+      expect(body).toEqual(connectSankaRequiredBody(defaultBaseUrl, 'list_expenses'));
     } finally {
       await new Promise<void>((resolve, reject) => {
         defaultServer?.close((error) => {
@@ -1160,13 +978,12 @@ describe('protected resource metadata route', () => {
     expect(text).toContain('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=');
     expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
     expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).toContain('mcpServer/oauth/login');
-    expect(text).toContain('sanka');
-    expect(text).toContain('"reconnect_rpc_method":"mcpServer/oauth/login"');
-    expect(text).toContain('"reconnect_server_name":"sanka"');
+    expect(text).toContain('"reconnect_mode":"connect_sanka"');
+    expect(text).not.toContain('mcpServer/oauth/login');
+    expect(text).not.toContain('"mcp/www_authenticate"');
   });
 
-  it('returns a native OAuth challenge for Codex streamable tool calls when authentication is missing', async () => {
+  it('returns Connect Sanka details for Codex streamable tool calls', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1184,84 +1001,16 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const body = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use list_expenses.',
-    });
-    expect(JSON.stringify(body)).not.toContain('/oauth/mcp/connect');
-    expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toContain('/oauth/mcp/connect');
+    expect(body).toContain('required_user_facing_reply');
+    expect(body).not.toContain('mcpServer/oauth/login');
   });
 
-  it(
-    'uses initialized Codex clientInfo for later native OAuth auth decisions',
-    async () => {
-      const initializeResponse = await fetch(`${baseUrl}/mcp`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json, text/event-stream',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'initialize',
-          params: {
-            protocolVersion: '2025-11-25',
-            capabilities: {},
-            clientInfo: {
-              name: 'Codex Desktop',
-              version: '0.128.0',
-            },
-          },
-        }),
-      });
-      const sessionId = initializeResponse.headers.get('mcp-session-id');
-      const initializeBody = await initializeResponse.json();
-
-      expect(initializeResponse.status).toBe(401);
-      expect(initializeBody).toEqual({
-        error: 'authentication_required',
-        error_description: 'Authentication required to connect Sanka MCP.',
-      });
-
-      const response = await fetch(`${baseUrl}/mcp`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json, text/event-stream',
-          'Content-Type': 'application/json',
-          'mcp-protocol-version': '2025-11-25',
-          ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 8,
-          method: 'tools/call',
-          params: {
-            name: 'list_expenses',
-            arguments: {},
-          },
-        }),
-      });
-      const body = await response.json();
-
-      expect(sessionId).toBeTruthy();
-      expect(response.status).toBe(401);
-      expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-      expect(body).toEqual({
-        error: 'authentication_required',
-        error_description: 'Authentication required to use list_expenses.',
-      });
-      expect(JSON.stringify(body)).not.toContain('/oauth/mcp/connect');
-      expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
-    },
-    HTTP_INTEGRATION_TEST_TIMEOUT_MS,
-  );
-
-  it('returns a native OAuth challenge for Claude tool calls when authentication is missing', async () => {
+  it('returns Connect Sanka details for Claude streamable tool calls', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1280,20 +1029,16 @@ describe('protected resource metadata route', () => {
         },
       }),
     });
-    const body = await response.json();
+    const body = await response.text();
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).toContain('authorization_uri=');
-    expect(body).toEqual({
-      error: 'authentication_required',
-      error_description: 'Authentication required to use list_expenses.',
-    });
-    expect(JSON.stringify(body)).not.toContain('/oauth/mcp/connect');
-    expect(JSON.stringify(body)).not.toContain('required_user_facing_reply');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toContain('/oauth/mcp/connect');
+    expect(body).toContain('required_user_facing_reply');
+    expect(body).not.toContain('mcpServer/oauth/login');
   });
 
-  it('returns an OAuth challenge for create_expense when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_expense when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1315,12 +1060,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_expense'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_expense'));
   });
 
-  it('returns an OAuth challenge for create_company when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_company when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1343,12 +1087,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_company'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_company'));
   });
 
-  it('returns an OAuth challenge for get_company_price_table when authentication is missing', async () => {
+  it('returns Connect Sanka details for get_company_price_table when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1371,12 +1114,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'get_company_price_table'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'get_company_price_table'));
   });
 
-  it('returns an OAuth challenge for create_ticket when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_ticket when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1398,12 +1140,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_ticket'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_ticket'));
   });
 
-  it('returns an OAuth challenge for create_calendar_attendance when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_calendar_attendance when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1429,12 +1170,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_calendar_attendance'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_calendar_attendance'));
   });
 
-  it('returns an OAuth challenge for create_order when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_order when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1464,12 +1204,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_order'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_order'));
   });
 
-  it('returns an OAuth challenge for create_estimate when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_estimate when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1492,12 +1231,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_estimate'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_estimate'));
   });
 
-  it('returns an OAuth challenge for create_invoice when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_invoice when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1520,12 +1258,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_invoice'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_invoice'));
   });
 
-  it('returns an OAuth challenge for create_payment when authentication is missing', async () => {
+  it('returns Connect Sanka details for create_payment when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1548,12 +1285,11 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'create_payment'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_payment'));
   });
 
-  it('returns an OAuth challenge for score_record when authentication is missing', async () => {
+  it('returns Connect Sanka details for score_record when authentication is missing', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -1576,8 +1312,7 @@ describe('protected resource metadata route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=');
-    expect(response.headers.get('www-authenticate')).not.toContain('scope=');
-    expect(body).toEqual(oauthReconnectChallengeBody(baseUrl, 'score_record'));
+    expect(response.headers.get('www-authenticate')).toBeNull();
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'score_record'));
   });
 });

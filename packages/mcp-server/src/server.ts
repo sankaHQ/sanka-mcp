@@ -641,7 +641,7 @@ const preparedToolsCacheKey = (options: McpOptions | undefined, profile: ToolPro
 };
 
 /**
- * Returns the selected tools with required OAuth scopes applied, memoized per
+ * Returns the selected tools with required Sanka access scopes applied, memoized per
  * (profile, code-permission options) configuration. The returned array and its
  * tools are shared across requests and must be treated as immutable.
  */
@@ -662,6 +662,18 @@ export function selectPreparedTools(options?: McpOptions, profile: ToolProfile =
   preparedToolsCache.set(cacheKey, prepared);
   return prepared;
 }
+
+const publicToolDescriptor = (mcpTool: McpTool): McpTool['tool'] => {
+  const advertisedSecuritySchemes = mcpTool.tool.securitySchemes?.filter(
+    (scheme) => scheme.type !== 'oauth2',
+  );
+  if (advertisedSecuritySchemes?.length === mcpTool.tool.securitySchemes?.length) {
+    return mcpTool.tool;
+  }
+
+  const { securitySchemes: _internalSecuritySchemes, ...tool } = mcpTool.tool;
+  return advertisedSecuritySchemes?.length ? { ...tool, securitySchemes: advertisedSecuritySchemes } : tool;
+};
 
 /**
  * Initializes the provided MCP Server with the given tools and handlers.
@@ -735,7 +747,11 @@ export async function initMcpServer(params: {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: providedTools.map((mcpTool) => mcpTool.tool),
+      // oauth2 remains an internal marker for Sanka scope enforcement, but
+      // advertising it would trigger the native client flow that this hosted
+      // server intentionally does not implement. Clients connect via the
+      // Connect Sanka session exchange instead.
+      tools: providedTools.map(publicToolDescriptor),
     };
   });
 

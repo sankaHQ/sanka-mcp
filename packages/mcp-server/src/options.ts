@@ -16,7 +16,6 @@ export type CLIOptions = McpOptions & {
 export type McpOptions = {
   authorizationServerUrl?: string | undefined;
   internalAuthorizationServerUrl?: string | undefined;
-  oauthClientId?: string | undefined;
   tokenExchangeSharedSecret?: string | undefined;
   streamableAuthFallback?: 'http_challenge' | 'tool_result' | undefined;
   includeCodeTool?: boolean | undefined;
@@ -27,7 +26,6 @@ export type McpOptions = {
   codeBlockedMethods?: string[] | undefined;
   customInstructionsPath?: string | undefined;
   resourceUrl?: string | undefined;
-  scopesSupported?: string[] | undefined;
 };
 
 export function parseCLIOptions(): CLIOptions {
@@ -43,28 +41,23 @@ export function parseCLIOptions(): CLIOptions {
   const opts = yargs(hideBin(process.argv))
     .option('authorization-server-url', {
       type: 'string',
-      description: 'Base URL for the Sanka OAuth authorization server, such as https://app.sanka.com',
+      description: 'Base URL for the Sanka web app that serves Connect Sanka, such as https://app.sanka.com',
     })
     .option('internal-authorization-server-url', {
       type: 'string',
       description:
-        'Optional internal base URL for OAuth introspection and mcp-session token exchange. Defaults to authorization-server-url.',
-    })
-    .option('oauth-client-id', {
-      type: 'string',
-      description:
-        'Optional OAuth client_id to advertise in authorization server metadata. Can also be set with MCP_SERVER_OAUTH_CLIENT_ID.',
+        'Optional internal base URL for mcp-session token exchange. Defaults to authorization-server-url.',
     })
     .option('token-exchange-shared-secret', {
       type: 'string',
       description:
-        'Shared secret used to mint Sanka MCP connect URLs and exchange approved mcp-session-id values for short-lived Sanka OAuth access tokens.',
+        'Shared secret used to mint Sanka MCP connect URLs and exchange approved mcp-session-id values for short-lived Sanka access tokens.',
     })
     .option('streamable-auth-fallback', {
       type: 'string',
       choices: ['http_challenge', 'tool_result'],
       description:
-        'How unauthenticated protected streamable tool calls are reported. Defaults to HTTP 401 challenges unless set to tool_result.',
+        'How unauthenticated protected streamable tool calls are reported. Defaults to an HTTP 401 response unless set to tool_result.',
     })
     .option('code-allow-http-gets', {
       type: 'boolean',
@@ -111,13 +104,7 @@ export function parseCLIOptions(): CLIOptions {
     })
     .option('resource-url', {
       type: 'string',
-      description:
-        'Protected resource URL advertised in metadata; defaults to the current request origin + /mcp',
-    })
-    .option('scopes-supported', {
-      type: 'string',
-      array: true,
-      description: 'OAuth scopes to advertise in protected resource metadata',
+      description: 'MCP resource URL bound into Connect Sanka session tokens',
     })
     .option('socket', { type: 'string', description: 'Unix socket to serve on if using http transport' })
     .option('tools', {
@@ -155,7 +142,6 @@ export function parseCLIOptions(): CLIOptions {
   return {
     authorizationServerUrl: optionalString(argv.authorizationServerUrl),
     internalAuthorizationServerUrl: optionalString(argv.internalAuthorizationServerUrl),
-    oauthClientId: optionalString(argv.oauthClientId),
     tokenExchangeSharedSecret: optionalString(argv.tokenExchangeSharedSecret),
     streamableAuthFallback:
       argv.streamableAuthFallback === 'tool_result' || argv.streamableAuthFallback === 'http_challenge' ?
@@ -170,7 +156,6 @@ export function parseCLIOptions(): CLIOptions {
     codeBlockedMethods: argv.codeBlockedMethods,
     customInstructionsPath: argv.customInstructionsPath,
     resourceUrl: argv.resourceUrl,
-    scopesSupported: argv.scopesSupported,
     transport,
     logFormat,
     port: argv.port,
@@ -210,13 +195,11 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
   return {
     authorizationServerUrl: defaultOptions.authorizationServerUrl,
     internalAuthorizationServerUrl: defaultOptions.internalAuthorizationServerUrl,
-    oauthClientId: defaultOptions.oauthClientId,
     tokenExchangeSharedSecret: defaultOptions.tokenExchangeSharedSecret,
     streamableAuthFallback: defaultOptions.streamableAuthFallback,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),
     docsDir: defaultOptions.docsDir,
     resourceUrl: defaultOptions.resourceUrl,
-    scopesSupported: defaultOptions.scopesSupported,
   };
 }
