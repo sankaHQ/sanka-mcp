@@ -49,25 +49,16 @@ describe('parseCLIOptions', () => {
     cleanup();
   });
 
-  it('reads oauth client id from env and keeps it optional', () => {
+  it('reads the internal session exchange server from env', () => {
     const cleanupArgv = mockArgv([]);
-    const cleanupEnv = mockEnv('MCP_SERVER_OAUTH_CLIENT_ID', 'client-from-env');
+    const cleanupEnv = mockEnv(
+      'MCP_SERVER_INTERNAL_AUTHORIZATION_SERVER_URL',
+      'https://api.internal.example.com',
+    );
 
     const result = parseCLIOptions();
 
-    expect(result.oauthClientId).toBe('client-from-env');
-
-    cleanupEnv();
-    cleanupArgv();
-  });
-
-  it('treats blank oauth client id values as unset', () => {
-    const cleanupArgv = mockArgv([]);
-    const cleanupEnv = mockEnv('MCP_SERVER_OAUTH_CLIENT_ID', '   ');
-
-    const result = parseCLIOptions();
-
-    expect(result.oauthClientId).toBeUndefined();
+    expect(result.internalAuthorizationServerUrl).toBe('https://api.internal.example.com');
 
     cleanupEnv();
     cleanupArgv();

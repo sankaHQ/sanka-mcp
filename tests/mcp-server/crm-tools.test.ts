@@ -1105,7 +1105,7 @@ describe('ChatGPT CRM tools', () => {
     expect(crmUpdateTicketStatusTool.metadata.httpPath).toBe('/api/v2/tickets/{ticket_id}/status');
   });
 
-  it('returns a reauth challenge when auth status is checked without authentication', async () => {
+  it('returns Connect Sanka guidance when auth status is checked without authentication', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
         client: {} as any,
@@ -1121,18 +1121,13 @@ describe('ChatGPT CRM tools', () => {
       auth_mode: 'none',
       tool_profile: 'full',
       scopes: [],
-      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
       resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
+      reconnect_mode: 'connect_sanka',
       reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
+        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
 
   it('returns hosted reconnect metadata when connect_sanka is called without authentication', async () => {
@@ -1151,20 +1146,13 @@ describe('ChatGPT CRM tools', () => {
       auth_mode: 'none',
       tool_profile: 'hosted',
       scopes: [],
-      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
       resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
+      reconnect_mode: 'connect_sanka',
       reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
-      reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka',
+        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
 
   it('treats MCP access as sufficient for Sanka feature scopes', async () => {
@@ -1188,17 +1176,12 @@ describe('ChatGPT CRM tools', () => {
       auth_mode: 'oauth_bearer',
       tool_profile: 'hosted',
       scopes: ['mcp:access'],
-      message: 'Sanka CRM is connected with Sanka OAuth.',
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
+      message: 'Sanka CRM is connected through this MCP session.',
       required_scopes: ['deals:read', 'expenses:write', 'incentives:read'],
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
       resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
+      reconnect_mode: 'connect_sanka',
       reconnect_instructions:
-        'If connect_url is present, the assistant must include required_user_facing_reply in the next visible response. Do not omit the URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. In clients with native OAuth UI, that UI may also be used, then retry the original request.',
-      reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka',
+        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
     expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
@@ -1632,12 +1615,11 @@ describe('ChatGPT CRM tools', () => {
         missing_scopes: ['external:read'],
       }),
     );
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="insufficient_scope"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
   });
 
-  it('reports Codex-specific reconnect metadata when auth status is checked from hosted Codex', async () => {
+  it('uses Connect Sanka metadata when auth status is checked from hosted Codex', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
         client: {} as any,
@@ -1658,20 +1640,15 @@ describe('ChatGPT CRM tools', () => {
       tool_profile: 'hosted',
       client_name: 'Codex',
       scopes: [],
-      message: 'Sanka CRM is connected with Sanka OAuth.',
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      message: 'Sanka CRM is connected through this MCP session.',
       resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
+      reconnect_mode: 'connect_sanka',
       reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
-      reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka',
+        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
   });
 
-  it('does not expose connect URLs when auth_status is checked from hosted Codex without authentication', async () => {
+  it('exposes Connect Sanka guidance when auth_status is checked from hosted Codex', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
         client: {} as any,
@@ -1697,32 +1674,29 @@ describe('ChatGPT CRM tools', () => {
     const [content] = result.content;
     expect(content?.type).toBe('text');
     const text = content?.type === 'text' ? content.text : '';
-    expect(text).not.toContain('/oauth/mcp/connect');
-    expect(text).not.toContain('Connect Sanka');
-    expect(result.structuredContent).toEqual({
-      connected: false,
-      auth_mode: 'none',
-      tool_profile: 'hosted',
-      client_name: 'codex-mcp-client',
-      scopes: [],
-      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
-      required_scopes: ['crm:read'],
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
-      reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
-      reconnect_rpc_method: 'mcpServer/oauth/login',
-      reconnect_server_name: 'sanka',
-    });
-    expect(result.structuredContent?.['connect_url']).toBeUndefined();
-    expect(result.structuredContent?.['connect_url_markdown']).toBeUndefined();
-    expect(result.structuredContent?.['required_user_facing_reply']).toBeUndefined();
+    expect(text).toContain('/oauth/mcp/connect');
+    expect(text).toContain('Connect Sanka');
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        connected: false,
+        auth_mode: 'none',
+        tool_profile: 'hosted',
+        client_name: 'codex-mcp-client',
+        scopes: [],
+        message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
+        required_scopes: ['crm:read'],
+        connect_url: 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
+        connect_scopes: ['mcp:access'],
+        resource_url: 'https://mcp.sanka.com/mcp',
+        reconnect_mode: 'connect_sanka',
+      }),
+    );
+    expect(result.structuredContent?.['authorization_url']).toBeUndefined();
+    expect(result.structuredContent?.['resource_metadata_url']).toBeUndefined();
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
 
-  it('does not expose connect URLs when auth_status is checked from hosted Claude without authentication', async () => {
+  it('exposes Connect Sanka guidance when auth_status is checked from hosted Claude', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
         client: {} as any,
@@ -1748,30 +1722,29 @@ describe('ChatGPT CRM tools', () => {
     const [content] = result.content;
     expect(content?.type).toBe('text');
     const text = content?.type === 'text' ? content.text : '';
-    expect(text).not.toContain('/oauth/mcp/connect');
-    expect(text).not.toContain('Connect Sanka');
-    expect(result.structuredContent).toEqual({
-      connected: false,
-      auth_mode: 'none',
-      tool_profile: 'hosted',
-      client_name: 'Claude Desktop',
-      scopes: [],
-      message: 'Sanka CRM is not connected yet. Approve the OAuth prompt in your MCP client, then retry.',
-      required_scopes: ['crm:read'],
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
-      reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
-    });
-    expect(result.structuredContent?.['connect_url']).toBeUndefined();
-    expect(result.structuredContent?.['connect_url_markdown']).toBeUndefined();
-    expect(result.structuredContent?.['required_user_facing_reply']).toBeUndefined();
+    expect(text).toContain('/oauth/mcp/connect');
+    expect(text).toContain('Connect Sanka');
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        connected: false,
+        auth_mode: 'none',
+        tool_profile: 'hosted',
+        client_name: 'Claude Desktop',
+        scopes: [],
+        message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
+        required_scopes: ['crm:read'],
+        connect_url: 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
+        connect_scopes: ['mcp:access'],
+        resource_url: 'https://mcp.sanka.com/mcp',
+        reconnect_mode: 'connect_sanka',
+      }),
+    );
+    expect(result.structuredContent?.['authorization_url']).toBeUndefined();
+    expect(result.structuredContent?.['resource_metadata_url']).toBeUndefined();
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
   });
 
-  it('reports Claude-specific reconnect metadata when connect_sanka is called from hosted Claude', async () => {
+  it('uses Connect Sanka metadata when connect_sanka is called from hosted Claude', async () => {
     const result = await crmConnectSankaTool.handler({
       reqContext: {
         client: {} as any,
@@ -1792,14 +1765,11 @@ describe('ChatGPT CRM tools', () => {
       tool_profile: 'hosted',
       client_name: 'Claude',
       scopes: [],
-      message: 'Sanka CRM is already connected with Sanka OAuth.',
-      authorization_server_url: 'https://app.sanka.com',
-      authorization_url: 'https://app.sanka.com/oauth/authorize',
-      resource_metadata_url: 'https://mcp.sanka.com/.well-known/oauth-protected-resource',
+      message: 'Sanka CRM is already connected through this MCP session.',
       resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'client_native_oauth',
+      reconnect_mode: 'connect_sanka',
       reconnect_instructions:
-        'Use the MCP client native OAuth reconnect flow for this Sanka server, then retry the original request. Do not show a Connect URL to the user.',
+        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
   });
 
@@ -2461,9 +2431,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(result.structuredContent?.['connect_url']).toBe(connectUrl);
     expect(result.structuredContent?.['connect_url_markdown']).toBe(`[${connectUrl}](${connectUrl})`);
     expect(result.structuredContent?.['required_user_facing_reply']).toContain(
@@ -2489,9 +2458,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -4149,9 +4117,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -8711,9 +8678,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -9152,9 +9118,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(list).not.toHaveBeenCalled();
   });
 
@@ -11312,9 +11277,8 @@ describe('ChatGPT CRM tools', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toEqual([
-      expect.stringContaining('error="invalid_token"'),
-    ]);
+    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
     expect(bootstrap).not.toHaveBeenCalled();
   });
 
