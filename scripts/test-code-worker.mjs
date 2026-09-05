@@ -115,7 +115,7 @@ test('worker still denies host secrets, outside files, other hosts and subproces
     assert.match(denied.loaderEnv, /Requires env access/);
     assert.match(denied.file, /Requires read access/);
     assert.match(denied.net, /Requires net access/);
-    assert.match(denied.run, /Requires run access/);
+    assert.match(denied.run, /NotCapable: Requires (?:run access|--allow-run permissions)/);
     assert.doesNotMatch(text(result), /host-canary|host-compiler-canary|file-canary|unexpected success/);
   } finally {
     if (previous === undefined) delete process.env.SANKA_CODE_WORKER_CANARY;
