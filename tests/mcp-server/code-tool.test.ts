@@ -4,7 +4,19 @@ import {
   codeWorkerRunFlags,
   codeWorkerSpawnEnv,
 } from '../../packages/mcp-server/src/code-tool';
-import { buildRunModuleSource } from '../../packages/mcp-server/src/code-tool-worker';
+import { buildRunModuleSource, getMethodSuggestions } from '../../packages/mcp-server/src/code-tool-worker';
+
+describe('code tool method suggestions', () => {
+  it('suggests current SDK methods when a caller misspells a method', () => {
+    expect(getMethodSuggestions('client.prospect.companies.creat')[0]).toBe(
+      'client.prospect.companies.create',
+    );
+    expect(getMethodSuggestions('client.public.workspaceMessages.threads.replie')).toContain(
+      'client.public.workspaceMessages.threads.reply',
+    );
+    expect(getMethodSuggestions('client.public.orders.creat')[0]).toBe('client.public.orders.create');
+  });
+});
 
 describe('code tool worker client options', () => {
   it('preserves V2-only and workspace configuration for execute calls', () => {
