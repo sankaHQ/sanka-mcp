@@ -69,7 +69,8 @@ export const codeWorkerRunFlags = ({
 
 export const codeWorkerSpawnEnv = (env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv =>
   Object.fromEntries(
-    ['DENO_DIR', 'HOME', 'NO_COLOR', 'PATH', 'SSL_CERT_DIR', 'SSL_CERT_FILE', 'TMPDIR']
+    // The Alpine runtime needs LD_LIBRARY_PATH to load Deno's shared libraries.
+    ['DENO_DIR', 'HOME', 'LD_LIBRARY_PATH', 'NO_COLOR', 'PATH', 'SSL_CERT_DIR', 'SSL_CERT_FILE', 'TMPDIR']
       .map((name) => [name, env[name]])
       .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   );

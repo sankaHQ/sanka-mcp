@@ -102,6 +102,7 @@ test('worker still denies host secrets, outside files, other hosts and subproces
       return {
         compilerConfig: (globalThis as any).Deno.env.get('TSC_WATCHFILE') ?? null,
         env: await attempt(() => (globalThis as any).Deno.env.get('SANKA_CODE_WORKER_CANARY')),
+        loaderEnv: await attempt(() => (globalThis as any).Deno.env.get('LD_LIBRARY_PATH')),
         file: await attempt(() => (globalThis as any).Deno.readTextFile(${JSON.stringify(file)})),
         net: await attempt(() => fetch('https://blocked.example.invalid')),
         run: await attempt(() => new (globalThis as any).Deno.Command('echo', { args: ['blocked'] }).output()),
@@ -111,6 +112,7 @@ test('worker still denies host secrets, outside files, other hosts and subproces
     const denied = JSON.parse(text(result));
     assert.equal(denied.compilerConfig, null);
     assert.match(denied.env, /Requires env access/);
+    assert.match(denied.loaderEnv, /Requires env access/);
     assert.match(denied.file, /Requires read access/);
     assert.match(denied.net, /Requires net access/);
     assert.match(denied.run, /Requires run access/);
