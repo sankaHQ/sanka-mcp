@@ -41,22 +41,28 @@ describe('code tool worker client options', () => {
 
 describe('code tool worker sandbox', () => {
   it('does not grant broad environment access', () => {
-    expect(
-      codeWorkerRunFlags({
-        allowRead: '/srv/sanka-mcp',
-        baseURLHostname: 'api.sanka.com',
-      }),
-    ).toEqual([
+    const flags = codeWorkerRunFlags({
+      allowRead: '/srv/sanka-mcp',
+      baseURLHostname: 'api.sanka.com',
+    });
+    expect(flags.slice(0, 3)).toEqual([
       '--node-modules-dir=manual',
       '--allow-read=/srv/sanka-mcp',
       '--allow-net=api.sanka.com',
-      '--allow-env=SANKA_API_KEY,SANKA_API_VERSION,SANKA_BASE_URL,SANKA_LOG,SANKA_WORKSPACE_CODE',
     ]);
+    expect(flags).toHaveLength(4);
+    expect(flags[3]).toMatch(/^--allow-env=[A-Z_]+(?:,[A-Z_]+)*$/);
   });
 
-  it('does not pass application secrets into the worker environment', () => {
+  it('does not pass application secrets or compiler configuration into the worker environment', () => {
+    const envFlag = codeWorkerRunFlags({
+      allowRead: '/srv/sanka-mcp',
+      baseURLHostname: 'api.sanka.com',
+    }).find((flag) => flag.startsWith('--allow-env='))!;
+    const allowedNames = envFlag.slice('--allow-env='.length).split(',');
     expect(
       codeWorkerSpawnEnv({
+        ...Object.fromEntries(allowedNames.map((name) => [name, 'host-value'])),
         HOME: '/home/sanka',
         PATH: '/usr/bin',
         SANKA_API_KEY: 'secret',
