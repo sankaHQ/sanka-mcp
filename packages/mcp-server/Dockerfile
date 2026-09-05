@@ -70,6 +70,9 @@ RUN chown -R nodejs:nodejs /deno-dir
 # Switch to non-root user
 USER nodejs
 
+# Exercise the restricted child process in the actual production runtime.
+RUN node --test scripts/test-code-worker.mjs
+
 # Set the entrypoint to the MCP server
 ENTRYPOINT ["node", "packages/mcp-server/dist/index.js"]
 

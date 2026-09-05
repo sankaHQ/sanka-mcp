@@ -64,11 +64,12 @@ describe('code tool worker sandbox', () => {
       codeWorkerSpawnEnv({
         ...Object.fromEntries(allowedNames.map((name) => [name, 'host-value'])),
         HOME: '/home/sanka',
+        LD_LIBRARY_PATH: '/usr/lib:/usr/local/lib',
         PATH: '/usr/bin',
         SANKA_API_KEY: 'secret',
         SENTRY_DSN: 'secret',
       }),
-    ).toEqual({ HOME: '/home/sanka', PATH: '/usr/bin' });
+    ).toEqual({ HOME: '/home/sanka', LD_LIBRARY_PATH: '/usr/lib:/usr/local/lib', PATH: '/usr/bin' });
   });
 
   it('does not expose request-scoped values to the generated module', () => {
