@@ -424,7 +424,10 @@ it('preserves failed/skipped verification evidence without turning it into succe
     checks: report.checks,
     data: { artifact: report },
   });
-  expect(JSON.stringify(normalized.content)).toContain('verification_failed');
+  expect(normalized.content[0]).toMatchObject({
+    type: 'text',
+    text: expect.stringContaining('SUCCESS verify_code_migration verification_failed'),
+  });
   expect(JSON.stringify(normalized.content)).toContain('ok=false');
   expect(JSON.stringify(result.content)).toContain('ok=false');
   expect(JSON.stringify(result.content)).toContain('do not execute code');
