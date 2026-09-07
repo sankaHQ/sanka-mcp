@@ -1,4 +1,5 @@
 import { codeMigrationTools } from './code-migration-tools';
+import { migrationSetupTools } from './migration-setup-tools';
 import {
   migrationReadTools,
   startMigrationPlanTool,
@@ -1267,6 +1268,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmScoreRecordTool,
     ...migrationReadTools,
     ...codeMigrationTools,
+    ...migrationSetupTools,
     startMigrationPlanTool,
     ...migrationExecutionTools,
     verifyMigrationTool,
