@@ -29,6 +29,8 @@ type MigrationToolDefinition = {
   description: string;
   parameters?: Record<string, object>;
   method?: 'GET' | 'POST';
+  required?: string[];
+  executionAction?: 'apply' | 'pause' | 'resume' | 'cancel';
 };
 
 function migrationTool(definition: MigrationToolDefinition): McpTool {
@@ -38,7 +40,7 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
   const inputSchema: McpTool['tool']['inputSchema'] = {
     type: 'object',
     properties: { workspace_id: workspaceId, ...definition.parameters },
-    required: ['workspace_id', ...pathParameters],
+    required: ['workspace_id', ...pathParameters, ...(definition.required ?? [])],
     additionalProperties: false,
   };
   const validate = ajv.compile(inputSchema);
@@ -58,7 +60,7 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
       securitySchemes: [{ type: 'oauth2', scopes: ['mcp:access'] }],
       annotations: {
         readOnlyHint: readOnly,
-        destructiveHint: false,
+        destructiveHint: Boolean(definition.executionAction && definition.executionAction !== 'pause'),
         idempotentHint: readOnly,
         openWorldHint: true,
       },
@@ -83,22 +85,82 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
         return encodeURIComponent(String(values[key]));
       });
       try {
-        // Planning queues jobs but never applies data. Disable automatic POST retries:
-        // an ambiguous response must be inspected before a forced re-plan is repeated.
+        // Stateful POSTs are never retried automatically. Inspect status after an
+        // ambiguous response; apply retries must reuse the original idempotency key.
         const payload =
           readOnly ?
             await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, { query })
           : await reqContext.client.post<Record<string, unknown>>(`/api/v2/migrate${path}`, {
               query: { workspace_id: workspace },
-              body: Object.fromEntries(Object.entries(query).filter(([key]) => key !== 'workspace_id')),
+              ...(definition.executionAction === 'pause' || definition.executionAction === 'cancel' ?
+                {}
+              : {
+                  body: Object.fromEntries(
+                    Object.entries(query).filter(
+                      ([key]) => !['workspace_id', 'confirm', 'idempotency_key'].includes(key),
+                    ),
+                  ),
+                }),
+              ...(definition.executionAction === 'apply' ?
+                { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
+              : {}),
               maxRetries: 0,
             });
+        if (definition.executionAction) {
+          const data = payload['data'];
+          const migration =
+            data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
+          const status = typeof migration['status'] === 'string' ? migration['status'] : null;
+          const knownStatuses = [
+            'created',
+            'inspecting',
+            'planning',
+            'requires_approval',
+            'applying',
+            'paused',
+            'applied',
+            'verified',
+            'failed',
+            'cancelled',
+          ];
+          const statusText = status && knownStatuses.includes(status) ? status : 'not supplied';
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Migration ${definition.executionAction} API response. Current status: ${statusText}. Read get_migration with the same workspace and migration IDs to monitor progress. This response does not establish verified completion or rollback.`,
+              },
+            ],
+            structuredContent: {
+              ...payload,
+              workspace_id: workspace,
+              migration_id: values['migration_id'],
+              migration_status: status,
+              status: status ?? 'unknown',
+              plan_hash: migration['plan_hash'] ?? null,
+              ...(values['plan_hash'] ? { requested_plan_hash: values['plan_hash'] } : {}),
+              next_tool: 'get_migration',
+            },
+          };
+        }
         return {
           content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
           structuredContent: { ...payload, workspace_id: workspace },
         };
       } catch (error) {
-        return buildToolErrorResult(error);
+        const result = buildToolErrorResult(error);
+        return definition.executionAction ?
+            {
+              ...result,
+              structuredContent: {
+                ...result.structuredContent,
+                workspace_id: workspace,
+                migration_id: values['migration_id'],
+                ...(values['plan_hash'] ? { requested_plan_hash: values['plan_hash'] } : {}),
+                next_tool: 'get_migration',
+              },
+            }
+          : result;
       }
     },
   };
@@ -218,3 +280,87 @@ export const startMigrationPlanTool = migrationTool({
     },
   },
 });
+
+const confirmation = {
+  type: 'boolean',
+  const: true,
+  description:
+    'Set true only after the user explicitly authorizes this action for the specified workspace, migration, and (for apply/resume) reviewed plan hash and route scope. Never infer authorization from a request to inspect or plan.',
+};
+const reviewedPlanHash = {
+  type: 'string',
+  minLength: 1,
+  pattern: '^\\S+$',
+  description:
+    'Exact reviewed plan_hash from get_migration_plan. Never substitute a newer hash automatically after an API mismatch.',
+};
+
+const executionDefinitions: MigrationToolDefinition[] = [
+  {
+    name: 'apply_migration',
+    title: 'Apply reviewed migration plan',
+    path: '/migrations/{migration_id}/apply',
+    method: 'POST',
+    executionAction: 'apply',
+    required: ['plan_hash', 'idempotency_key', 'confirm'],
+    description:
+      'Start destination writes for the reviewed migration plan only after explicit user confirmation of the workspace, migration, plan hash and selected routes. Requires confirm=true, the reviewed plan_hash and a stable idempotency_key. Omit routes only when the user approved all planned routes. A queued/applying response is not completion; poll get_migration. After a timeout inspect status first and, if retrying the identical apply, reuse the same idempotency key and payload. Never automatically replace a rejected hash or retry with a new key.',
+    parameters: {
+      migration_id: resourceId,
+      plan_hash: reviewedPlanHash,
+      confirm: confirmation,
+      idempotency_key: {
+        type: 'string',
+        minLength: 8,
+        maxLength: 200,
+        pattern: '^[!-~]+$',
+        description:
+          'Stable unique key for this approved apply request (8–200 printable ASCII characters without spaces). Sent as Idempotency-Key. Reuse it with the identical payload after uncertain outcomes; never generate a new key just to bypass a conflict.',
+      },
+      routes: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 100,
+        uniqueItems: true,
+        items: { type: 'string', minLength: 1, pattern: '\\S' },
+        description:
+          'Explicit approved route keys from the plan. Omission applies all planned routes; empty/null selections are rejected to prevent accidental broadening.',
+      },
+    },
+  },
+  {
+    name: 'pause_migration',
+    title: 'Pause migration',
+    path: '/migrations/{migration_id}/pause',
+    method: 'POST',
+    executionAction: 'pause',
+    required: ['confirm'],
+    description:
+      'Pause an active migration after explicit user authorization. Stops its active job while preserving checkpoints for resume. Does not roll back records already written. No automatic retries; inspect get_migration after an uncertain response.',
+    parameters: { migration_id: resourceId, confirm: confirmation },
+  },
+  {
+    name: 'resume_migration',
+    title: 'Resume reviewed migration',
+    path: '/migrations/{migration_id}/resume',
+    method: 'POST',
+    executionAction: 'resume',
+    required: ['plan_hash', 'confirm'],
+    description:
+      'Resume destination writes from durable checkpoints after explicit user authorization of the reviewed plan hash. Requires confirm=true and plan_hash. The API revalidates the plan and preserves the previous route selection; this tool cannot change routes. No automatic retries. Poll get_migration and inspect state before resubmitting after a timeout.',
+    parameters: { migration_id: resourceId, plan_hash: reviewedPlanHash, confirm: confirmation },
+  },
+  {
+    name: 'cancel_migration',
+    title: 'Cancel migration',
+    path: '/migrations/{migration_id}/cancel',
+    method: 'POST',
+    executionAction: 'cancel',
+    required: ['confirm'],
+    description:
+      'Terminally cancel a migration after explicit user authorization. Stops an active job and preserves its transfer evidence; already-written destination records remain and are not rolled back. Use pause_migration when the user wants a resumable stop. No automatic retries; inspect get_migration after an uncertain response.',
+    parameters: { migration_id: resourceId, confirm: confirmation },
+  },
+];
+
+export const migrationExecutionTools = executionDefinitions.map(migrationTool);

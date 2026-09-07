@@ -1,4 +1,4 @@
-# Migration MCP inspection and planning tools
+# Migration MCP tools
 
 The migration tool group exposes the existing finite migration API to AI clients.
 It complements the existing Flow import/export tools and Ferry program document/todo
@@ -73,6 +73,60 @@ The current public contract has no separate data-migration scan or inventory GET
 endpoint. Existing migration and plan reads provide inspection progress/evidence;
 no unsupported endpoint or scan alias is invented here.
 
-Creating migrations, applying a reviewed plan, lifecycle controls, starting
-verification, ingestion mutations and code migration operations remain follow-up
-phases. Matching plugin skills should be packaged when these tools are released.
+## Execute and control a reviewed migration
+
+The following stateful tools use the existing Migration API. All require an explicit
+`workspace_id`, `migration_id` and `confirm: true`. Confirmation has no default:
+missing, false, string or numeric values fail before any API request. The flag must
+represent explicit user authorization for that specific action and scope. A request
+to inspect or plan is not approval to execute.
+
+| Tool               | POST path beneath `/api/v2/migrate` | Additional required input      | Optional input |
+| ------------------ | ----------------------------------- | ------------------------------ | -------------- |
+| `apply_migration`  | `/migrations/{migration_id}/apply`  | `plan_hash`, `idempotency_key` | `routes`       |
+| `pause_migration`  | `/migrations/{migration_id}/pause`  |                                |                |
+| `resume_migration` | `/migrations/{migration_id}/resume` | `plan_hash`                    |                |
+| `cancel_migration` | `/migrations/{migration_id}/cancel` |                                |                |
+
+Before applying, present the plan from `get_migration_plan`, the pinned workspace,
+source/destination scope, selected route keys and exact `plan_hash` for review.
+Only after the user authorizes that plan and scope should the caller set `confirm`
+to true. The API remains authoritative for recomputing the plan hash, access,
+entitlement and migration state before destination execution is submitted.
+
+`apply_migration` requires a stable idempotency key even though the API makes that
+header optional. It must contain 8–200 printable ASCII characters without spaces.
+The adapter sends it only in `Idempotency-Key`, and sends only `plan_hash` plus
+optional `routes` in the body. It never generates or silently replaces the key.
+An omitted route selection means **all planned routes**, so omission requires
+approval of that scope. An explicitly supplied route selection must contain 1–100
+unique nonblank keys. Empty or null selections are rejected rather than being
+interpreted as all routes. Only route keys present in the reviewed plan are valid
+for execution; the API validates that binding.
+
+Resume revalidates the reviewed hash and continues from durable checkpoints using
+the previous route selection. It accepts neither replacement routes nor an
+idempotency key, since that endpoint does not define one. Pause stops the active
+job but preserves resumable checkpoints. Cancel stops active work and marks the
+migration terminally cancelled. **Neither pause nor cancel rolls back records
+already written to the destination.**
+
+All four tools disable automatic SDK retries and are advertised as stateful,
+non-idempotent operations. Apply, resume and cancel carry the destructive hint;
+pause does not. After an ambiguous timeout, inspect `get_migration` before any
+resubmission. A deliberate retry of the identical apply must reuse the same key,
+hash and route selection. Hash or idempotency conflicts must be resolved through
+review; never replace a hash/key automatically to bypass them.
+
+Execution replies use a short status summary and preserve the API envelope in
+structured content. They include the pinned workspace and migration ID, returned
+migration status and plan hash, and the separately labelled `requested_plan_hash`
+where applicable. Any job/run identifiers returned by the API remain in the
+original payload; none are invented when the API omits them. Queued or applying
+means execution is still pending, not completion or successful verification.
+Errors retain API codes/status/context and do not trigger fallback writes.
+
+Creating migrations, starting verification, ingestion mutations and code migration
+operations remain follow-up phases. Matching plugin skills should be packaged when
+these tools are released. No destination writes or production jobs are performed
+by the implementation tests, which use mocked API transports.
