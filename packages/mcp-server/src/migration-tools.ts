@@ -22,15 +22,18 @@ const pagination = {
 };
 const ajv = new Ajv({ allErrors: true });
 
-type ReadDefinition = {
+type MigrationToolDefinition = {
   name: string;
   title: string;
   path: string;
   description: string;
   parameters?: Record<string, object>;
+  method?: 'GET' | 'POST';
 };
 
-function migrationReadTool(definition: ReadDefinition): McpTool {
+function migrationTool(definition: MigrationToolDefinition): McpTool {
+  const method = definition.method ?? 'GET';
+  const readOnly = method === 'GET';
   const pathParameters = [...definition.path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]!);
   const inputSchema: McpTool['tool']['inputSchema'] = {
     type: 'object',
@@ -42,18 +45,23 @@ function migrationReadTool(definition: ReadDefinition): McpTool {
   return {
     metadata: {
       resource: 'migrations',
-      operation: 'read',
+      operation: readOnly ? 'read' : 'write',
       tags: ['migration', 'sanka-migrate'],
-      httpMethod: 'GET',
+      httpMethod: method,
       httpPath: `/api/v2/migrate${definition.path}`,
     },
     tool: {
       name: definition.name,
       title: definition.title,
-      description: `${definition.description} Read-only Sanka migration platform operation. Always supply the pinned workspace_id. API permissions and workspace binding apply.`,
+      description: `${definition.description} Always supply the pinned workspace_id. API permissions and workspace binding apply.`,
       inputSchema,
       securitySchemes: [{ type: 'oauth2', scopes: ['mcp:access'] }],
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        readOnlyHint: readOnly,
+        destructiveHint: false,
+        idempotentHint: readOnly,
+        openWorldHint: true,
+      },
     },
     handler: async ({ reqContext, args }) => {
       const authError = requireAuthentication({ reqContext, toolTitle: definition.title });
@@ -75,11 +83,16 @@ function migrationReadTool(definition: ReadDefinition): McpTool {
         return encodeURIComponent(String(values[key]));
       });
       try {
-        // The SDK's generic GET transport preserves bearer auth, configured base URL,
-        // API errors and pagination. No generated SDK resource needs hand editing.
-        const payload = await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, {
-          query,
-        });
+        // Planning queues jobs but never applies data. Disable automatic POST retries:
+        // an ambiguous response must be inspected before a forced re-plan is repeated.
+        const payload =
+          readOnly ?
+            await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, { query })
+          : await reqContext.client.post<Record<string, unknown>>(`/api/v2/migrate${path}`, {
+              query: { workspace_id: workspace },
+              body: Object.fromEntries(Object.entries(query).filter(([key]) => key !== 'workspace_id')),
+              maxRetries: 0,
+            });
         return {
           content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
           structuredContent: { ...payload, workspace_id: workspace },
@@ -180,4 +193,28 @@ export const migrationReadTools: McpTool[] = [
     description: 'Inspect an existing ingestion batch in its source and workspace.',
     parameters: { source_id: resourceId, batch_id: resourceId },
   },
-].map(migrationReadTool);
+].map(migrationTool);
+
+export const startMigrationPlanTool = migrationTool({
+  name: 'start_migration_plan',
+  title: 'Start migration inspection and planning',
+  path: '/migrations/{migration_id}/plan',
+  method: 'POST',
+  description:
+    'Queue source inventory inspection and dry-run planning for an existing data migration. This changes migration planning state and may consume the workspace planning quota, but does not write destination records, approve or apply a plan. The response may be queued rather than complete: poll get_migration and then read get_migration_plan with the same workspace_id and migration_id. Reuse existing plans by default; set force=true only when a fresh scan and re-plan is explicitly requested. After a timeout or service error, inspect get_migration before submitting again. API state guards reject planning after transfer has begun.',
+  parameters: {
+    migration_id: resourceId,
+    sample_size: {
+      type: 'integer',
+      minimum: 1,
+      default: 10,
+      description: 'Sample size for dry-run planning. Omit to use the API default of 10.',
+    },
+    force: {
+      type: 'boolean',
+      default: false,
+      description:
+        'Force a fresh source scan and plan, replacing prior planning evidence. Use only for an explicitly requested re-plan; defaults to false.',
+    },
+  },
+});

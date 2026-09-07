@@ -1,4 +1,4 @@
-import { migrationReadTools } from './migration-tools';
+import { migrationReadTools, startMigrationPlanTool } from './migration-tools';
 // File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -1260,6 +1260,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmProspectCompaniesTool,
     crmScoreRecordTool,
     ...migrationReadTools,
+    startMigrationPlanTool,
     uploadImportFileTool,
     importRecordsTool,
     getImportJobTool,
