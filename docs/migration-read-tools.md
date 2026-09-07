@@ -148,7 +148,9 @@ a successful HTTP response can contain a failed verification report. A check mar
 `not_run` has not passed verification. The current API leaves `field_sampling` as
 `not_run`; never describe the report as proof that every destination field matched.
 
-Creating migrations, ingestion mutations and code migration operations remain
-follow-up phases. Matching plugin skills should be packaged when these tools are
+Creating data migrations and ingestion mutations remain follow-up phases.
+The separate [code migration tool group](code-migration-tools.md) supports
+client-executed code migration artifact registration and inspection.
+Matching plugin skills should be packaged when these tools are
 released. No destination writes or production jobs are performed by implementation
 tests, which use mocked API transports.
