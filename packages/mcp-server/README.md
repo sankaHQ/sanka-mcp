@@ -36,7 +36,7 @@ Remote MCP config using Connect Sanka:
 ```json
 {
   "mcpServers": {
-    "sakura": {
+    "sanka": {
       "url": "https://mcp.sanka.com/mcp"
     }
   }
@@ -53,7 +53,7 @@ Local stdio config with an already-issued Sanka token:
 ```json
 {
   "mcpServers": {
-    "sakura": {
+    "sanka": {
       "command": "node",
       "args": ["/path/to/sanka-mcp/packages/mcp-server/dist/index.js"],
       "env": {
