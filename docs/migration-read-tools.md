@@ -126,7 +126,29 @@ original payload; none are invented when the API omits them. Queued or applying
 means execution is still pending, not completion or successful verification.
 Errors retain API codes/status/context and do not trigger fallback writes.
 
-Creating migrations, starting verification, ingestion mutations and code migration
-operations remain follow-up phases. Matching plugin skills should be packaged when
-these tools are released. No destination writes or production jobs are performed
-by the implementation tests, which use mocked API transports.
+## Verify and inspect the completed transfer
+
+`verify_migration` calls `POST /api/v2/migrate/migrations/{migration_id}/verify`.
+It requires the pinned workspace UUID, migration ID and `confirm: true`. The API
+accepts no request body or plan hash for this operation. An optional
+`idempotency_key` uses the same 8–200 character validation and is sent only as the
+`Idempotency-Key` header. Automatic POST retries remain disabled. Reuse a provided
+key for identical retries; inspect the report/status after an uncertain response.
+
+The API checks that the migration has completed transfer evidence, reconciles that
+evidence and persists a report atomically. It can read destination counts according
+to the migration's existing verification configuration. It does not apply, repair
+or roll back destination records. It is marked stateful but non-destructive.
+
+`get_migration_verification` reads the current report without starting any job or
+changing data. A 404 means no current report exists; it does not authorize automatic
+verification or re-execution. Both tools preserve per-route counts/results and
+individual checks. Report `status` and `ok` independently of transport success:
+a successful HTTP response can contain a failed verification report. A check marked
+`not_run` has not passed verification. The current API leaves `field_sampling` as
+`not_run`; never describe the report as proof that every destination field matched.
+
+Creating migrations, ingestion mutations and code migration operations remain
+follow-up phases. Matching plugin skills should be packaged when these tools are
+released. No destination writes or production jobs are performed by implementation
+tests, which use mocked API transports.

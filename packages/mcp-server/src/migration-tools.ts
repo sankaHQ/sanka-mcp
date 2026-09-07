@@ -30,7 +30,7 @@ type MigrationToolDefinition = {
   parameters?: Record<string, object>;
   method?: 'GET' | 'POST';
   required?: string[];
-  executionAction?: 'apply' | 'pause' | 'resume' | 'cancel';
+  executionAction?: 'apply' | 'pause' | 'resume' | 'cancel' | 'verify';
 };
 
 function migrationTool(definition: MigrationToolDefinition): McpTool {
@@ -60,7 +60,9 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
       securitySchemes: [{ type: 'oauth2', scopes: ['mcp:access'] }],
       annotations: {
         readOnlyHint: readOnly,
-        destructiveHint: Boolean(definition.executionAction && definition.executionAction !== 'pause'),
+        destructiveHint: Boolean(
+          definition.executionAction && ['apply', 'resume', 'cancel'].includes(definition.executionAction),
+        ),
         idempotentHint: readOnly,
         openWorldHint: true,
       },
@@ -92,7 +94,10 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
             await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, { query })
           : await reqContext.client.post<Record<string, unknown>>(`/api/v2/migrate${path}`, {
               query: { workspace_id: workspace },
-              ...(definition.executionAction === 'pause' || definition.executionAction === 'cancel' ?
+              ...((
+                definition.executionAction &&
+                ['pause', 'cancel', 'verify'].includes(definition.executionAction)
+              ) ?
                 {}
               : {
                   body: Object.fromEntries(
@@ -101,7 +106,10 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
                     ),
                   ),
                 }),
-              ...(definition.executionAction === 'apply' ?
+              ...((
+                (definition.executionAction === 'apply' || definition.executionAction === 'verify') &&
+                values['idempotency_key']
+              ) ?
                 { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
               : {}),
               maxRetries: 0,
@@ -124,6 +132,26 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
             'cancelled',
           ];
           const statusText = status && knownStatuses.includes(status) ? status : 'not supplied';
+          if (definition.executionAction === 'verify') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Migration verification report: ${statusText}. Inspect each check and route in the report; not_run checks have not been verified. This operation does not roll back destination data.`,
+                },
+              ],
+              structuredContent: {
+                ...payload,
+                workspace_id: workspace,
+                migration_id: values['migration_id'],
+                status: status ?? 'unknown',
+                verification_status: status,
+                ok: typeof migration['ok'] === 'boolean' ? migration['ok'] : null,
+                checks: migration['checks'] ?? null,
+                next_tool: 'get_migration_verification',
+              },
+            };
+          }
           return {
             content: [
               {
@@ -232,7 +260,8 @@ export const migrationReadTools: McpTool[] = [
     name: 'get_migration_verification',
     title: 'Get migration verification',
     path: '/migrations/{migration_id}/verification',
-    description: 'Read an existing verification report; does not start verification.',
+    description:
+      'Read an existing verification report without starting verification. Preserve per-route results and check states; not_run checks have not been verified. A 404 means no current report is available.',
     parameters: { migration_id: resourceId },
   },
   {
@@ -295,6 +324,15 @@ const reviewedPlanHash = {
     'Exact reviewed plan_hash from get_migration_plan. Never substitute a newer hash automatically after an API mismatch.',
 };
 
+const idempotencyKey = {
+  type: 'string',
+  minLength: 8,
+  maxLength: 200,
+  pattern: '^[!-~]+$',
+  description:
+    'Stable unique key for this approved operation (8–200 printable ASCII characters without spaces). Sent as Idempotency-Key. Reuse it with the identical request after uncertain outcomes; never generate a new key just to bypass a conflict.',
+};
+
 const executionDefinitions: MigrationToolDefinition[] = [
   {
     name: 'apply_migration',
@@ -309,14 +347,7 @@ const executionDefinitions: MigrationToolDefinition[] = [
       migration_id: resourceId,
       plan_hash: reviewedPlanHash,
       confirm: confirmation,
-      idempotency_key: {
-        type: 'string',
-        minLength: 8,
-        maxLength: 200,
-        pattern: '^[!-~]+$',
-        description:
-          'Stable unique key for this approved apply request (8–200 printable ASCII characters without spaces). Sent as Idempotency-Key. Reuse it with the identical payload after uncertain outcomes; never generate a new key just to bypass a conflict.',
-      },
+      idempotency_key: idempotencyKey,
       routes: {
         type: 'array',
         minItems: 1,
@@ -364,3 +395,19 @@ const executionDefinitions: MigrationToolDefinition[] = [
 ];
 
 export const migrationExecutionTools = executionDefinitions.map(migrationTool);
+
+export const verifyMigrationTool = migrationTool({
+  name: 'verify_migration',
+  title: 'Verify completed migration',
+  path: '/migrations/{migration_id}/verify',
+  method: 'POST',
+  executionAction: 'verify',
+  required: ['confirm'],
+  description:
+    'Reconcile a completed migration and persist its verification report after explicit user authorization. Requires confirm=true, workspace_id and migration_id. Uses durable transfer evidence and optional destination count readback according to the existing migration configuration; does not write destination records or roll them back. Inspect returned ok, status, per-route results and individual checks: not_run does not mean passed. The current API does not perform field sampling. No plan_hash or body is accepted by this endpoint. An optional stable idempotency_key is supported; reuse it for identical retries. Automatic POST retries are disabled. If the response is uncertain, inspect get_migration_verification and get_migration before resubmitting.',
+  parameters: {
+    migration_id: resourceId,
+    confirm: confirmation,
+    idempotency_key: idempotencyKey,
+  },
+});
