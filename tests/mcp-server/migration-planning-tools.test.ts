@@ -37,7 +37,6 @@ describe('migration planning', () => {
       const names = selectTools(undefined, profile).map((tool) => tool.tool.name);
       expect(names.filter((name) => name === 'start_migration_plan')).toHaveLength(1);
       expect(names.filter((name) => name === 'get_migration_plan')).toHaveLength(1);
-      expect(names).not.toContain('apply_migration');
       expect(names).not.toContain('start_migration_scan');
     }
   });
