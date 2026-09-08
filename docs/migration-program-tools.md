@@ -8,8 +8,8 @@ contracts. Availability in a client still depends on the hosted MCP release.
 | App journey | Existing MCP coverage | Boundary / remaining limitation |
 | --- | --- | --- |
 | Programs | `/api/v2/public/ferry/programs`: `list_ferry_programs`, `get_ferry_program`, docs and todo operations. `/api/v2/migrate/programs`: `list_migration_programs`, `get_migration_program`, plus template/connection discovery. | The public Ferry surface supports collaboration. The finite migration surface exposes reusable endpoint configuration. This change fills missing create/update configuration tools; it does not duplicate collaboration reads. |
-| Scan | `start_migration_plan` queues source inventory inspection and dry-run planning; `get_migration` and `get_migration_plan` read progress and evidence. | The app's standalone inventory/scan UI is broader. No separate hosted scan endpoint or tool is invented here. |
-| Map | Plan inspection, reviewed route selection and existing `create_ferry_diagram`/`update_ferry_diagram` design tools. | A diagram is not an executable mapping. App run-mapping edits and mapping templates have internal routes; current finite migration MCP tools do not expose that editor. |
+| Scan | `start_migration_plan` queues source inventory inspection and dry-run planning; `get_migration` and `get_migration_plan` read progress and evidence. | inspect_migration/list_migration_source_objects/scan_migration and stored inventory reports now cover standalone record inventory; provider support remains API-owned. |
+| Map | Plan inspection, reviewed route selection and existing `create_ferry_diagram`/`update_ferry_diagram` design tools. | A diagram is not an executable mapping. get_migration_mapping/save_migration_mapping/validate_migration_mapping now cover complete field edits and sampled validation using reviewed hashes. AI proposals, destination schema reconciliation and reusable mapping-template operations remain separate. |
 | Transfers | `create_migration`, `create_program_migration`, apply/pause/resume/cancel, verification readers/writes; ingestion source/batch lifecycle; import/export job tools also already exist. | Record import/export jobs are not substitutes for migration plans. Connector support, quotas, source/target bindings and verification remain server-owned. |
 | Code migration | Code project/migration records and scan/plan/apply/verify artifact registration. | Client-generated evidence only; no hosted repository/code/test execution. |
 
@@ -48,8 +48,8 @@ is configuration, not proof of completed or verified data movement.
    independent evidence of human approval or a replacement for server permissions.
 3. Create or update, then read back the program. Preserve its endpoint IDs,
    connection IDs and object scope. Before replacing endpoint arrays, confirm all
-   intended endpoints/options from the configuration owner: the public reader does
-   not return endpoint options. Do not reconstruct unknown options as empty objects.
+   intended endpoints/options from the API, including options and options_redacted. Redacted legacy options require
+   configuration-owner input before replacement; never reconstruct them as empty objects.
 4. Use the existing `create_program_migration` with the returned program ID and
    both explicit endpoint IDs. This creates a run without starting planning or
    transfers. Continue with inspection/planning, review the exact plan hash and
@@ -68,3 +68,5 @@ Existing plan/config hash and idempotency contracts elsewhere are unchanged.
 Tests use mocked transports only; no production changes or transfers are run.
 The companion sanka-plugin change adds migration routing to the generic Sanka skill
 and its Codex package copy. No per-tool skills or unrelated regeneration is needed.
+
+Current Scan/Map and signed review/repair details: [Record migration completion](migration-scan-map.md).

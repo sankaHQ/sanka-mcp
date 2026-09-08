@@ -28,12 +28,12 @@ type MigrationToolDefinition = {
   path: string;
   description: string;
   parameters?: Record<string, object>;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT';
   required?: string[];
-  executionAction?: 'apply' | 'pause' | 'resume' | 'cancel' | 'verify';
+  executionAction?: 'apply' | 'pause' | 'resume' | 'cancel' | 'verify' | 'review' | 'repair';
 };
 
-function migrationTool(definition: MigrationToolDefinition): McpTool {
+export function migrationTool(definition: MigrationToolDefinition): McpTool {
   const method = definition.method ?? 'GET';
   const readOnly = method === 'GET';
   const pathParameters = [...definition.path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]!);
@@ -61,7 +61,9 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
       annotations: {
         readOnlyHint: readOnly,
         destructiveHint: Boolean(
-          definition.executionAction && ['apply', 'resume', 'cancel'].includes(definition.executionAction),
+          method === 'PUT' ||
+            (definition.executionAction &&
+              ['apply', 'resume', 'cancel', 'repair'].includes(definition.executionAction)),
         ),
         idempotentHint: readOnly,
         openWorldHint: true,
@@ -92,28 +94,32 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
         const payload =
           readOnly ?
             await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, { query })
-          : await reqContext.client.post<Record<string, unknown>>(`/api/v2/migrate${path}`, {
-              query: { workspace_id: workspace },
-              ...((
-                definition.executionAction &&
-                ['pause', 'cancel', 'verify'].includes(definition.executionAction)
-              ) ?
-                {}
-              : {
-                  body: Object.fromEntries(
-                    Object.entries(query).filter(
-                      ([key]) => !['workspace_id', 'confirm', 'idempotency_key'].includes(key),
+          : await reqContext.client[method === 'PUT' ? 'put' : 'post']<Record<string, unknown>>(
+              `/api/v2/migrate${path}`,
+              {
+                query: { workspace_id: workspace },
+                ...((
+                  definition.executionAction &&
+                  ['pause', 'cancel', 'verify', 'review'].includes(definition.executionAction)
+                ) ?
+                  {}
+                : {
+                    body: Object.fromEntries(
+                      Object.entries(query).filter(
+                        ([key]) => !['workspace_id', 'confirm', 'idempotency_key'].includes(key),
+                      ),
                     ),
-                  ),
-                }),
-              ...((
-                (definition.executionAction === 'apply' || definition.executionAction === 'verify') &&
-                values['idempotency_key']
-              ) ?
-                { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
-              : {}),
-              maxRetries: 0,
-            });
+                  }),
+                ...((
+                  definition.executionAction &&
+                  ['apply', 'verify', 'review', 'repair'].includes(definition.executionAction) &&
+                  values['idempotency_key']
+                ) ?
+                  { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
+                : {}),
+                maxRetries: 0,
+              },
+            );
         if (definition.executionAction) {
           const data = payload['data'];
           const migration =
@@ -132,7 +138,7 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
             'cancelled',
           ];
           const statusText = status && knownStatuses.includes(status) ? status : 'not supplied';
-          if (definition.executionAction === 'verify') {
+          if (definition.executionAction === 'verify' || definition.executionAction === 'review') {
             return {
               content: [
                 {
@@ -148,7 +154,10 @@ function migrationTool(definition: MigrationToolDefinition): McpTool {
                 verification_status: status,
                 ok: typeof migration['ok'] === 'boolean' ? migration['ok'] : null,
                 checks: migration['checks'] ?? null,
-                next_tool: 'get_migration_verification',
+                next_tool:
+                  definition.executionAction === 'review' ?
+                    'get_migration_review'
+                  : 'get_migration_verification',
               },
             };
           }
@@ -411,3 +420,49 @@ export const verifyMigrationTool = migrationTool({
     idempotency_key: idempotencyKey,
   },
 });
+
+export const migrationReviewTools = [
+  migrationTool({
+    name: 'repair_migration',
+    title: 'Repair failed migration records',
+    path: '/migrations/{migration_id}/repair',
+    method: 'POST',
+    executionAction: 'repair',
+    parameters: {
+      migration_id: resourceId,
+      plan_hash: reviewedPlanHash,
+      idempotency_key: idempotencyKey,
+      confirm: confirmation,
+    },
+    required: ['plan_hash', 'idempotency_key', 'confirm'],
+    description:
+      'Retry failed records/relationships through the existing execution journal without changing the reviewed plan. Requires explicit authorization for destination writes and the server-metered repair charge (currently 300 Sanka Credits on completed repair), exact reviewed plan hash and stable idempotency key. Failed verification must identify repairable records. This is not a structural mapping edit or automatic recovery.',
+  }),
+  migrationTool({
+    name: 'review_migration',
+    title: 'Request signed migration evidence review',
+    path: '/migrations/{migration_id}/review',
+    method: 'POST',
+    executionAction: 'review',
+    parameters: { migration_id: resourceId, idempotency_key: idempotencyKey, confirm: confirmation },
+    required: ['idempotency_key', 'confirm'],
+    description:
+      'Read destination evidence and request the server signed attestation after explicit authorization for the review charge (currently 250 Sanka Credits). This records an evidence-bound service review, not independent human approval, and does not repair destination records. Preserve failed/not_run checks and the full signature payload; do not claim cryptographic validation merely from receipt.',
+  }),
+  migrationTool({
+    name: 'get_migration_review',
+    title: 'Read migration signed review',
+    path: '/migrations/{migration_id}/review',
+    parameters: { migration_id: resourceId },
+    description:
+      'Read the stored evidence-bound review and attestation without requesting a new paid review. Preserve checks and signature metadata. A missing review does not authorize starting one.',
+  }),
+  migrationTool({
+    name: 'get_migration_attestation_key',
+    title: 'Read migration attestation public key',
+    path: '/attestation-keys/{key_id}',
+    parameters: { key_id: resourceId },
+    description:
+      'Retrieve the server public Ed25519 key by the exact key_id from a migration attestation. Never treat key retrieval as successful signature verification or independent human approval.',
+  }),
+];
