@@ -1,6 +1,32 @@
+import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-09-08.migration-programs.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-09-09.workflow-guidance.v1';
+
+const WORKFLOW_HINT_MIN_LENGTH = 4;
+
+const WORKFLOW_HINT_STOPWORDS = new Set([
+  'about',
+  'after',
+  'before',
+  'from',
+  'into',
+  'only',
+  'sanka',
+  'than',
+  'that',
+  'them',
+  'then',
+  'these',
+  'this',
+  'those',
+  'user',
+  'want',
+  'wants',
+  'when',
+  'with',
+  'would',
+]);
 
 const GUIDANCE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -28,6 +54,41 @@ const GUIDANCE_INPUT_SCHEMA = {
 const readString = (value: unknown): string => String(value ?? '').trim();
 
 const includesAny = (value: string, terms: string[]): boolean => terms.some((term) => value.includes(term));
+
+/**
+ * Selects the workflow rules that mention any of the request hints. The rules used to be embedded
+ * in the initialize instructions of every session; they are now served here on demand so that
+ * clients that copy instructions into every tool definition stay small. When no hint matches, the
+ * full rule set is returned so callers never lose guidance.
+ */
+export const selectWorkflowGuidance = (
+  args: Record<string, unknown> | undefined,
+): { workflow_guidance: string[]; workflow_guidance_scope: 'matched' | 'all' } => {
+  const hints = new Set<string>();
+  for (const key of ['provider', 'object_type', 'operation']) {
+    const value = readString(args?.[key]).toLowerCase();
+    if (value) {
+      hints.add(value);
+    }
+  }
+  for (const word of readString(args?.['intent'])
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}_]+/u)) {
+    if (word.length >= WORKFLOW_HINT_MIN_LENGTH && !WORKFLOW_HINT_STOPWORDS.has(word)) {
+      hints.add(word);
+    }
+  }
+  const matched =
+    hints.size === 0 ?
+      []
+    : SHARED_WORKFLOW_GUIDANCE.filter((line) => {
+        const normalized = line.toLowerCase();
+        return [...hints].some((hint) => normalized.includes(hint));
+      });
+  return matched.length > 0 ?
+      { workflow_guidance: matched, workflow_guidance_scope: 'matched' }
+    : { workflow_guidance: [...SHARED_WORKFLOW_GUIDANCE], workflow_guidance_scope: 'all' };
+};
 
 const buildGuidance = (args: Record<string, unknown> | undefined): Record<string, unknown> => {
   const intent = readString(args?.['intent']).toLowerCase();
@@ -236,7 +297,7 @@ export const getCapabilityGuidanceTool: McpTool = {
     name: 'get_capability_guidance',
     title: 'Get capability guidance',
     description:
-      'Fetch current hosted Sanka MCP capability guidance before refusing an ambiguous or newly added Sanka capability. Use this when local Skill text or visible tools may be stale.',
+      'Fetch current hosted Sanka MCP capability guidance plus the workflow rules for a request area. Call it before ambiguous or multi-step Sanka work and before refusing an ambiguous or newly added Sanka capability; the server instructions no longer embed these workflow rules.',
     inputSchema: GUIDANCE_INPUT_SCHEMA,
     outputSchema: {
       type: 'object',
@@ -253,7 +314,7 @@ export const getCapabilityGuidanceTool: McpTool = {
     },
   },
   handler: async ({ args }): Promise<ToolCallResult> => {
-    const guidance = buildGuidance(args);
+    const guidance = { ...buildGuidance(args), ...selectWorkflowGuidance(args) };
     return {
       content: [
         {

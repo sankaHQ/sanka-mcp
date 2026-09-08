@@ -102,5 +102,6 @@ API transports and do not run customer code or call production migration APIs.
 The current plugin repository has no matching code migration skills to regenerate.
 Its generic Sanka entry point can discover these hosted tools after release. This
 change requires no endpoint-specific plugin skills or packaging release; tool
-descriptions and hosted instructions carry the client-execution guardrails. The
-plugin remains the distribution/instruction layer, not the migration engine.
+descriptions, the hosted guardrails, and `get_capability_guidance` carry the
+client-execution rules. The plugin remains the distribution/instruction layer,
+not the migration engine.
