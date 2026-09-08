@@ -163,6 +163,7 @@ const createRequestTransport = async ({
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
+      mcpClientName: mcpClientInfo?.name,
       mcpSessionId,
       mcpSessionIdForExchange: requestedToolName ? incomingSessionId : undefined,
       mcpOptions: effectiveMcpOptions,
