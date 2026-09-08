@@ -63,7 +63,8 @@ type Definition = {
   name: string;
   title: string;
   path: string;
-  kind: 'migration' | 'source' | 'batch';
+  kind: 'migration' | 'source' | 'batch' | 'program';
+  method?: 'PATCH';
   description: string;
   fields: Record<string, object>;
   required: string[];
@@ -72,6 +73,7 @@ type Definition = {
 
 function setupTool(definition: Definition): McpTool {
   const readOnly = definition.readOnly === true;
+  const method = readOnly ? 'GET' : definition.method ?? 'POST';
   const pathKeys = [...definition.path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]!);
   const inputSchema: McpTool['tool']['inputSchema'] = {
     type: 'object',
@@ -84,7 +86,7 @@ function setupTool(definition: Definition): McpTool {
             type: 'boolean',
             const: true,
             description:
-              'True only after the user authorizes this exact setup/state change or batch submission in the pinned workspace. Does not authorize plan or destination apply.',
+              'True only after the user authorizes this exact setup/state change or batch submission in the pinned workspace. This flag is an acknowledgement, not proof of human approval; the agent must establish authorization from the conversation. Does not authorize plan or destination apply.',
           },
         }
       : {}),
@@ -98,7 +100,7 @@ function setupTool(definition: Definition): McpTool {
       resource: 'migrations',
       operation: readOnly ? 'read' : 'write',
       tags: ['migration', 'sanka-migrate-setup'],
-      httpMethod: readOnly ? 'GET' : 'POST',
+      httpMethod: method,
       httpPath: `/api/v2/migrate${definition.path}`,
     },
     tool: {
@@ -109,7 +111,7 @@ function setupTool(definition: Definition): McpTool {
       securitySchemes: [{ type: 'oauth2', scopes: ['mcp:access'] }],
       annotations: {
         readOnlyHint: readOnly,
-        destructiveHint: false,
+        destructiveHint: definition.method === 'PATCH',
         idempotentHint: readOnly,
         openWorldHint: true,
       },
@@ -143,6 +145,9 @@ function setupTool(definition: Definition): McpTool {
         encodeURIComponent(values[key] as string),
       );
       try {
+        if (definition.method === 'PATCH' && Object.keys(body).length === 0) {
+          return asErrorResult('Supply at least one Program field to update. No request was sent.');
+        }
         if (!readOnly && hasUnsafeNumbers(body)) {
           return asErrorResult(
             'Numbers must be finite and integer values must be exactly representable in JavaScript. Use a lossless client for larger integers; no setup or batch was submitted.',
@@ -163,14 +168,17 @@ function setupTool(definition: Definition): McpTool {
             await reqContext.client.get<Record<string, unknown>>(`/api/v2/migrate${path}`, {
               query: { workspace_id: workspace },
             })
-          : await reqContext.client.post<Record<string, unknown>>(`/api/v2/migrate${path}`, {
-              query: { workspace_id: workspace },
-              body,
-              maxRetries: 0,
-              ...(values['idempotency_key'] ?
-                { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
-              : {}),
-            });
+          : await reqContext.client[method === 'PATCH' ? 'patch' : 'post']<Record<string, unknown>>(
+              `/api/v2/migrate${path}`,
+              {
+                query: { workspace_id: workspace },
+                body,
+                maxRetries: 0,
+                ...(values['idempotency_key'] ?
+                  { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
+                : {}),
+              },
+            );
         const data = record(payload['data']);
         if (
           [data['workspaceId'], data['workspace_id']].some(
@@ -181,6 +189,10 @@ function setupTool(definition: Definition): McpTool {
             values['source_id'] &&
             data['id'] &&
             data['id'] !== values['source_id']) ||
+          (definition.kind === 'program' &&
+            context.program_id &&
+            data['id'] &&
+            data['id'] !== context.program_id) ||
           (context.program_id && data['programId'] && data['programId'] !== context.program_id)
         ) {
           return {
@@ -192,7 +204,8 @@ function setupTool(definition: Definition): McpTool {
         }
         const status = typeof data['status'] === 'string' ? data['status'] : 'unknown';
         const nextTool =
-          definition.kind === 'migration' ? 'get_migration'
+          definition.kind === 'program' ? 'get_migration_program'
+          : definition.kind === 'migration' ? 'get_migration'
           : definition.kind === 'source' ? 'get_ingestion_source'
           : 'get_ingestion_batch';
         return {
@@ -208,6 +221,9 @@ function setupTool(definition: Definition): McpTool {
             ...payload,
             ...context,
             status,
+            ...(definition.kind === 'program' ?
+              { program_id: data['id'] ?? context.program_id ?? null }
+            : {}),
             ...(definition.kind === 'migration' ?
               { migration_id: data['id'] ?? null, plan_hash: data['plan_hash'] ?? null }
             : {}),
@@ -238,7 +254,60 @@ function setupTool(definition: Definition): McpTool {
   };
 }
 
+const programEndpoint = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['type'],
+  properties: {
+    id: { type: ['string', 'null'], minLength: 1, maxLength: 100 },
+    type: { ...textField, maxLength: 100 },
+    connection: {
+      type: ['string', 'null'],
+      minLength: 1,
+      maxLength: 255,
+      description: 'Existing named connection reference in the pinned workspace; never credentials.',
+    },
+    label: { type: ['string', 'null'], maxLength: 255 },
+    objects: { type: 'array', maxItems: 200, items: { type: 'string' } },
+    options: {
+      ...objectField,
+      description: 'Non-secret endpoint options. The backend validates provider/connection bindings.',
+    },
+  },
+};
+const programFields = {
+  name: { type: ['string', 'null'], maxLength: 255 },
+  description: { type: ['string', 'null'], maxLength: 2000 },
+  sources: { type: 'array', items: programEndpoint },
+  destinations: { type: 'array', items: programEndpoint },
+};
+
 const definitions: Definition[] = [
+  {
+    name: 'create_migration_program',
+    title: 'Create migration Program',
+    path: '/programs',
+    kind: 'program',
+    description:
+      'Create a reusable migration Program from a template slug returned by list_migration_program_templates and reviewed source/destination connections. This is configuration only; it does not create a migration run. Read back endpoint IDs with get_migration_program before create_program_migration. No idempotency-key contract or automatic retry is supported.',
+    fields: { template: { ...textField, maxLength: 100 }, ...programFields },
+    required: ['template'],
+  },
+  {
+    name: 'update_migration_program',
+    title: 'Update migration Program',
+    path: '/programs/{program_id}',
+    kind: 'program',
+    method: 'PATCH',
+    description:
+      'Update reviewed Program configuration after reading get_migration_program. Omitted fields are preserved; supplied sources/destinations replace the entire side, and empty arrays clear it. Preserve every intended endpoint, ID, object list and option. The public reader omits endpoint options; obtain the complete reviewed configuration before replacing arrays, never reconstruct unknown options as empty. Null endpoint arrays are deliberately rejected; use an explicitly authorized empty array to clear. This API has no revision/plan-hash precondition or idempotency-key contract; do not claim protection against concurrent edits or safe retries. A Program status of completed is metadata, not evidence of a verified transfer.',
+    fields: {
+      program_id: resourceId,
+      ...programFields,
+      status: { type: ['string', 'null'], enum: ['draft', 'active', 'ready', 'completed', 'archived', null] },
+    },
+    required: ['program_id'],
+  },
   {
     name: 'create_migration',
     title: 'Create data migration',

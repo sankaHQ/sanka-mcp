@@ -159,8 +159,8 @@ it('preserves the original key, batch ID and payload on explicitly repeated iden
   expect(calls[1][1].headers).toEqual({ 'Idempotency-Key': key });
 });
 
-it('registers all seven related tools exactly once in both profiles with accurate metadata', () => {
-  expect(migrationSetupTools).toHaveLength(7);
+it('registers existing setup and ingestion tools exactly once in both profiles with accurate metadata', () => {
+  expect(migrationSetupTools).toHaveLength(9);
   for (const [name] of all) {
     const tool = getTool(name);
     const readOnly = name === 'get_ingestion_source';
