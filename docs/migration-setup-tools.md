@@ -131,7 +131,8 @@ SQL execution, automatic scheduling or destination-write tool in this group.
 The API contract already exists and the SDK's generic authenticated request
 surface covers it. The generic Sanka plugin entry point discovers the hosted
 tools; no matching endpoint-specific plugin skill needs regeneration or a release.
-Tool descriptions and hosted instructions carry the workspace and approval rules.
+Tool descriptions, the hosted guardrails, and `get_capability_guidance` carry the
+workspace and approval rules.
 
 Focused tests use mocked transports and cover schema/registration, workspace
 mismatches, confirmation, exact body/header forwarding, real SDK retry suppression,
