@@ -300,7 +300,7 @@ const definitions: Definition[] = [
     kind: 'program',
     method: 'PATCH',
     description:
-      'Update reviewed Program configuration after reading get_migration_program. Omitted fields are preserved; supplied sources/destinations replace the entire side, and empty arrays clear it. Preserve every intended endpoint, ID, object list and option. The public reader omits endpoint options; obtain the complete reviewed configuration before replacing arrays, never reconstruct unknown options as empty. Null endpoint arrays are deliberately rejected; use an explicitly authorized empty array to clear. This API has no revision/plan-hash precondition or idempotency-key contract; do not claim protection against concurrent edits or safe retries. A Program status of completed is metadata, not evidence of a verified transfer.',
+      'Update reviewed Program configuration after reading get_migration_program. Omitted fields are preserved; supplied sources/destinations replace the entire side, and empty arrays clear it. Preserve every intended endpoint, ID, object list and option. Read endpoint options and options_redacted from the current Program. If options_redacted is true, obtain the complete reviewed configuration from its owner before replacement; never reconstruct hidden options as empty. Null endpoint arrays are deliberately rejected; use an explicitly authorized empty array to clear. This API has no revision/plan-hash precondition or idempotency-key contract; do not claim protection against concurrent edits or safe retries. A Program status of completed is metadata, not evidence of a verified transfer.',
     fields: {
       program_id: resourceId,
       ...programFields,
