@@ -165,3 +165,51 @@ pnpm generate:openapi-types
 ```
 
 By default it reads the sibling Sanka spec at `../sanka-sdks/openapi.json`.
+
+## Developer Cloud (release candidate)
+
+The hosted tools expose the same V2 source, run, receipt, certificate and Fleet
+contracts as the CLI and SDKs. This source change does not enable production
+execution. Read `get_developer_cloud_availability` first and obey each capability's
+availability flag. Free local migration and client-evidence registration are
+unchanged.
+
+Every call takes a pinned `workspace_id`. Paid creates and selective retries
+require an explicit request, approved cap, `confirm: true`, and stable
+`idempotency_key`. Existing user authorization is sufficient. A lost response
+must not create a new intent: read back or replay the identical key and request.
+No tool purchases credits, creates repository PRs, merges, or deploys.
+
+- Source/run: `upload_developer_cloud_source`, `create_developer_cloud_run`,
+  `list_developer_cloud_runs`, `get_developer_cloud_run`, `cancel_developer_cloud_run`.
+- Evidence: `list_developer_cloud_events`, `get_developer_cloud_receipt`,
+  `list_developer_cloud_artifacts`, `download_developer_cloud_artifact`.
+- Certificates: `list_developer_cloud_certificate_keys`,
+  `get_developer_cloud_certificate`, `revoke_developer_cloud_certificate`.
+- Fleet: `create_developer_cloud_fleet`, `list_developer_cloud_fleets`,
+  `get_developer_cloud_fleet`, `cancel_developer_cloud_fleet`,
+  `retry_developer_cloud_fleet`.
+
+Repair and certificate issuance use `create_developer_cloud_run.request.repair`
+and `.certification`, respectively. Compute is 100 credits per worker-minute,
+rounded once per run. Successful Repair adds 1,000 credits; independent certificate
+issuance adds 2,000. All compute and premiums remain within the approved cap.
+Failed gates have no premium. Fleet adds no surcharge: its cap is the sum of
+explicit child caps, reserved atomically, with at most five active workers per
+workspace. Retry selects only failed children after the original Fleet settles;
+it creates a new Fleet and preserves completed children's receipts.
+
+Upload the exact ZIP digest and declared full revision; the service pins uploaded
+bytes but does not independently prove their Git provenance. Inspect certificate
+scope, scenarios, limitations and revocation. Downloading a certificate does not
+verify its signature: use the CLI's offline verification with the published key.
+Artifact downloads verify bytes against recorded SHA-256 metadata. MCP supports
+up to 64 MiB; larger artifacts use the CLI/API. Large downloads use the existing
+session-bound URL or `read_binary_download_chunk` flow.
+
+Request-schema regeneration uses the shared V2 SDK input:
+
+```sh
+python3 scripts/sync-developer-cloud-contract.py ../sanka-sdks/openapi.json
+pnpm exec prettier --write packages/mcp-server/src/generated/developer-cloud-schemas.ts
+```
