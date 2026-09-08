@@ -33,6 +33,7 @@ export const buildMcpConnectStructuredReply = (
 
 export const buildMcpConnectToken = ({
   now = Date.now(),
+  clientName,
   resourceUrl,
   scopes,
   sessionId,
@@ -40,6 +41,7 @@ export const buildMcpConnectToken = ({
   ttlSeconds = DEFAULT_CONNECT_TOKEN_TTL_SECONDS,
 }: {
   now?: number;
+  clientName?: string | undefined;
   resourceUrl: string;
   scopes?: string[] | undefined;
   sessionId: string;
@@ -56,6 +58,7 @@ export const buildMcpConnectToken = ({
   const issuedAt = Math.floor(now / 1000);
   const payload = base64UrlEncode(
     JSON.stringify({
+      ...(clientName?.trim() ? { client_name: clientName.trim().slice(0, 255) } : {}),
       aud: MCP_CONNECT_AUDIENCE,
       v: 1,
       sid: normalizedSessionId,
@@ -71,12 +74,14 @@ export const buildMcpConnectToken = ({
 
 export const buildMcpConnectUrl = ({
   authorizationServerUrl,
+  clientName,
   resourceUrl,
   scopes,
   sessionId,
   sharedSecret,
 }: {
   authorizationServerUrl: string;
+  clientName?: string | undefined;
   resourceUrl: string;
   scopes?: string[] | undefined;
   sessionId: string;
@@ -86,6 +91,7 @@ export const buildMcpConnectUrl = ({
     return undefined;
   }
   const token = buildMcpConnectToken({
+    clientName,
     resourceUrl,
     scopes,
     sessionId,

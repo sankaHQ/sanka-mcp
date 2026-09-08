@@ -1,5 +1,6 @@
 import { migrationReviewTools } from './migration-tools';
 import { migrationInspectionTools } from './migration-inspection-tools';
+import { developerCloudTools } from './developer-cloud-tools';
 import { codeMigrationTools } from './code-migration-tools';
 import { migrationSetupTools } from './migration-setup-tools';
 import {
@@ -1269,6 +1270,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmProspectCompaniesTool,
     crmScoreRecordTool,
     ...migrationReadTools,
+    ...developerCloudTools,
     ...codeMigrationTools,
     ...migrationSetupTools,
     ...migrationInspectionTools,

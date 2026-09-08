@@ -399,6 +399,7 @@ const exchangeMcpSessionForAccessToken = async ({
 };
 
 export const resolveClientAuth = async ({
+  mcpClientName,
   mcpSessionId,
   mcpSessionIdForExchange,
   mcpOptions,
@@ -406,6 +407,7 @@ export const resolveClientAuth = async ({
   resourceMetadataUrl,
   resourceUrl,
 }: {
+  mcpClientName?: string | undefined;
   mcpSessionId?: string | undefined;
   mcpSessionIdForExchange?: string | undefined;
   mcpOptions: McpOptions;
@@ -422,6 +424,7 @@ export const resolveClientAuth = async ({
     mcpSessionId && mcpOptions.tokenExchangeSharedSecret ?
       (scopes?: string[] | undefined) =>
         buildMcpConnectUrl({
+          clientName: mcpClientName,
           authorizationServerUrl,
           resourceUrl,
           scopes,
