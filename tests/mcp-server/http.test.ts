@@ -1003,6 +1003,11 @@ describe('streamable HTTP transport', () => {
     });
     const body = await response.text();
 
+    const connectUrlMatch = body.match(/"connect_url":"([^"]+)"/);
+    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
+    const token = new URL(connectUrl).searchParams.get('token')!;
+    const payload = JSON.parse(Buffer.from(token.split('.')[0]!, 'base64url').toString('utf8'));
+    expect(payload.client_name).toBe('Codex');
     expect(response.status).toBe(200);
     expect(response.headers.get('www-authenticate')).toBeNull();
     expect(body).toContain('/oauth/mcp/connect');

@@ -123,10 +123,13 @@ describe('resolveClientAuth', () => {
         authorizationServerUrl: authServerBaseUrl,
         tokenExchangeSharedSecret: 'exchange-secret',
       },
+      mcpClientName: 'Codex',
       mcpSessionId: 'session-new',
       mcpSessionIdForExchange: 'session-new',
     });
 
+    const token = new URL(resolved.oauth.connectUrl!).searchParams.get('token')!;
+    expect(JSON.parse(Buffer.from(token.split('.')[0]!, 'base64url').toString()).client_name).toBe('Codex');
     expect(resolved.authMode).toBe('none');
     expect(resolved.oauth.connectUrl).toContain(`${authServerBaseUrl}/oauth/mcp/connect?token=`);
     expect(resolved.oauth.connectUrlForScopes?.(['expenses:read'])).toContain(
