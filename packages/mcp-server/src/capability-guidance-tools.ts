@@ -1,6 +1,6 @@
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-06-28.app-builder-dsl.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-09-08.migration-programs.v1';
 
 const GUIDANCE_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -35,6 +35,41 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
   const objectType = readString(args?.['object_type']).toLowerCase();
   const operation = readString(args?.['operation']).toLowerCase();
   const combined = [intent, provider, objectType, operation].join(' ');
+  if (/\bmigrat(?:e|es|ing|ion|ions)\b/.test(combined)) {
+    const codeMigration = includesAny(combined, ['code migration', 'drf', 'django', 'fastapi', 'repository']);
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: codeMigration ? 'code_migration_evidence' : 'data_migration',
+      supported: true,
+      recommended_tools:
+        codeMigration ?
+          [
+            'list_code_projects',
+            'get_code_migration',
+            'get_code_migration_plan',
+            'get_code_migration_verification',
+          ]
+        : [
+            'list_migration_program_templates',
+            'list_migration_connections',
+            'list_migration_programs',
+            'get_migration_program',
+            'create_migration_program',
+            'update_migration_program',
+            'create_program_migration',
+            'get_migration',
+            'get_migration_plan',
+          ],
+      route:
+        codeMigration ?
+          'Code migration tools register genuine client-produced DRF-to-FastAPI artifacts. They do not run code, scans, tests, repository rewrites or deployments. Only submit artifacts from a separately authorized client run.'
+        : 'Use migration Programs for reusable endpoint configuration, then create_program_migration with both reviewed endpoint IDs. start_migration_plan queues inspection/planning; read the plan before any authorized apply. Existing Ferry program docs/todos and diagrams serve collaboration/design; a diagram is not an executable mapping. Standalone app Scan/Map editing is broader than the current finite migration tool contract. Connector availability remains server-owned.',
+      mutation_policy:
+        'Pin the internal workspace UUID on every call. Establish user authorization from the conversation; confirm=true is an acknowledgement, not proof of approval. Preserve exact reviewed plan/config hashes and tool-specific idempotency rules. Program POST/PATCH and code-artifact writes have no idempotency contract. Never replay an uncertain state change automatically; inspect state first. Supplied Program endpoint arrays replace that side, and the public reader omits endpoint options: obtain complete reviewed configuration before replacement. Queued status or Program completed metadata is not verified transfer evidence; inspect each verification check.',
+      fallback_when_missing:
+        'If a recommended tool is unavailable, refresh/reconnect the Sanka MCP/plugin. Do not invent an endpoint or substitute local scripts for hosted Sanka operations.',
+    };
+  }
   const appBuilderProductTerms = [
     'app builder',
     'blueprint',

@@ -155,3 +155,5 @@ client-executed code migration artifact registration and inspection.
 Matching plugin skills should be packaged when these tools are
 released. No destination writes or production jobs are performed by implementation
 tests, which use mocked API transports.
+
+Program configuration and app journey coverage: [Migration Programs](migration-program-tools.md).
