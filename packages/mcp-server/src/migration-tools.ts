@@ -258,6 +258,14 @@ export const migrationReadTools: McpTool[] = [
     parameters: { migration_id: resourceId },
   },
   {
+    name: 'get_migration_journey',
+    title: 'Get migration journey',
+    path: '/migrations/{migration_id}/journey',
+    description:
+      'Read the compact migration journey for a migration. The API returns the current status/stage, next action, and the fixed assessment, plan, scan_mapping and transfer_cutover stages with bounded blockers, output summaries and links. This is read-only presentation evidence: preserve missing fields as missing, do not infer approval, completion or links, and fetch detailed reports only when the journey points to them.',
+    parameters: { migration_id: resourceId },
+  },
+  {
     name: 'get_migration_plan',
     title: 'Get migration plan',
     path: '/migrations/{migration_id}/plan',
