@@ -30,6 +30,7 @@ const routes = [
   ['get_migration_program', '/programs/program-1', { program_id: 'program-1' }],
   ['list_migrations', '/migrations', {}],
   ['get_migration', '/migrations/migration-1', { migration_id: 'migration-1' }],
+  ['get_migration_journey', '/migrations/migration-1/journey', { migration_id: 'migration-1' }],
   ['get_migration_plan', '/migrations/migration-1/plan', { migration_id: 'migration-1' }],
   ['get_migration_verification', '/migrations/migration-1/verification', { migration_id: 'migration-1' }],
   ['list_ingestion_sources', '/ingestion-sources', {}],
@@ -158,6 +159,36 @@ describe('read-only migration tools', () => {
       query: { workspace_id: workspace, page: 2, limit: 25 },
     });
     expect(result.structuredContent).toMatchObject(payload);
+  });
+  it('preserves the API journey stages, bounded blockers and absent optional fields', async () => {
+    const payload = {
+      data: {
+        migration_id: 'migration-1',
+        current_stage: 'plan',
+        stages: [
+          { key: 'assessment', state: 'unknown', optional: true },
+          {
+            key: 'plan',
+            state: 'blocked',
+            blockers: [
+              { code: 'FERRY_DESTINATION_IDENTITY_REQUIRED', message: 'Map a destination identity.' },
+            ],
+            next_action: { code: 'review_mapping', label: 'Review mapping', url: '/mapping' },
+          },
+          { key: 'scan_mapping', state: 'not_done', blockers: [] },
+          { key: 'transfer_cutover', state: 'not_done' },
+        ],
+        next_action: { code: 'review_mapping', label: 'Review mapping', url: '/mapping' },
+      },
+    };
+    const reqContext = context(jest.fn().mockResolvedValue(payload));
+    const result = await tool('get_migration_journey').handler({
+      reqContext,
+      args: { workspace_id: workspace, migration_id: 'migration-1' },
+    });
+    expect(result.structuredContent).toMatchObject(payload);
+    expect(result.structuredContent).not.toHaveProperty('data.stages[0].next_action');
+    expect(reqContext.client.get).toHaveBeenCalledTimes(1);
   });
   it.each([401, 403, 404, 409, 429, 503])(
     'preserves API status %s as an error, without fallback',

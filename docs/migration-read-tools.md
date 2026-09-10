@@ -14,6 +14,7 @@ tools; it does not replace them.
 | `get_migration_program`            | `/programs/{program_id}`                            |                 |
 | `list_migrations`                  | `/migrations`                                       | `page`, `limit` |
 | `get_migration`                    | `/migrations/{migration_id}`                        |                 |
+| `get_migration_journey`            | `/migrations/{migration_id}/journey`                |                 |
 | `get_migration_plan`               | `/migrations/{migration_id}/plan`                   |                 |
 | `get_migration_verification`       | `/migrations/{migration_id}/verification`           |                 |
 | `list_ingestion_sources`           | `/ingestion-sources`                                |                 |
@@ -31,6 +32,14 @@ The schema and runtime validator reject unknown arguments, missing resource IDs,
 unsafe path segments and out-of-range pagination. Limit is 1–100, with API defaults
 used when omitted. API envelopes, pagination, error codes, trace context and embedded
 plan keys/hashes are preserved. Reading a plan or verification does not generate it.
+
+`get_migration_journey` is the default first read for a migration. It returns the
+API's compact, bounded status view: `current_stage`, `next_action`, and the four
+stages `assessment`, `plan`, `scan_mapping` and `transfer_cutover`. Each stage may
+include its state, bounded blockers, output summaries and honest links. Preserve
+missing fields as missing; the MCP adapter does not infer approval, completion or
+links or recreate API business rules. Use the stage output links or dedicated full
+report readers when more detail is needed.
 
 ## Contract and transport
 
@@ -58,10 +67,11 @@ requested re-plan. The API rejects planning once transfer has begun.
 
 Use the following flow with the same pinned workspace and migration IDs:
 
-1. Read `get_migration` to inspect the existing migration.
-2. Call `start_migration_plan` when inspection/planning is requested.
-3. A queued response is not completion. Poll `get_migration` for progress.
-4. Read `get_migration_plan` for the reviewable plan and `plan_hash`.
+1. Read `get_migration_journey` for the compact current stage, blockers and next action.
+2. Read `get_migration` when full migration status is needed.
+3. Call `start_migration_plan` when inspection/planning is requested.
+4. A queued response is not completion. Poll `get_migration` or `get_migration_journey` for progress.
+5. Read `get_migration_plan` for the reviewable plan and `plan_hash`.
    `FERRY_PLAN_NOT_READY` means no plan is ready yet; it does not trigger another scan.
 
 Automatic SDK retries are disabled for the planning POST. After an ambiguous timeout
