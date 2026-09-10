@@ -69,4 +69,12 @@ Tests use mocked transports only; no production changes or transfers are run.
 The companion sanka-plugin change adds migration routing to the generic Sanka skill
 and its Codex package copy. No per-tool skills or unrelated regeneration is needed.
 
+Blocked plans remain readable for review. Inspect `ready`, `risk_level`, document
+warnings, route issues and destination safety details before apply. The API uses
+`FERRY_DESTINATION_IDENTITY_REQUIRED` when a route has no mapped destination
+identity field and `quarantine_properties_missing` when required destination
+quarantine properties are absent. Resolve the reported mapping or destination
+configuration issue and re-run `start_migration_plan` to recheck safety; a blocked
+plan never authorizes destination writes.
+
 Current Scan/Map and signed review/repair details: [Record migration completion](migration-scan-map.md).
