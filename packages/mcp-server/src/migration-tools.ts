@@ -262,7 +262,7 @@ export const migrationReadTools: McpTool[] = [
     title: 'Get migration plan',
     path: '/migrations/{migration_id}/plan',
     description:
-      'Read an existing migration plan, including its plan hash. Does not scan, generate, approve or apply a plan. A not-ready API error means the plan is not available yet.',
+      'Read an existing migration plan, including its plan hash and review evidence. Does not scan, generate, approve or apply a plan. A blocked plan remains reviewable: inspect ready/risk_level, document warnings, route issues and destination safety details before deciding whether mapping or destination configuration must change. FERRY_DESTINATION_IDENTITY_REQUIRED means a route has no mapped destination identity field; quarantine_properties_missing means the destination quarantine properties are absent. Resolve the reported blocker, then use start_migration_plan to recheck safety before any apply request. A not-ready API error means the plan is not available yet.',
     parameters: { migration_id: resourceId },
   },
   {
@@ -301,7 +301,7 @@ export const startMigrationPlanTool = migrationTool({
   path: '/migrations/{migration_id}/plan',
   method: 'POST',
   description:
-    'Queue source inventory inspection and dry-run planning for an existing data migration. This changes migration planning state and may consume the workspace planning quota, but does not write destination records, approve or apply a plan. The response may be queued rather than complete: poll get_migration and then read get_migration_plan with the same workspace_id and migration_id. Reuse existing plans by default; set force=true only when a fresh scan and re-plan is explicitly requested. After a timeout or service error, inspect get_migration before submitting again. API state guards reject planning after transfer has begun.',
+    'Queue source inventory inspection and dry-run planning for an existing data migration. This changes migration planning state and may consume the workspace planning quota, but does not write destination records, approve or apply a plan. The response may be queued rather than complete: poll get_migration and then read get_migration_plan with the same workspace_id and migration_id. Reuse existing plans by default; set force=true only when a fresh scan and re-plan is explicitly requested. A blocked plan is still reviewable; inspect its destination identity and quarantine warnings, resolve the reported configuration or mapping issue, and re-plan to recheck safety before apply. After a timeout or service error, inspect get_migration before submitting again. API state guards reject planning after transfer has begun.',
   parameters: {
     migration_id: resourceId,
     sample_size: {

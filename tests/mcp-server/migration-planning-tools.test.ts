@@ -39,6 +39,13 @@ describe('migration planning', () => {
       expect(names.filter((name) => name === 'get_migration_plan')).toHaveLength(1);
       expect(names).not.toContain('start_migration_scan');
     }
+    expect(
+      migrationReadTools.find((tool) => tool.tool.name === 'get_migration_plan')!.tool.description,
+    ).toEqual(expect.stringContaining('FERRY_DESTINATION_IDENTITY_REQUIRED'));
+    expect(
+      migrationReadTools.find((tool) => tool.tool.name === 'get_migration_plan')!.tool.description,
+    ).toEqual(expect.stringContaining('quarantine_properties_missing'));
+    expect(startMigrationPlanTool.tool.description).toEqual(expect.stringContaining('blocked plan'));
   });
 
   it.each([{}, { sample_size: 1 }, { sample_size: 25, force: true }, { force: false }])(
@@ -179,5 +186,27 @@ describe('migration planning', () => {
     });
     expect(reqContext.client.post).not.toHaveBeenCalled();
     expect(result.structuredContent).toMatchObject(payload);
+  });
+
+  it('preserves blocked plan safety evidence for review without starting a write', async () => {
+    const reqContext = context();
+    const payload = {
+      data: {
+        ready: 0,
+        risk_level: 'high',
+        plan_hash: 'exact-plan-hash',
+        document: { warnings: ['FERRY_DESTINATION_IDENTITY_REQUIRED', 'quarantine_properties_missing'] },
+        destinationSafety: {
+          status: 'blocked',
+          quarantine: { reasonCodes: ['quarantine_properties_missing'] },
+        },
+      },
+    };
+    (reqContext.client.get as jest.Mock).mockResolvedValue(payload);
+    const reader = migrationReadTools.find((tool) => tool.tool.name === 'get_migration_plan')!;
+    const result = await reader.handler({ reqContext, args });
+    expect(result.structuredContent).toMatchObject(payload);
+    expect(reqContext.client.get).toHaveBeenCalledTimes(1);
+    expect(reqContext.client.post).not.toHaveBeenCalled();
   });
 });
