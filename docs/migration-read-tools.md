@@ -4,22 +4,23 @@ The migration tool group exposes the existing finite migration API to AI clients
 It complements the existing Flow import/export tools and Ferry program document/todo
 tools; it does not replace them.
 
-| MCP tool                           | GET path beneath `/api/v2/migrate`                  | Optional query  |
-| ---------------------------------- | --------------------------------------------------- | --------------- |
-| `list_migration_connectors`        | `/connectors`                                       |                 |
-| `list_migration_connections`       | `/connections`                                      | `page`, `limit` |
-| `get_migration_connection`         | `/connections/{connection_id}`                      |                 |
-| `list_migration_program_templates` | `/program-templates`                                |                 |
-| `list_migration_programs`          | `/programs`                                         |                 |
-| `get_migration_program`            | `/programs/{program_id}`                            |                 |
-| `list_migrations`                  | `/migrations`                                       | `page`, `limit` |
-| `get_migration`                    | `/migrations/{migration_id}`                        |                 |
-| `get_migration_journey`            | `/migrations/{migration_id}/journey`                |                 |
-| `get_migration_plan`               | `/migrations/{migration_id}/plan`                   |                 |
-| `get_migration_verification`       | `/migrations/{migration_id}/verification`           |                 |
-| `list_ingestion_sources`           | `/ingestion-sources`                                |                 |
-| `list_ingestion_batches`           | `/ingestion-sources/{source_id}/batches`            | `limit`         |
-| `get_ingestion_batch`              | `/ingestion-sources/{source_id}/batches/{batch_id}` |                 |
+| MCP tool                           | GET path beneath `/api/v2/migrate`                  | Optional query                                       |
+| ---------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| `list_migration_connectors`        | `/connectors`                                       |                                                      |
+| `list_migration_connections`       | `/connections`                                      | `page`, `limit`                                      |
+| `get_migration_connection`         | `/connections/{connection_id}`                      |                                                      |
+| `list_migration_program_templates` | `/program-templates`                                |                                                      |
+| `list_migration_programs`          | `/programs`                                         |                                                      |
+| `get_migration_program`            | `/programs/{program_id}`                            |                                                      |
+| `list_migrations`                  | `/migrations`                                       | `page`, `limit`                                      |
+| `get_migration`                    | `/migrations/{migration_id}`                        |                                                      |
+| `get_migration_journey`            | `/migrations/{migration_id}/journey`                |                                                      |
+| `get_migration_result`             | `/migrations/{migration_id}/results/{stage}`        | `path`, `offset`, `limit`, `expected_result_version` |
+| `get_migration_plan`               | `/migrations/{migration_id}/plan`                   |                                                      |
+| `get_migration_verification`       | `/migrations/{migration_id}/verification`           |                                                      |
+| `list_ingestion_sources`           | `/ingestion-sources`                                |                                                      |
+| `list_ingestion_batches`           | `/ingestion-sources/{source_id}/batches`            | `limit`                                              |
+| `get_ingestion_batch`              | `/ingestion-sources/{source_id}/batches/{batch_id}` |                                                      |
 
 Every call requires an explicit internal `workspace_id` UUID. Keep that UUID and
 resource IDs fixed for the migration, regardless of another session changing its
@@ -39,7 +40,7 @@ stages `assessment`, `plan`, `scan_mapping` and `transfer_cutover`. Each stage m
 include its state, bounded blockers, output summaries and honest links. Preserve
 missing fields as missing; the MCP adapter does not infer approval, completion or
 links or recreate API business rules. Use the stage output links or dedicated full
-report readers when more detail is needed.
+report readers when more detail is needed. Prefer [version-pinned scoped result pages](migration-results.md) for a relevant section or blocker.
 
 ## Contract and transport
 

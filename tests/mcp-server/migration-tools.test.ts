@@ -31,6 +31,11 @@ const routes = [
   ['list_migrations', '/migrations', {}],
   ['get_migration', '/migrations/migration-1', { migration_id: 'migration-1' }],
   ['get_migration_journey', '/migrations/migration-1/journey', { migration_id: 'migration-1' }],
+  [
+    'get_migration_result',
+    '/migrations/migration-1/results/plan',
+    { migration_id: 'migration-1', stage: 'plan' },
+  ],
   ['get_migration_plan', '/migrations/migration-1/plan', { migration_id: 'migration-1' }],
   ['get_migration_verification', '/migrations/migration-1/verification', { migration_id: 'migration-1' }],
   ['list_ingestion_sources', '/ingestion-sources', {}],
@@ -189,6 +194,96 @@ describe('read-only migration tools', () => {
     expect(result.structuredContent).toMatchObject(payload);
     expect(result.structuredContent).not.toHaveProperty('data.stages[0].next_action');
     expect(reqContext.client.get).toHaveBeenCalledTimes(1);
+  });
+  it('forwards version-pinned evidence pagination and preserves unknown, reference and missing link values', async () => {
+    const payload = {
+      data: {
+        workspace_id: workspace,
+        migration_id: 'migration-1',
+        stage: 'plan',
+        result_version: 'v1',
+        state: 'blocked',
+        total: 200,
+        offset: 20,
+        next_offset: 40,
+        entries: [{ key: 'route', path: '/routes/route', value_type: 'object', value: null, item_count: 5 }],
+        text: null,
+      },
+    };
+    const reqContext = context(jest.fn().mockResolvedValue(payload));
+    const result = await tool('get_migration_result').handler({
+      reqContext,
+      args: {
+        workspace_id: workspace,
+        migration_id: 'migration-1',
+        stage: 'plan',
+        path: '/routes',
+        offset: 20,
+        limit: 20,
+        expected_result_version: 'v1',
+      },
+    });
+    expect(reqContext.client.get).toHaveBeenCalledWith(
+      '/api/v2/migrate/migrations/migration-1/results/plan',
+      {
+        query: {
+          workspace_id: workspace,
+          path: '/routes',
+          offset: 20,
+          limit: 20,
+          expected_result_version: 'v1',
+        },
+      },
+    );
+    expect(result.structuredContent).toMatchObject(payload);
+    expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(payload) }]);
+    expect(result.structuredContent).not.toHaveProperty('data.review_url');
+    expect(reqContext.client.get).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    { stage: 'assessment' },
+    { stage: 'plan', offset: -1 },
+    { stage: 'plan', limit: 101 },
+    { stage: 'plan', expected_result_version: '' },
+  ])('rejects invalid result arguments %j before calling the API', async (args) => {
+    const reqContext = context();
+    const result = await tool('get_migration_result').handler({
+      reqContext,
+      args: {
+        workspace_id: workspace,
+        migration_id: 'migration-1',
+        ...args,
+      },
+    });
+    expect(result.isError).toBe(true);
+    expect(reqContext.client.get).not.toHaveBeenCalled();
+  });
+  it('preserves stale evidence conflicts without replacing the pinned result version', async () => {
+    const error = Object.assign(new Error('Evidence changed'), {
+      status: 409,
+      error: { code: 'FERRY_RESULT_STALE', message: 'Evidence changed' },
+    });
+    const reqContext = context(jest.fn().mockRejectedValue(error));
+    const result = await tool('get_migration_result').handler({
+      reqContext,
+      args: {
+        workspace_id: workspace,
+        migration_id: 'migration-1',
+        stage: 'plan',
+        expected_result_version: 'v1',
+      },
+    });
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: { status_code: 409, code: 'FERRY_RESULT_STALE' },
+    });
+    expect(reqContext.client.get).toHaveBeenCalledTimes(1);
+    expect(reqContext.client.get).toHaveBeenCalledWith(
+      '/api/v2/migrate/migrations/migration-1/results/plan',
+      {
+        query: { workspace_id: workspace, expected_result_version: 'v1' },
+      },
+    );
   });
   it.each([401, 403, 404, 409, 429, 503])(
     'preserves API status %s as an error, without fallback',

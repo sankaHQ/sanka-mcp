@@ -181,7 +181,7 @@ export function migrationTool(definition: MigrationToolDefinition): McpTool {
           };
         }
         return {
-          content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(payload) }],
           structuredContent: { ...payload, workspace_id: workspace },
         };
       } catch (error) {
@@ -264,6 +264,31 @@ export const migrationReadTools: McpTool[] = [
     description:
       'Read the compact migration journey for a migration. The API returns the current status/stage, next action, and the fixed assessment, plan, scan_mapping and transfer_cutover stages with bounded blockers, output summaries and links. This is read-only presentation evidence: preserve missing fields as missing, do not infer approval, completion or links, and fetch detailed reports only when the journey points to them.',
     parameters: { migration_id: resourceId },
+  },
+  {
+    name: 'get_migration_result',
+    title: 'Read a scoped migration result',
+    path: '/migrations/{migration_id}/results/{stage}',
+    description:
+      'Read persisted stage evidence by JSON pointer with explicit totals and pagination. Start from references in get_migration_journey; drill into returned entry paths only for relevant scope or blockers. Small rows are inline; oversized values are references, not absent evidence. Pin expected_result_version when paging; a stale-version conflict requires reading current state and reviewing changed evidence. Fetch all safety evidence needed for authorized transfer scope. Unavailable evidence is an API error, not an empty successful result. This never executes a stage or approves a plan.',
+    parameters: {
+      migration_id: resourceId,
+      stage: {
+        type: 'string',
+        enum: ['plan', 'inventory', 'map', 'validate', 'transfer', 'verification', 'cutover'],
+      },
+      path: {
+        type: 'string',
+        description: 'RFC6901 JSON pointer returned by the API; empty reads the root.',
+      },
+      offset: { type: 'integer', minimum: 0 },
+      limit: { type: 'integer', minimum: 1, maximum: 100 },
+      expected_result_version: {
+        type: 'string',
+        minLength: 1,
+        description: 'Exact result_version from the prior page; never replace silently after a conflict.',
+      },
+    },
   },
   {
     name: 'get_migration_plan',
