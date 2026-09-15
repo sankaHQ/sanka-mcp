@@ -3647,6 +3647,373 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/migrate/cloud-fleets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Fleets */
+    get: operations['list_fleets'];
+    put?: never;
+    /** Create Fleet */
+    post: operations['create_fleet'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-fleets/{fleet_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Fleet */
+    get: operations['get_fleet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-fleets/{fleet_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Fleet */
+    post: operations['cancel_fleet'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-fleets/{fleet_id}/retry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry Fleet */
+    post: operations['retry_fleet'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/availability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Availability */
+    get: operations['get_availability'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-sources': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Upload Cloud Source */
+    post: operations['upload_source'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Cloud Runs */
+    get: operations['list_runs'];
+    put?: never;
+    /** Create Cloud Run */
+    post: operations['create_run'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/certificate-keys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Certificate Keys */
+    get: operations['list_certificate_keys'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/certificate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Certificate */
+    get: operations['get_certificate'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/certificate/revoke': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Revoke Cloud Certificate */
+    post: operations['revoke_certificate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Cloud Run */
+    get: operations['get_run'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Cloud Run */
+    post: operations['cancel_run'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Run Events */
+    get: operations['list_events'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/receipt': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Run Receipt */
+    get: operations['get_receipt'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/artifacts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Cloud Run Artifacts */
+    get: operations['list_artifacts'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/migrate/cloud-runs/{run_id}/artifacts/{name}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Cloud Artifact */
+    get: operations['get_artifact'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/templates/plan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Plan Public Workflow Template
+     * @description Review a template without writing a workflow definition.
+     *
+     *     The request UUID binds immutable input and one plan digest. Reusing that UUID
+     *     with changed input conflicts. Existing workflows require their current full
+     *     definition digest. Only advertised shared templates can be planned.
+     */
+    post: operations['plan_public_workflow_template_api_v2_public_workflows_templates_plan_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/templates/use': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Use Public Workflow Template
+     * @description Construct the exact approved plan as one inactive native workflow.
+     *
+     *     Retry the same UUID and digest after a lost response. The receipt retains the
+     *     original committed definition digest even if a later native edit changed it.
+     */
+    post: operations['use_public_workflow_template_api_v2_public_workflows_templates_use_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/{workflow_id}/flow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Public Workflow Flow
+     * @description Read managed settings and the current native definition digest.
+     *
+     *     Current values and the last template baseline are separate. Only implemented
+     *     operations are advertised; this response does not prove workflow execution.
+     */
+    get: operations['get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/{workflow_id}/flow/construct': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Construct Public Workflow Flow
+     * @description Apply an approved update while preserving native workflow and node IDs.
+     *
+     *     Stale definitions, conflicting independent edits and unsupported active
+     *     updates are rejected. Retry the original plan and attempt after uncertainty.
+     */
+    post: operations['construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9968,6 +10335,997 @@ export interface components {
        * @default 0
        */
       interview_count: number;
+    };
+    DeveloperCloudDownloadCloudArtifactApiV2MigrateCloudRunsRunIdArtifactsNameGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: unknown;
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudCloudRunArtifactsApiV2MigrateCloudRunsRunIdArtifactsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudArtifactListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudArtifactListData */
+    DeveloperCloudCloudArtifactListData: {
+      /** Artifacts */
+      artifacts: components['schemas']['DeveloperCloudCloudArtifactData'][];
+    };
+    /** CloudArtifactData */
+    DeveloperCloudCloudArtifactData: {
+      /**
+       * DeveloperCloudCloudArtifactDataPropertiesName
+       * @enum {string}
+       */
+      name: 'output.zip' | 'logs.txt' | 'repair-response.json';
+      /** Sha256 */
+      sha256: string;
+      /** Size Bytes */
+      size_bytes: number;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+    };
+    DeveloperCloudCloudRunReceiptApiV2MigrateCloudRunsRunIdReceiptGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudReceiptData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudReceiptData */
+    DeveloperCloudCloudReceiptData: {
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /** Input Sha256 */
+      input_sha256: string;
+      /** Source Sha256 */
+      source_sha256: string;
+      /** Source Revision */
+      source_revision?: string | null;
+      /** Runner Image */
+      runner_image: string;
+      /** Extension Sha256 */
+      extension_sha256: string;
+      /**
+       * Rate Version
+       * @default developer-cloud-2026-09-07
+       * @constant
+       */
+      rate_version: 'developer-cloud-2026-09-07';
+      /**
+       * Worker Class
+       * @default standard-2cpu-4gib
+       * @constant
+       */
+      worker_class: 'standard-2cpu-4gib';
+      /**
+       * DeveloperCloudCloudReceiptDataPropertiesOperation
+       * @default developer_cloud_compute
+       * @enum {string}
+       */
+      operation: 'developer_cloud_compute' | 'developer_cloud_repair' | 'developer_cloud_certificate';
+      /** Attempts */
+      attempts: components['schemas']['DeveloperCloudUsageAttempt'][];
+      /** Held Credits */
+      held_credits: number;
+      /** Compute Credits */
+      compute_credits: number;
+      /**
+       * Premium Credits
+       * @default 0
+       */
+      premium_credits: number;
+      /** Released Credits */
+      released_credits: number;
+      /**
+       * DeveloperCloudCloudReceiptDataPropertiesBillingCurrency
+       * @enum {string}
+       */
+      billing_currency: 'USD' | 'JPY';
+      /**
+       * DeveloperCloudCloudReceiptDataPropertiesOutcome
+       * @enum {string}
+       */
+      outcome: 'succeeded' | 'failed' | 'cancelled';
+      /**
+       * DeveloperCloudCloudReceiptDataPropertiesVerificationScope
+       * @default generated-tests-static-v1
+       * @enum {string}
+       */
+      verification_scope: 'generated-tests-static-v1' | 'independent-http-replay-v1';
+      /** Artifacts */
+      artifacts: components['schemas']['DeveloperCloudCloudArtifactData'][];
+      /**
+       * Settled At
+       * Format: date-time
+       */
+      settled_at: string;
+      repair_evidence?: components['schemas']['DeveloperCloudRepairEvidence'] | null;
+      certificate_evidence?: components['schemas']['DeveloperCloudCertificateEvidence'] | null;
+      /** Repair Model */
+      repair_model?: string | null;
+      /** Certificate Id */
+      certificate_id?: string | null;
+    };
+    /** CertificateEvidence */
+    DeveloperCloudCertificateEvidence: {
+      /**
+       * Profile
+       * @default independent-http-replay-v1
+       * @constant
+       */
+      profile: 'independent-http-replay-v1';
+      /** Candidate Sha256 */
+      candidate_sha256: string;
+      /** Plan Sha256 */
+      plan_sha256: string;
+      /** Dependency Lock Sha256 */
+      dependency_lock_sha256: string;
+      /** Generated Tests */
+      generated_tests: number;
+      /** Generated Checks Passed */
+      generated_checks_passed: boolean;
+      /** Scenarios */
+      scenarios: components['schemas']['DeveloperCloudScenarioEvidence'][];
+      /** Declared Routes */
+      declared_routes: string[];
+      /** Tested Routes */
+      tested_routes: string[];
+      /** Untested Routes */
+      untested_routes: string[];
+    };
+    /** ScenarioEvidence */
+    DeveloperCloudScenarioEvidence: {
+      /** Id */
+      id: string;
+      /** Request Sha256 */
+      request_sha256: string;
+      /** Route Key */
+      route_key: string;
+      source: components['schemas']['DeveloperCloudHttpObservation'];
+      candidate: components['schemas']['DeveloperCloudHttpObservation'];
+    };
+    /** HttpObservation */
+    DeveloperCloudHttpObservation: {
+      /** Status */
+      status: number;
+      /** Body Sha256 */
+      body_sha256: string;
+      /**
+       * DeveloperCloudHttpObservationPropertiesBodyFormat
+       * @enum {string}
+       */
+      body_format: 'json' | 'bytes';
+      /** Content Type */
+      content_type: string;
+    };
+    /** RepairEvidence */
+    DeveloperCloudRepairEvidence: {
+      /** Candidate Sha256 */
+      candidate_sha256: string;
+      /** Patch Sha256 */
+      patch_sha256: string;
+      /**
+       * DeveloperCloudRepairEvidencePropertiesTargetGate
+       * @enum {string}
+       */
+      target_gate: 'test' | 'verify';
+      /** Before Passed */
+      before_passed: boolean;
+      /** After Passed */
+      after_passed: boolean;
+      /** Regression Passed */
+      regression_passed: boolean;
+      /** Regression Tests */
+      regression_tests: number;
+      /** Checks Unchanged */
+      checks_unchanged: boolean;
+      /** Edit Scope Respected */
+      edit_scope_respected: boolean;
+    };
+    /** UsageAttempt */
+    DeveloperCloudUsageAttempt: {
+      /** Attempt Id */
+      attempt_id: string;
+      /** Active Ms */
+      active_ms: number;
+      /**
+       * Trusted
+       * @default true
+       */
+      trusted: boolean;
+      /**
+       * Infrastructure Failure
+       * @default false
+       */
+      infrastructure_failure: boolean;
+    };
+    DeveloperCloudCloudRunEventsApiV2MigrateCloudRunsRunIdEventsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudEventListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudEventListData */
+    DeveloperCloudCloudEventListData: {
+      /** Events */
+      events: components['schemas']['DeveloperCloudCloudEventData'][];
+      /** Next Cursor */
+      next_cursor?: number | null;
+    };
+    /** CloudEventData */
+    DeveloperCloudCloudEventData: {
+      /** Sequence */
+      sequence: number;
+      /** Kind */
+      kind: string;
+      /** Message */
+      message: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    DeveloperCloudCancelCloudRunApiV2MigrateCloudRunsRunIdCancelPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudRunData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudRunData */
+    DeveloperCloudCloudRunData: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      request: components['schemas']['DeveloperCloudCloudRunRequest'];
+      /**
+       * DeveloperCloudCloudRunDataPropertiesBillingCurrency
+       * @enum {string}
+       */
+      billing_currency: 'USD' | 'JPY';
+      /** Input Sha256 */
+      input_sha256: string;
+      /** Source Revision */
+      source_revision?: string | null;
+      /**
+       * DeveloperCloudCloudRunDataPropertiesStatus
+       * @enum {string}
+       */
+      status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'failed' | 'cancelled';
+      /**
+       * Worker Class
+       * @default standard-2cpu-4gib
+       * @constant
+       */
+      worker_class: 'standard-2cpu-4gib';
+      /**
+       * Rate Version
+       * @default developer-cloud-2026-09-07
+       * @constant
+       */
+      rate_version: 'developer-cloud-2026-09-07';
+      /** Runner Image */
+      runner_image: string;
+      /** Extension Sha256 */
+      extension_sha256: string;
+      /** Execution Budget Ms */
+      execution_budget_ms: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Started At */
+      started_at?: string | null;
+      /** Completed At */
+      completed_at?: string | null;
+      /** Failure Code */
+      failure_code?: string | null;
+      /** Repair Model */
+      repair_model?: string | null;
+      /** Fleet Id */
+      fleet_id?: string | null;
+      /** Fleet Item Key */
+      fleet_item_key?: string | null;
+    };
+    /** CloudRunRequest */
+    DeveloperCloudCloudRunRequest: {
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Source Sha256 */
+      source_sha256: string;
+      /** Max Credits */
+      max_credits: number;
+      /**
+       * Timeout Seconds
+       * @default 3600
+       */
+      timeout_seconds: number;
+      /**
+       * Recipe
+       * @default drf-to-fastapi
+       * @constant
+       */
+      recipe: 'drf-to-fastapi';
+      /**
+       * DeveloperCloudCloudRunRequestPropertiesVerificationProfile
+       * @default generated-tests-static-v1
+       * @enum {string}
+       */
+      verification_profile: 'generated-tests-static-v1' | 'independent-http-replay-v1';
+      /** Settings Module */
+      settings_module?: string | null;
+      /** Rerun Of */
+      rerun_of?: string | null;
+      repair?: components['schemas']['DeveloperCloudRepairSpec'] | null;
+      certification?: components['schemas']['DeveloperCloudCertificationSpec'] | null;
+    };
+    /** CertificationSpec */
+    DeveloperCloudCertificationSpec: {
+      /**
+       * Parent Run Id
+       * Format: uuid
+       */
+      parent_run_id: string;
+      /** Candidate Sha256 */
+      candidate_sha256: string;
+      /** Scenarios */
+      scenarios: components['schemas']['DeveloperCloudHttpScenario'][];
+    };
+    /** HttpScenario */
+    DeveloperCloudHttpScenario: {
+      /** Id */
+      id: string;
+      /**
+       * DeveloperCloudHttpScenarioPropertiesMethod
+       * @enum {string}
+       */
+      method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+      /** Path */
+      path: string;
+      json_body?: components['schemas']['DeveloperCloudJsonValue'];
+    };
+    DeveloperCloudJsonValue: unknown;
+    /** RepairSpec */
+    DeveloperCloudRepairSpec: {
+      /**
+       * Parent Run Id
+       * Format: uuid
+       */
+      parent_run_id: string;
+      /** Candidate Sha256 */
+      candidate_sha256: string;
+      /**
+       * DeveloperCloudRepairSpecPropertiesTargetGate
+       * @enum {string}
+       */
+      target_gate: 'test' | 'verify';
+      /** Allowed Paths */
+      allowed_paths: string[];
+      /**
+       * Model Policy
+       * @default bounded-patch-v1
+       * @constant
+       */
+      model_policy: 'bounded-patch-v1';
+      /**
+       * Max Attempts
+       * @default 1
+       * @constant
+       */
+      max_attempts: 1;
+    };
+    DeveloperCloudGetCloudRunApiV2MigrateCloudRunsRunIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudRunData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudRevokeCloudCertificateApiV2MigrateCloudRunsRunIdCertificateRevokePost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCertificateData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CertificateData */
+    DeveloperCloudCertificateData: {
+      certificate: components['schemas']['DeveloperCloudSignedCertificate'];
+      /** Revoked At */
+      revoked_at?: string | null;
+      /** Revocation Reason */
+      revocation_reason?: string | null;
+    };
+    /** SignedCertificate */
+    DeveloperCloudSignedCertificate: {
+      /**
+       * Algorithm
+       * @default Ed25519
+       * @constant
+       */
+      algorithm: 'Ed25519';
+      /**
+       * Encoding
+       * @default sorted-ascii-json-v1
+       * @constant
+       */
+      encoding: 'sorted-ascii-json-v1';
+      /** Key Id */
+      key_id: string;
+      payload: components['schemas']['DeveloperCloudCertificatePayload'];
+      /** Signature Base64 */
+      signature_base64: string;
+    };
+    /** CertificatePayload */
+    DeveloperCloudCertificatePayload: {
+      /**
+       * Schema Version
+       * @default developer-certificate-v1
+       * @constant
+       */
+      schema_version: 'developer-certificate-v1';
+      /**
+       * Issuer
+       * @default https://api-v2.sanka.com
+       * @constant
+       */
+      issuer: 'https://api-v2.sanka.com';
+      /**
+       * Certificate Id
+       * Format: uuid
+       */
+      certificate_id: string;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Parent Run Id
+       * Format: uuid
+       */
+      parent_run_id: string;
+      /** Input Sha256 */
+      input_sha256: string;
+      /** Source Sha256 */
+      source_sha256: string;
+      /** Source Revision */
+      source_revision?: string | null;
+      /** Runner Image */
+      runner_image: string;
+      /** Extension Sha256 */
+      extension_sha256: string;
+      /**
+       * Issued At
+       * Format: date-time
+       */
+      issued_at: string;
+      evidence: components['schemas']['DeveloperCloudCertificateEvidence'];
+      /** Limitations */
+      limitations: string[];
+    };
+    /** CertificateRevokeRequest */
+    DeveloperCloudCertificateRevokeRequest: {
+      /** Reason */
+      reason: string;
+    };
+    DeveloperCloudCloudCertificateApiV2MigrateCloudRunsRunIdCertificateGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCertificateData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudCloudCertificateKeysApiV2MigrateCloudRunsCertificateKeysGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCertificateKeysData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CertificateKeysData */
+    DeveloperCloudCertificateKeysData: {
+      /**
+       * Issuer
+       * @default https://api-v2.sanka.com
+       * @constant
+       */
+      issuer: 'https://api-v2.sanka.com';
+      /** Keys */
+      keys: components['schemas']['DeveloperCloudCertificatePublicKey'][];
+    };
+    /** CertificatePublicKey */
+    DeveloperCloudCertificatePublicKey: {
+      /** Key Id */
+      key_id: string;
+      /**
+       * Algorithm
+       * @default Ed25519
+       * @constant
+       */
+      algorithm: 'Ed25519';
+      /** Public Key Base64 */
+      public_key_base64: string;
+    };
+    DeveloperCloudCreateCloudRunApiV2MigrateCloudRunsPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudRunData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudListCloudRunsApiV2MigrateCloudRunsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudRunListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudRunListData */
+    DeveloperCloudCloudRunListData: {
+      /** Runs */
+      runs: components['schemas']['DeveloperCloudCloudRunData'][];
+      /** Next Cursor */
+      next_cursor?: string | null;
+    };
+    DeveloperCloudUploadCloudSourceApiV2MigrateCloudSourcesPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudSourceData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudSourceData */
+    DeveloperCloudCloudSourceData: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Sha256 */
+      sha256: string;
+      /** Revision */
+      revision?: string | null;
+      /** Size Bytes */
+      size_bytes: number;
+      /** Expanded Bytes */
+      expanded_bytes: number;
+      /** File Count */
+      file_count: number;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+    };
+    /** SourceUploadRequest */
+    DeveloperCloudSourceUploadRequest: {
+      /** Archive Base64 */
+      archive_base64: string;
+      /** Sha256 */
+      sha256: string;
+      /** Revision */
+      revision?: string | null;
+    };
+    DeveloperCloudCloudAvailabilityApiV2MigrateCloudRunsAvailabilityGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudCloudAvailabilityData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CloudAvailabilityData */
+    DeveloperCloudCloudAvailabilityData: {
+      /**
+       * Fleet Enabled
+       * @default false
+       */
+      fleet_enabled: boolean;
+      /**
+       * Certification Enabled
+       * @default false
+       */
+      certification_enabled: boolean;
+      /**
+       * Certificate Premium Credits
+       * @default 2000
+       * @constant
+       */
+      certificate_premium_credits: 2000;
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Worker Class
+       * @default standard-2cpu-4gib
+       */
+      worker_class: string;
+      /**
+       * Credits Per Worker Minute
+       * @default 100
+       * @constant
+       */
+      credits_per_worker_minute: 100;
+      /**
+       * Max Timeout Seconds
+       * @default 3600
+       * @constant
+       */
+      max_timeout_seconds: 3600;
+      /**
+       * Max Source Bytes
+       * @default 8388608
+       */
+      max_source_bytes: number;
+      /**
+       * Verification Scope
+       * @default generated-tests-static-v1
+       */
+      verification_scope: string;
+      /**
+       * Repair Enabled
+       * @default false
+       */
+      repair_enabled: boolean;
+      /**
+       * Repair Premium Credits
+       * @default 1000
+       * @constant
+       */
+      repair_premium_credits: 1000;
+      /**
+       * Repair Model Policy
+       * @default bounded-patch-v1
+       * @constant
+       */
+      repair_model_policy: 'bounded-patch-v1';
+    };
+    DeveloperCloudRetryFleetApiV2MigrateCloudFleetsFleetIdRetryPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudFleetData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** FleetData */
+    DeveloperCloudFleetData: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      request: components['schemas']['DeveloperCloudFleetRequest'];
+      /** Input Sha256 */
+      input_sha256: string;
+      /**
+       * DeveloperCloudFleetDataPropertiesStatus
+       * @enum {string}
+       */
+      status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Completed At */
+      completed_at?: string | null;
+      /** Cancel Requested At */
+      cancel_requested_at?: string | null;
+      /** Retry Of */
+      retry_of?: string | null;
+      /** Items */
+      items: components['schemas']['DeveloperCloudFleetItemData'][];
+      /** Held Credits */
+      held_credits: number;
+      /** Compute Credits */
+      compute_credits: number;
+      /** Premium Credits */
+      premium_credits: number;
+      /** Released Credits */
+      released_credits: number;
+      /** Outstanding Credits */
+      outstanding_credits: number;
+    };
+    /** FleetItemData */
+    DeveloperCloudFleetItemData: {
+      /** Key */
+      key: string;
+      /** Repository */
+      repository: string;
+      /** Revision */
+      revision: string;
+      /** Waiting For Capacity */
+      waiting_for_capacity: boolean;
+      run: components['schemas']['DeveloperCloudCloudRunData'];
+      receipt?: components['schemas']['DeveloperCloudCloudReceiptData'] | null;
+      /** Retried Run Id */
+      retried_run_id?: string | null;
+    };
+    /** FleetRequest */
+    DeveloperCloudFleetRequest: {
+      /** Items */
+      items: components['schemas']['DeveloperCloudFleetItemRequest'][];
+      /** Max Credits */
+      max_credits: number;
+      /** Concurrency */
+      concurrency: number;
+    };
+    /** FleetItemRequest */
+    DeveloperCloudFleetItemRequest: {
+      /** Key */
+      key: string;
+      /** Repository */
+      repository: string;
+      /** Revision */
+      revision: string;
+      request: components['schemas']['DeveloperCloudCloudRunRequest'];
+    };
+    /** FleetRetryRequest */
+    DeveloperCloudFleetRetryRequest: {
+      /** Item Keys */
+      item_keys: string[];
+      /** Max Credits */
+      max_credits: number;
+      /** Concurrency */
+      concurrency: number;
+    };
+    DeveloperCloudCancelFleetApiV2MigrateCloudFleetsFleetIdCancelPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudFleetData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudGetFleetApiV2MigrateCloudFleetsFleetIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudFleetData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudCreateFleetApiV2MigrateCloudFleetsPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudFleetData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeveloperCloudListFleetsApiV2MigrateCloudFleetsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DeveloperCloudFleetListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** FleetListData */
+    DeveloperCloudFleetListData: {
+      /** Fleets */
+      fleets: components['schemas']['DeveloperCloudFleetData'][];
+      /** Next Cursor */
+      next_cursor?: string | null;
+    };
+    /** PublicFlowTemplatePlanRequest */
+    PublicFlowTemplatePlanRequest: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Template Id */
+      template_id: string;
+      /** Template Version */
+      template_version: number;
+      /** Parameters */
+      parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Workflow Id */
+      workflow_id?: string | null;
+      /** Expected Definition Digest */
+      expected_definition_digest?: string | null;
+    };
+    PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowPlanData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PublicFlowPlanData */
+    PublicFlowPlanData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Workflow Id */
+      workflow_id?: string | null;
+      /** Plan Digest */
+      plan_digest: string;
+      /** Template Id */
+      template_id: string;
+      /** Template Version */
+      template_version: number;
+      /**
+       * Operation
+       * @enum {string}
+       */
+      operation: 'create' | 'update';
+      /** Applicable */
+      applicable: boolean;
+      /** Parameters */
+      parameters: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Changes */
+      changes?: components['schemas']['PublicFlowFieldChange'][];
+      /** Conflicts */
+      conflicts?: components['schemas']['PublicFlowConflict'][];
+      /** Preserved Fields */
+      preserved_fields?: string[];
+      /** Blocker Codes */
+      blocker_codes?: string[];
+      /** Required Capabilities */
+      required_capabilities?: string[];
+      /**
+       * Construction
+       * @default inactive
+       * @constant
+       */
+      construction: 'inactive';
+    };
+    /** PublicFlowFieldChange */
+    PublicFlowFieldChange: {
+      /** Key */
+      key: string;
+      /** Before */
+      before?: string | number | boolean | string[] | null;
+      /** After */
+      after?: string | number | boolean | string[] | null;
+    };
+    /** PublicFlowConflict */
+    PublicFlowConflict: {
+      /** Key */
+      key: string;
+      previous: components['schemas']['PublicFlowFieldState'];
+      current: components['schemas']['PublicFlowFieldState'];
+      desired: components['schemas']['PublicFlowFieldState'];
+    };
+    /** PublicFlowFieldState */
+    PublicFlowFieldState: {
+      /** Present */
+      present: boolean;
+      /** Value */
+      value?: string | number | boolean | string[] | null;
+    };
+    /** PublicFlowTemplateUseRequest */
+    PublicFlowTemplateUseRequest: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Plan Digest */
+      plan_digest: string;
+    };
+    UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowConstructData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PublicFlowConstructData */
+    PublicFlowConstructData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Plan Digest */
+      plan_digest: string;
+      /** Definition Digest */
+      definition_digest: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'constructed' | 'already_constructed';
+    };
+    GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowStateData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PublicFlowStateData */
+    PublicFlowStateData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'managed' | 'unmanaged';
+      /** Definition Digest */
+      definition_digest?: string | null;
+      /**
+       * Active
+       * @default false
+       */
+      active: boolean;
+      /** Parameters */
+      parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Template Parameters */
+      template_parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Available Operations */
+      available_operations?: string[];
+    };
+    /** PublicFlowConstructRequest */
+    PublicFlowConstructRequest: {
+      /** Plan Digest */
+      plan_digest: string;
+      /**
+       * Attempt Id
+       * Format: uuid
+       */
+      attempt_id: string;
+    };
+    ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowConstructData'];
+      meta: components['schemas']['EnvelopeMeta'];
     };
   };
   responses: {
@@ -20516,6 +21874,673 @@ export interface operations {
         };
       };
       401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_fleets: {
+    parameters: {
+      query?: {
+        cursor?: string | null;
+        limit?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudListFleetsApiV2MigrateCloudFleetsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_fleet: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header: {
+        'Idempotency-Key': string;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeveloperCloudFleetRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCreateFleetApiV2MigrateCloudFleetsPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_fleet: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        fleet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudGetFleetApiV2MigrateCloudFleetsFleetIdGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  cancel_fleet: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        fleet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCancelFleetApiV2MigrateCloudFleetsFleetIdCancelPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  retry_fleet: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header: {
+        'Idempotency-Key': string;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        fleet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeveloperCloudFleetRetryRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudRetryFleetApiV2MigrateCloudFleetsFleetIdRetryPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_availability: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudAvailabilityApiV2MigrateCloudRunsAvailabilityGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  upload_source: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeveloperCloudSourceUploadRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudUploadCloudSourceApiV2MigrateCloudSourcesPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_runs: {
+    parameters: {
+      query?: {
+        cursor?: string | null;
+        limit?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudListCloudRunsApiV2MigrateCloudRunsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_run: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header: {
+        'Idempotency-Key': string;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeveloperCloudCloudRunRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCreateCloudRunApiV2MigrateCloudRunsPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_certificate_keys: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudCertificateKeysApiV2MigrateCloudRunsCertificateKeysGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_certificate: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudCertificateApiV2MigrateCloudRunsRunIdCertificateGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  revoke_certificate: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeveloperCloudCertificateRevokeRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudRevokeCloudCertificateApiV2MigrateCloudRunsRunIdCertificateRevokePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_run: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudGetCloudRunApiV2MigrateCloudRunsRunIdGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  cancel_run: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCancelCloudRunApiV2MigrateCloudRunsRunIdCancelPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_events: {
+    parameters: {
+      query?: {
+        cursor?: number;
+        limit?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudRunEventsApiV2MigrateCloudRunsRunIdEventsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_receipt: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudRunReceiptApiV2MigrateCloudRunsRunIdReceiptGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_artifacts: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudCloudRunArtifactsApiV2MigrateCloudRunsRunIdArtifactsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_artifact: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        run_id: string;
+        name: 'output.zip' | 'logs.txt' | 'repair-response.json';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeveloperCloudDownloadCloudArtifactApiV2MigrateCloudRunsRunIdArtifactsNameGet200Envelope'];
+          'application/octet-stream': string;
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  plan_public_workflow_template_api_v2_public_workflows_templates_plan_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowTemplatePlanRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  use_public_workflow_template_api_v2_public_workflows_templates_use_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowTemplateUseRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        workflow_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        workflow_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowConstructRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };

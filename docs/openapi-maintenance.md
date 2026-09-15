@@ -47,3 +47,9 @@ For this repository specifically:
 - Small API changes: patch the TypeScript client manually.
 - Larger schema churn: regenerate types, then fix the affected wrappers intentionally.
 - Do not regenerate the entire repository blindly.
+
+The generated type snapshot now includes the public Flow plan/use and managed
+status/construct contract, alongside the already implemented Developer Cloud
+routes. Regeneration uses the shared SDK input; existing path, schema and operation
+members remain unchanged. This updates client types only. No dedicated Flow tool,
+verification/activation handler or plugin package is added by this snapshot.
