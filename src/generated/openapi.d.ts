@@ -160,6 +160,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/approval-requests/{history_id}/withdraw': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Withdraw Approval Request */
+    post: operations['withdraw_approval_request_api_v2_public_approval_requests__history_id__withdraw_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/associations': {
     parameters: {
       query?: never;
@@ -227,151 +244,6 @@ export interface paths {
     get: operations['list_public_buy_offers_api_v2_public_buy_offers_get'];
     put?: never;
     post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/connectors/clay/signals': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Ingest Clay Signal */
-    post: operations['ingest_clay_signal_api_v2_lookout_connectors_clay_signals_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/connectors/{provider}/signals': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Ingest Provider Signal */
-    post: operations['ingest_provider_signal_api_v2_lookout_connectors__provider__signals_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/ad-actions': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Provider Actions
-     * @deprecated
-     */
-    get: operations['list_provider_actions_api_v2_lookout_ad_actions_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/provider-actions': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Provider Actions */
-    get: operations['list_provider_actions_api_v2_lookout_provider_actions_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/ad-actions/{action_id}/claim': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Claim Provider Action
-     * @deprecated
-     */
-    post: operations['claim_provider_action_api_v2_lookout_ad_actions__action_id__claim_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/provider-actions/{action_id}/claim': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Claim Provider Action */
-    post: operations['claim_provider_action_api_v2_lookout_provider_actions__action_id__claim_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/ad-actions/{action_id}/complete': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Complete Provider Action
-     * @deprecated
-     */
-    post: operations['complete_provider_action_api_v2_lookout_ad_actions__action_id__complete_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/lookout/provider-actions/{action_id}/complete': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Complete Provider Action */
-    post: operations['complete_provider_action_api_v2_lookout_provider_actions__action_id__complete_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -569,6 +441,151 @@ export interface paths {
     post?: never;
     /** Delete Public Contact */
     delete: operations['delete_public_contact_api_v2_public_contacts__contact_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Functions */
+    get: operations['list_public_functions_api_v2_public_code_functions_get'];
+    put?: never;
+    /** Create Public Function */
+    post: operations['create_public_function_api_v2_public_code_functions_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Function */
+    get: operations['get_public_function_api_v2_public_code_functions__function_ref__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Public Function
+     * @description ``sanka code unlock`` lives here.
+     *
+     *     origin="cli" is what makes releasing the git lock possible at all: whoever holds a
+     *     token for the repository that owns the code is the party entitled to hand ownership
+     *     back to the UI.
+     */
+    patch: operations['update_public_function_api_v2_public_code_functions__function_ref__patch'];
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}/versions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Versions */
+    get: operations['list_public_versions_api_v2_public_code_functions__function_ref__versions_get'];
+    put?: never;
+    /**
+     * Push Public Version
+     * @description ``sanka code push``.
+     *
+     *     origin="cli" so the git source lock does not apply -- pushing from the repo is
+     *     exactly what a git-managed function is for.
+     */
+    post: operations['push_public_version_api_v2_public_code_functions__function_ref__versions_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}/versions/{version}/bundle': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download Public Version Bundle
+     * @description ``sanka code pull`` / ``diff``.
+     *
+     *     Returns the archive itself rather than an envelope: the client writes bytes to disk
+     *     and compares digests, and wrapping them in JSON would only add a base64 round trip.
+     */
+    get: operations['download_public_version_bundle_api_v2_public_code_functions__function_ref__versions__version__bundle_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}/aliases/{alias}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Public Alias
+     * @description ``sanka code deploy`` / ``sanka code rollback`` -- both move an alias.
+     */
+    put: operations['set_public_alias_api_v2_public_code_functions__function_ref__aliases__alias__put'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}/secrets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Secrets */
+    get: operations['list_public_secrets_api_v2_public_code_functions__function_ref__secrets_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/code/functions/{function_ref}/secrets/{name}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Secret */
+    put: operations['set_public_secret_api_v2_public_code_functions__function_ref__secrets__name__put'];
+    post?: never;
+    /** Delete Public Secret */
+    delete: operations['delete_public_secret_api_v2_public_code_functions__function_ref__secrets__name__delete'];
     options?: never;
     head?: never;
     patch?: never;
@@ -972,11 +989,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Public Export Jobs Compat */
-    get: operations['list_public_export_jobs_compat_api_v2_public_exports_get'];
+    /** List Public Export Jobs */
+    get: operations['list_public_export_jobs_api_v2_public_exports_get'];
     put?: never;
     /**
-     * Create Public Export Job Compat
+     * Create Public Export Job
      * @description Create an export job.
      *
      *     Integration-destination exports are validated against the runnable
@@ -991,7 +1008,7 @@ export interface paths {
      *     ``INTEGRATION_EXPORT_UNKNOWN_PROVIDER``. Accepted jobs stay queued or
      *     running until provider completion and required post-processing finish.
      */
-    post: operations['create_public_export_job_compat_api_v2_public_exports_post'];
+    post: operations['create_public_export_job_api_v2_public_exports_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1076,7 +1093,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Public Ferry Programs */
+    /** List Public Sanka Programs */
     get: operations['list_public_ferry_programs_api_v2_public_ferry_programs_get'];
     put?: never;
     post?: never;
@@ -1093,7 +1110,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Public Ferry Program */
+    /** Get Public Sanka Program */
     get: operations['get_public_ferry_program_api_v2_public_ferry_programs__program_id__get'];
     put?: never;
     post?: never;
@@ -1110,10 +1127,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Public Ferry Program Meetings */
+    /** List Public Sanka Program Meetings */
     get: operations['list_public_ferry_program_meetings_api_v2_public_ferry_programs__program_id__meetings_get'];
     put?: never;
-    /** Create Public Ferry Program Meeting */
+    /** Create Public Sanka Program Meeting */
     post: operations['create_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings_post'];
     delete?: never;
     options?: never;
@@ -1134,7 +1151,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** Update Public Ferry Program Meeting */
+    /** Update Public Sanka Program Meeting */
     patch: operations['update_public_ferry_program_meeting_api_v2_public_ferry_programs__program_id__meetings__meeting_id__patch'];
     trace?: never;
   };
@@ -1147,7 +1164,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Create Public Ferry Program Todo */
+    /** Create Public Sanka Program Todo */
     post: operations['create_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos_post'];
     delete?: never;
     options?: never;
@@ -1164,7 +1181,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Batch Upsert Public Ferry Program Todos */
+    /** Batch Upsert Public Sanka Program Todos */
     post: operations['batch_upsert_public_ferry_program_todos_api_v2_public_ferry_programs__program_id__todos_batch_upsert_post'];
     delete?: never;
     options?: never;
@@ -1182,11 +1199,11 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** Delete Public Ferry Program Todo */
+    /** Delete Public Sanka Program Todo */
     delete: operations['delete_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__delete'];
     options?: never;
     head?: never;
-    /** Update Public Ferry Program Todo */
+    /** Update Public Sanka Program Todo */
     patch: operations['update_public_ferry_program_todo_api_v2_public_ferry_programs__program_id__todos__todo_id__patch'];
     trace?: never;
   };
@@ -1635,11 +1652,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Public Import Jobs Compat */
-    get: operations['list_public_import_jobs_compat_api_v2_public_imports_get'];
+    /** List Public Import Jobs */
+    get: operations['list_public_import_jobs_api_v2_public_imports_get'];
     put?: never;
-    /** Create Public Import Job Compat */
-    post: operations['create_public_import_job_compat_api_v2_public_imports_post'];
+    /** Create Public Import Job */
+    post: operations['create_public_import_job_api_v2_public_imports_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1653,8 +1670,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get Public Import Job Compat */
-    get: operations['get_public_import_job_compat_api_v2_public_imports__job_id__get'];
+    /** Get Public Import Job */
+    get: operations['get_public_import_job_api_v2_public_imports__job_id__get'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1672,8 +1689,8 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Cancel Public Import Job Compat */
-    post: operations['cancel_public_import_job_compat_api_v2_public_imports__job_id__cancel_post'];
+    /** Cancel Public Import Job */
+    post: operations['cancel_public_import_job_api_v2_public_imports__job_id__cancel_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2360,7 +2377,14 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Public Purchase Orders */
+    /**
+     * List Public Purchase Orders
+     * @description Lists purchase orders using canonical object-record hydration. For backward compatibility,
+     *     `properties.standard:supplier_label` and `properties.supplier_label` are returned as the
+     *     legacy single object reference built from the first associated supplier, or `null` when no
+     *     supplier is associated. `properties.standard:supplier_id` remains the complete Associations
+     *     V2 summary and should be used when all associated suppliers are required.
+     */
     get: operations['list_public_purchase_orders_api_v2_public_purchase_orders_get'];
     put?: never;
     /** Create Public Purchase Order */
@@ -2506,6 +2530,216 @@ export interface paths {
     get: operations['download_public_slip_pdf_api_v2_public_slips__revenue_id__pdf_get'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/job-postings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_job_postings'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_job_posting'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_job_posting'];
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/job-postings/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_job_posting'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_applicants'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_applicant'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_applicant'];
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/applicants/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_applicant'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Records */
+    get: operations['list_public_interviews'];
+    put?: never;
+    /** Create Record */
+    post: operations['create_public_interview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Record */
+    get: operations['get_public_interview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Record */
+    patch: operations['update_public_interview'];
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Archive Record */
+    post: operations['archive_public_interview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/interviews/{record_ref}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Activate Record */
+    post: operations['activate_public_interview'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2958,6 +3192,99 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/workflows/templates/plan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Plan Public Workflow Template
+     * @description Review a template without writing a workflow definition.
+     *
+     *     The request UUID binds immutable input and one plan digest. Reusing that UUID
+     *     with changed input conflicts. Existing workflows require their current full
+     *     definition digest. Only advertised shared templates can be planned.
+     */
+    post: operations['plan_public_workflow_template_api_v2_public_workflows_templates_plan_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/templates/use': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Use Public Workflow Template
+     * @description Construct the exact approved plan as one inactive native workflow.
+     *
+     *     Retry the same UUID and digest after a lost response. The receipt retains the
+     *     original committed definition digest even if a later native edit changed it.
+     */
+    post: operations['use_public_workflow_template_api_v2_public_workflows_templates_use_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/{workflow_id}/flow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Public Workflow Flow
+     * @description Read managed settings and the current native definition digest.
+     *
+     *     Current values and the last template baseline are separate. Only implemented
+     *     operations are advertised; this response does not prove workflow execution.
+     */
+    get: operations['get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workflows/{workflow_id}/flow/construct': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Construct Public Workflow Flow
+     * @description Apply an approved update while preserving native workflow and node IDs.
+     *
+     *     Stale definitions, conflicting independent edits and unsupported active
+     *     updates are rejected. Retry the original plan and attempt after uncertainty.
+     */
+    post: operations['construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/workflows': {
     parameters: {
       query?: never;
@@ -3006,6 +3333,91 @@ export interface paths {
     put?: never;
     /** Run Public Workflow */
     post: operations['run_public_workflow_api_v2_public_workflows__workflow_id__run_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/organization': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Workforce Organization */
+    get: operations['get_public_workforce_organization'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Public Workforce Position */
+    post: operations['create_public_workforce_position'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Public Workforce Position */
+    patch: operations['update_public_workforce_position'];
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}/job': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Workforce Position Job */
+    put: operations['set_public_workforce_position_job'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/workforce-planning/positions/{position_id}/occupant': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Workforce Position Occupant */
+    put: operations['set_public_workforce_position_occupant'];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3125,6 +3537,40 @@ export interface paths {
     put?: never;
     /** Preview Public Moneyforward Invoice Export */
     post: operations['preview_public_moneyforward_invoice_export_api_v2_public_invoices_exports_moneyforward_preview_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/invoices/exports/quickbooks-online/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Public Quickbooks Invoice Export */
+    post: operations['preview_public_quickbooks_invoice_export_api_v2_public_invoices_exports_quickbooks_online_preview_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/bills/exports/quickbooks-online/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Public Quickbooks Bill Export */
+    post: operations['preview_public_quickbooks_bill_export_api_v2_public_bills_exports_quickbooks_online_preview_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3259,7 +3705,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Start Public Freee Invoice Export */
+    /**
+     * Start Public Freee Invoice Export
+     * @description Queue a durable freee Invoice export and return its transfer-history run.
+     */
     post: operations['start_public_freee_invoice_export_api_v2_public_invoices_exports_freee_post'];
     delete?: never;
     options?: never;
@@ -3278,6 +3727,40 @@ export interface paths {
     put?: never;
     /** Start Public Moneyforward Invoice Export */
     post: operations['start_public_moneyforward_invoice_export_api_v2_public_invoices_exports_moneyforward_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/invoices/exports/quickbooks-online': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start Public Quickbooks Invoice Export */
+    post: operations['start_public_quickbooks_invoice_export_api_v2_public_invoices_exports_quickbooks_online_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/bills/exports/quickbooks-online': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start Public Quickbooks Bill Export */
+    post: operations['start_public_quickbooks_bill_export_api_v2_public_bills_exports_quickbooks_online_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3352,672 +3835,16 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/v2/public/job-postings': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Records */
-    get: operations['list_public_job_postings'];
-    put?: never;
-    /** Create Record */
-    post: operations['create_public_job_posting'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/job-postings/{record_ref}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Record */
-    get: operations['get_public_job_posting'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Update Record */
-    patch: operations['update_public_job_posting'];
-    trace?: never;
-  };
-  '/v2/public/job-postings/{record_ref}/archive': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Archive Record */
-    post: operations['archive_public_job_posting'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/job-postings/{record_ref}/activate': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Activate Record */
-    post: operations['activate_public_job_posting'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/applicants': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Records */
-    get: operations['list_public_applicants'];
-    put?: never;
-    /** Create Record */
-    post: operations['create_public_applicant'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/applicants/{record_ref}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Record */
-    get: operations['get_public_applicant'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Update Record */
-    patch: operations['update_public_applicant'];
-    trace?: never;
-  };
-  '/v2/public/applicants/{record_ref}/archive': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Archive Record */
-    post: operations['archive_public_applicant'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/applicants/{record_ref}/activate': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Activate Record */
-    post: operations['activate_public_applicant'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/interviews': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Records */
-    get: operations['list_public_interviews'];
-    put?: never;
-    /** Create Record */
-    post: operations['create_public_interview'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/interviews/{record_ref}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Record */
-    get: operations['get_public_interview'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Update Record */
-    patch: operations['update_public_interview'];
-    trace?: never;
-  };
-  '/v2/public/interviews/{record_ref}/archive': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Archive Record */
-    post: operations['archive_public_interview'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/interviews/{record_ref}/activate': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Activate Record */
-    post: operations['activate_public_interview'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workforce-planning/organization': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Public Workforce Organization */
-    get: operations['get_public_workforce_organization'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workforce-planning/positions': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Create Public Workforce Position */
-    post: operations['create_public_workforce_position'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workforce-planning/positions/{position_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Update Public Workforce Position */
-    patch: operations['update_public_workforce_position'];
-    trace?: never;
-  };
-  '/v2/public/workforce-planning/positions/{position_id}/job': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Set Public Workforce Position Job */
-    put: operations['set_public_workforce_position_job'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workforce-planning/positions/{position_id}/occupant': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Set Public Workforce Position Occupant */
-    put: operations['set_public_workforce_position_occupant'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-fleets': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Fleets */
-    get: operations['list_fleets'];
-    put?: never;
-    /** Create Fleet */
-    post: operations['create_fleet'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-fleets/{fleet_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Fleet */
-    get: operations['get_fleet'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-fleets/{fleet_id}/cancel': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Cancel Fleet */
-    post: operations['cancel_fleet'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-fleets/{fleet_id}/retry': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Retry Fleet */
-    post: operations['retry_fleet'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/availability': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Availability */
-    get: operations['get_availability'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-sources': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Upload Cloud Source */
-    post: operations['upload_source'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Cloud Runs */
-    get: operations['list_runs'];
-    put?: never;
-    /** Create Cloud Run */
-    post: operations['create_run'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/certificate-keys': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Certificate Keys */
-    get: operations['list_certificate_keys'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/certificate': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Certificate */
-    get: operations['get_certificate'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/certificate/revoke': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Revoke Cloud Certificate */
-    post: operations['revoke_certificate'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Cloud Run */
-    get: operations['get_run'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/cancel': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Cancel Cloud Run */
-    post: operations['cancel_run'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/events': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Run Events */
-    get: operations['list_events'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/receipt': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Run Receipt */
-    get: operations['get_receipt'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/artifacts': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Cloud Run Artifacts */
-    get: operations['list_artifacts'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/migrate/cloud-runs/{run_id}/artifacts/{name}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Download Cloud Artifact */
-    get: operations['get_artifact'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workflows/templates/plan': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Plan Public Workflow Template
-     * @description Review a template without writing a workflow definition.
-     *
-     *     The request UUID binds immutable input and one plan digest. Reusing that UUID
-     *     with changed input conflicts. Existing workflows require their current full
-     *     definition digest. Only advertised shared templates can be planned.
-     */
-    post: operations['plan_public_workflow_template_api_v2_public_workflows_templates_plan_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workflows/templates/use': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Use Public Workflow Template
-     * @description Construct the exact approved plan as one inactive native workflow.
-     *
-     *     Retry the same UUID and digest after a lost response. The receipt retains the
-     *     original committed definition digest even if a later native edit changed it.
-     */
-    post: operations['use_public_workflow_template_api_v2_public_workflows_templates_use_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workflows/{workflow_id}/flow': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Public Workflow Flow
-     * @description Read managed settings and the current native definition digest.
-     *
-     *     Current values and the last template baseline are separate. Only implemented
-     *     operations are advertised; this response does not prove workflow execution.
-     */
-    get: operations['get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v2/public/workflows/{workflow_id}/flow/construct': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Construct Public Workflow Flow
-     * @description Apply an approved update while preserving native workflow and node IDs.
-     *
-     *     Stale definitions, conflicting independent edits and unsupported active
-     *     updates are rejected. Retry the original plan and attempt after uncertainty.
-     */
-    post: operations['construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    ActivatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ActivatePublicCustomObjectRecordApiV2PublicCustomObjectsCustomObjectIdRecordsRecordIdActivatePost200Envelope: {
       /** @constant */
       success: true;
@@ -4025,6 +3852,18 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ActivatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ActivatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ActivatePublicJournalApiV2PublicJournalsJournalIdActivatePost200Envelope: {
@@ -4118,6 +3957,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ArchivePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ArchivePublicCustomObjectRecordApiV2PublicCustomObjectsCustomObjectIdRecordsRecordIdArchivePost200Envelope: {
       /** @constant */
       success: true;
@@ -4134,6 +3979,18 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ArchivePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ArchivePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ArchivePublicJournalApiV2PublicJournalsJournalIdArchivePost200Envelope: {
@@ -4251,25 +4108,13 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
-    CancelPublicImportJobCompatApiV2PublicImportsJobIdCancelPost200Envelope: {
+    CancelPublicImportJobApiV2PublicImportsJobIdCancelPost200Envelope: {
       /** @constant */
       success: true;
-      /** Response Cancel Public Import Job Compat Api V2 Public Imports  Job Id  Cancel Post */
+      /** Response Cancel Public Import Job Api V2 Public Imports  Job Id  Cancel Post */
       data: {
         [key: string]: unknown;
       };
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ClaimProviderActionApiV2LookoutAdActionsActionIdClaimPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutProviderActionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ClaimProviderActionApiV2LookoutProviderActionsActionIdClaimPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutProviderActionData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     /** CompanyMutationRequest */
@@ -4282,6 +4127,8 @@ export interface components {
       properties?: {
         [key: string]: unknown;
       };
+      /** Associations */
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][] | null;
       /**
        * Target
        * @default sanka
@@ -4295,6 +4142,14 @@ export interface components {
       external_object_type?: string | null;
       /** External Id */
       external_id?: string | null;
+      /** Contact Id */
+      contact_id?: string | null;
+      /** Contact External Id */
+      contact_external_id?: string | null;
+      /** Company Id */
+      company_id?: string | null;
+      /** Company External Id */
+      company_external_id?: string | null;
       /** Operation */
       operation?: string | null;
       /**
@@ -4349,16 +4204,10 @@ export interface components {
       /** Discount Price */
       discount_price?: number | null;
     };
-    CompleteProviderActionApiV2LookoutAdActionsActionIdCompletePost200Envelope: {
+    ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope: {
       /** @constant */
       success: true;
-      data: components['schemas']['LookoutProviderActionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    CompleteProviderActionApiV2LookoutProviderActionsActionIdCompletePost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutProviderActionData'];
+      data: components['schemas']['PublicFlowConstructData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreateApprovalRequestApiV2PublicApprovalRequestsPost200Envelope: {
@@ -4377,6 +4226,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreatePublicAssociationApiV2PublicAssociationsPost200Envelope: {
@@ -4493,10 +4348,10 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
-    CreatePublicExportJobCompatApiV2PublicExportsPost200Envelope: {
+    CreatePublicExportJobApiV2PublicExportsPost200Envelope: {
       /** @constant */
       success: true;
-      /** Response Create Public Export Job Compat Api V2 Public Exports Post */
+      /** Response Create Public Export Job Api V2 Public Exports Post */
       data: {
         [key: string]: unknown;
       };
@@ -4529,10 +4384,16 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
-    CreatePublicImportJobCompatApiV2PublicImportsPost200Envelope: {
+    CreatePublicFunctionApiV2PublicCodeFunctionsPost201Envelope: {
       /** @constant */
       success: true;
-      /** Response Create Public Import Job Compat Api V2 Public Imports Post */
+      data: components['schemas']['CustomCodeFunctionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicImportJobApiV2PublicImportsPost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Create Public Import Job Api V2 Public Imports Post */
       data: {
         [key: string]: unknown;
       };
@@ -4554,6 +4415,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreatePublicInventoryApiV2PublicInventoriesPost200Envelope: {
@@ -4590,6 +4457,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreatePublicJournalApiV2PublicJournalsPost200Envelope: {
@@ -4723,6 +4596,82 @@ export interface components {
         [key: string]: unknown;
       };
       meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicWorkforcePosition200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** CustomCodeAliasUpdateRequest */
+    CustomCodeAliasUpdateRequest: {
+      /** Version */
+      version: number;
+    };
+    /** CustomCodeFunctionCreateRequest */
+    CustomCodeFunctionCreateRequest: {
+      /** Slug */
+      slug: string;
+      /** Name */
+      name: string;
+      /**
+       * Runtime
+       * @enum {string}
+       */
+      runtime: 'node22' | 'python312';
+      /** Description */
+      description?: string | null;
+      /**
+       * Source Mode
+       * @default ui
+       * @enum {string}
+       */
+      source_mode: 'ui' | 'git';
+    };
+    /** CustomCodeFunctionUpdateRequest */
+    CustomCodeFunctionUpdateRequest: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Status */
+      status?: ('active' | 'disabled' | 'archived') | null;
+      /** Source Mode */
+      source_mode?: ('ui' | 'git') | null;
+    };
+    /** CustomCodeSecretSetRequest */
+    CustomCodeSecretSetRequest: {
+      /** Name */
+      name: string;
+      /** Value */
+      value: string;
+    };
+    /**
+     * CustomCodeVersionCreateRequest
+     * @description Push payload.
+     *
+     *     ``bundle_base64`` keeps the public surface JSON-only so the CLI, a GitHub Action and
+     *     curl all use one shape. The 10 MB compressed ceiling makes base64's 33% overhead
+     *     affordable.
+     */
+    CustomCodeVersionCreateRequest: {
+      /** Bundle Base64 */
+      bundle_base64: string;
+      /** Content Sha256 */
+      content_sha256?: string | null;
+      /** Change Summary */
+      change_summary?: string | null;
+      /** Git Commit Sha */
+      git_commit_sha?: string | null;
+      /** Git Ref */
+      git_ref?: string | null;
+      /** Git Repo Url */
+      git_repo_url?: string | null;
+      /**
+       * Activate
+       * @default false
+       */
+      activate: boolean;
     };
     DeletePublicAbsenceApiV2PublicAbsencesAbsenceIdDelete200Envelope: {
       /** @constant */
@@ -4989,6 +4938,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeletePublicSecretApiV2PublicCodeFunctionsFunctionRefSecretsNameDelete200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeSecretDeleteData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     DeletePublicSlipApiV2PublicSlipsRevenueIdDelete200Envelope: {
@@ -5271,6 +5226,10 @@ export interface components {
       meetingAt?: string | null;
       /** Contentmarkdown */
       contentMarkdown?: string | null;
+      /** Pinned */
+      pinned?: boolean | null;
+      /** Archivedat */
+      archivedAt?: string | null;
     };
     /** FerryProgramTodoBatchUpsertRequest */
     FerryProgramTodoBatchUpsertRequest: {
@@ -5326,6 +5285,12 @@ export interface components {
       parentTodoId?: string | null;
       /** Sortorder */
       sortOrder?: number | null;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /** Assigneeuserids */
+      assigneeUserIds?: string[];
+      /** Assigneegroupids */
+      assigneeGroupIds?: string[];
     };
     /** FerryProgramTodoUpdateRequest */
     FerryProgramTodoUpdateRequest: {
@@ -5359,8 +5324,20 @@ export interface components {
       parentTodoId?: string | null;
       /** Sortorder */
       sortOrder?: number | null;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /** Assigneeuserids */
+      assigneeUserIds?: string[] | null;
+      /** Assigneegroupids */
+      assigneeGroupIds?: string[] | null;
     };
     GetPublicAbsenceApiV2PublicAbsencesAbsenceIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicApplicant200Envelope: {
       /** @constant */
       success: true;
       data: components['schemas']['ObjectRecordData'];
@@ -5525,10 +5502,16 @@ export interface components {
       data: components['schemas']['FerryProgramData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
-    GetPublicImportJobCompatApiV2PublicImportsJobIdGet200Envelope: {
+    GetPublicFunctionApiV2PublicCodeFunctionsFunctionRefGet200Envelope: {
       /** @constant */
       success: true;
-      /** Response Get Public Import Job Compat Api V2 Public Imports  Job Id  Get */
+      data: components['schemas']['CustomCodeFunctionDetailData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicImportJobApiV2PublicImportsJobIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Get Public Import Job Api V2 Public Imports  Job Id  Get */
       data: {
         [key: string]: unknown;
       };
@@ -5541,6 +5524,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     GetPublicInventoryApiV2PublicInventoriesInventoryIdGet200Envelope: {
@@ -5562,6 +5551,12 @@ export interface components {
       meta: components['schemas']['EnvelopeMeta'];
     };
     GetPublicItemApiV2PublicItemsItemIdGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicJobPosting200Envelope: {
       /** @constant */
       success: true;
       data: components['schemas']['ObjectRecordData'];
@@ -5693,6 +5688,12 @@ export interface components {
       data: components['schemas']['WorkflowDetailData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowStateData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     GetPublicWorkflowRunApiV2PublicWorkflowRunsRunIdGet200Envelope: {
       /** @constant */
       success: true;
@@ -5709,6 +5710,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicWorkforceOrganization200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforceOrganizationData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     /** ImportJobCreateRequest */
@@ -5733,7 +5740,10 @@ export interface components {
       provider?: string | null;
       /** Channel Id */
       channel_id?: string | null;
-      /** Mapping Template Id */
+      /**
+       * Mapping Template Id
+       * @description Saved integration mapping template UUID. Integration import form submissions resolve the active Default template for the exact mapping scope when omitted.
+       */
       mapping_template_id?: string | null;
       /** Mapping Template Revision */
       mapping_template_revision?: number | null;
@@ -5760,7 +5770,10 @@ export interface components {
        * @default auto
        */
       mapping_mode: string;
-      /** Key Field */
+      /**
+       * Key Field
+       * @description For Item update and create-and-update CSV imports, use id, item_id, product_id, name, or a workspace-unique Item text custom field in the form custom_field|<field UUID>. The selected key must also be mapped to a CSV column.
+       */
       key_field?: string | null;
       /** Relation Key Map */
       relation_key_map?: {
@@ -5933,18 +5946,6 @@ export interface components {
       /** Sort Direction */
       sort_direction?: ('asc' | 'desc') | null;
     };
-    IngestClaySignalApiV2LookoutConnectorsClaySignalsPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutSignalData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    IngestProviderSignalApiV2LookoutConnectorsProviderSignalsPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutSignalData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
     /** JournalCreateRequest */
     JournalCreateRequest: {
       /** Data */
@@ -5993,17 +5994,17 @@ export interface components {
        */
       limit: number;
     };
-    ListProviderActionsApiV2LookoutAdActionsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutProviderActionListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ListProviderActionsApiV2LookoutProviderActionsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['LookoutProviderActionListData'];
-      meta: components['schemas']['EnvelopeMeta'];
+    LegacyPublicCounterpartyReference: {
+      id: string;
+      record_id: string;
+      object_type: string;
+      custom_object_id: string | null;
+      label: string;
+      display: string;
+      render: {
+        /** @constant */
+        kind: 'object_reference';
+      };
     };
     ListPublicAbsencesApiV2PublicAbsencesGet200Envelope: {
       /** @constant */
@@ -6015,6 +6016,12 @@ export interface components {
       /** @constant */
       success: true;
       data: components['schemas']['ActivityLogListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicApplicants200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ListPublicApprovalRulesApiV2PublicApprovalRulesGet200Envelope: {
@@ -6146,10 +6153,10 @@ export interface components {
       data: components['schemas']['ObjectRecordListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
-    ListPublicExportJobsCompatApiV2PublicExportsGet200Envelope: {
+    ListPublicExportJobsApiV2PublicExportsGet200Envelope: {
       /** @constant */
       success: true;
-      /** Response List Public Export Jobs Compat Api V2 Public Exports Get */
+      /** Response List Public Export Jobs Api V2 Public Exports Get */
       data: {
         [key: string]: unknown;
       };
@@ -6173,10 +6180,16 @@ export interface components {
       data: components['schemas']['FerryProgramListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
-    ListPublicImportJobsCompatApiV2PublicImportsGet200Envelope: {
+    ListPublicFunctionsApiV2PublicCodeFunctionsGet200Envelope: {
       /** @constant */
       success: true;
-      /** Response List Public Import Jobs Compat Api V2 Public Imports Get */
+      data: components['schemas']['CustomCodeFunctionListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicImportJobsApiV2PublicImportsGet200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response List Public Import Jobs Api V2 Public Imports Get */
       data: {
         [key: string]: unknown;
       };
@@ -6227,6 +6240,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ListPublicInterviews200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicInventoriesApiV2PublicInventoriesGet200Envelope: {
       /** @constant */
       success: true;
@@ -6252,6 +6271,12 @@ export interface components {
       meta: components['schemas']['EnvelopeMeta'];
     };
     ListPublicItemsApiV2PublicItemsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicJobPostings200Envelope: {
       /** @constant */
       success: true;
       data: components['schemas']['ObjectRecordListData'];
@@ -6374,6 +6399,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ListPublicSecretsApiV2PublicCodeFunctionsFunctionRefSecretsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeSecretListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicSlipsApiV2PublicSlipsGet200Envelope: {
       /** @constant */
       success: true;
@@ -6413,6 +6444,12 @@ export interface components {
       data: components['schemas']['ObjectRecordListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ListPublicVersionsApiV2PublicCodeFunctionsFunctionRefVersionsGet200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeVersionListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicViewsApiV2PublicViewsGet200Envelope: {
       /** @constant */
       success: true;
@@ -6436,59 +6473,6 @@ export interface components {
       success: true;
       data: components['schemas']['WorkflowListData'];
       meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** LookoutProviderActionCompleteRequest */
-    LookoutProviderActionCompleteRequest: {
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: 'succeeded' | 'failed';
-      /** Provider Response */
-      provider_response?: {
-        [key: string]: unknown;
-      };
-      /** Error */
-      error?: string | null;
-    };
-    /** LookoutSignalRequest */
-    LookoutSignalRequest: {
-      /**
-       * Provider
-       * @default lookout
-       */
-      provider: string;
-      /** Signal Type */
-      signal_type: string;
-      /** Dedupe Key */
-      dedupe_key: string;
-      /**
-       * Occurred At
-       * Format: date-time
-       */
-      occurred_at?: string;
-      /** Account */
-      account?: {
-        [key: string]: unknown;
-      };
-      /** Contact */
-      contact?: {
-        [key: string]: unknown;
-      };
-      /** Attributes */
-      attributes?: {
-        [key: string]: unknown;
-      };
-      /** Source Url */
-      source_url?: string | null;
-      /** Confidence */
-      confidence?: number | null;
-      /** Raw Payload */
-      raw_payload?: {
-        [key: string]: unknown;
-      };
-    } & {
-      [key: string]: unknown;
     };
     MarkPublicIncentiveBatchPaidApiV2PublicIncentivesBatchesBatchIdMarkPaidPost200Envelope: {
       /** @constant */
@@ -6571,6 +6555,8 @@ export interface components {
       properties?: {
         [key: string]: unknown;
       };
+      /** Associations */
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][];
       /** Search */
       search?: string | null;
       /** Status */
@@ -6590,6 +6576,8 @@ export interface components {
       cost_line_items?: unknown[] | null;
       /** Line Items */
       line_items?: unknown[] | null;
+      /** Associations */
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][] | null;
       /** Properties */
       properties?: {
         [key: string]: unknown | null;
@@ -6602,11 +6590,7 @@ export interface components {
       /** Form View Id */
       form_view_id?: string | null;
       /** Associations */
-      associations?:
-        | {
-            [key: string]: unknown;
-          }[]
-        | null;
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][] | null;
       /** Cost Line Items */
       cost_line_items?: unknown[] | null;
       /** Files */
@@ -6654,21 +6638,6 @@ export interface components {
       language?: string | null;
     } & {
       [key: string]: unknown;
-    };
-    /** OrderBulkCreateRequest */
-    OrderBulkCreateRequest: {
-      /** Orders */
-      orders?: components['schemas']['OrderBulkOrderRequest'][];
-      /**
-       * Create Missing Items
-       * @default false
-       */
-      create_missing_items: boolean;
-      /**
-       * Trigger Workflows
-       * @default false
-       */
-      trigger_workflows: boolean;
     };
     /** PaymentAllocationsUpdateRequest */
     PaymentAllocationsUpdateRequest: {
@@ -6772,6 +6741,91 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowPlanData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** PositionCreateRequest */
+    PositionCreateRequest: {
+      /** Title */
+      title: string;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /**
+       * Fte
+       * @default 1
+       */
+      fte: number;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /**
+       * Planning Status
+       * @default draft
+       * @enum {string}
+       */
+      planning_status: 'draft' | 'approved' | 'cancelled';
+      /** Job Id */
+      job_id?: string | null;
+      /** Employee Id */
+      employee_id?: string | null;
+    };
+    /** PositionJobRequest */
+    PositionJobRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Job Id */
+      job_id: string | null;
+    };
+    /** PositionOccupantRequest */
+    PositionOccupantRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Employee Id */
+      employee_id: string | null;
+      /** Source Applicant Id */
+      source_applicant_id?: string | null;
+    };
+    /** PositionUpdateRequest */
+    PositionUpdateRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Title */
+      title?: string | null;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /** Fte */
+      fte?: number | null;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /** Planning Status */
+      planning_status?: ('draft' | 'approved' | 'cancelled') | null;
+      /** Job Id */
+      job_id?: string | null;
+      /** Employee Id */
+      employee_id?: string | null;
+    };
     PreviewPublicFreeeInvoiceExportApiV2PublicInvoicesExportsFreeePreviewPost200Envelope: {
       /** @constant */
       success: true;
@@ -6821,6 +6875,24 @@ export interface components {
       /** @constant */
       success: true;
       /** Response Preview Public Moneyforward Invoice Export Api V2 Public Invoices Exports Moneyforward Preview Post */
+      data: {
+        [key: string]: unknown;
+      };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    PreviewPublicQuickbooksBillExportApiV2PublicBillsExportsQuickbooksOnlinePreviewPost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Preview Public Quickbooks Bill Export Api V2 Public Bills Exports Quickbooks Online Preview Post */
+      data: {
+        [key: string]: unknown;
+      };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    PreviewPublicQuickbooksInvoiceExportApiV2PublicInvoicesExportsQuickbooksOnlinePreviewPost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Preview Public Quickbooks Invoice Export Api V2 Public Invoices Exports Quickbooks Online Preview Post */
       data: {
         [key: string]: unknown;
       };
@@ -6908,6 +6980,17 @@ export interface components {
       block_targets?: string[];
       /** Approver User Ids */
       approver_user_ids?: string[];
+      /**
+       * Approval Mode
+       * @default any
+       */
+      approval_mode: string;
+      /** Approver Sequence */
+      approver_sequence?: string[];
+      /** Approval Config */
+      approval_config?: {
+        [key: string]: unknown;
+      };
       /**
        * Worker Scope Type
        * @default all
@@ -7007,6 +7090,46 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    /** PublicFlowConstructRequest */
+    PublicFlowConstructRequest: {
+      /** Plan Digest */
+      plan_digest: string;
+      /**
+       * Attempt Id
+       * Format: uuid
+       */
+      attempt_id: string;
+    };
+    /** PublicFlowTemplatePlanRequest */
+    PublicFlowTemplatePlanRequest: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Template Id */
+      template_id: string;
+      /** Template Version */
+      template_version: number;
+      /** Parameters */
+      parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Workflow Id */
+      workflow_id?: string | null;
+      /** Expected Definition Digest */
+      expected_definition_digest?: string | null;
+    };
+    /** PublicFlowTemplateUseRequest */
+    PublicFlowTemplateUseRequest: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Plan Digest */
+      plan_digest: string;
+    };
     /** PublicInvoiceEmailRequest */
     PublicInvoiceEmailRequest: {
       /**
@@ -7031,6 +7154,19 @@ export interface components {
       additional_pdf_attachments?: components['schemas']['PublicInvoiceEmailPdfAttachment'][];
       /** Channel Id */
       channel_id?: string | null;
+      /** Email Channel Id */
+      email_channel_id?: string | null;
+      /** From Email */
+      from_email?: string | null;
+      /** Replace Draft Message Id */
+      replace_draft_message_id?: string | null;
+      /** Send Draft Message Id */
+      send_draft_message_id?: string | null;
+      /**
+       * Schedule Draft Message Id
+       * @description Existing invoice-email draft message UUID to schedule in place while preserving its thread, recipients, body, channel, and attachments.
+       */
+      schedule_draft_message_id?: string | null;
       /** External Id */
       external_id?: string | null;
     };
@@ -7085,6 +7221,8 @@ export interface components {
       properties?: {
         [key: string]: unknown;
       };
+      /** Associations */
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][] | null;
       /**
        * Target
        * @default sanka
@@ -7098,6 +7236,14 @@ export interface components {
       external_object_type?: string | null;
       /** External Id */
       external_id?: string | null;
+      /** Contact Id */
+      contact_id?: string | null;
+      /** Contact External Id */
+      contact_external_id?: string | null;
+      /** Company Id */
+      company_id?: string | null;
+      /** Company External Id */
+      company_external_id?: string | null;
       /** Operation */
       operation?: string | null;
       /**
@@ -7113,6 +7259,21 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    /** PublicOrderBulkCreateRequest */
+    PublicOrderBulkCreateRequest: {
+      /** Orders */
+      orders?: components['schemas']['PublicOrderBulkOrderRequest'][];
+      /**
+       * Create Missing Items
+       * @default false
+       */
+      create_missing_items: boolean;
+      /**
+       * Trigger Workflows
+       * @default false
+       */
+      trigger_workflows: boolean;
+    };
     /** PublicProjectRequest */
     PublicProjectRequest: {
       /** Title */
@@ -7121,6 +7282,8 @@ export interface components {
       description?: string | null;
       /** Default */
       default?: boolean | null;
+      /** Project Status */
+      project_status?: ('not_started' | 'in_progress' | 'on_hold' | 'completed') | null;
       /** Statuses */
       statuses?: components['schemas']['PublicProjectStatusRequest'][] | null;
     };
@@ -7170,6 +7333,11 @@ export interface components {
       external_id?: string | null;
       /** Field Type */
       field_type?: string | null;
+      /**
+       * Calculation Formula
+       * @description HubSpot calculation formula for integration properties. When supplied, HubSpot fieldType is forced to calculation_equation.
+       */
+      calculation_formula?: string | null;
       /** Group Name */
       group_name?: string | null;
       /** Options */
@@ -7404,7 +7572,10 @@ export interface components {
       source_record?: {
         [key: string]: unknown;
       } | null;
-      /** Options */
+      /**
+       * Options
+       * @description Workflow-specific runtime options. Accounting document exports accept either an explicit selected_invoice_ids/selected_bill_ids scope, or sync_scope=all_records_in_view with flag_all=true plus the current view, search, usage status, and filter fields. The latter is resolved to a stable record-id snapshot before the provider job is queued.
+       */
       options?: {
         [key: string]: unknown;
       };
@@ -7414,6 +7585,12 @@ export interface components {
       language?: string | null;
       /** Lang */
       lang?: string | null;
+    };
+    PushPublicVersionApiV2PublicCodeFunctionsFunctionRefVersionsPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeVersionData'];
+      meta: components['schemas']['EnvelopeMeta'];
     };
     QueryPublicRecordsApiV2PublicRecordsQueryPost200Envelope: {
       /** @constant */
@@ -7611,6 +7788,30 @@ export interface components {
       data: components['schemas']['PublicInvoiceEmailData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    SetPublicAliasApiV2PublicCodeFunctionsFunctionRefAliasesAliasPut200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeAliasData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    SetPublicSecretApiV2PublicCodeFunctionsFunctionRefSecretsNamePut200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeSecretData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    SetPublicWorkforcePositionJob200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    SetPublicWorkforcePositionOccupant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     StartPublicFreeeInvoiceExportApiV2PublicInvoicesExportsFreeePost200Envelope: {
       /** @constant */
       success: true;
@@ -7665,6 +7866,24 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    StartPublicQuickbooksBillExportApiV2PublicBillsExportsQuickbooksOnlinePost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Start Public Quickbooks Bill Export Api V2 Public Bills Exports Quickbooks Online Post */
+      data: {
+        [key: string]: unknown;
+      };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    StartPublicQuickbooksInvoiceExportApiV2PublicInvoicesExportsQuickbooksOnlinePost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Start Public Quickbooks Invoice Export Api V2 Public Invoices Exports Quickbooks Online Post */
+      data: {
+        [key: string]: unknown;
+      };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     StartPublicWorkflowCompatApiV2PublicWorkflowRunsStartPost200Envelope: {
       /** @constant */
       success: true;
@@ -7708,6 +7927,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicApplicant200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UpdatePublicAttendanceRecordApiV2PublicAttendanceRecordsAttendanceRecordIdPut200Envelope: {
@@ -7854,6 +8079,12 @@ export interface components {
       data: components['schemas']['FerryProgramData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UpdatePublicFunctionApiV2PublicCodeFunctionsFunctionRefPatch200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['CustomCodeFunctionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     UpdatePublicIncentivePlanApiV2PublicIncentivesPlansPlanIdPatch200Envelope: {
       /** @constant */
       success: true;
@@ -7861,6 +8092,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicInterview200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UpdatePublicInventoryApiV2PublicInventoriesInventoryIdPut200Envelope: {
@@ -7897,6 +8134,12 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicJobPosting200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['ObjectRecordData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UpdatePublicJournalApiV2PublicJournalsJournalIdPut200Envelope: {
@@ -8040,6 +8283,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UpdatePublicWorkforcePosition200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['WorkforcePositionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     UploadPublicBillFileApiV2PublicBillsFilesPost200Envelope: {
       /** @constant */
       success: true;
@@ -8139,6 +8388,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PublicFlowConstructData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     /** ViewCreateRequest */
     ViewCreateRequest: {
       /** Title */
@@ -8173,7 +8428,8 @@ export interface components {
         | 'receivable_balance'
         | 'payable_balance'
         | 'pnl'
-        | 'balance_sheet';
+        | 'balance_sheet'
+        | 'cash_flow';
       /** Group Field Id */
       group_field_id?: string | null;
       /** Column Field Ids */
@@ -8203,10 +8459,20 @@ export interface components {
             | 'payable_balance'
             | 'pnl'
             | 'balance_sheet'
+            | 'cash_flow'
           )
         | null;
       /** Group Field Id */
       group_field_id?: string | null;
+    };
+    WithdrawApprovalRequestApiV2PublicApprovalRequestsHistoryIdWithdrawPost200Envelope: {
+      /** @constant */
+      success: true;
+      /** Response Withdraw Approval Request Api V2 Public Approval Requests  History Id  Withdraw Post */
+      data: {
+        [key: string]: unknown;
+      };
+      meta: components['schemas']['EnvelopeMeta'];
     };
     WritebackPublicSalesforceQuoteReadinessApiV2PublicCpqQuoteReadinessSalesforceWritebackPost200Envelope: {
       /** @constant */
@@ -8227,6 +8493,29 @@ export interface components {
       ctx_id: string;
       pagination?: components['schemas']['PaginationMeta'];
       toast?: components['schemas']['ToastMessage'];
+    };
+    /** ObjectRecordData */
+    ObjectRecordData: {
+      /** Id */
+      id: string;
+      /** Record Id */
+      record_id: string;
+      /** Object Type */
+      object_type: string;
+      /** Custom Object Id */
+      custom_object_id?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Usage Status */
+      usage_status?: string | null;
+      /** Properties */
+      properties?: {
+        [key: string]: unknown | null;
+      };
+      /** Display Properties */
+      display_properties?: {
+        [key: string]: components['schemas']['ObjectRecordDisplayValue'];
+      };
     };
     /** FerryProgramTodoBatchUpsertData */
     FerryProgramTodoBatchUpsertData: {
@@ -8275,58 +8564,44 @@ export interface components {
         [key: string]: unknown;
       } | null;
     };
-    /** LookoutProviderActionData */
-    LookoutProviderActionData: {
-      /** Id */
-      id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /** Run Id */
-      run_id: string;
+    /** ObjectRecordAssociationMutation */
+    ObjectRecordAssociationMutation: {
+      /** Definition Id */
+      definition_id: string;
+      /** Target Refs */
+      target_refs?: components['schemas']['RecordRef'][];
       /**
-       * Provider
-       * @enum {string}
+       * Confirm Association Warnings
+       * @default false
        */
-      provider: 'google_ads' | 'meta_ads' | 'hubspot';
-      /** Action Slug */
-      action_slug: string;
-      /** Target Id */
-      target_id?: string | null;
-      /** Campaign Id */
-      campaign_id?: string | null;
-      /** Input Data */
-      input_data?: {
-        [key: string]: unknown;
-      };
-      /** Safety */
-      safety?: {
-        [key: string]: unknown;
-      };
+      confirm_association_warnings: boolean;
+    };
+    /** PublicFlowConstructData */
+    PublicFlowConstructData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Plan Digest */
+      plan_digest: string;
+      /** Definition Digest */
+      definition_digest: string;
       /**
        * Status
        * @enum {string}
        */
-      status: 'queued' | 'claimed' | 'succeeded' | 'failed';
-      /** Provider Response */
-      provider_response?: {
-        [key: string]: unknown;
-      };
-      /** Error */
-      error?: string | null;
-      /** Claimed At */
-      claimed_at?: string | null;
-      /** Completed At */
-      completed_at?: string | null;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string;
+      status: 'constructed' | 'already_constructed';
     };
     /** AssociationEdgeMutationData */
     AssociationEdgeMutationData: {
@@ -8405,6 +8680,15 @@ export interface components {
       contentMarkdown: string;
       /** Sourceref */
       sourceRef?: string | null;
+      /** Sortorder */
+      sortOrder?: number | null;
+      /**
+       * Pinned
+       * @default false
+       */
+      pinned: boolean;
+      /** Archivedat */
+      archivedAt?: string | null;
       /** Createdbyid */
       createdById?: number | null;
       /** Updatedbyid */
@@ -8456,6 +8740,29 @@ export interface components {
       listPrice?: number | null;
       /** Quotedprice */
       quotedPrice?: number | null;
+      /**
+       * Migrationaccessstate
+       * @default scan_required
+       * @enum {string}
+       */
+      migrationAccessState:
+        | 'scan_required'
+        | 'checkout_ready'
+        | 'awaiting_payment'
+        | 'active'
+        | 'credits_required'
+        | 'enterprise_required';
+      /** Migrationaccesssource */
+      migrationAccessSource?:
+        | ('credits' | 'ferry_pack' | 'ferry_pro' | 'enterprise' | 'waiver' | 'legacy_expert')
+        | null;
+      /** Packmaximumrecords */
+      packMaximumRecords?: number | null;
+      /**
+       * Enterpriseentitled
+       * @default false
+       */
+      enterpriseEntitled: boolean;
       /**
        * Feewaived
        * @default false
@@ -8509,6 +8816,44 @@ export interface components {
       /** Updatedat */
       updatedAt?: string | null;
     };
+    /** CustomCodeFunctionData */
+    CustomCodeFunctionData: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Slug */
+      slug: string;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Runtime
+       * @enum {string}
+       */
+      runtime: 'node22' | 'python312';
+      /**
+       * Source Mode
+       * @enum {string}
+       */
+      source_mode: 'ui' | 'git';
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'active' | 'disabled' | 'archived';
+      /** Latest Version */
+      latest_version?: number | null;
+      /** Live Version */
+      live_version?: number | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+      /** Created By Id */
+      created_by_id?: number | null;
+    };
     /** PublicProjectMutationData */
     PublicProjectMutationData: {
       /** Ok */
@@ -8528,6 +8873,48 @@ export interface components {
             [key: string]: unknown;
           }[]
         | null;
+    };
+    /** WorkforcePositionData */
+    WorkforcePositionData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Parent Position Id */
+      parent_position_id?: string | null;
+      /** Title */
+      title: string;
+      /** Department */
+      department?: string | null;
+      /** Team */
+      team?: string | null;
+      /** Level */
+      level?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Employment Type */
+      employment_type?: string | null;
+      /**
+       * Fte
+       * @default 1
+       */
+      fte: number;
+      /** Target Start Date */
+      target_start_date?: string | null;
+      /**
+       * Planning Status
+       * @enum {string}
+       */
+      planning_status: 'draft' | 'approved' | 'cancelled';
+      /**
+       * Staffing Phase
+       * @enum {string}
+       */
+      staffing_phase: 'planned' | 'ready_to_hire' | 'recruiting' | 'interviewing' | 'offer' | 'filled';
+      /** Version */
+      version: number;
+      occupant?: components['schemas']['PositionOccupantData'] | null;
+      job?: components['schemas']['PositionJobData'] | null;
     };
     /** FerryDiagramDeleteData */
     FerryDiagramDeleteData: {
@@ -8566,6 +8953,19 @@ export interface components {
             [key: string]: unknown;
           }[]
         | null;
+    };
+    /**
+     * CustomCodeSecretDeleteData
+     * @description Deletion still answers with an envelope, so clients need no 204 special case.
+     */
+    CustomCodeSecretDeleteData: {
+      /** Name */
+      name: string;
+      /**
+       * Deleted
+       * @default true
+       */
+      deleted: boolean;
     };
     /** EnrichData */
     EnrichData: {
@@ -8646,11 +9046,38 @@ export interface components {
        * @default smoothstep
        * @enum {string}
        */
-      type: 'default' | 'smoothstep';
+      type: 'default' | 'smoothstep' | 'straight';
       /** Sourcehandle */
       sourceHandle?: string | null;
+      /**
+       * Strokewidth
+       * @description Connector stroke width in CSS pixels.
+       */
+      strokeWidth?: number | null;
       /** Targethandle */
       targetHandle?: string | null;
+      /**
+       * Sourcearrow
+       * @description Render an arrowhead at the connector source endpoint.
+       * @default false
+       */
+      sourceArrow: boolean;
+      /**
+       * Sourcecardinality
+       * @description Optional ER cardinality at the connector source endpoint. Clients render it as one bar, circle plus bar, bar plus Crow's Foot, or circle plus Crow's Foot.
+       */
+      sourceCardinality?: ('one' | 'zero_or_one' | 'one_or_many' | 'zero_or_many') | null;
+      /**
+       * Targetarrow
+       * @description Render an arrowhead at the connector target endpoint.
+       * @default false
+       */
+      targetArrow: boolean;
+      /**
+       * Targetcardinality
+       * @description Optional ER cardinality at the connector target endpoint. Clients render it as one bar, circle plus bar, bar plus Crow's Foot, or circle plus Crow's Foot.
+       */
+      targetCardinality?: ('one' | 'zero_or_one' | 'one_or_many' | 'zero_or_many') | null;
     };
     /** FerryDiagramNode */
     FerryDiagramNode: {
@@ -8663,6 +9090,10 @@ export interface components {
       type: 'objectTable' | 'process' | 'note';
       position: components['schemas']['FerryDiagramPosition'];
       data: components['schemas']['FerryDiagramNodeData'];
+      /** Width */
+      width?: number | null;
+      /** Height */
+      height?: number | null;
     };
     /** FerryDiagramViewport */
     FerryDiagramViewport: {
@@ -8731,31 +9162,21 @@ export interface components {
       parentTodoId?: string | null;
       /** Sortorder */
       sortOrder?: number | null;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /** Assigneeuserids */
+      assigneeUserIds?: string[];
+      /** Assigneegroupids */
+      assigneeGroupIds?: string[];
       /** Id */
       id?: string | null;
     };
-    /** ObjectRecordData */
-    ObjectRecordData: {
-      /** Id */
-      id: string;
-      /** Record Id */
-      record_id: string;
-      /** Object Type */
-      object_type: string;
-      /** Custom Object Id */
-      custom_object_id?: string | null;
-      /** Status */
-      status?: string | null;
-      /** Usage Status */
-      usage_status?: string | null;
-      /** Properties */
-      properties?: {
-        [key: string]: unknown | null;
-      };
-      /** Display Properties */
-      display_properties?: {
-        [key: string]: components['schemas']['ObjectRecordDisplayValue'];
-      };
+    /** CustomCodeFunctionDetailData */
+    CustomCodeFunctionDetailData: {
+      function: components['schemas']['CustomCodeFunctionData'];
+      /** Aliases */
+      aliases?: components['schemas']['CustomCodeAliasData'][];
+      latest_version?: components['schemas']['CustomCodeVersionData'] | null;
     };
     /** PublicProject */
     PublicProject: {
@@ -8772,6 +9193,12 @@ export interface components {
        * @default false
        */
       default: boolean;
+      /**
+       * Project Status
+       * @default not_started
+       * @enum {string}
+       */
+      project_status: 'not_started' | 'in_progress' | 'on_hold' | 'completed';
       /** Statuses */
       statuses?: components['schemas']['PublicProjectStatus'][];
       /**
@@ -8807,12 +9234,62 @@ export interface components {
        */
       message: string;
     };
+    /** PublicFlowStateData */
+    PublicFlowStateData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'managed' | 'unmanaged';
+      /** Definition Digest */
+      definition_digest?: string | null;
+      /**
+       * Active
+       * @default false
+       */
+      active: boolean;
+      /** Parameters */
+      parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Template Parameters */
+      template_parameters?: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Available Operations */
+      available_operations?: string[];
+    };
+    /** WorkforceOrganizationData */
+    WorkforceOrganizationData: {
+      /**
+       * Can Manage Occupants
+       * @default false
+       */
+      can_manage_occupants: boolean;
+      /** Nodes */
+      nodes?: components['schemas']['WorkforcePositionData'][];
+      /** Unassigned Jobs */
+      unassigned_jobs?: components['schemas']['UnassignedJobData'][];
+      summary?: components['schemas']['WorkforceOrganizationSummary'];
+    };
     /** TransferColumnMapping */
     TransferColumnMapping: {
       /** Source Header */
       source_header: string;
       /** Target Field */
       target_field: string;
+      /** Target Label */
+      target_label?: string | null;
     };
     /** IncentiveAllocationLine */
     IncentiveAllocationLine: {
@@ -8820,76 +9297,6 @@ export interface components {
       owner_id: string;
       /** Allocation Percent */
       allocation_percent: number;
-    };
-    /** LookoutSignalData */
-    LookoutSignalData: {
-      /**
-       * Provider
-       * @default lookout
-       */
-      provider: string;
-      /** Signal Type */
-      signal_type: string;
-      /** Dedupe Key */
-      dedupe_key: string;
-      /**
-       * Occurred At
-       * Format: date-time
-       */
-      occurred_at?: string;
-      /** Account */
-      account?: {
-        [key: string]: unknown;
-      };
-      /** Contact */
-      contact?: {
-        [key: string]: unknown;
-      };
-      /** Attributes */
-      attributes?: {
-        [key: string]: unknown;
-      };
-      /** Source Url */
-      source_url?: string | null;
-      /** Confidence */
-      confidence?: number | null;
-      /** Raw Payload */
-      raw_payload?: {
-        [key: string]: unknown;
-      };
-      /** Id */
-      id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /**
-       * Status
-       * @default received
-       */
-      status: string;
-      /**
-       * Received At
-       * Format: date-time
-       */
-      received_at: string;
-      /**
-       * Duplicate
-       * @default false
-       */
-      duplicate: boolean;
-      /** Dispatched Motion Ids */
-      dispatched_motion_ids?: string[];
-    } & {
-      [key: string]: unknown;
-    };
-    /** LookoutProviderActionListData */
-    LookoutProviderActionListData: {
-      /** Items */
-      items?: components['schemas']['LookoutProviderActionData'][];
-      /**
-       * Total
-       * @default 0
-       */
-      total: number;
     };
     /** ObjectRecordListData */
     ObjectRecordListData: {
@@ -9028,6 +9435,16 @@ export interface components {
       /** Count */
       count: number;
     };
+    /** CustomCodeFunctionListData */
+    CustomCodeFunctionListData: {
+      /** Functions */
+      functions?: components['schemas']['CustomCodeFunctionData'][];
+      /**
+       * Total Count
+       * @default 0
+       */
+      total_count: number;
+    };
     /** PublicProjectListData */
     PublicProjectListData: {
       /** Items */
@@ -9044,6 +9461,21 @@ export interface components {
       meta?: {
         [key: string]: unknown;
       };
+    };
+    /** CustomCodeSecretListData */
+    CustomCodeSecretListData: {
+      /** Secrets */
+      secrets?: components['schemas']['CustomCodeSecretData'][];
+    };
+    /** CustomCodeVersionListData */
+    CustomCodeVersionListData: {
+      /** Versions */
+      versions?: components['schemas']['CustomCodeVersionData'][];
+      /**
+       * Total Count
+       * @default 0
+       */
+      total_count: number;
     };
     /** WorkflowListData */
     WorkflowListData: {
@@ -9074,27 +9506,6 @@ export interface components {
        */
       message: string;
     };
-    /** OrderBulkOrderRequest */
-    OrderBulkOrderRequest: {
-      /** External Id */
-      external_id: string;
-      /** Items */
-      items?: components['schemas']['OrderLineItemMutationRequest'][] | null;
-      /** Line Items */
-      line_items?: components['schemas']['OrderLineItemMutationRequest'][] | null;
-      /** Company External Id */
-      company_external_id?: string | null;
-      /** Company Id */
-      company_id?: string | null;
-      /** Delivery Status */
-      delivery_status?: string | null;
-      /** Order At */
-      order_at?: string | null;
-      /** Status */
-      status?: string | null;
-      /** Currency */
-      currency?: string | null;
-    };
     /** PaymentAllocationSaveInput */
     PaymentAllocationSaveInput: {
       /** Invoice Id */
@@ -9120,6 +9531,54 @@ export interface components {
        * @default
        */
       notes: string | null;
+    };
+    /** PublicFlowPlanData */
+    PublicFlowPlanData: {
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /** Workflow Id */
+      workflow_id?: string | null;
+      /** Plan Digest */
+      plan_digest: string;
+      /** Template Id */
+      template_id: string;
+      /** Template Version */
+      template_version: number;
+      /**
+       * Operation
+       * @enum {string}
+       */
+      operation: 'create' | 'update';
+      /** Applicable */
+      applicable: boolean;
+      /** Parameters */
+      parameters: {
+        [key: string]: string | number | boolean | string[] | null;
+      };
+      /** Changes */
+      changes?: components['schemas']['PublicFlowFieldChange'][];
+      /** Conflicts */
+      conflicts?: components['schemas']['PublicFlowConflict'][];
+      /** Preserved Fields */
+      preserved_fields?: string[];
+      /** Blocker Codes */
+      blocker_codes?: string[];
+      /** Required Capabilities */
+      required_capabilities?: string[];
+      /**
+       * Construction
+       * @default inactive
+       * @constant
+       */
+      construction: 'inactive';
     };
     /** ProspectCompaniesData */
     ProspectCompaniesData: {
@@ -9155,6 +9614,29 @@ export interface components {
       /** Filename */
       filename?: string | null;
     };
+    /** PublicOrderBulkOrderRequest */
+    PublicOrderBulkOrderRequest: {
+      /** External Id */
+      external_id: string;
+      /** Associations */
+      associations?: components['schemas']['ObjectRecordAssociationMutation'][] | null;
+      /** Items */
+      items?: components['schemas']['OrderLineItemMutationRequest'][] | null;
+      /** Line Items */
+      line_items?: components['schemas']['OrderLineItemMutationRequest'][] | null;
+      /** Delivery Status */
+      delivery_status?: string | null;
+      /** Order At */
+      order_at?: string | null;
+      /** Status */
+      status?: string | null;
+      /** Currency */
+      currency?: string | null;
+      /** Company Id */
+      company_id?: string | null;
+      /** Company External Id */
+      company_external_id?: string | null;
+    };
     /** PublicProjectStatusRequest */
     PublicProjectStatusRequest: {
       /** Id */
@@ -9177,6 +9659,50 @@ export interface components {
       operator: string;
       /** Value */
       value?: unknown;
+    };
+    /** CustomCodeVersionData */
+    CustomCodeVersionData: {
+      /** Id */
+      id: string;
+      /** Function Id */
+      function_id: string;
+      /** Version */
+      version: number;
+      /** Content Sha256 */
+      content_sha256: string;
+      /** Entry */
+      entry: string;
+      /**
+       * Runtime
+       * @enum {string}
+       */
+      runtime: 'node22' | 'python312';
+      /** Timeout Seconds */
+      timeout_seconds: number;
+      /** Memory Mb */
+      memory_mb: number;
+      /** Bundle Bytes */
+      bundle_bytes: number;
+      /** Inputs */
+      inputs?: components['schemas']['CustomCodeFieldSpec'][];
+      /** Outputs */
+      outputs?: components['schemas']['CustomCodeFieldSpec'][];
+      /** Secret Names */
+      secret_names?: string[];
+      /** Permissions */
+      permissions?: string[];
+      /** Git Commit Sha */
+      git_commit_sha?: string | null;
+      /** Git Ref */
+      git_ref?: string | null;
+      /** Git Repo Url */
+      git_repo_url?: string | null;
+      /** Change Summary */
+      change_summary?: string | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Created By Id */
+      created_by_id?: number | null;
     };
     /** ReportMetricMutationItem */
     ReportMetricMutationItem: {
@@ -9238,10 +9764,18 @@ export interface components {
       cc?: string[];
       /** Scheduled At */
       scheduled_at?: string | null;
+      /** Channel Id */
+      channel_id?: string | null;
+      /** From Email */
+      from_email?: string | null;
+      /** Reply To Email */
+      reply_to_email?: string | null;
       /** Provider */
       provider?: string | null;
       /** Provider Message Id */
       provider_message_id?: string | null;
+      /** History Locations */
+      history_locations?: string[];
       /**
        * Attachment Count
        * @default 0
@@ -9254,6 +9788,36 @@ export interface components {
        * @default OK
        */
       message: string;
+    };
+    /** CustomCodeAliasData */
+    CustomCodeAliasData: {
+      /** Alias */
+      alias: string;
+      /** Version */
+      version?: number | null;
+      /** Version Id */
+      version_id?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+    };
+    /**
+     * CustomCodeSecretData
+     * @description Secret metadata only.
+     *
+     *     There is deliberately no ciphertext or plaintext field: adding one would make secret
+     *     disclosure a one-line mistake in a mapper rather than a deliberate act.
+     */
+    CustomCodeSecretData: {
+      /** Name */
+      name: string;
+      /** Display Suffix */
+      display_suffix: string;
+      /** Byte Length */
+      byte_length: number;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
     };
     /** ViewSubtotalCalculation */
     ViewSubtotalCalculation: {
@@ -9288,6 +9852,44 @@ export interface components {
       code: string;
       message: string;
       i18n: components['schemas']['ToastMessageI18n'];
+    };
+    /** ObjectRecordDisplayValue */
+    ObjectRecordDisplayValue: {
+      /** Type */
+      type: string;
+      /** Value */
+      value?: unknown;
+      /** Display */
+      display?: string | null;
+      /** Label */
+      label?: string | null;
+      /** Values */
+      values?: {
+        [key: string]: unknown;
+      }[];
+      /** Files */
+      files?: {
+        [key: string]: unknown;
+      }[];
+      /** Images */
+      images?: {
+        [key: string]: unknown;
+      }[];
+      /** Count */
+      count?: number | null;
+      /** Multiple */
+      multiple?: boolean | null;
+      /** Show Badge */
+      show_badge?: boolean | null;
+      /** Badge Color */
+      badge_color?: string | null;
+      /** Color */
+      color?: string | null;
+      /** Meta */
+      meta?: {
+        [key: string]: unknown;
+      };
+      table_cell?: components['schemas']['ObjectRecordTableCellPayload'] | null;
     };
     /** AssociationEdge */
     AssociationEdge: {
@@ -9420,6 +10022,47 @@ export interface components {
       parentTodoId?: string | null;
       /** Sortorder */
       sortOrder?: number | null;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /** Assigneeuserids */
+      assigneeUserIds?: string[];
+      /** Assigneegroupids */
+      assigneeGroupIds?: string[];
+    };
+    /** PositionJobData */
+    PositionJobData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /**
+       * Applicant Count
+       * @default 0
+       */
+      applicant_count: number;
+      /**
+       * Interview Count
+       * @default 0
+       */
+      interview_count: number;
+    };
+    /** PositionOccupantData */
+    PositionOccupantData: {
+      /** Employee Id */
+      employee_id?: string | null;
+      /** Display Name */
+      display_name?: string | null;
+      /** Profile Photo Url */
+      profile_photo_url?: string | null;
+      /**
+       * Redacted
+       * @default false
+       */
+      redacted: boolean;
     };
     /** FerryDiagramNodeData */
     FerryDiagramNodeData: {
@@ -9444,6 +10087,20 @@ export interface components {
        * @enum {string}
        */
       color: 'default' | 'brand' | 'success' | 'warning' | 'danger';
+      /** Shape */
+      shape?:
+        | (
+            | 'rectangle'
+            | 'roundedRectangle'
+            | 'square'
+            | 'circle'
+            | 'diamond'
+            | 'triangle'
+            | 'invertedTriangle'
+            | 'oval'
+            | 'cylinder'
+          )
+        | null;
     };
     /** FerryDiagramPosition */
     FerryDiagramPosition: {
@@ -9451,44 +10108,6 @@ export interface components {
       x: number;
       /** Y */
       y: number;
-    };
-    /** ObjectRecordDisplayValue */
-    ObjectRecordDisplayValue: {
-      /** Type */
-      type: string;
-      /** Value */
-      value?: unknown;
-      /** Display */
-      display?: string | null;
-      /** Label */
-      label?: string | null;
-      /** Values */
-      values?: {
-        [key: string]: unknown;
-      }[];
-      /** Files */
-      files?: {
-        [key: string]: unknown;
-      }[];
-      /** Images */
-      images?: {
-        [key: string]: unknown;
-      }[];
-      /** Count */
-      count?: number | null;
-      /** Multiple */
-      multiple?: boolean | null;
-      /** Show Badge */
-      show_badge?: boolean | null;
-      /** Badge Color */
-      badge_color?: string | null;
-      /** Color */
-      color?: string | null;
-      /** Meta */
-      meta?: {
-        [key: string]: unknown;
-      };
-      table_cell?: components['schemas']['ObjectRecordTableCellPayload'] | null;
     };
     /** PublicProjectStatus */
     PublicProjectStatus: {
@@ -9558,6 +10177,71 @@ export interface components {
       created_by?: components['schemas']['WorkflowUserSummary'] | null;
       last_updated_by?: components['schemas']['WorkflowUserSummary'] | null;
       trigger_node?: components['schemas']['WorkflowTriggerNode'] | null;
+      runtime_lock?: components['schemas']['WorkflowRuntimeLockData'];
+    };
+    /** UnassignedJobData */
+    UnassignedJobData: {
+      /** Id */
+      id: string;
+      /** Display Id */
+      display_id: number;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /**
+       * Applicant Count
+       * @default 0
+       */
+      applicant_count: number;
+      /**
+       * Interview Count
+       * @default 0
+       */
+      interview_count: number;
+    };
+    /** WorkforceOrganizationSummary */
+    WorkforceOrganizationSummary: {
+      /**
+       * Positions
+       * @default 0
+       */
+      positions: number;
+      /**
+       * Planned
+       * @default 0
+       */
+      planned: number;
+      /**
+       * Ready To Hire
+       * @default 0
+       */
+      ready_to_hire: number;
+      /**
+       * Recruiting
+       * @default 0
+       */
+      recruiting: number;
+      /**
+       * Interviewing
+       * @default 0
+       */
+      interviewing: number;
+      /**
+       * Offer
+       * @default 0
+       */
+      offer: number;
+      /**
+       * Filled
+       * @default 0
+       */
+      filled: number;
+      /**
+       * Unassigned Jobs
+       * @default 0
+       */
+      unassigned_jobs: number;
     };
     /** ObjectRecordSubtotalResult */
     ObjectRecordSubtotalResult: {
@@ -9585,6 +10269,12 @@ export interface components {
        * @enum {string}
        */
       scope: 'page' | 'view';
+      /** Base Value */
+      base_value?: unknown;
+      /** Base Formatted */
+      base_formatted?: string | null;
+      /** Base Count */
+      base_count?: number | null;
     };
     /** ObjectRecordViewData */
     ObjectRecordViewData: {
@@ -9754,40 +10444,22 @@ export interface components {
       /** Label */
       label: string;
     };
-    /** OrderLineItemMutationRequest */
-    OrderLineItemMutationRequest: {
-      /** Line Item Id */
-      line_item_id?: string | null;
-      /** Item Id */
-      item_id?: string | null;
-      /** Item External Id */
-      item_external_id?: string | null;
-      /** Custom Item Name */
-      custom_item_name?: string | null;
-      /** Quantity */
-      quantity?: number | null;
-      /** Unit Price */
-      unit_price?: number | null;
-      /** Tax Rate */
-      tax_rate?: number | null;
-      /** Tax Type */
-      tax_type?: string | null;
-      /** Total Price */
-      total_price?: number | null;
-      /** Total Price Without Tax */
-      total_price_without_tax?: number | null;
-      /** Currency */
-      currency?: string | null;
-      /** Row Type */
-      row_type?: string | null;
-      /** Section Label */
-      section_label?: string | null;
-      /** Section Type */
-      section_type?: string | null;
-      /** Custom Fields */
-      custom_fields?: {
-        [key: string]: unknown;
-      };
+    /** PublicFlowConflict */
+    PublicFlowConflict: {
+      /** Key */
+      key: string;
+      previous: components['schemas']['PublicFlowFieldState'];
+      current: components['schemas']['PublicFlowFieldState'];
+      desired: components['schemas']['PublicFlowFieldState'];
+    };
+    /** PublicFlowFieldChange */
+    PublicFlowFieldChange: {
+      /** Key */
+      key: string;
+      /** Before */
+      before?: string | number | boolean | string[] | null;
+      /** After */
+      after?: string | number | boolean | string[] | null;
     };
     /** ProspectCompaniesFilters */
     ProspectCompaniesFilters: {
@@ -9841,6 +10513,67 @@ export interface components {
       provider_meta?: {
         [key: string]: unknown;
       };
+    };
+    /** OrderLineItemMutationRequest */
+    OrderLineItemMutationRequest: {
+      /** Line Item Id */
+      line_item_id?: string | null;
+      /** Item Id */
+      item_id?: string | null;
+      /** Item External Id */
+      item_external_id?: string | null;
+      /** Custom Item Name */
+      custom_item_name?: string | null;
+      /** Quantity */
+      quantity?: number | null;
+      /** Unit Price */
+      unit_price?: number | null;
+      /**
+       * Prefer Default Price
+       * @description Internal import flag that bypasses customer-specific prices when the CSV does not supply a unit price.
+       * @default false
+       */
+      prefer_default_price: boolean;
+      /** Tax Rate */
+      tax_rate?: number | null;
+      /** Tax Type */
+      tax_type?: string | null;
+      /** Total Price */
+      total_price?: number | null;
+      /** Total Price Without Tax */
+      total_price_without_tax?: number | null;
+      /** Currency */
+      currency?: string | null;
+      /** Row Type */
+      row_type?: string | null;
+      /** Section Label */
+      section_label?: string | null;
+      /** Section Type */
+      section_type?: string | null;
+      /** Custom Fields */
+      custom_fields?: {
+        [key: string]: unknown;
+      };
+    };
+    /** CustomCodeFieldSpec */
+    CustomCodeFieldSpec: {
+      /** Name */
+      name: string;
+      /**
+       * Type
+       * @default string
+       * @enum {string}
+       */
+      type: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'json';
+      /**
+       * Required
+       * @default false
+       */
+      required: boolean;
+      /** Label */
+      label?: string | null;
+      /** Description */
+      description?: string | null;
     };
     /** PublicInvoiceEmailAttachmentData */
     PublicInvoiceEmailAttachmentData: {
@@ -9911,6 +10644,45 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** WorkflowRuntimeLockData */
+    WorkflowRuntimeLockData: {
+      /**
+       * Scope
+       * @default workspace
+       * @enum {string}
+       */
+      scope: 'workspace' | 'workflow';
+      /** Workflow Id */
+      workflow_id?: string | null;
+      /**
+       * Schedule Type
+       * @default absolute
+       * @enum {string}
+       */
+      schedule_type: 'absolute' | 'monthly';
+      /**
+       * Active
+       * @default false
+       */
+      active: boolean;
+      /**
+       * Scheduled
+       * @default false
+       */
+      scheduled: boolean;
+      /** Starts At */
+      starts_at?: string | null;
+      /** Ends At */
+      ends_at?: string | null;
+      /** Monthly Start Day */
+      monthly_start_day?: number | null;
+      /** Schedule Timezone */
+      schedule_timezone?: string | null;
+      /** Reason */
+      reason?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+    };
     /** WorkflowTriggerNode */
     WorkflowTriggerNode: {
       /** Id */
@@ -9965,1367 +10737,12 @@ export interface components {
       /** Model Name */
       model_name?: string | null;
     };
-    ListPublicJobPostings200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    CreatePublicJobPosting200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    GetPublicJobPosting200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    UpdatePublicJobPosting200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ArchivePublicJobPosting200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ActivatePublicJobPosting200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ListPublicApplicants200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    CreatePublicApplicant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    GetPublicApplicant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    UpdatePublicApplicant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ArchivePublicApplicant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ActivatePublicApplicant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ListPublicInterviews200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    CreatePublicInterview200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    GetPublicInterview200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    UpdatePublicInterview200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ArchivePublicInterview200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    ActivatePublicInterview200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['ObjectRecordData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    GetPublicWorkforceOrganization200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['WorkforceOrganizationData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PositionCreateRequest */
-    PositionCreateRequest: {
-      /** Title */
-      title: string;
-      /** Parent Position Id */
-      parent_position_id?: string | null;
-      /** Department */
-      department?: string | null;
-      /** Team */
-      team?: string | null;
-      /** Level */
-      level?: string | null;
-      /** Location */
-      location?: string | null;
-      /** Employment Type */
-      employment_type?: string | null;
-      /**
-       * Fte
-       * @default 1
-       */
-      fte: number;
-      /** Target Start Date */
-      target_start_date?: string | null;
-      /**
-       * Planning Status
-       * @default draft
-       * @enum {string}
-       */
-      planning_status: 'draft' | 'approved' | 'cancelled';
-      /** Job Id */
-      job_id?: string | null;
-      /** Employee Id */
-      employee_id?: string | null;
-    };
-    CreatePublicWorkforcePosition200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['WorkforcePositionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PositionUpdateRequest */
-    PositionUpdateRequest: {
-      /** Expected Version */
-      expected_version: number;
-      /** Title */
-      title?: string | null;
-      /** Parent Position Id */
-      parent_position_id?: string | null;
-      /** Department */
-      department?: string | null;
-      /** Team */
-      team?: string | null;
-      /** Level */
-      level?: string | null;
-      /** Location */
-      location?: string | null;
-      /** Employment Type */
-      employment_type?: string | null;
-      /** Fte */
-      fte?: number | null;
-      /** Target Start Date */
-      target_start_date?: string | null;
-      /** Planning Status */
-      planning_status?: ('draft' | 'approved' | 'cancelled') | null;
-      /** Job Id */
-      job_id?: string | null;
-      /** Employee Id */
-      employee_id?: string | null;
-    };
-    UpdatePublicWorkforcePosition200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['WorkforcePositionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PositionJobRequest */
-    PositionJobRequest: {
-      /** Expected Version */
-      expected_version: number;
-      /** Job Id */
-      job_id: string | null;
-    };
-    SetPublicWorkforcePositionJob200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['WorkforcePositionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PositionOccupantRequest */
-    PositionOccupantRequest: {
-      /** Expected Version */
-      expected_version: number;
-      /** Employee Id */
-      employee_id: string | null;
-      /** Source Applicant Id */
-      source_applicant_id?: string | null;
-    };
-    SetPublicWorkforcePositionOccupant200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['WorkforcePositionData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** WorkforceOrganizationData */
-    WorkforceOrganizationData: {
-      /**
-       * Can Manage Occupants
-       * @default false
-       */
-      can_manage_occupants: boolean;
-      /** Nodes */
-      nodes?: components['schemas']['WorkforcePositionData'][];
-      /** Unassigned Jobs */
-      unassigned_jobs?: components['schemas']['UnassignedJobData'][];
-      summary?: components['schemas']['WorkforceOrganizationSummary'];
-    };
-    /** WorkforcePositionData */
-    WorkforcePositionData: {
-      /** Id */
-      id: string;
-      /** Display Id */
-      display_id: number;
-      /** Parent Position Id */
-      parent_position_id?: string | null;
-      /** Title */
-      title: string;
-      /** Department */
-      department?: string | null;
-      /** Team */
-      team?: string | null;
-      /** Level */
-      level?: string | null;
-      /** Location */
-      location?: string | null;
-      /** Employment Type */
-      employment_type?: string | null;
-      /**
-       * Fte
-       * @default 1
-       */
-      fte: number;
-      /** Target Start Date */
-      target_start_date?: string | null;
-      /**
-       * Planning Status
-       * @enum {string}
-       */
-      planning_status: 'draft' | 'approved' | 'cancelled';
-      /**
-       * Staffing Phase
-       * @enum {string}
-       */
-      staffing_phase: 'planned' | 'ready_to_hire' | 'recruiting' | 'interviewing' | 'offer' | 'filled';
-      /** Version */
-      version: number;
-      occupant?: components['schemas']['PositionOccupantData'] | null;
-      job?: components['schemas']['PositionJobData'] | null;
-    };
-    /** UnassignedJobData */
-    UnassignedJobData: {
-      /** Id */
-      id: string;
-      /** Display Id */
-      display_id: number;
-      /** Name */
-      name: string;
-      /** Status */
-      status: string;
-      /**
-       * Applicant Count
-       * @default 0
-       */
-      applicant_count: number;
-      /**
-       * Interview Count
-       * @default 0
-       */
-      interview_count: number;
-    };
-    /** WorkforceOrganizationSummary */
-    WorkforceOrganizationSummary: {
-      /**
-       * Positions
-       * @default 0
-       */
-      positions: number;
-      /**
-       * Planned
-       * @default 0
-       */
-      planned: number;
-      /**
-       * Ready To Hire
-       * @default 0
-       */
-      ready_to_hire: number;
-      /**
-       * Recruiting
-       * @default 0
-       */
-      recruiting: number;
-      /**
-       * Interviewing
-       * @default 0
-       */
-      interviewing: number;
-      /**
-       * Offer
-       * @default 0
-       */
-      offer: number;
-      /**
-       * Filled
-       * @default 0
-       */
-      filled: number;
-      /**
-       * Unassigned Jobs
-       * @default 0
-       */
-      unassigned_jobs: number;
-    };
-    /** PositionOccupantData */
-    PositionOccupantData: {
-      /** Employee Id */
-      employee_id?: string | null;
-      /** Display Name */
-      display_name?: string | null;
-      /** Profile Photo Url */
-      profile_photo_url?: string | null;
-      /**
-       * Redacted
-       * @default false
-       */
-      redacted: boolean;
-    };
-    /** PositionJobData */
-    PositionJobData: {
-      /** Id */
-      id: string;
-      /** Display Id */
-      display_id: number;
-      /** Name */
-      name: string;
-      /** Status */
-      status: string;
-      /**
-       * Applicant Count
-       * @default 0
-       */
-      applicant_count: number;
-      /**
-       * Interview Count
-       * @default 0
-       */
-      interview_count: number;
-    };
-    DeveloperCloudDownloadCloudArtifactApiV2MigrateCloudRunsRunIdArtifactsNameGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: unknown;
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudCloudRunArtifactsApiV2MigrateCloudRunsRunIdArtifactsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudArtifactListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudArtifactListData */
-    DeveloperCloudCloudArtifactListData: {
-      /** Artifacts */
-      artifacts: components['schemas']['DeveloperCloudCloudArtifactData'][];
-    };
-    /** CloudArtifactData */
-    DeveloperCloudCloudArtifactData: {
-      /**
-       * DeveloperCloudCloudArtifactDataPropertiesName
-       * @enum {string}
-       */
-      name: 'output.zip' | 'logs.txt' | 'repair-response.json';
-      /** Sha256 */
-      sha256: string;
-      /** Size Bytes */
-      size_bytes: number;
-      /**
-       * Expires At
-       * Format: date-time
-       */
-      expires_at: string;
-    };
-    DeveloperCloudCloudRunReceiptApiV2MigrateCloudRunsRunIdReceiptGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudReceiptData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudReceiptData */
-    DeveloperCloudCloudReceiptData: {
-      /**
-       * Run Id
-       * Format: uuid
-       */
-      run_id: string;
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      /** Input Sha256 */
-      input_sha256: string;
-      /** Source Sha256 */
-      source_sha256: string;
-      /** Source Revision */
-      source_revision?: string | null;
-      /** Runner Image */
-      runner_image: string;
-      /** Extension Sha256 */
-      extension_sha256: string;
-      /**
-       * Rate Version
-       * @default developer-cloud-2026-09-07
-       * @constant
-       */
-      rate_version: 'developer-cloud-2026-09-07';
-      /**
-       * Worker Class
-       * @default standard-2cpu-4gib
-       * @constant
-       */
-      worker_class: 'standard-2cpu-4gib';
-      /**
-       * DeveloperCloudCloudReceiptDataPropertiesOperation
-       * @default developer_cloud_compute
-       * @enum {string}
-       */
-      operation: 'developer_cloud_compute' | 'developer_cloud_repair' | 'developer_cloud_certificate';
-      /** Attempts */
-      attempts: components['schemas']['DeveloperCloudUsageAttempt'][];
-      /** Held Credits */
-      held_credits: number;
-      /** Compute Credits */
-      compute_credits: number;
-      /**
-       * Premium Credits
-       * @default 0
-       */
-      premium_credits: number;
-      /** Released Credits */
-      released_credits: number;
-      /**
-       * DeveloperCloudCloudReceiptDataPropertiesBillingCurrency
-       * @enum {string}
-       */
-      billing_currency: 'USD' | 'JPY';
-      /**
-       * DeveloperCloudCloudReceiptDataPropertiesOutcome
-       * @enum {string}
-       */
-      outcome: 'succeeded' | 'failed' | 'cancelled';
-      /**
-       * DeveloperCloudCloudReceiptDataPropertiesVerificationScope
-       * @default generated-tests-static-v1
-       * @enum {string}
-       */
-      verification_scope: 'generated-tests-static-v1' | 'independent-http-replay-v1';
-      /** Artifacts */
-      artifacts: components['schemas']['DeveloperCloudCloudArtifactData'][];
-      /**
-       * Settled At
-       * Format: date-time
-       */
-      settled_at: string;
-      repair_evidence?: components['schemas']['DeveloperCloudRepairEvidence'] | null;
-      certificate_evidence?: components['schemas']['DeveloperCloudCertificateEvidence'] | null;
-      /** Repair Model */
-      repair_model?: string | null;
-      /** Certificate Id */
-      certificate_id?: string | null;
-    };
-    /** CertificateEvidence */
-    DeveloperCloudCertificateEvidence: {
-      /**
-       * Profile
-       * @default independent-http-replay-v1
-       * @constant
-       */
-      profile: 'independent-http-replay-v1';
-      /** Candidate Sha256 */
-      candidate_sha256: string;
-      /** Plan Sha256 */
-      plan_sha256: string;
-      /** Dependency Lock Sha256 */
-      dependency_lock_sha256: string;
-      /** Generated Tests */
-      generated_tests: number;
-      /** Generated Checks Passed */
-      generated_checks_passed: boolean;
-      /** Scenarios */
-      scenarios: components['schemas']['DeveloperCloudScenarioEvidence'][];
-      /** Declared Routes */
-      declared_routes: string[];
-      /** Tested Routes */
-      tested_routes: string[];
-      /** Untested Routes */
-      untested_routes: string[];
-    };
-    /** ScenarioEvidence */
-    DeveloperCloudScenarioEvidence: {
-      /** Id */
-      id: string;
-      /** Request Sha256 */
-      request_sha256: string;
-      /** Route Key */
-      route_key: string;
-      source: components['schemas']['DeveloperCloudHttpObservation'];
-      candidate: components['schemas']['DeveloperCloudHttpObservation'];
-    };
-    /** HttpObservation */
-    DeveloperCloudHttpObservation: {
-      /** Status */
-      status: number;
-      /** Body Sha256 */
-      body_sha256: string;
-      /**
-       * DeveloperCloudHttpObservationPropertiesBodyFormat
-       * @enum {string}
-       */
-      body_format: 'json' | 'bytes';
-      /** Content Type */
-      content_type: string;
-    };
-    /** RepairEvidence */
-    DeveloperCloudRepairEvidence: {
-      /** Candidate Sha256 */
-      candidate_sha256: string;
-      /** Patch Sha256 */
-      patch_sha256: string;
-      /**
-       * DeveloperCloudRepairEvidencePropertiesTargetGate
-       * @enum {string}
-       */
-      target_gate: 'test' | 'verify';
-      /** Before Passed */
-      before_passed: boolean;
-      /** After Passed */
-      after_passed: boolean;
-      /** Regression Passed */
-      regression_passed: boolean;
-      /** Regression Tests */
-      regression_tests: number;
-      /** Checks Unchanged */
-      checks_unchanged: boolean;
-      /** Edit Scope Respected */
-      edit_scope_respected: boolean;
-    };
-    /** UsageAttempt */
-    DeveloperCloudUsageAttempt: {
-      /** Attempt Id */
-      attempt_id: string;
-      /** Active Ms */
-      active_ms: number;
-      /**
-       * Trusted
-       * @default true
-       */
-      trusted: boolean;
-      /**
-       * Infrastructure Failure
-       * @default false
-       */
-      infrastructure_failure: boolean;
-    };
-    DeveloperCloudCloudRunEventsApiV2MigrateCloudRunsRunIdEventsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudEventListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudEventListData */
-    DeveloperCloudCloudEventListData: {
-      /** Events */
-      events: components['schemas']['DeveloperCloudCloudEventData'][];
-      /** Next Cursor */
-      next_cursor?: number | null;
-    };
-    /** CloudEventData */
-    DeveloperCloudCloudEventData: {
-      /** Sequence */
-      sequence: number;
-      /** Kind */
-      kind: string;
-      /** Message */
-      message: string;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-    };
-    DeveloperCloudCancelCloudRunApiV2MigrateCloudRunsRunIdCancelPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudRunData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudRunData */
-    DeveloperCloudCloudRunData: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      request: components['schemas']['DeveloperCloudCloudRunRequest'];
-      /**
-       * DeveloperCloudCloudRunDataPropertiesBillingCurrency
-       * @enum {string}
-       */
-      billing_currency: 'USD' | 'JPY';
-      /** Input Sha256 */
-      input_sha256: string;
-      /** Source Revision */
-      source_revision?: string | null;
-      /**
-       * DeveloperCloudCloudRunDataPropertiesStatus
-       * @enum {string}
-       */
-      status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'failed' | 'cancelled';
-      /**
-       * Worker Class
-       * @default standard-2cpu-4gib
-       * @constant
-       */
-      worker_class: 'standard-2cpu-4gib';
-      /**
-       * Rate Version
-       * @default developer-cloud-2026-09-07
-       * @constant
-       */
-      rate_version: 'developer-cloud-2026-09-07';
-      /** Runner Image */
-      runner_image: string;
-      /** Extension Sha256 */
-      extension_sha256: string;
-      /** Execution Budget Ms */
-      execution_budget_ms: number;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Started At */
-      started_at?: string | null;
-      /** Completed At */
-      completed_at?: string | null;
-      /** Failure Code */
-      failure_code?: string | null;
-      /** Repair Model */
-      repair_model?: string | null;
-      /** Fleet Id */
-      fleet_id?: string | null;
-      /** Fleet Item Key */
-      fleet_item_key?: string | null;
-    };
-    /** CloudRunRequest */
-    DeveloperCloudCloudRunRequest: {
-      /**
-       * Source Id
-       * Format: uuid
-       */
-      source_id: string;
-      /** Source Sha256 */
-      source_sha256: string;
-      /** Max Credits */
-      max_credits: number;
-      /**
-       * Timeout Seconds
-       * @default 3600
-       */
-      timeout_seconds: number;
-      /**
-       * Recipe
-       * @default drf-to-fastapi
-       * @constant
-       */
-      recipe: 'drf-to-fastapi';
-      /**
-       * DeveloperCloudCloudRunRequestPropertiesVerificationProfile
-       * @default generated-tests-static-v1
-       * @enum {string}
-       */
-      verification_profile: 'generated-tests-static-v1' | 'independent-http-replay-v1';
-      /** Settings Module */
-      settings_module?: string | null;
-      /** Rerun Of */
-      rerun_of?: string | null;
-      repair?: components['schemas']['DeveloperCloudRepairSpec'] | null;
-      certification?: components['schemas']['DeveloperCloudCertificationSpec'] | null;
-    };
-    /** CertificationSpec */
-    DeveloperCloudCertificationSpec: {
-      /**
-       * Parent Run Id
-       * Format: uuid
-       */
-      parent_run_id: string;
-      /** Candidate Sha256 */
-      candidate_sha256: string;
-      /** Scenarios */
-      scenarios: components['schemas']['DeveloperCloudHttpScenario'][];
-    };
-    /** HttpScenario */
-    DeveloperCloudHttpScenario: {
-      /** Id */
-      id: string;
-      /**
-       * DeveloperCloudHttpScenarioPropertiesMethod
-       * @enum {string}
-       */
-      method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-      /** Path */
-      path: string;
-      json_body?: components['schemas']['DeveloperCloudJsonValue'];
-    };
-    DeveloperCloudJsonValue: unknown;
-    /** RepairSpec */
-    DeveloperCloudRepairSpec: {
-      /**
-       * Parent Run Id
-       * Format: uuid
-       */
-      parent_run_id: string;
-      /** Candidate Sha256 */
-      candidate_sha256: string;
-      /**
-       * DeveloperCloudRepairSpecPropertiesTargetGate
-       * @enum {string}
-       */
-      target_gate: 'test' | 'verify';
-      /** Allowed Paths */
-      allowed_paths: string[];
-      /**
-       * Model Policy
-       * @default bounded-patch-v1
-       * @constant
-       */
-      model_policy: 'bounded-patch-v1';
-      /**
-       * Max Attempts
-       * @default 1
-       * @constant
-       */
-      max_attempts: 1;
-    };
-    DeveloperCloudGetCloudRunApiV2MigrateCloudRunsRunIdGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudRunData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudRevokeCloudCertificateApiV2MigrateCloudRunsRunIdCertificateRevokePost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCertificateData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CertificateData */
-    DeveloperCloudCertificateData: {
-      certificate: components['schemas']['DeveloperCloudSignedCertificate'];
-      /** Revoked At */
-      revoked_at?: string | null;
-      /** Revocation Reason */
-      revocation_reason?: string | null;
-    };
-    /** SignedCertificate */
-    DeveloperCloudSignedCertificate: {
-      /**
-       * Algorithm
-       * @default Ed25519
-       * @constant
-       */
-      algorithm: 'Ed25519';
-      /**
-       * Encoding
-       * @default sorted-ascii-json-v1
-       * @constant
-       */
-      encoding: 'sorted-ascii-json-v1';
-      /** Key Id */
-      key_id: string;
-      payload: components['schemas']['DeveloperCloudCertificatePayload'];
-      /** Signature Base64 */
-      signature_base64: string;
-    };
-    /** CertificatePayload */
-    DeveloperCloudCertificatePayload: {
-      /**
-       * Schema Version
-       * @default developer-certificate-v1
-       * @constant
-       */
-      schema_version: 'developer-certificate-v1';
-      /**
-       * Issuer
-       * @default https://api-v2.sanka.com
-       * @constant
-       */
-      issuer: 'https://api-v2.sanka.com';
-      /**
-       * Certificate Id
-       * Format: uuid
-       */
-      certificate_id: string;
-      /**
-       * Run Id
-       * Format: uuid
-       */
-      run_id: string;
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      /**
-       * Parent Run Id
-       * Format: uuid
-       */
-      parent_run_id: string;
-      /** Input Sha256 */
-      input_sha256: string;
-      /** Source Sha256 */
-      source_sha256: string;
-      /** Source Revision */
-      source_revision?: string | null;
-      /** Runner Image */
-      runner_image: string;
-      /** Extension Sha256 */
-      extension_sha256: string;
-      /**
-       * Issued At
-       * Format: date-time
-       */
-      issued_at: string;
-      evidence: components['schemas']['DeveloperCloudCertificateEvidence'];
-      /** Limitations */
-      limitations: string[];
-    };
-    /** CertificateRevokeRequest */
-    DeveloperCloudCertificateRevokeRequest: {
-      /** Reason */
-      reason: string;
-    };
-    DeveloperCloudCloudCertificateApiV2MigrateCloudRunsRunIdCertificateGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCertificateData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudCloudCertificateKeysApiV2MigrateCloudRunsCertificateKeysGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCertificateKeysData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CertificateKeysData */
-    DeveloperCloudCertificateKeysData: {
-      /**
-       * Issuer
-       * @default https://api-v2.sanka.com
-       * @constant
-       */
-      issuer: 'https://api-v2.sanka.com';
-      /** Keys */
-      keys: components['schemas']['DeveloperCloudCertificatePublicKey'][];
-    };
-    /** CertificatePublicKey */
-    DeveloperCloudCertificatePublicKey: {
-      /** Key Id */
-      key_id: string;
-      /**
-       * Algorithm
-       * @default Ed25519
-       * @constant
-       */
-      algorithm: 'Ed25519';
-      /** Public Key Base64 */
-      public_key_base64: string;
-    };
-    DeveloperCloudCreateCloudRunApiV2MigrateCloudRunsPost201Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudRunData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudListCloudRunsApiV2MigrateCloudRunsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudRunListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudRunListData */
-    DeveloperCloudCloudRunListData: {
-      /** Runs */
-      runs: components['schemas']['DeveloperCloudCloudRunData'][];
-      /** Next Cursor */
-      next_cursor?: string | null;
-    };
-    DeveloperCloudUploadCloudSourceApiV2MigrateCloudSourcesPost201Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudSourceData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudSourceData */
-    DeveloperCloudCloudSourceData: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Sha256 */
-      sha256: string;
-      /** Revision */
-      revision?: string | null;
-      /** Size Bytes */
-      size_bytes: number;
-      /** Expanded Bytes */
-      expanded_bytes: number;
-      /** File Count */
-      file_count: number;
-      /**
-       * Expires At
-       * Format: date-time
-       */
-      expires_at: string;
-    };
-    /** SourceUploadRequest */
-    DeveloperCloudSourceUploadRequest: {
-      /** Archive Base64 */
-      archive_base64: string;
-      /** Sha256 */
-      sha256: string;
-      /** Revision */
-      revision?: string | null;
-    };
-    DeveloperCloudCloudAvailabilityApiV2MigrateCloudRunsAvailabilityGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudCloudAvailabilityData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** CloudAvailabilityData */
-    DeveloperCloudCloudAvailabilityData: {
-      /**
-       * Fleet Enabled
-       * @default false
-       */
-      fleet_enabled: boolean;
-      /**
-       * Certification Enabled
-       * @default false
-       */
-      certification_enabled: boolean;
-      /**
-       * Certificate Premium Credits
-       * @default 2000
-       * @constant
-       */
-      certificate_premium_credits: 2000;
-      /** Enabled */
-      enabled: boolean;
-      /**
-       * Worker Class
-       * @default standard-2cpu-4gib
-       */
-      worker_class: string;
-      /**
-       * Credits Per Worker Minute
-       * @default 100
-       * @constant
-       */
-      credits_per_worker_minute: 100;
-      /**
-       * Max Timeout Seconds
-       * @default 3600
-       * @constant
-       */
-      max_timeout_seconds: 3600;
-      /**
-       * Max Source Bytes
-       * @default 8388608
-       */
-      max_source_bytes: number;
-      /**
-       * Verification Scope
-       * @default generated-tests-static-v1
-       */
-      verification_scope: string;
-      /**
-       * Repair Enabled
-       * @default false
-       */
-      repair_enabled: boolean;
-      /**
-       * Repair Premium Credits
-       * @default 1000
-       * @constant
-       */
-      repair_premium_credits: 1000;
-      /**
-       * Repair Model Policy
-       * @default bounded-patch-v1
-       * @constant
-       */
-      repair_model_policy: 'bounded-patch-v1';
-    };
-    DeveloperCloudRetryFleetApiV2MigrateCloudFleetsFleetIdRetryPost201Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudFleetData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** FleetData */
-    DeveloperCloudFleetData: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      request: components['schemas']['DeveloperCloudFleetRequest'];
-      /** Input Sha256 */
-      input_sha256: string;
-      /**
-       * DeveloperCloudFleetDataPropertiesStatus
-       * @enum {string}
-       */
-      status: 'queued' | 'running' | 'cancelling' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /**
-       * Expires At
-       * Format: date-time
-       */
-      expires_at: string;
-      /** Completed At */
-      completed_at?: string | null;
-      /** Cancel Requested At */
-      cancel_requested_at?: string | null;
-      /** Retry Of */
-      retry_of?: string | null;
-      /** Items */
-      items: components['schemas']['DeveloperCloudFleetItemData'][];
-      /** Held Credits */
-      held_credits: number;
-      /** Compute Credits */
-      compute_credits: number;
-      /** Premium Credits */
-      premium_credits: number;
-      /** Released Credits */
-      released_credits: number;
-      /** Outstanding Credits */
-      outstanding_credits: number;
-    };
-    /** FleetItemData */
-    DeveloperCloudFleetItemData: {
-      /** Key */
-      key: string;
-      /** Repository */
-      repository: string;
-      /** Revision */
-      revision: string;
-      /** Waiting For Capacity */
-      waiting_for_capacity: boolean;
-      run: components['schemas']['DeveloperCloudCloudRunData'];
-      receipt?: components['schemas']['DeveloperCloudCloudReceiptData'] | null;
-      /** Retried Run Id */
-      retried_run_id?: string | null;
-    };
-    /** FleetRequest */
-    DeveloperCloudFleetRequest: {
-      /** Items */
-      items: components['schemas']['DeveloperCloudFleetItemRequest'][];
-      /** Max Credits */
-      max_credits: number;
-      /** Concurrency */
-      concurrency: number;
-    };
-    /** FleetItemRequest */
-    DeveloperCloudFleetItemRequest: {
-      /** Key */
-      key: string;
-      /** Repository */
-      repository: string;
-      /** Revision */
-      revision: string;
-      request: components['schemas']['DeveloperCloudCloudRunRequest'];
-    };
-    /** FleetRetryRequest */
-    DeveloperCloudFleetRetryRequest: {
-      /** Item Keys */
-      item_keys: string[];
-      /** Max Credits */
-      max_credits: number;
-      /** Concurrency */
-      concurrency: number;
-    };
-    DeveloperCloudCancelFleetApiV2MigrateCloudFleetsFleetIdCancelPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudFleetData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudGetFleetApiV2MigrateCloudFleetsFleetIdGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudFleetData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudCreateFleetApiV2MigrateCloudFleetsPost201Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudFleetData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    DeveloperCloudListFleetsApiV2MigrateCloudFleetsGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['DeveloperCloudFleetListData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** FleetListData */
-    DeveloperCloudFleetListData: {
-      /** Fleets */
-      fleets: components['schemas']['DeveloperCloudFleetData'][];
-      /** Next Cursor */
-      next_cursor?: string | null;
-    };
-    /** PublicFlowTemplatePlanRequest */
-    PublicFlowTemplatePlanRequest: {
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /** Template Id */
-      template_id: string;
-      /** Template Version */
-      template_version: number;
-      /** Parameters */
-      parameters?: {
-        [key: string]: string | number | boolean | string[] | null;
-      };
-      /** Workflow Id */
-      workflow_id?: string | null;
-      /** Expected Definition Digest */
-      expected_definition_digest?: string | null;
-    };
-    PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['PublicFlowPlanData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PublicFlowPlanData */
-    PublicFlowPlanData: {
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /** Workflow Id */
-      workflow_id?: string | null;
-      /** Plan Digest */
-      plan_digest: string;
-      /** Template Id */
-      template_id: string;
-      /** Template Version */
-      template_version: number;
-      /**
-       * Operation
-       * @enum {string}
-       */
-      operation: 'create' | 'update';
-      /** Applicable */
-      applicable: boolean;
-      /** Parameters */
-      parameters: {
-        [key: string]: string | number | boolean | string[] | null;
-      };
-      /** Changes */
-      changes?: components['schemas']['PublicFlowFieldChange'][];
-      /** Conflicts */
-      conflicts?: components['schemas']['PublicFlowConflict'][];
-      /** Preserved Fields */
-      preserved_fields?: string[];
-      /** Blocker Codes */
-      blocker_codes?: string[];
-      /** Required Capabilities */
-      required_capabilities?: string[];
-      /**
-       * Construction
-       * @default inactive
-       * @constant
-       */
-      construction: 'inactive';
-    };
-    /** PublicFlowFieldChange */
-    PublicFlowFieldChange: {
-      /** Key */
-      key: string;
-      /** Before */
-      before?: string | number | boolean | string[] | null;
-      /** After */
-      after?: string | number | boolean | string[] | null;
-    };
-    /** PublicFlowConflict */
-    PublicFlowConflict: {
-      /** Key */
-      key: string;
-      previous: components['schemas']['PublicFlowFieldState'];
-      current: components['schemas']['PublicFlowFieldState'];
-      desired: components['schemas']['PublicFlowFieldState'];
-    };
     /** PublicFlowFieldState */
     PublicFlowFieldState: {
       /** Present */
       present: boolean;
       /** Value */
       value?: string | number | boolean | string[] | null;
-    };
-    /** PublicFlowTemplateUseRequest */
-    PublicFlowTemplateUseRequest: {
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /** Plan Digest */
-      plan_digest: string;
-    };
-    UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['PublicFlowConstructData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PublicFlowConstructData */
-    PublicFlowConstructData: {
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      /**
-       * Workflow Id
-       * Format: uuid
-       */
-      workflow_id: string;
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /** Plan Digest */
-      plan_digest: string;
-      /** Definition Digest */
-      definition_digest: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: 'constructed' | 'already_constructed';
-    };
-    GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['PublicFlowStateData'];
-      meta: components['schemas']['EnvelopeMeta'];
-    };
-    /** PublicFlowStateData */
-    PublicFlowStateData: {
-      /**
-       * Workspace Id
-       * Format: uuid
-       */
-      workspace_id: string;
-      /**
-       * Workflow Id
-       * Format: uuid
-       */
-      workflow_id: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: 'managed' | 'unmanaged';
-      /** Definition Digest */
-      definition_digest?: string | null;
-      /**
-       * Active
-       * @default false
-       */
-      active: boolean;
-      /** Parameters */
-      parameters?: {
-        [key: string]: string | number | boolean | string[] | null;
-      };
-      /** Template Parameters */
-      template_parameters?: {
-        [key: string]: string | number | boolean | string[] | null;
-      };
-      /** Available Operations */
-      available_operations?: string[];
-    };
-    /** PublicFlowConstructRequest */
-    PublicFlowConstructRequest: {
-      /** Plan Digest */
-      plan_digest: string;
-      /**
-       * Attempt Id
-       * Format: uuid
-       */
-      attempt_id: string;
-    };
-    ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope: {
-      /** @constant */
-      success: true;
-      data: components['schemas']['PublicFlowConstructData'];
-      meta: components['schemas']['EnvelopeMeta'];
     };
   };
   responses: {
@@ -11687,9 +11104,7 @@ export interface operations {
   };
   approve_approval_request_api_v2_public_approval_requests__history_id__approve_post: {
     parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
+      query?: never;
       header?: {
         'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
       };
@@ -11717,9 +11132,7 @@ export interface operations {
   };
   reject_approval_request_api_v2_public_approval_requests__history_id__reject_post: {
     parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
+      query?: never;
       header?: {
         'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
       };
@@ -11738,6 +11151,34 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RejectApprovalRequestApiV2PublicApprovalRequestsHistoryIdRejectPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  withdraw_approval_request_api_v2_public_approval_requests__history_id__withdraw_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        history_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WithdrawApprovalRequestApiV2PublicApprovalRequestsHistoryIdWithdrawPost200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -11846,6 +11287,7 @@ export interface operations {
   list_public_attendance_records_api_v2_public_attendance_records_get: {
     parameters: {
       query?: {
+        task_id?: string | null;
         usage_status?: string | null;
         workspace_id?: string | null;
         view_id?: string | null;
@@ -12039,256 +11481,6 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ListPublicBuyOffersApiV2PublicBuyOffersGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  ingest_clay_signal_api_v2_lookout_connectors_clay_signals_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LookoutSignalRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['IngestClaySignalApiV2LookoutConnectorsClaySignalsPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  ingest_provider_signal_api_v2_lookout_connectors__provider__signals_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        provider: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LookoutSignalRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['IngestProviderSignalApiV2LookoutConnectorsProviderSignalsPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_provider_actions_api_v2_lookout_ad_actions_get: {
-    parameters: {
-      query?: {
-        provider?: string | null;
-        status?: string | null;
-        run_id?: string | null;
-        limit?: number;
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ListProviderActionsApiV2LookoutAdActionsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_provider_actions_api_v2_lookout_provider_actions_get: {
-    parameters: {
-      query?: {
-        provider?: string | null;
-        status?: string | null;
-        run_id?: string | null;
-        limit?: number;
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ListProviderActionsApiV2LookoutProviderActionsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  claim_provider_action_api_v2_lookout_ad_actions__action_id__claim_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        action_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ClaimProviderActionApiV2LookoutAdActionsActionIdClaimPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  claim_provider_action_api_v2_lookout_provider_actions__action_id__claim_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        action_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ClaimProviderActionApiV2LookoutProviderActionsActionIdClaimPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  complete_provider_action_api_v2_lookout_ad_actions__action_id__complete_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        action_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LookoutProviderActionCompleteRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CompleteProviderActionApiV2LookoutAdActionsActionIdCompletePost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  complete_provider_action_api_v2_lookout_provider_actions__action_id__complete_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        action_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LookoutProviderActionCompleteRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CompleteProviderActionApiV2LookoutProviderActionsActionIdCompletePost200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -12984,6 +12176,347 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DeletePublicContactApiV2PublicContactsContactIdDelete200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_functions_api_v2_public_code_functions_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicFunctionsApiV2PublicCodeFunctionsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_function_api_v2_public_code_functions_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomCodeFunctionCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicFunctionApiV2PublicCodeFunctionsPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_function_api_v2_public_code_functions__function_ref__get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicFunctionApiV2PublicCodeFunctionsFunctionRefGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_function_api_v2_public_code_functions__function_ref__patch: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomCodeFunctionUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicFunctionApiV2PublicCodeFunctionsFunctionRefPatch200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_versions_api_v2_public_code_functions__function_ref__versions_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicVersionsApiV2PublicCodeFunctionsFunctionRefVersionsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  push_public_version_api_v2_public_code_functions__function_ref__versions_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomCodeVersionCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PushPublicVersionApiV2PublicCodeFunctionsFunctionRefVersionsPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  download_public_version_bundle_api_v2_public_code_functions__function_ref__versions__version__bundle_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+        version: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_alias_api_v2_public_code_functions__function_ref__aliases__alias__put: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+        alias: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomCodeAliasUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicAliasApiV2PublicCodeFunctionsFunctionRefAliasesAliasPut200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_secrets_api_v2_public_code_functions__function_ref__secrets_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicSecretsApiV2PublicCodeFunctionsFunctionRefSecretsGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_secret_api_v2_public_code_functions__function_ref__secrets__name__put: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomCodeSecretSetRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicSecretApiV2PublicCodeFunctionsFunctionRefSecretsNamePut200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  delete_public_secret_api_v2_public_code_functions__function_ref__secrets__name__delete: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        function_ref: string;
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeletePublicSecretApiV2PublicCodeFunctionsFunctionRefSecretsNameDelete200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -14322,14 +13855,13 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
-  list_public_export_jobs_compat_api_v2_public_exports_get: {
+  list_public_export_jobs_api_v2_public_exports_get: {
     parameters: {
       query?: {
         object_type?: string | null;
         page?: number;
         limit?: number;
         search_query?: string | null;
-        q?: string | null;
         workspace_id?: string | null;
       };
       header?: {
@@ -14347,7 +13879,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['ListPublicExportJobsCompatApiV2PublicExportsGet200Envelope'];
+          'application/json': components['schemas']['ListPublicExportJobsApiV2PublicExportsGet200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -14355,7 +13887,7 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
-  create_public_export_job_compat_api_v2_public_exports_post: {
+  create_public_export_job_api_v2_public_exports_post: {
     parameters: {
       query?: {
         workspace_id?: string | null;
@@ -14379,7 +13911,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['CreatePublicExportJobCompatApiV2PublicExportsPost200Envelope'];
+          'application/json': components['schemas']['CreatePublicExportJobApiV2PublicExportsPost200Envelope'];
         };
       };
       400: components['responses']['ErrorResponse'];
@@ -16111,14 +15643,13 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
-  list_public_import_jobs_compat_api_v2_public_imports_get: {
+  list_public_import_jobs_api_v2_public_imports_get: {
     parameters: {
       query?: {
         object_type?: string | null;
         page?: number;
         limit?: number;
         search_query?: string | null;
-        q?: string | null;
         workspace_id?: string | null;
       };
       header?: {
@@ -16136,14 +15667,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['ListPublicImportJobsCompatApiV2PublicImportsGet200Envelope'];
+          'application/json': components['schemas']['ListPublicImportJobsApiV2PublicImportsGet200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };
-  create_public_import_job_compat_api_v2_public_imports_post: {
+  create_public_import_job_api_v2_public_imports_post: {
     parameters: {
       query?: {
         workspace_id?: string | null;
@@ -16167,14 +15698,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['CreatePublicImportJobCompatApiV2PublicImportsPost200Envelope'];
+          'application/json': components['schemas']['CreatePublicImportJobApiV2PublicImportsPost200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };
-  get_public_import_job_compat_api_v2_public_imports__job_id__get: {
+  get_public_import_job_api_v2_public_imports__job_id__get: {
     parameters: {
       query?: {
         workspace_id?: string | null;
@@ -16196,14 +15727,14 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['GetPublicImportJobCompatApiV2PublicImportsJobIdGet200Envelope'];
+          'application/json': components['schemas']['GetPublicImportJobApiV2PublicImportsJobIdGet200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };
-  cancel_public_import_job_compat_api_v2_public_imports__job_id__cancel_post: {
+  cancel_public_import_job_api_v2_public_imports__job_id__cancel_post: {
     parameters: {
       query?: {
         workspace_id?: string | null;
@@ -16225,7 +15756,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['CancelPublicImportJobCompatApiV2PublicImportsJobIdCancelPost200Envelope'];
+          'application/json': components['schemas']['CancelPublicImportJobApiV2PublicImportsJobIdCancelPost200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -17159,7 +16690,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['OrderBulkCreateRequest'];
+        'application/json': components['schemas']['PublicOrderBulkCreateRequest'];
       };
     };
     responses: {
@@ -18884,6 +18415,582 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  list_public_job_postings: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicJobPostings200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_job_posting: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicJobPosting200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_applicants: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicApplicants200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_applicant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicApplicant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_interviews: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+        search?: string | null;
+        language?: string | null;
+        status?: string | null;
+        usage_status?: string | null;
+        filters?: string | null;
+        page?: number;
+        limit?: number | null;
+        sort?: string | null;
+        created_at_from?: string | null;
+        created_at_to?: string | null;
+        updated_at_from?: string | null;
+        updated_at_to?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+        'X-Language'?: string | null;
+        'Accept-Language'?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicInterviews200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  archive_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArchivePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  activate_public_interview: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        record_ref: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActivatePublicInterview200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   list_public_approval_rules_api_v2_public_approval_rules_get: {
     parameters: {
       query?: {
@@ -20299,6 +20406,134 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  plan_public_workflow_template_api_v2_public_workflows_templates_plan_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowTemplatePlanRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  use_public_workflow_template_api_v2_public_workflows_templates_use_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowTemplateUseRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        workflow_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        workflow_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicFlowConstructRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   list_public_workflows_api_v2_public_workflows_get: {
     parameters: {
       query?: {
@@ -20306,7 +20541,6 @@ export interface operations {
         limit?: number;
         q?: string | null;
         status?: string | null;
-        include_lookout?: boolean;
         workspace_id?: string | null;
       };
       header?: {
@@ -20489,6 +20723,163 @@ export interface operations {
       };
       401: components['responses']['ErrorResponse'];
       403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_workforce_organization: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicWorkforceOrganization200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_workforce_position: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicWorkforcePosition200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_workforce_position: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicWorkforcePosition200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_workforce_position_job: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionJobRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicWorkforcePositionJob200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_workforce_position_occupant: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        position_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PositionOccupantRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicWorkforcePositionOccupant200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };
@@ -20709,6 +21100,72 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PreviewPublicMoneyforwardInvoiceExportApiV2PublicInvoicesExportsMoneyforwardPreviewPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  preview_public_quickbooks_invoice_export_api_v2_public_invoices_exports_quickbooks_online_preview_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewPublicQuickbooksInvoiceExportApiV2PublicInvoicesExportsQuickbooksOnlinePreviewPost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  preview_public_quickbooks_bill_export_api_v2_public_bills_exports_quickbooks_online_preview_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewPublicQuickbooksBillExportApiV2PublicBillsExportsQuickbooksOnlinePreviewPost200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -21011,6 +21468,72 @@ export interface operations {
       422: components['responses']['ErrorResponse'];
     };
   };
+  start_public_quickbooks_invoice_export_api_v2_public_invoices_exports_quickbooks_online_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartPublicQuickbooksInvoiceExportApiV2PublicInvoicesExportsQuickbooksOnlinePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  start_public_quickbooks_bill_export_api_v2_public_bills_exports_quickbooks_online_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StartPublicQuickbooksBillExportApiV2PublicBillsExportsQuickbooksOnlinePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
   start_public_hubspot_estimate_draft_api_v2_public_estimates_drafts_hubspot_post: {
     parameters: {
       query?: {
@@ -21141,1406 +21664,6 @@ export interface operations {
         };
       };
       401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_public_job_postings: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-        search?: string | null;
-        language?: string | null;
-        status?: string | null;
-        usage_status?: string | null;
-        filters?: string | null;
-        page?: number;
-        limit?: number | null;
-        sort?: string | null;
-        created_at_from?: string | null;
-        created_at_to?: string | null;
-        updated_at_from?: string | null;
-        updated_at_to?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-        'X-Language'?: string | null;
-        'Accept-Language'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ListPublicJobPostings200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_public_job_posting: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordCreateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CreatePublicJobPosting200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_public_job_posting: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GetPublicJobPosting200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  update_public_job_posting: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UpdatePublicJobPosting200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  archive_public_job_posting: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ArchivePublicJobPosting200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  activate_public_job_posting: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ActivatePublicJobPosting200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_public_applicants: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-        search?: string | null;
-        language?: string | null;
-        status?: string | null;
-        usage_status?: string | null;
-        filters?: string | null;
-        page?: number;
-        limit?: number | null;
-        sort?: string | null;
-        created_at_from?: string | null;
-        created_at_to?: string | null;
-        updated_at_from?: string | null;
-        updated_at_to?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-        'X-Language'?: string | null;
-        'Accept-Language'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ListPublicApplicants200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_public_applicant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordCreateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CreatePublicApplicant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_public_applicant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GetPublicApplicant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  update_public_applicant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UpdatePublicApplicant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  archive_public_applicant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ArchivePublicApplicant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  activate_public_applicant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ActivatePublicApplicant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_public_interviews: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-        search?: string | null;
-        language?: string | null;
-        status?: string | null;
-        usage_status?: string | null;
-        filters?: string | null;
-        page?: number;
-        limit?: number | null;
-        sort?: string | null;
-        created_at_from?: string | null;
-        created_at_to?: string | null;
-        updated_at_from?: string | null;
-        updated_at_to?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-        'X-Language'?: string | null;
-        'Accept-Language'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ListPublicInterviews200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_public_interview: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordCreateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CreatePublicInterview200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_public_interview: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GetPublicInterview200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  update_public_interview: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ObjectRecordUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UpdatePublicInterview200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  archive_public_interview: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ArchivePublicInterview200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  activate_public_interview: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        record_ref: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ActivatePublicInterview200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_public_workforce_organization: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GetPublicWorkforceOrganization200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_public_workforce_position: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PositionCreateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CreatePublicWorkforcePosition200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  update_public_workforce_position: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        position_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PositionUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UpdatePublicWorkforcePosition200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  set_public_workforce_position_job: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        position_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PositionJobRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SetPublicWorkforcePositionJob200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  set_public_workforce_position_occupant: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        position_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PositionOccupantRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SetPublicWorkforcePositionOccupant200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_fleets: {
-    parameters: {
-      query?: {
-        cursor?: string | null;
-        limit?: number;
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudListFleetsApiV2MigrateCloudFleetsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_fleet: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header: {
-        'Idempotency-Key': string;
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DeveloperCloudFleetRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCreateFleetApiV2MigrateCloudFleetsPost201Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_fleet: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        fleet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudGetFleetApiV2MigrateCloudFleetsFleetIdGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  cancel_fleet: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        fleet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCancelFleetApiV2MigrateCloudFleetsFleetIdCancelPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  retry_fleet: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header: {
-        'Idempotency-Key': string;
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        fleet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DeveloperCloudFleetRetryRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudRetryFleetApiV2MigrateCloudFleetsFleetIdRetryPost201Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_availability: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudAvailabilityApiV2MigrateCloudRunsAvailabilityGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  upload_source: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DeveloperCloudSourceUploadRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudUploadCloudSourceApiV2MigrateCloudSourcesPost201Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_runs: {
-    parameters: {
-      query?: {
-        cursor?: string | null;
-        limit?: number;
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudListCloudRunsApiV2MigrateCloudRunsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  create_run: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header: {
-        'Idempotency-Key': string;
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DeveloperCloudCloudRunRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCreateCloudRunApiV2MigrateCloudRunsPost201Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_certificate_keys: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudCertificateKeysApiV2MigrateCloudRunsCertificateKeysGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_certificate: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudCertificateApiV2MigrateCloudRunsRunIdCertificateGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  revoke_certificate: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DeveloperCloudCertificateRevokeRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudRevokeCloudCertificateApiV2MigrateCloudRunsRunIdCertificateRevokePost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_run: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudGetCloudRunApiV2MigrateCloudRunsRunIdGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  cancel_run: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCancelCloudRunApiV2MigrateCloudRunsRunIdCancelPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_events: {
-    parameters: {
-      query?: {
-        cursor?: number;
-        limit?: number;
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudRunEventsApiV2MigrateCloudRunsRunIdEventsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_receipt: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudRunReceiptApiV2MigrateCloudRunsRunIdReceiptGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  list_artifacts: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudCloudRunArtifactsApiV2MigrateCloudRunsRunIdArtifactsGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_artifact: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        run_id: string;
-        name: 'output.zip' | 'logs.txt' | 'repair-response.json';
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DeveloperCloudDownloadCloudArtifactApiV2MigrateCloudRunsRunIdArtifactsNameGet200Envelope'];
-          'application/octet-stream': string;
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  plan_public_workflow_template_api_v2_public_workflows_templates_plan_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PublicFlowTemplatePlanRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PlanPublicWorkflowTemplateApiV2PublicWorkflowsTemplatesPlanPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      403: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  use_public_workflow_template_api_v2_public_workflows_templates_use_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PublicFlowTemplateUseRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UsePublicWorkflowTemplateApiV2PublicWorkflowsTemplatesUsePost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      403: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  get_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_get: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        workflow_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GetPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowGet200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      403: components['responses']['ErrorResponse'];
-      422: components['responses']['ErrorResponse'];
-    };
-  };
-  construct_public_workflow_flow_api_v2_public_workflows__workflow_id__flow_construct_post: {
-    parameters: {
-      query?: {
-        workspace_id?: string | null;
-      };
-      header?: {
-        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
-      };
-      path: {
-        workflow_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PublicFlowConstructRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          'x-ctx-id': components['headers']['XCtxId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ConstructPublicWorkflowFlowApiV2PublicWorkflowsWorkflowIdFlowConstructPost200Envelope'];
-        };
-      };
-      401: components['responses']['ErrorResponse'];
-      403: components['responses']['ErrorResponse'];
       422: components['responses']['ErrorResponse'];
     };
   };
