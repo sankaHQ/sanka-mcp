@@ -38,7 +38,7 @@ describe('record URL enrichment', () => {
         id_inv: 21,
         workspace_code: '39467777',
         app_url:
-          'https://app-v2.sanka.com/39467777/finance-legal/invoices/cc59d222-21c1-4a64-af2a-6d6479fc8c51/manage',
+          'https://flow.sanka.com/39467777/finance-legal/invoices/cc59d222-21c1-4a64-af2a-6d6479fc8c51/manage',
       },
     ]);
     expect((result.structuredContent?.['result'] as any)?.data).toEqual([
@@ -47,7 +47,7 @@ describe('record URL enrichment', () => {
         id_inv: 21,
         workspace_code: '39467777',
         app_url:
-          'https://app-v2.sanka.com/39467777/finance-legal/invoices/cc59d222-21c1-4a64-af2a-6d6479fc8c51/manage',
+          'https://flow.sanka.com/39467777/finance-legal/invoices/cc59d222-21c1-4a64-af2a-6d6479fc8c51/manage',
       },
     ]);
   });
@@ -69,15 +69,15 @@ describe('record URL enrichment', () => {
 
     expect(result.structuredContent).toMatchObject({
       workspace_code: '39467777',
-      app_url: 'https://app-v2.sanka.com/39467777/commerce/orders/order-uuid-1/manage',
+      app_url: 'https://flow.sanka.com/39467777/commerce/orders/order-uuid-1/manage',
     });
     expect(result.content?.[0]).toMatchObject({
       type: 'text',
-      text: 'created\napp_url: https://app-v2.sanka.com/39467777/commerce/orders/order-uuid-1/manage',
+      text: 'created\napp_url: https://flow.sanka.com/39467777/commerce/orders/order-uuid-1/manage',
     });
   });
 
-  it('builds app-v2 estimate drawer URLs without language prefixes', () => {
+  it('builds Flow estimate drawer URLs without language prefixes', () => {
     const result = enrichRecordUrlsForToolResult({
       result: {
         content: [{ type: 'text', text: 'ok' }],
@@ -93,11 +93,11 @@ describe('record URL enrichment', () => {
     expect(result.structuredContent).toMatchObject({
       workspace_code: '39467777',
       app_url:
-        'https://app-v2.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+        'https://flow.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
     });
   });
 
-  it('encodes app-v2 drawer path segments', () => {
+  it('encodes Flow drawer path segments', () => {
     const encodedWorkspaceContext = {
       ...reqContext,
       auth: {
@@ -123,7 +123,7 @@ describe('record URL enrichment', () => {
 
     expect(result.structuredContent).toMatchObject({
       workspace_code: '3946 777/unsafe',
-      app_url: 'https://app-v2.sanka.com/3946%20777%2Funsafe/commerce/estimates/estimate%201%2F2/manage',
+      app_url: 'https://flow.sanka.com/3946%20777%2Funsafe/commerce/estimates/estimate%201%2F2/manage',
     });
   });
 
@@ -163,7 +163,7 @@ describe('record URL enrichment', () => {
     ]);
   });
 
-  it('canonicalizes backend-provided legacy Sanka URLs to app-v2 drawer routes', () => {
+  it('canonicalizes backend-provided legacy Sanka URLs to Flow drawer routes', () => {
     const result = enrichRecordUrlsForToolResult({
       result: {
         content: [{ type: 'text', text: 'ok' }],
@@ -187,7 +187,7 @@ describe('record URL enrichment', () => {
         id: 'fc86caab-2a62-443f-a600-177c5f978bcc',
         workspace_code: '39467777',
         app_url:
-          'https://app-v2.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+          'https://flow.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
       },
     ]);
   });
@@ -199,7 +199,7 @@ describe('record URL enrichment', () => {
         structuredContent: {
           id: 'fc86caab-2a62-443f-a600-177c5f978bcc',
           app_url:
-            'https://app-v2.sanka.com/9983932/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+            'https://flow.sanka.com/9983932/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
         },
       },
       resource: 'estimates',
@@ -210,11 +210,11 @@ describe('record URL enrichment', () => {
     expect(result.structuredContent).toMatchObject({
       workspace_code: '39467777',
       app_url:
-        'https://app-v2.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
+        'https://flow.sanka.com/39467777/commerce/estimates/fc86caab-2a62-443f-a600-177c5f978bcc/manage',
     });
   });
 
-  it('builds app-v2 journal URLs when the backend omits app_url', () => {
+  it('builds Flow journal URLs when the backend omits app_url', () => {
     const result = enrichRecordUrlsForToolResult({
       result: {
         content: [{ type: 'text', text: 'created' }],
@@ -229,7 +229,7 @@ describe('record URL enrichment', () => {
 
     expect(result.structuredContent).toMatchObject({
       workspace_code: '39467777',
-      app_url: 'https://app-v2.sanka.com/39467777/finance-legal/journals/journal-1/manage',
+      app_url: 'https://flow.sanka.com/39467777/finance-legal/journals/journal-1/manage',
     });
   });
 
