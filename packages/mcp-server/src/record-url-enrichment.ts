@@ -241,7 +241,7 @@ function isKnownSankaRecordAppUrl(context: EnrichmentContext, appUrl: string): b
 
 function isKnownSankaAppHost(url: URL, configuredBaseUrl: string): boolean {
   const hostname = url.hostname.toLowerCase();
-  const knownHosts = new Set(['app.sanka.com', 'app-v2.sanka.com']);
+  const knownHosts = new Set(['app.sanka.com', 'app-v2.sanka.com', 'flow.sanka.com']);
   try {
     knownHosts.add(new URL(configuredBaseUrl).hostname.toLowerCase());
   } catch {
@@ -320,7 +320,7 @@ function readWorkspaceCode(reqContext: McpRequestContext): string | undefined {
 
 function readAppBaseUrl(): string {
   const configuredV2Base = readString(process.env['SANKA_V2_APP_BASE_URL']);
-  return (configuredV2Base || 'https://app-v2.sanka.com').replace(/\/+$/, '');
+  return (configuredV2Base || 'https://flow.sanka.com').replace(/\/+$/, '');
 }
 
 function readString(value: unknown): string | undefined {
