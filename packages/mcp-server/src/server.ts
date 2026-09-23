@@ -676,6 +676,15 @@ export function selectPreparedTools(options?: McpOptions, profile: ToolProfile =
   return prepared;
 }
 
+/**
+ * The SDK client retries 408, 409, 429, 5xx and connection errors twice by default.
+ * A write can fail after its side effect already happened, such as a reply Gmail
+ * accepted before Sanka failed to record it, so a retry would repeat the side
+ * effect. Only read tools keep automatic retries; write tools return the error.
+ */
+export const clientForTool = (client: Sanka, mcpTool: Pick<McpTool, 'metadata'>): Sanka =>
+  mcpTool.metadata.operation === 'read' ? client : client.withOptions({ maxRetries: 0 });
+
 const publicToolDescriptor = (mcpTool: McpTool): McpTool['tool'] => {
   const advertisedSecuritySchemes = mcpTool.tool.securitySchemes?.filter(
     (scheme) => scheme.type !== 'oauth2',
@@ -833,7 +842,7 @@ export async function initMcpServer(params: {
 
     const reqContextWithClient = {
       ...reqContext,
-      client,
+      client: clientForTool(client, mcpTool),
     };
 
     try {
