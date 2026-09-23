@@ -2881,6 +2881,100 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it.each([
+    ['private', 'accountMessages', () => crmReplyPrivateMessageThreadTool],
+    ['workspace', 'workspaceMessages', () => crmReplyWorkspaceMessageThreadTool],
+  ])('returns an unconfirmed %s reply delivery as a do-not-resend error', async (_scope, resource, tool) => {
+    const reply = jest.fn().mockRejectedValue(
+      Object.assign(new Error('409 Delivery of this reply could not be confirmed.'), {
+        status: 409,
+        error: {
+          success: false,
+          error: {
+            code: 'DELIVERY_UNKNOWN',
+            message:
+              "Delivery of this reply could not be confirmed. Check the sender's Sent folder before sending it again.",
+            details: { status: 'delivery_unknown' },
+          },
+          meta: { ctx_id: 'ctx-delivery-unknown' },
+        },
+      }),
+    );
+
+    const result = await tool().handler({
+      reqContext: {
+        client: { public: { [resource]: { threads: { reply } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        thread_id: 'thread-1',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+      },
+    });
+
+    expect(reply).toHaveBeenCalledTimes(1);
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      status: 'delivery_unknown',
+      code: 'DELIVERY_UNKNOWN',
+      delivery_status: 'delivery_unknown',
+      ctx_id: 'ctx-delivery-unknown',
+    });
+    expect(result.structuredContent?.['required_user_facing_reply']).toContain('Do not retry');
+  });
+
+  it('reports a sent reply that only appears after the next inbox sync', async () => {
+    const note = 'Reply sent. It will appear in this thread after the next inbox sync.';
+    const reply = jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        thread_id: 'workspace-thread-1',
+        message_id: null,
+        has_unread: false,
+        sender_email: 'hey@sanka.com',
+        integration_slug: 'gmail',
+      },
+      meta: {
+        ctx_id: 'ctx-record-pending',
+        toast: { variant: 'success', code: 'message.reply.record_pending', message: note },
+      },
+    });
+
+    const result = await crmReplyWorkspaceMessageThreadTool.handler({
+      reqContext: {
+        client: { public: { workspaceMessages: { threads: { reply } } } } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        thread_id: 'workspace-thread-1',
+        body: 'Thanks for the update.',
+        confirm_send: true,
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    // message_id is omitted rather than null, so the output schema still validates.
+    expect(result.structuredContent).toEqual({
+      message: 'ok',
+      ctx_id: 'ctx-record-pending',
+      thread_id: 'workspace-thread-1',
+      has_unread: false,
+      sender_email: 'hey@sanka.com',
+      integration_slug: 'gmail',
+      note,
+    });
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: `Replied to shared workspace message thread workspace-thread-1 from hey@sanka.com. ${note}`,
+      },
+    ]);
+  });
+
   it('archives a private message thread', async () => {
     const archive = jest.fn().mockResolvedValue({
       message: 'ok',

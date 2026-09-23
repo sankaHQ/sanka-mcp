@@ -2644,6 +2644,11 @@ const PRIVATE_MESSAGE_REPLY_OUTPUT_SCHEMA = {
     has_unread: { type: 'boolean' },
     sender_email: { type: 'string' },
     integration_slug: { type: 'string' },
+    note: {
+      type: 'string',
+      description:
+        'Present when the reply was sent but appears in the thread only after the next inbox sync.',
+    },
   },
   required: ['message', 'thread_id', 'has_unread', 'sender_email', 'integration_slug'],
 };
@@ -8781,8 +8786,21 @@ const buildPrivateMessageThreadResult = (payload: Record<string, unknown>): Tool
   };
 };
 
-const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
+// A reply the provider accepted but Sanka could not record yet has a null
+// message_id and a toast. Null fields are dropped so structured content still
+// matches the output schema, which types message_id as a string.
+const readMessageReplyPayload = (payload: Record<string, unknown>) => {
+  const meta = readRecord(payload['meta']);
   const data = readRecord(payload['data']) ?? {};
+  return {
+    data: Object.fromEntries(Object.entries(data).filter(([, value]) => value !== null)),
+    ctxID: readString(payload['ctx_id']) ?? readString(meta?.['ctx_id']) ?? undefined,
+    note: readString(readRecord(meta?.['toast'])?.['message']) ?? undefined,
+  };
+};
+
+const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
+  const { data, ctxID, note } = readMessageReplyPayload(payload);
   const threadID = readString(data['thread_id']);
   const senderEmail = readString(data['sender_email']);
 
@@ -8790,28 +8808,64 @@ const buildPrivateMessageReplyResult = (payload: Record<string, unknown>): ToolC
     content: [
       {
         type: 'text',
-        text:
+        text: `${
           threadID ?
             `Replied to private message thread ${threadID}${senderEmail ? ` from ${senderEmail}` : ''}.`
-          : `Replied to private message thread${senderEmail ? ` from ${senderEmail}` : ''}.`,
+          : `Replied to private message thread${senderEmail ? ` from ${senderEmail}` : ''}.`
+        }${note ? ` ${note}` : ''}`,
       },
     ],
     structuredContent: {
       message: readString(payload['message']) ?? 'ok',
-      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ctx_id: ctxID,
       ...data,
+      ...(note ? { note } : undefined),
+    },
+  };
+};
+
+// SDK errors nest the API envelope as error.error.error; walk each level.
+const collectApiErrorCandidates = (error: unknown): Record<string, unknown>[] => {
+  const errorCandidates: Record<string, unknown>[] = [];
+  let errorCandidate = readRecord(error);
+  for (let depth = 0; errorCandidate && depth < 3; depth += 1) {
+    errorCandidates.push(errorCandidate);
+    errorCandidate = readRecord(errorCandidate['error']);
+  }
+  return errorCandidates;
+};
+
+// The API could not confirm whether the provider accepted the reply. Sending it
+// again could deliver a duplicate, so the agent must stop and ask the user.
+const buildMessageReplyDeliveryUnknownErrorResult = (error: unknown): ToolCallResult | undefined => {
+  const errorCandidates = collectApiErrorCandidates(error);
+  const apiError = errorCandidates.find((candidate) => readString(candidate['code']) === 'DELIVERY_UNKNOWN');
+  if (!apiError) {
+    return undefined;
+  }
+  const details = readRecord(apiError['details']) ?? {};
+  const message = readString(apiError['message']) ?? 'Delivery of this reply could not be confirmed.';
+  const requiredUserFacingReply =
+    'Tell the user this reply may already have been delivered, so it was not sent again. Ask them to check the Sent folder before deciding whether to send it again. Do not retry automatically.';
+  const meta = errorCandidates.map((candidate) => readRecord(candidate['meta'])).find(Boolean);
+
+  return {
+    content: [{ type: 'text', text: `${message} ${requiredUserFacingReply}` }],
+    isError: true,
+    structuredContent: {
+      ok: false,
+      status: 'delivery_unknown',
+      code: 'DELIVERY_UNKNOWN',
+      message,
+      delivery_status: readString(details['status']),
+      ctx_id: readString(meta?.['ctx_id']),
+      required_user_facing_reply: requiredUserFacingReply,
     },
   };
 };
 
 const buildMessageSenderConfirmationErrorResult = (error: unknown): ToolCallResult | undefined => {
-  const errorRecord = readRecord(error);
-  const errorCandidates: Record<string, unknown>[] = [];
-  let errorCandidate = errorRecord;
-  for (let depth = 0; errorCandidate && depth < 3; depth += 1) {
-    errorCandidates.push(errorCandidate);
-    errorCandidate = readRecord(errorCandidate['error']);
-  }
+  const errorCandidates = collectApiErrorCandidates(error);
   const apiError = errorCandidates.find((candidate) => {
     const candidateCode = readString(candidate['code']);
     return candidateCode === 'SENDER_CONFIRMATION_REQUIRED' || candidateCode === 'SENDER_IDENTITY_MISMATCH';
@@ -8968,7 +9022,7 @@ const buildWorkspaceMessageThreadResult = (payload: Record<string, unknown>): To
 };
 
 const buildWorkspaceMessageReplyResult = (payload: Record<string, unknown>): ToolCallResult => {
-  const data = readRecord(payload['data']) ?? {};
+  const { data, ctxID, note } = readMessageReplyPayload(payload);
   const threadID = readString(data['thread_id']);
   const senderEmail = readString(data['sender_email']);
 
@@ -8976,18 +9030,20 @@ const buildWorkspaceMessageReplyResult = (payload: Record<string, unknown>): Too
     content: [
       {
         type: 'text',
-        text:
+        text: `${
           threadID ?
             `Replied to shared workspace message thread ${threadID}${
               senderEmail ? ` from ${senderEmail}` : ''
             }.`
-          : `Replied to shared workspace message thread${senderEmail ? ` from ${senderEmail}` : ''}.`,
+          : `Replied to shared workspace message thread${senderEmail ? ` from ${senderEmail}` : ''}.`
+        }${note ? ` ${note}` : ''}`,
       },
     ],
     structuredContent: {
       message: readString(payload['message']) ?? 'ok',
-      ctx_id: readString(payload['ctx_id']) ?? undefined,
+      ctx_id: ctxID,
       ...data,
+      ...(note ? { note } : undefined),
     },
   };
 };
@@ -21988,6 +22044,10 @@ export const crmReplyPrivateMessageThreadTool: McpTool = {
       if (senderConfirmationError) {
         return senderConfirmationError;
       }
+      const deliveryUnknownError = buildMessageReplyDeliveryUnknownErrorResult(error);
+      if (deliveryUnknownError) {
+        return deliveryUnknownError;
+      }
       throw error;
     }
   },
@@ -22318,6 +22378,10 @@ export const crmReplyWorkspaceMessageThreadTool: McpTool = {
       const senderConfirmationError = buildMessageSenderConfirmationErrorResult(error);
       if (senderConfirmationError) {
         return senderConfirmationError;
+      }
+      const deliveryUnknownError = buildMessageReplyDeliveryUnknownErrorResult(error);
+      if (deliveryUnknownError) {
+        return deliveryUnknownError;
       }
       throw error;
     }

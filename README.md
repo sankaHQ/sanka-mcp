@@ -152,6 +152,16 @@ Required Fly apps and secrets:
 - Staging app: `sanka-mcp-staging`
 - Set the same `MCP_SERVER_*` secrets on both apps unless staging intentionally uses a different auth stack.
 
+## Retry policy
+
+The TypeScript client retries 408, 409, 429, 5xx and connection errors twice by
+default. Only tools with `metadata.operation: 'read'` keep those automatic retries.
+Every write tool calls the API once and returns any error to the agent: a write can
+fail after its side effect happened, such as an email Gmail accepted before Sanka
+recorded it, and a retry would repeat it. The API also marks errors from delivery
+routes with `x-should-retry: false`. Reply tools report `DELIVERY_UNKNOWN` as a
+do-not-resend error.
+
 ## Maintenance direction
 
 This repository no longer depends on Stainless project access at runtime or for ongoing development. API coverage should be maintained directly in this repo.
