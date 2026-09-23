@@ -5044,7 +5044,8 @@ const ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['order_id'],
@@ -5572,7 +5573,8 @@ const PURCHASE_ORDER_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['purchase_order_id'],
@@ -5801,7 +5803,8 @@ const ESTIMATE_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['estimate_id'],
@@ -6108,7 +6111,8 @@ const INVOICE_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['invoice_id'],
@@ -6216,7 +6220,8 @@ const INVOICE_EMAIL_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional email language sent as Accept-Language; defaults to ja. PDF attachments use their selected template document language.',
     },
   },
   required: ['invoice_id'],
@@ -6714,7 +6719,8 @@ const PAYMENT_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['payment_id'],
@@ -6878,7 +6884,8 @@ const SLIP_DOWNLOAD_PDF_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language. Defaults to ja for document PDFs.',
+      description:
+        'Optional language override sent as Accept-Language. Omit to use the selected template’s document language. Explicit language is a fallback for legacy templates only.',
     },
   },
   required: ['slip_id'],
@@ -9696,10 +9703,8 @@ const MAX_LIST_LIMIT = 100;
 const clampListLimit = (value: unknown, fallback: number): number =>
   Math.max(1, Math.min(MAX_LIST_LIMIT, Math.trunc(readNumber(value, fallback))));
 
-const DOCUMENT_PDF_DEFAULT_LANGUAGE = 'ja';
-
-const readDocumentPDFLanguage = (args: Record<string, unknown> | undefined): string =>
-  readString(args?.['language']) ?? DOCUMENT_PDF_DEFAULT_LANGUAGE;
+const readDocumentPDFLanguage = (args: Record<string, unknown> | undefined): string | undefined =>
+  readString(args?.['language']);
 
 const asStoredBinaryDownloadResult = (
   reqContext: McpRequestContext,
@@ -13437,7 +13442,7 @@ const buildInvoiceEmailBody = (args: Record<string, unknown> | undefined) => {
     args?.['schedule_draft_message_id'] ?? args?.['scheduleDraftMessageId'],
   );
   const externalID = readString(args?.['external_id']);
-  const language = readDocumentPDFLanguage(args);
+  const language = readString(args?.['language']) ?? 'ja';
   const additionalPdfAttachments =
     Array.isArray(additionalPdfAttachmentsRaw) ?
       additionalPdfAttachmentsRaw

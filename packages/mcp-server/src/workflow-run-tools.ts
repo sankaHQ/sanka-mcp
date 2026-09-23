@@ -77,7 +77,7 @@ const WORKFLOW_LANGUAGE_SCHEMA = {
   enum: ['en', 'ja'],
   default: 'en',
   description:
-    'Optional document and app URL language. Defaults to en for MCP/agent workflows; pass ja for Japanese output.',
+    'Optional workflow and app URL language. Defaults to en. Generated PDFs use their selected template document language; this is only a fallback for unpinned legacy templates.',
 };
 
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
