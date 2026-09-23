@@ -111,7 +111,7 @@ export class Items extends APIResource {
   }
 
   /**
-   * Delete Item
+   * Permanently delete an archived item. Active items return 404; use `archive` for a soft delete.
    */
   delete(
     itemID: string,
@@ -122,6 +122,23 @@ export class Items extends APIResource {
     return this._client
       .v2Delete<V2LifecycleData>(path`/items/${itemID}`, { query: { external_id }, ...options })
       ._thenUnwrap((envelope) => legacyDeleteResponseFromV2<ItemResponse>(envelope, 'item_id', external_id));
+  }
+
+  /**
+   * Archive Item
+   */
+  archive(
+    itemID: string,
+    params: ItemArchiveParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<ItemResponse> {
+    const { external_id } = params ?? {};
+    return this._client
+      .v2Post<V2LifecycleData>(path`/items/${itemID}/archive`, { query: { external_id }, ...options })
+      ._thenUnwrap((envelope) => ({
+        ...legacyDeleteResponseFromV2<ItemResponse>(envelope, 'item_id', external_id),
+        status: 'archived',
+      }));
   }
 }
 
@@ -270,6 +287,10 @@ export interface ItemDeleteParams {
   external_id?: string | null;
 }
 
+export interface ItemArchiveParams {
+  external_id?: string | null;
+}
+
 export declare namespace Items {
   export {
     type ItemRequest as ItemRequest,
@@ -281,5 +302,6 @@ export declare namespace Items {
     type ItemUpdateParams as ItemUpdateParams,
     type ItemListParams as ItemListParams,
     type ItemDeleteParams as ItemDeleteParams,
+    type ItemArchiveParams as ItemArchiveParams,
   };
 }

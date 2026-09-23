@@ -232,6 +232,7 @@ import {
 } from './invoices';
 import * as ItemsAPI from './items';
 import {
+  ItemArchiveParams,
   ItemCreateParams,
   ItemDeleteParams,
   ItemListParams,
@@ -825,6 +826,7 @@ export declare namespace Public {
     type ItemUpdateParams as ItemUpdateParams,
     type ItemListParams as ItemListParams,
     type ItemDeleteParams as ItemDeleteParams,
+    type ItemArchiveParams as ItemArchiveParams,
   };
 
   export {

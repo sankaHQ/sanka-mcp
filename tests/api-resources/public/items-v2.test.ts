@@ -125,4 +125,26 @@ describe('public item resource on V2', () => {
       'DELETE http://localhost:5000/api/v2/items/item-1?external_id=ITEM-EXT',
     ]);
   });
+
+  test('archives through the V2 lifecycle route', async () => {
+    const calls: string[] = [];
+    const client = new Sanka({
+      apiKey: 'My API Key',
+      apiVersion: 'v2',
+      baseURL: 'http://localhost:5000/',
+      fetch: async (url, init) => {
+        calls.push(`${String(init?.method ?? 'GET').toUpperCase()} ${String(url)}`);
+        return envelope({ id: 'item-1', record_id: '1001', status: 'archived', usage_status: 'archived' });
+      },
+    });
+
+    await expect(client.public.items.archive('item-1', { external_id: 'ITEM-EXT' })).resolves.toEqual({
+      ok: true,
+      status: 'archived',
+      item_id: 'item-1',
+      external_id: 'ITEM-EXT',
+      ctx_id: 'ctx-test',
+    });
+    expect(calls).toEqual(['POST http://localhost:5000/api/v2/items/item-1/archive?external_id=ITEM-EXT']);
+  });
 });

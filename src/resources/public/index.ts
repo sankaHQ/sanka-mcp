@@ -238,6 +238,7 @@ export {
   type ItemUpdateParams,
   type ItemListParams,
   type ItemDeleteParams,
+  type ItemArchiveParams,
 } from './items';
 export {
   Locations,
