@@ -11742,6 +11742,62 @@ describe('ChatGPT CRM tools', () => {
     });
   });
 
+  it('archives an item with read-after-write verification instead of permanently deleting it', async () => {
+    const archive = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 'archived',
+      item_id: 'item-1',
+      external_id: 'ITEM-EXT',
+      ctx_id: 'ctx-1',
+    });
+    const retrieve = jest.fn().mockResolvedValue({
+      id: 'item-1',
+      item_id: 1001,
+      status: 'archived',
+    });
+    const del = jest.fn();
+
+    const result = await crmDeleteItemTool.handler({
+      reqContext: {
+        client: {
+          public: {
+            items: { archive, retrieve, delete: del },
+          },
+        } as any,
+        auth: oauthContext(),
+        toolProfile: 'full',
+      },
+      args: {
+        item_id: 'item-1',
+        external_id: 'ITEM-EXT',
+      },
+    });
+
+    expect(crmDeleteItemTool.metadata).toMatchObject({
+      httpMethod: 'post',
+      httpPath: '/api/v2/items/{item_id}/archive',
+      operationId: 'public.items.archive',
+    });
+    expect(archive).toHaveBeenCalledWith('item-1', { external_id: 'ITEM-EXT' }, undefined);
+    expect(retrieve).toHaveBeenCalledWith('item-1', { external_id: 'ITEM-EXT' }, undefined);
+    expect(del).not.toHaveBeenCalled();
+    expect(result.content[0]).toEqual({ type: 'text', text: 'Item archived: item-1. status=archived' });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      status: 'archived',
+      item_id: 'item-1',
+      external_id: 'ITEM-EXT',
+      ctx_id: 'ctx-1',
+      verification: {
+        entity: 'item',
+        expected_status: 'archived',
+        actual_status: 'archived',
+        matched: true,
+        record_id: 'item-1',
+      },
+    });
+  });
+
   it('gets company price table and maps search to q', async () => {
     const getPriceTable = jest.fn().mockResolvedValue({
       field_id: 'field-1',

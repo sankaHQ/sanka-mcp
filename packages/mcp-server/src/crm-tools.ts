@@ -8022,7 +8022,7 @@ const ITEM_DELETE_INPUT_SCHEMA = {
   properties: {
     item_id: {
       type: 'string',
-      description: 'Item identifier to delete.',
+      description: 'Item identifier to archive.',
     },
     external_id: {
       type: 'string',
@@ -8055,6 +8055,7 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
     external_id: { type: ['string', 'null'] as any },
     item_id: { type: 'string' },
     ctx_id: { type: 'string' },
+    verification: { type: 'object' },
   },
   required: ['ok', 'status', 'external_id'],
 };
@@ -12692,6 +12693,7 @@ const buildLifecycleMutationSummary = ({
     readReference(payload['id_inv']) ||
     readString(payload['order_id']) ||
     readString(payload['invoice_id']) ||
+    readString(payload['item_id']) ||
     readString(payload['external_id']) ||
     entity;
   const usageStatus =
@@ -12709,7 +12711,7 @@ const buildLifecycleVerification = async ({
   expectedStatus,
   retrieve,
 }: {
-  entity: 'order' | 'invoice';
+  entity: 'order' | 'invoice' | 'item';
   id: string;
   params?: Record<string, unknown>;
   expectedStatus: string;
@@ -26970,19 +26972,20 @@ export const crmDeleteItemTool: McpTool = {
     resource: 'items',
     operation: 'write',
     tags: ['crm', 'items'],
-    httpMethod: 'delete',
-    httpPath: '/api/v2/items/{item_id}',
-    operationId: 'public.items.delete',
+    httpMethod: 'post',
+    httpPath: '/api/v2/items/{item_id}/archive',
+    operationId: 'public.items.archive',
   },
   tool: {
     name: 'delete_item',
-    title: 'Delete item',
-    description: 'Archive or delete an item in Sanka by item id or external reference.',
+    title: 'Archive item',
+    description:
+      'Archive an item in Sanka by item id or external reference. This is a soft delete: the item is archived, not permanently deleted.',
     inputSchema: ITEM_DELETE_INPUT_SCHEMA,
     outputSchema: ITEM_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Delete item',
+      title: 'Archive item',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
@@ -26991,7 +26994,7 @@ export const crmDeleteItemTool: McpTool = {
   handler: async ({ reqContext, args }) => {
     const authError = requireAuthentication({
       reqContext,
-      toolTitle: 'Delete item',
+      toolTitle: 'Archive item',
     });
     if (authError) {
       return authError;
@@ -27002,25 +27005,32 @@ export const crmDeleteItemTool: McpTool = {
       return asErrorResult('`item_id` is required.');
     }
 
-    const response = (await reqContext.client.public.items.delete(
+    const response = (await reqContext.client.public.items.archive(
       itemID,
       params,
       undefined,
     )) as unknown as Record<string, unknown>;
+    const verification = await buildLifecycleVerification({
+      entity: 'item',
+      id: itemID,
+      params,
+      expectedStatus: 'archived',
+      retrieve: async (id, query) =>
+        (await reqContext.client.public.items.retrieve(id, query, undefined)) as unknown as Record<
+          string,
+          unknown
+        >,
+    });
+    const payload = { ...response, verification };
 
     return {
       content: [
         {
           type: 'text',
-          text: buildEntityMutationSummary({
-            entity: 'Item',
-            action: 'deleted',
-            payload: response,
-            idKeys: ['item_id'],
-          }),
+          text: buildLifecycleMutationSummary({ entity: 'Item', action: 'archived', payload }),
         },
       ],
-      structuredContent: response,
+      structuredContent: payload,
     };
   },
 };
