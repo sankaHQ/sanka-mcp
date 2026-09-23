@@ -42,6 +42,22 @@ For this repository specifically:
 4. Migrate resource wrappers incrementally, starting with the methods most used by MCP tools.
 5. Keep MCP transport, docs search, and execution behavior hand-maintained in `packages/mcp-server/`.
 
+## search_docs method index
+
+`packages/mcp-server/src/generated/sdk-method-docs.ts` is built from the TypeScript client, not from
+OpenAPI. After adding, removing or re-routing a method in `src/resources`, run:
+
+```sh
+pnpm generate:sdk-method-docs
+```
+
+The generator reads each method's signature with the TypeScript compiler and calls the method
+against a fake `fetch` to record the HTTP method and path it sends. Nothing goes over the network.
+`tests/mcp-server/sdk-method-docs.test.ts` fails when the committed index differs from a fresh run.
+It also fails when `packages/mcp-server/src/methods.ts`, the code tool's hand-maintained method
+registry, misses a client method or lists a different HTTP method or path; the failure prints the
+entry to add.
+
 ## Update policy
 
 - Small API changes: patch the TypeScript client manually.
