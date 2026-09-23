@@ -186,7 +186,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 
 Local stdio development keeps the broader `full` profile available, including:
 
-- `search_docs`: local in-memory docs search built from the repo’s embedded SDK metadata
+- `search_docs`: local in-memory search over `src/generated/sdk-method-docs.ts`, which `pnpm generate:sdk-method-docs` builds from the TypeScript client
 - `execute`: local code execution against the internal Sanka TypeScript client
 
 ## Browser worker

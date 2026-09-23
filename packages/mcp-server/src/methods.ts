@@ -29,6 +29,18 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/score',
   },
   {
+    clientCallName: 'client.demo.generate',
+    fullyQualifiedName: 'demo.generate',
+    httpMethod: 'post',
+    httpPath: '/v1/demo/generate',
+  },
+  {
+    clientCallName: 'client.integrationSync.push',
+    fullyQualifiedName: 'integrationSync.push',
+    httpMethod: 'post',
+    httpPath: '/api/v2/integration-sync/push',
+  },
+  {
     clientCallName: 'client.public.accountMessages.list',
     fullyQualifiedName: 'public.accountMessages.list',
     httpMethod: 'get',
@@ -87,6 +99,12 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.workspaceMessages.threads.reply',
     httpMethod: 'post',
     httpPath: '/api/v2/workspace/messages/threads/{thread_id}/reply',
+  },
+  {
+    clientCallName: 'client.public.workspaceMessages.updateDraft',
+    fullyQualifiedName: 'public.workspaceMessages.updateDraft',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/workspace/messages/drafts/{message_id}',
   },
   {
     clientCallName: 'client.public.workspaceUsers.invitations.create',
@@ -406,6 +424,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/items/{item_id}',
   },
   {
+    clientCallName: 'client.public.items.archive',
+    fullyQualifiedName: 'public.items.archive',
+    httpMethod: 'post',
+    httpPath: '/api/v2/items/{item_id}/archive',
+  },
+  {
     clientCallName: 'client.public.contacts.create',
     fullyQualifiedName: 'public.contacts.create',
     httpMethod: 'post',
@@ -464,6 +488,30 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.companies.delete',
     httpMethod: 'delete',
     httpPath: '/api/v2/companies/{company_id}',
+  },
+  {
+    clientCallName: 'client.public.companies.getPriceTable',
+    fullyQualifiedName: 'public.companies.getPriceTable',
+    httpMethod: 'get',
+    httpPath: '/api/v2/companies/{company_id}/price-table',
+  },
+  {
+    clientCallName: 'client.public.companies.updatePriceTableCompany',
+    fullyQualifiedName: 'public.companies.updatePriceTableCompany',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/companies/{company_id}/price-table/company',
+  },
+  {
+    clientCallName: 'client.public.companies.applyPriceTableItems',
+    fullyQualifiedName: 'public.companies.applyPriceTableItems',
+    httpMethod: 'post',
+    httpPath: '/api/v2/companies/{company_id}/price-table/items/apply-all',
+  },
+  {
+    clientCallName: 'client.public.companies.updatePriceTableItem',
+    fullyQualifiedName: 'public.companies.updatePriceTableItem',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/companies/{company_id}/price-table/items/{item_id}',
   },
   {
     clientCallName: 'client.public.deals.create',
@@ -664,6 +712,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/invoices/{invoice_id}',
   },
   {
+    clientCallName: 'client.public.invoices.listLineItems',
+    fullyQualifiedName: 'public.invoices.listLineItems',
+    httpMethod: 'get',
+    httpPath: '/api/v2/invoices/{invoice_id}/line-items',
+  },
+  {
     clientCallName: 'client.public.associations.list',
     fullyQualifiedName: 'public.associations.list',
     httpMethod: 'get',
@@ -680,6 +734,78 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.associations.delete',
     httpMethod: 'delete',
     httpPath: '/api/v2/public/associations',
+  },
+  {
+    clientCallName: 'client.public.imports.create',
+    fullyQualifiedName: 'public.imports.create',
+    httpMethod: 'post',
+    httpPath: '/api/v2/imports',
+  },
+  {
+    clientCallName: 'client.public.imports.retrieve',
+    fullyQualifiedName: 'public.imports.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/imports/{job_id}',
+  },
+  {
+    clientCallName: 'client.public.imports.list',
+    fullyQualifiedName: 'public.imports.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/imports',
+  },
+  {
+    clientCallName: 'client.public.imports.cancel',
+    fullyQualifiedName: 'public.imports.cancel',
+    httpMethod: 'post',
+    httpPath: '/api/v2/imports/{job_id}/cancel',
+  },
+  {
+    clientCallName: 'client.public.imports.retry',
+    fullyQualifiedName: 'public.imports.retry',
+    httpMethod: 'post',
+    httpPath: '/api/v2/imports/{job_id}/retry',
+  },
+  {
+    clientCallName: 'client.public.imports.uploadFile',
+    fullyQualifiedName: 'public.imports.uploadFile',
+    httpMethod: 'post',
+    httpPath: '/api/v2/files',
+  },
+  {
+    clientCallName: 'client.public.exports.create',
+    fullyQualifiedName: 'public.exports.create',
+    httpMethod: 'post',
+    httpPath: '/api/v2/exports',
+  },
+  {
+    clientCallName: 'client.public.exports.retrieve',
+    fullyQualifiedName: 'public.exports.retrieve',
+    httpMethod: 'get',
+    httpPath: '/api/v2/exports/{job_id}',
+  },
+  {
+    clientCallName: 'client.public.exports.list',
+    fullyQualifiedName: 'public.exports.list',
+    httpMethod: 'get',
+    httpPath: '/api/v2/exports',
+  },
+  {
+    clientCallName: 'client.public.exports.cancel',
+    fullyQualifiedName: 'public.exports.cancel',
+    httpMethod: 'post',
+    httpPath: '/api/v2/exports/{job_id}/cancel',
+  },
+  {
+    clientCallName: 'client.public.exports.retry',
+    fullyQualifiedName: 'public.exports.retry',
+    httpMethod: 'post',
+    httpPath: '/api/v2/exports/{job_id}/retry',
+  },
+  {
+    clientCallName: 'client.public.integrations.listChannels',
+    fullyQualifiedName: 'public.integrations.listChannels',
+    httpMethod: 'get',
+    httpPath: '/api/v2/integrations/channels',
   },
   {
     clientCallName: 'client.public.payments.create',
@@ -703,13 +829,13 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.payments.listAllocations',
     fullyQualifiedName: 'public.payments.listAllocations',
     httpMethod: 'get',
-    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.updateAllocations',
     fullyQualifiedName: 'public.payments.updateAllocations',
     httpMethod: 'put',
-    httpPath: '/api/v2/public/payments/{payment_id}/allocations',
+    httpPath: '/api/v2/payments/{payment_id}/allocations',
   },
   {
     clientCallName: 'client.public.payments.update',
@@ -835,7 +961,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.inventoryTransactions.create',
     fullyQualifiedName: 'public.inventoryTransactions.create',
     httpMethod: 'post',
-    httpPath: '/api/v2/public/inventory-transactions',
+    httpPath: '/api/v2/inventory-transactions',
   },
   {
     clientCallName: 'client.public.inventoryTransactions.retrieve',
