@@ -122,15 +122,6 @@ const COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
       'Optional remote operation override. Supported values include create, update, upsert, archive, delete, dedupe_preview, and dedupe_apply.',
     enum: ['create', 'update', 'upsert', 'archive', 'delete', 'dedupe_preview', 'dedupe_apply'],
   },
-  primary_external_id: {
-    type: 'string',
-    description: 'Primary provider record id for integration dedupe operations.',
-  },
-  secondary_external_ids: {
-    type: 'array',
-    description: 'Provider record ids to merge into primary_external_id for integration dedupe operations.',
-    items: { type: 'string' },
-  },
 };
 
 const RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
@@ -851,6 +842,16 @@ type ProjectMutationPayload = {
 
 const COMPANY_MUTATION_INPUT_PROPERTIES = {
   ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
+  // Dedupe runs through update_company; delete_company does not read these.
+  primary_external_id: {
+    type: 'string',
+    description: 'Primary provider record id for integration dedupe operations.',
+  },
+  secondary_external_ids: {
+    type: 'array',
+    description: 'Provider record ids to merge into primary_external_id for integration dedupe operations.',
+    items: { type: 'string' },
+  },
   address: {
     type: 'string',
     description: 'Company address.',

@@ -363,8 +363,9 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     name: 'list',
     httpMethod: 'get',
     endpoint: '/api/v2/public/associations',
-    summary: 'List Associations',
-    description: 'List Associations',
+    summary: 'List Associations of one record: the source record when given, otherwise the target record.',
+    description:
+      "List Associations of one record: the source record when given, otherwise the target record. `label` searches association labels. The API returns the record's first 100 associations; `page` and `limit` page through them.",
     signature:
       'client.public.associations.list(params: AssociationListParams, options?: RequestOptions): APIPromise<AssociationListResponse>',
     params: [

@@ -5,7 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { SankaError } from '../../core/error';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { unwrapV2DataPromise } from '../../internal/v2';
+import { unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
 
 const associationRefFromParams = (
   objectType: string | null | undefined,
@@ -32,8 +32,9 @@ const associationMutationBody = (params: AssociationCreateParams | AssociationDe
   ...(params.label != null ? { label: params.label } : undefined),
 });
 
-// The API deletes an association by id only under one of the two records it links.
-const associationLinkedRecord = (params: AssociationDeleteParams) => {
+// One record an association links: the source when given, otherwise the target. The API
+// lists associations, and deletes one by id, under such a record.
+const associationLinkedRecord = (params: AssociationBaseParams) => {
   if (params.source_object && params.source_id) {
     return associationRefFromParams(params.source_object, params.source_id, params.source_custom_object_id);
   }
@@ -43,36 +44,102 @@ const associationLinkedRecord = (params: AssociationDeleteParams) => {
   return undefined;
 };
 
+type V2AssociationRecordRef = {
+  object_type: string;
+  record_id: string;
+  custom_object_id?: string | null;
+};
+
+type V2AssociationEdge = {
+  id: string;
+  definition_id: string;
+  source_ref: V2AssociationRecordRef;
+  target_ref: V2AssociationRecordRef;
+  label?: string | null;
+  created_at?: string | null;
+};
+
+const associationObjectRefFromV2 = (ref: V2AssociationRecordRef): AssociationObjectRef => ({
+  object: ref.object_type,
+  object_type: ref.object_type,
+  id: ref.record_id,
+  ...(ref.custom_object_id != null ? { custom_object_id: ref.custom_object_id } : undefined),
+});
+
+// The API returns association edges (source_ref/target_ref/definition_id); this client
+// returns them as Associations.
+const associationFromV2Edge = (edge: V2AssociationEdge): Association => ({
+  id: edge.id,
+  source: associationObjectRefFromV2(edge.source_ref),
+  target: associationObjectRefFromV2(edge.target_ref),
+  label: { id: edge.definition_id, label: edge.label ?? null },
+  created_at: edge.created_at ?? null,
+});
+
 export class Associations extends APIResource {
   /**
-   * List Associations
+   * List Associations of one record: the source record when given, otherwise the target record.
+   * `label` searches association labels. The API returns the record's first 100 associations;
+   * `page` and `limit` page through them.
    */
   list(params: AssociationListParams, options?: RequestOptions): APIPromise<AssociationListResponse> {
-    return unwrapV2DataPromise(
-      this._client.v2Get<AssociationListResponse>('/public/associations', {
+    const record = associationLinkedRecord(params);
+    if (!record) {
+      throw new SankaError('Pass source_object/source_id or target_object/target_id to list associations.');
+    }
+    return this._client
+      .v2Get<{ items?: Array<V2AssociationEdge>; total?: number }>('/public/associations', {
         query: {
-          source_object_type: params.source_object,
-          source_record_id: params.source_id,
-          source_custom_object_id: params.source_custom_object_id,
+          source_object_type: record.object_type,
+          source_record_id: record.record_id,
+          source_custom_object_id: record.custom_object_id,
           definition_id: params.label_id,
-          page: params.page,
-          page_size: params.limit,
+          q: params.label,
+          workspace_id: params.workspace_id,
         },
         ...options,
-      }),
-    );
+      })
+      ._thenUnwrap((envelope) => {
+        const data = unwrapV2Data(envelope);
+        const items = data.items ?? [];
+        const page = Math.max(1, params.page ?? 1);
+        const limit = params.limit ?? items.length;
+        const start = (page - 1) * limit;
+        const rows = items.slice(start, start + limit);
+        const hasNext = start + rows.length < items.length;
+        return {
+          data: rows.map(associationFromV2Edge),
+          page,
+          count: rows.length,
+          total: data.total ?? items.length,
+          message: 'OK',
+          ctx_id: envelope.meta.ctx_id ?? '',
+          limit,
+          has_next: hasNext,
+          next_page: hasNext ? page + 1 : null,
+        };
+      });
   }
 
   /**
    * Create Association
    */
   create(body: AssociationCreateParams, options?: RequestOptions): APIPromise<AssociationMutationResponse> {
-    return unwrapV2DataPromise(
-      this._client.v2Post<AssociationMutationResponse>('/public/associations', {
-        body: associationMutationBody(body),
-        ...options,
-      }),
-    );
+    return this._client
+      .v2Post<{ edge?: V2AssociationEdge | null; created?: boolean; ctx_id?: string | null }>(
+        '/public/associations',
+        { body: associationMutationBody(body), ...options },
+      )
+      ._thenUnwrap((envelope) => {
+        const data = unwrapV2Data(envelope);
+        const created = data.created ?? false;
+        return {
+          ...(data.edge ? { association: associationFromV2Edge(data.edge) } : undefined),
+          created,
+          message: created ? 'Association created.' : 'Association already exists.',
+          ctx_id: data.ctx_id ?? envelope.meta.ctx_id ?? '',
+        } as AssociationMutationResponse;
+      });
   }
 
   /**

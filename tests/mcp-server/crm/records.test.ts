@@ -568,71 +568,82 @@ describe('CRM record query, merge, and association tools', () => {
     );
   });
 
-  it('lists associations for a record', async () => {
-    const list = jest.fn().mockResolvedValue({
-      count: 1,
-      total: 1,
-      page: 1,
-      limit: 10,
-      data: [
-        {
-          id: 'association-1',
-          source: { object: 'companies', object_type: 'company', id: 'company-1' },
-          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
-          label: { id: 'label-1', label: 'Primary contact' },
-          created_at: '2026-05-22T00:00:00Z',
-        },
-      ],
-      message: 'OK',
-      ctx_id: 'ctx-associations',
-    });
+  // An association edge as the V2 API returns it.
+  const associationEdge = (id: string) => ({
+    id,
+    workspace_id: 'workspace-1',
+    definition_id: 'label-1',
+    source_ref: { object_type: 'company', record_id: 'company-1', custom_object_id: null },
+    target_ref: { object_type: 'contact', record_id: 'contact-1', custom_object_id: null },
+    direction: 'target',
+    label: 'Primary contact',
+    display_label: 'Acme',
+    created_at: '2026-09-20T00:00:00Z',
+    meta: {},
+  });
 
-    const result = await crmListAssociationsTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            associations: { list },
-          },
-        } as any,
-        auth: oauthContext(),
-        toolProfile: 'full',
-      },
+  it('lists the associations of a target record in the given workspace, filtered by label', async () => {
+    const { requests, result } = await sendThroughSDK({
+      tool: crmListAssociationsTool,
       args: {
-        source_object: 'companies',
-        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
         label: 'Primary contact',
         workspace_id: 'workspace-1',
-        limit: 10,
+        limit: 1,
+      },
+      response: {
+        record_ref: { object_type: 'contact', record_id: 'contact-1', custom_object_id: null },
+        items: [associationEdge('association-1'), associationEdge('association-2')],
         page: 1,
+        page_size: 100,
+        total: 2,
+        meta: {},
       },
     });
 
-    expect(list).toHaveBeenCalledWith(
+    expect(requests).toEqual([
       {
-        source_object: 'companies',
-        source_id: 'company-1',
-        label: 'Primary contact',
-        workspace_id: 'workspace-1',
-        page: 1,
-        limit: 10,
+        method: 'GET',
+        url: 'http://localhost:5000/api/v2/public/associations?source_object_type=contacts&source_record_id=contact-1&q=Primary%20contact&workspace_id=workspace-1',
       },
-      undefined,
-    );
+    ]);
     expect(result.structuredContent).toMatchObject({
       count: 1,
-      total: 1,
-      page: 1,
-      message: 'OK',
-      ctx_id: 'ctx-associations',
+      total: 2,
+      has_next: true,
       results: [
         {
           id: 'association-1',
-          source: { object: 'companies', object_type: 'company', id: 'company-1' },
-          target: { object: 'contacts', object_type: 'contact', id: 'contact-1' },
+          source: { object_type: 'company', id: 'company-1' },
+          target: { object_type: 'contact', id: 'contact-1' },
           label: { id: 'label-1', label: 'Primary contact' },
         },
       ],
     });
+  });
+
+  it('reports the id of the association create_association created', async () => {
+    const { result } = await sendThroughSDK({
+      tool: crmCreateAssociationTool,
+      args: {
+        source_object: 'companies',
+        source_id: 'company-1',
+        target_object: 'contacts',
+        target_id: 'contact-1',
+        label_id: 'label-1',
+      },
+      response: {
+        edge: associationEdge('association-1'),
+        edges: [],
+        edge_ids: [],
+        created: true,
+        deleted: false,
+      },
+    });
+
+    expect(firstTextContent(result)).toContain('association-1');
+    expect(result.structuredContent).toMatchObject({ association: { id: 'association-1' }, created: true });
   });
 
   it('rejects query_records filter entries that are missing a string field', async () => {
