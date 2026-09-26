@@ -25,11 +25,10 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'creates a payment',
+    name: 'creates a payment without an external reference',
     tool: crmCreatePaymentTool,
     args: {
       company_id: 'company-1',
-      external_id: 'PAY-1',
       currency: 'USD',
       entry_type: 'item',
       tax_rate: 10,
@@ -45,7 +44,6 @@ const v2Requests: V2RequestCase[] = [
             company_id: 'company-1',
             currency: 'USD',
             entry_type: 'item',
-            external_id: 'PAY-1',
             tax_option: 'unified_tax',
             tax_rate: 10,
           },
@@ -98,6 +96,7 @@ const v2Requests: V2RequestCase[] = [
       discount_tax_option: 'post_tax',
       line_items: [
         {
+          item_id: null,
           item_name: 'Launch support package',
           quantity: 1,
           unit_price: 155000,

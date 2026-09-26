@@ -947,7 +947,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     signature:
       'client.public.deals.create(body: DealCreateParams, options?: RequestOptions): APIPromise<PublicCaseResponse>',
     params: [
-      'caseStatus?: string | null;',
+      'case_status?: string | null;',
       'channel_id?: string | null;',
       'companyExternalId?: string | null;',
       'companyId?: string | null;',
@@ -1062,7 +1062,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'caseID: string;',
       'external_id?: string | null;',
       'channel_id?: string | null;',
-      'caseStatus?: string | null;',
+      'case_status?: string | null;',
       'companyExternalId?: string | null;',
       'companyId?: string | null;',
       'confirm?: boolean | null;',

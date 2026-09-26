@@ -449,7 +449,7 @@ const v2Requests: V2RequestCase[] = [
       blueprintDsl: {
         source: 'ai_generated',
         modules: [{ slug: 'generated-ops', name: '生成業務', object_ids: ['task'] }],
-        artifacts: [{ artifact_type: 'guide', title: '生成ガイド', content: '# 生成ガイド' }],
+        artifacts: [{ slug: 'generated-guide', type: 'guide', title: '生成ガイド', body: '# 生成ガイド' }],
       },
     },
     expectedRequests: [
@@ -462,7 +462,9 @@ const v2Requests: V2RequestCase[] = [
           blueprint_dsl: {
             source: 'ai_generated',
             modules: [{ slug: 'generated-ops', name: '生成業務', object_ids: ['task'] }],
-            artifacts: [{ artifact_type: 'guide', title: '生成ガイド', content: '# 生成ガイド' }],
+            artifacts: [
+              { slug: 'generated-guide', type: 'guide', title: '生成ガイド', body: '# 生成ガイド' },
+            ],
           },
           overlay: {
             source: 'template_overlay',
