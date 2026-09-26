@@ -48,6 +48,14 @@ The main production artifact is the hosted MCP endpoint at `https://mcp.sanka.co
 $ pnpm run test
 ```
 
+## Writing tests
+
+- Test each behaviour once, at the boundary that owns it. Do not add a second test for the same behaviour at another layer.
+- Tool tests call the tool through the real SDK client with a fake `fetch` and assert the outgoing HTTP request (method, URL, body) and the result, as in `tests/mcp-server/mutation-passthrough-v2.test.ts`. Do not mock SDK methods to assert what the tool passed them.
+- Keep a focused test for guards (confirmation, validation, auth, workspace scoping) and for output the tool computes; plain forwarding is one request row.
+- Do not pin tool metadata such as `securitySchemes`, `httpPath`, descriptions or schema fields unless the value is a public contract clients depend on; assert invariants over all tools instead of listing literals.
+- Do not read source, config or workflow files as text in tests (`fly.toml`, `.github/`, `src/`); test the behaviour they produce.
+
 ## Linting and formatting
 
 This repository uses [prettier](https://www.npmjs.com/package/prettier) and
