@@ -10,7 +10,13 @@ import {
   crmQueryRecordsTool,
   crmUpdateCustomObjectRecordTool,
 } from '../../../packages/mcp-server/src/crm-tools';
-import { describeV2Requests, firstTextContent, oauthContext, type V2RequestCase } from './helpers';
+import {
+  describeV2Requests,
+  firstTextContent,
+  oauthContext,
+  sendThroughSDK,
+  type V2RequestCase,
+} from './helpers';
 
 const v2Requests: V2RequestCase[] = [
   {
@@ -36,7 +42,7 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'deletes an association by source and target refs',
+    name: 'deletes an association by source and target refs in the given workspace',
     tool: crmDeleteAssociationTool,
     args: {
       source_object: 'companies',
@@ -44,16 +50,44 @@ const v2Requests: V2RequestCase[] = [
       target_object: 'contacts',
       target_id: 'contact-1',
       label_id: 'label-1',
+      workspace_id: 'workspace-1',
     },
     expectedRequests: [
       {
         method: 'DELETE',
-        url: 'http://localhost:5000/api/v2/public/associations',
+        url: 'http://localhost:5000/api/v2/public/associations?workspace_id=workspace-1',
         body: {
           source_ref: { object_type: 'companies', record_id: 'company-1' },
           target_ref: { object_type: 'contacts', record_id: 'contact-1' },
           definition_id: 'label-1',
         },
+      },
+    ],
+  },
+  {
+    name: 'deletes an association by id under its source record',
+    tool: crmDeleteAssociationTool,
+    args: { association_id: 'association-1', source_object: 'companies', source_id: 'company-1' },
+    expectedRequests: [
+      {
+        method: 'DELETE',
+        url: 'http://localhost:5000/api/v2/records/companies/company-1/associations/association-1',
+      },
+    ],
+  },
+  {
+    name: 'deletes an association by id under its target custom object record',
+    tool: crmDeleteAssociationTool,
+    args: {
+      association_id: 'association-1',
+      target_object: 'custom_objects',
+      target_id: 'record-1',
+      target_custom_object_id: 'custom-object-1',
+    },
+    expectedRequests: [
+      {
+        method: 'DELETE',
+        url: 'http://localhost:5000/api/v2/records/custom_objects/record-1/associations/association-1?custom_object_id=custom-object-1',
       },
     ],
   },
@@ -691,6 +725,16 @@ describe('CRM record query, merge, and association tools', () => {
         body: expect.objectContaining({ limit: 100 }),
       }),
     );
+  });
+
+  it.each([
+    ['neither an association id nor both records', {}],
+    ['an association id without a record it links', { association_id: 'association-1' }],
+  ])('rejects delete_association with %s before sending a request', async (_case, args) => {
+    const { requests, result } = await sendThroughSDK({ tool: crmDeleteAssociationTool, args });
+
+    expect(result.isError).toBe(true);
+    expect(requests).toEqual([]);
   });
 
   describeV2Requests(v2Requests);

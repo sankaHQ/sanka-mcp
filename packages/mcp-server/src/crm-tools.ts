@@ -683,7 +683,7 @@ const ASSOCIATION_DELETE_INPUT_SCHEMA = {
     association_id: {
       type: 'string',
       description:
-        'Association edge UUID to delete. If omitted, source_object/source_id, target_object/target_id, and label_id or label are required.',
+        'Association edge UUID to delete. Pass it with source_object/source_id (or target_object/target_id) of one record the association links. If omitted, source_object/source_id, target_object/target_id, and label_id or label are required.',
     },
     associationId: {
       type: 'string',
@@ -16698,7 +16698,7 @@ export const crmDeleteAssociationTool: McpTool = {
     name: 'delete_association',
     title: 'Delete association',
     description:
-      'Delete an association between two Sanka records. Prefer association_id; otherwise pass source_object/source_id, target_object/target_id, and label_id or label.',
+      'Delete an association between two Sanka records. Prefer association_id with source_object/source_id (or target_object/target_id) of one record it links; otherwise pass source_object/source_id, target_object/target_id, and label_id or label.',
     inputSchema: ASSOCIATION_DELETE_INPUT_SCHEMA,
     outputSchema: ASSOCIATION_DELETE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16719,7 +16719,13 @@ export const crmDeleteAssociationTool: McpTool = {
     }
 
     const params = buildAssociationDeleteParams(args);
-    if (!readString(params['association_id'])) {
+    if (readString(params['association_id'])) {
+      if (!hasAssociationSourceRef(params) && !hasAssociationTargetRef(params)) {
+        return asErrorResult(
+          '`association_id` must be sent with source_object/source_id or target_object/target_id of a record it links.',
+        );
+      }
+    } else {
       if (!hasAssociationSourceRef(params) || !hasAssociationTargetRef(params)) {
         return asErrorResult(
           '`association_id` is required unless source_object/source_id and target_object/target_id are provided.',
