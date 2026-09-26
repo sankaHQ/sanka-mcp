@@ -636,7 +636,21 @@ describe('streamable HTTP transport', () => {
     }
   });
 
-  it('returns Connect Sanka details for protected CRM tool calls without authentication', async () => {
+  it.each([
+    'list_companies',
+    'reply_private_message_thread',
+    'list_expenses',
+    'create_expense',
+    'create_company',
+    'get_company_price_table',
+    'create_ticket',
+    'create_calendar_attendance',
+    'create_order',
+    'create_estimate',
+    'create_invoice',
+    'create_payment',
+    'score_record',
+  ])('returns Connect Sanka details for %s when authentication is missing', async (toolName) => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -645,21 +659,16 @@ describe('streamable HTTP transport', () => {
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
-        id: 5,
+        id: 1,
         method: 'tools/call',
-        params: {
-          name: 'list_companies',
-          arguments: {
-            search: 'OpenAI',
-          },
-        },
+        params: { name: toolName, arguments: {} },
       }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(401);
     expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'list_companies'));
+    expect(body).toEqual(connectSankaRequiredBody(baseUrl, toolName));
   });
 
   it('accepts receipt-sized JSON-RPC payloads before authentication preflight', async () => {
@@ -687,34 +696,6 @@ describe('streamable HTTP transport', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'append_expense_attachment_upload_chunk'));
-  });
-
-  it('returns Connect Sanka details for reply_private_message_thread when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 17,
-        method: 'tools/call',
-        params: {
-          name: 'reply_private_message_thread',
-          arguments: {
-            thread_id: 'thread-1',
-            body: 'Thanks for the update.',
-            confirm_send: true,
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'reply_private_message_thread'));
   });
 
   it('returns the auth_status fallback payload when authentication is missing', async () => {
@@ -876,30 +857,6 @@ describe('streamable HTTP transport', () => {
     expect(text).toContain('The assistant must include required_user_facing_reply');
   });
 
-  it('returns Connect Sanka details for list_expenses when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'list_expenses',
-          arguments: {},
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'list_expenses'));
-  });
-
   it('keeps the HTTP 401 response for streamable tool calls unless tool-result fallback is enabled', async () => {
     const defaultApp = streamableHTTPApp({
       mcpOptions: {
@@ -1041,283 +998,5 @@ describe('streamable HTTP transport', () => {
     expect(body).toContain('/oauth/mcp/connect');
     expect(body).toContain('required_user_facing_reply');
     expect(body).not.toContain('mcpServer/oauth/login');
-  });
-
-  it('returns Connect Sanka details for create_expense when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 9,
-        method: 'tools/call',
-        params: {
-          name: 'create_expense',
-          arguments: {
-            description: 'Hotel',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_expense'));
-  });
-
-  it('returns Connect Sanka details for create_company when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 10,
-        method: 'tools/call',
-        params: {
-          name: 'create_company',
-          arguments: {
-            external_id: 'COMP-1',
-            name: 'Acme',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_company'));
-  });
-
-  it('returns Connect Sanka details for get_company_price_table when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 10.5,
-        method: 'tools/call',
-        params: {
-          name: 'get_company_price_table',
-          arguments: {
-            company_id: 'company-1',
-            search: 'Widget',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'get_company_price_table'));
-  });
-
-  it('returns Connect Sanka details for create_ticket when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 11,
-        method: 'tools/call',
-        params: {
-          name: 'create_ticket',
-          arguments: {
-            title: 'Broken integration',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_ticket'));
-  });
-
-  it('returns Connect Sanka details for create_calendar_attendance when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 12,
-        method: 'tools/call',
-        params: {
-          name: 'create_calendar_attendance',
-          arguments: {
-            event_id: 'event-1',
-            date: '2026-04-10',
-            time: '09:00',
-            name: 'Jane Doe',
-            email: 'jane@example.com',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_calendar_attendance'));
-  });
-
-  it('returns Connect Sanka details for create_order when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 13,
-        method: 'tools/call',
-        params: {
-          name: 'create_order',
-          arguments: {
-            order: {
-              external_id: 'ORDER-1',
-              items: [
-                {
-                  item_id: 'item-1',
-                  quantity: 2,
-                },
-              ],
-            },
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_order'));
-  });
-
-  it('returns Connect Sanka details for create_estimate when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 14,
-        method: 'tools/call',
-        params: {
-          name: 'create_estimate',
-          arguments: {
-            external_id: 'EST-1',
-            company_id: 'company-1',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_estimate'));
-  });
-
-  it('returns Connect Sanka details for create_invoice when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 15,
-        method: 'tools/call',
-        params: {
-          name: 'create_invoice',
-          arguments: {
-            external_id: 'INV-1',
-            company_id: 'company-1',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_invoice'));
-  });
-
-  it('returns Connect Sanka details for create_payment when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 16,
-        method: 'tools/call',
-        params: {
-          name: 'create_payment',
-          arguments: {
-            external_id: 'PAY-1',
-            company_id: 'company-1',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'create_payment'));
-  });
-
-  it('returns Connect Sanka details for score_record when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 17,
-        method: 'tools/call',
-        params: {
-          name: 'score_record',
-          arguments: {
-            object_type: 'company',
-            record_id: '182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'score_record'));
   });
 });
