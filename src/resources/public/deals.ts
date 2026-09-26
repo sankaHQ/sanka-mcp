@@ -107,18 +107,42 @@ const compactLocalMutationProperties = (body: Record<string, unknown>): Record<s
   return compactProperties(properties);
 };
 
+// Property names the public deals route documents for customer references
+// (x-sanka-counterparty-write-compatibility); it writes them as associations.
+const PUBLIC_DEAL_PROPERTY_NAMES: Record<string, string> = {
+  companyExternalId: 'company_external_id',
+  companyId: 'company_id',
+  contactExternalId: 'contact_external_id',
+  contactId: 'contact_id',
+  externalId: 'external_id',
+};
+
+const publicDealProperties = (body: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(compactLocalMutationProperties(body)).map(([key, value]) => [
+      PUBLIC_DEAL_PROPERTY_NAMES[key] ?? key,
+      value,
+    ]),
+  );
+
 export class Deals extends APIResource {
   /**
-   * Create Deal
+   * Create Deal. Sanka deals are written through the public deals route in `workspace_id`,
+   * which turns company and contact references into associations; other targets write to the
+   * connected CRM.
    */
   create(body: DealCreateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
-    if (hasRemoteMutationTarget(body.target)) {
-      return unwrapV2DataPromise(this._client.v2Post<PublicCaseResponse>('/deals', { body, ...options }));
+    const { workspace_id, ...fields } = body;
+    if (hasRemoteMutationTarget(fields.target)) {
+      return unwrapV2DataPromise(
+        this._client.v2Post<PublicCaseResponse>('/deals', { body: fields, ...options }),
+      );
     }
-    const externalID = usableExternalID(body.externalId);
+    const externalID = usableExternalID(fields.externalId);
     return this._client
-      .v2Post<V2ObjectRecord>('/deals', {
-        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+      .v2Post<V2ObjectRecord>('/public/deals', {
+        query: workspace_id != null ? { workspace_id } : undefined,
+        body: { properties: publicDealProperties(fields as unknown as Record<string, unknown>) },
         ...options,
       })
       ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope, externalID, 'created'));
@@ -148,10 +172,12 @@ export class Deals extends APIResource {
   }
 
   /**
-   * Update Deal
+   * Update Deal. Sanka deals are updated through the public deals route in `workspace_id`,
+   * which turns company and contact references into associations; other targets update the
+   * connected CRM.
    */
   update(caseID: string, params: DealUpdateParams, options?: RequestOptions): APIPromise<PublicCaseResponse> {
-    const { external_id, ...body } = params;
+    const { external_id, workspace_id, ...body } = params;
     if (hasRemoteMutationTarget(params.target)) {
       return unwrapV2DataPromise(
         this._client.v2Patch<PublicCaseResponse>(path`/deals/${caseID}`, {
@@ -162,9 +188,9 @@ export class Deals extends APIResource {
       );
     }
     return this._client
-      .v2Patch<V2ObjectRecord>(path`/deals/${caseID}`, {
-        query: { external_id },
-        body: { properties: compactLocalMutationProperties(body as unknown as Record<string, unknown>) },
+      .v2Put<V2ObjectRecord>(path`/public/deals/${caseID}`, {
+        query: { external_id, workspace_id },
+        body: { properties: publicDealProperties(body as unknown as Record<string, unknown>) },
         ...options,
       })
       ._thenUnwrap((envelope) => dealMutationResponseFromV2Record(envelope));
@@ -416,6 +442,11 @@ export namespace DealListPipelinesResponse {
 }
 
 export interface DealCreateParams {
+  /**
+   * Query param: workspace of a Sanka deal write
+   */
+  workspace_id?: string | null;
+
   case_status?: string | null;
 
   channel_id?: string | null;
@@ -478,6 +509,11 @@ export interface DealUpdateParams {
    * Query param
    */
   external_id?: string | null;
+
+  /**
+   * Query param: workspace of a Sanka deal write
+   */
+  workspace_id?: string | null;
 
   /**
    * Body param

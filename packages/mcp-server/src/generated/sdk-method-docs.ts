@@ -942,12 +942,14 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     qualified: 'client.public.deals.create',
     name: 'create',
     httpMethod: 'post',
-    endpoint: '/api/v2/deals',
-    summary: 'Create Deal',
-    description: 'Create Deal',
+    endpoint: '/api/v2/public/deals',
+    summary: 'Create Deal.',
+    description:
+      'Create Deal. Sanka deals are written through the public deals route in `workspace_id`, which turns company and contact references into associations; other targets write to the connected CRM.',
     signature:
       'client.public.deals.create(body: DealCreateParams, options?: RequestOptions): APIPromise<PublicCaseResponse>',
     params: [
+      'workspace_id?: string | null;',
       'case_status?: string | null;',
       'channel_id?: string | null;',
       'companyExternalId?: string | null;',
@@ -1053,15 +1055,17 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
   {
     qualified: 'client.public.deals.update',
     name: 'update',
-    httpMethod: 'patch',
-    endpoint: '/api/v2/deals/{caseID}',
-    summary: 'Update Deal',
-    description: 'Update Deal',
+    httpMethod: 'put',
+    endpoint: '/api/v2/public/deals/{caseID}',
+    summary: 'Update Deal.',
+    description:
+      'Update Deal. Sanka deals are updated through the public deals route in `workspace_id`, which turns company and contact references into associations; other targets update the connected CRM.',
     signature:
       'client.public.deals.update(caseID: string, params: DealUpdateParams, options?: RequestOptions): APIPromise<PublicCaseResponse>',
     params: [
       'caseID: string;',
       'external_id?: string | null;',
+      'workspace_id?: string | null;',
       'channel_id?: string | null;',
       'case_status?: string | null;',
       'companyExternalId?: string | null;',

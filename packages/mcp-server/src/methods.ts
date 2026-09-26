@@ -517,7 +517,7 @@ export const sdkMethods: SdkMethod[] = [
     clientCallName: 'client.public.deals.create',
     fullyQualifiedName: 'public.deals.create',
     httpMethod: 'post',
-    httpPath: '/api/v2/deals',
+    httpPath: '/api/v2/public/deals',
   },
   {
     clientCallName: 'client.public.deals.retrieve',
@@ -528,8 +528,8 @@ export const sdkMethods: SdkMethod[] = [
   {
     clientCallName: 'client.public.deals.update',
     fullyQualifiedName: 'public.deals.update',
-    httpMethod: 'patch',
-    httpPath: '/api/v2/deals/{case_id}',
+    httpMethod: 'put',
+    httpPath: '/api/v2/public/deals/{case_id}',
   },
   {
     clientCallName: 'client.public.deals.list',

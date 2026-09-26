@@ -11,7 +11,13 @@ import {
   crmSyncPipelineSnapshotHubSpotPropertiesTool,
   crmUpdateDealTool,
 } from '../../../packages/mcp-server/src/crm-tools';
-import { describeV2Requests, firstTextContent, oauthContext, type V2RequestCase } from './helpers';
+import {
+  describeV2Requests,
+  firstTextContent,
+  oauthContext,
+  sendThroughSDK,
+  type V2RequestCase,
+} from './helpers';
 
 const v2Requests: V2RequestCase[] = [
   {
@@ -27,7 +33,7 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'creates a deal',
+    name: 'creates a Sanka deal for a company through the public deals route in the given workspace',
     tool: crmCreateDealTool,
     args: {
       external_id: 'DEAL-1',
@@ -35,17 +41,18 @@ const v2Requests: V2RequestCase[] = [
       case_status: 'opportunities',
       company_id: 'company-1',
       line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
+      workspace_id: 'workspace-1',
     },
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/deals',
+        url: 'http://localhost:5000/api/v2/public/deals?workspace_id=workspace-1',
         body: {
           properties: {
             name: 'Acme renewal',
             case_status: 'opportunities',
-            companyId: 'company-1',
-            externalId: 'DEAL-1',
+            company_id: 'company-1',
+            external_id: 'DEAL-1',
             line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
           },
         },
@@ -85,19 +92,19 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'updates a deal with separate lookup and body external ids',
+    name: "updates a Sanka deal's contact by lookup external id through the public deals route",
     tool: crmUpdateDealTool,
     args: {
       case_id: 'deal-1',
       lookup_external_id: 'DEAL-1',
-      external_id: 'DEAL-2',
       contact_external_id: 'CONT-1',
+      workspace_id: 'workspace-1',
     },
     expectedRequests: [
       {
-        method: 'PATCH',
-        url: 'http://localhost:5000/api/v2/deals/deal-1?external_id=DEAL-1',
-        body: { properties: { contactExternalId: 'CONT-1', externalId: 'DEAL-2' } },
+        method: 'PUT',
+        url: 'http://localhost:5000/api/v2/public/deals/deal-1?external_id=DEAL-1&workspace_id=workspace-1',
+        body: { properties: { contact_external_id: 'CONT-1' } },
       },
     ],
   },
@@ -567,6 +574,24 @@ describe('CRM deal and pipeline tools', () => {
     expect(list).not.toHaveBeenCalled();
     expect(result.isError).toBe(true);
     expect(firstTextContent(result)).toContain('filters[0] is missing a non-empty string `field`');
+  });
+
+  it.each([
+    [
+      "update_deal changing a Sanka deal's external_id",
+      crmUpdateDealTool,
+      { case_id: 'deal-1', external_id: 'DEAL-2' },
+    ],
+    [
+      'create_deal pinning workspace_id on an integration target',
+      crmCreateDealTool,
+      { target: 'integration', provider: 'hubspot', name: 'Remote deal', workspace_id: 'workspace-1' },
+    ],
+  ])('refuses %s before sending a request', async (_case, tool, args) => {
+    const { requests, result } = await sendThroughSDK({ tool, args });
+
+    expect(result.isError).toBe(true);
+    expect(requests).toEqual([]);
   });
 
   describeV2Requests(v2Requests);

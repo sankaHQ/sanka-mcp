@@ -5,7 +5,7 @@ import { APIPromise } from '../../core/api-promise';
 import { SankaError } from '../../core/error';
 import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
-import { unwrapV2Data, unwrapV2DataPromise } from '../../internal/v2';
+import { V2Envelope, unwrapV2Data } from '../../internal/v2';
 
 const associationRefFromParams = (
   objectType: string | null | undefined,
@@ -75,6 +75,21 @@ const associationFromV2Edge = (edge: V2AssociationEdge): Association => ({
   label: { id: edge.definition_id, label: edge.label ?? null },
   created_at: edge.created_at ?? null,
 });
+
+type V2AssociationDelete = { deleted?: boolean; ctx_id?: string | null };
+
+// The API answers a delete with the edge mutation data, which has no message.
+const associationDeleteResponseFromV2 = (
+  envelope: V2Envelope<V2AssociationDelete>,
+): AssociationDeleteResponse => {
+  const data = unwrapV2Data(envelope);
+  const deleted = data.deleted ?? false;
+  return {
+    deleted,
+    message: deleted ? 'Association deleted.' : 'No matching association was found.',
+    ctx_id: data.ctx_id ?? envelope.meta.ctx_id ?? '',
+  };
+};
 
 export class Associations extends APIResource {
   /**
@@ -155,24 +170,24 @@ export class Associations extends APIResource {
           'association_id must be sent with source_object/source_id or target_object/target_id of a record it links.',
         );
       }
-      return unwrapV2DataPromise(
-        this._client.v2Delete<AssociationDeleteResponse>(
+      return this._client
+        .v2Delete<V2AssociationDelete>(
           path`/records/${record.object_type}/${record.record_id}/associations/${params.association_id}`,
           {
             query:
               record.custom_object_id != null ? { custom_object_id: record.custom_object_id } : undefined,
             ...options,
           },
-        ),
-      );
+        )
+        ._thenUnwrap(associationDeleteResponseFromV2);
     }
-    return unwrapV2DataPromise(
-      this._client.v2Delete<AssociationDeleteResponse>('/public/associations', {
+    return this._client
+      .v2Delete<V2AssociationDelete>('/public/associations', {
         query: params.workspace_id != null ? { workspace_id: params.workspace_id } : undefined,
         body: associationMutationBody(params),
         ...options,
-      }),
-    );
+      })
+      ._thenUnwrap(associationDeleteResponseFromV2);
   }
 }
 

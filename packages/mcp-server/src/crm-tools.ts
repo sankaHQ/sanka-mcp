@@ -3215,6 +3215,10 @@ const DEAL_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Deal record status.',
   },
+  workspace_id: {
+    type: 'string',
+    description: `${WORKSPACE_ID_DESCRIPTION} Sanka deals only; not accepted with target="integration".`,
+  },
 };
 
 const DEAL_CREATE_INPUT_SCHEMA = {
@@ -3235,6 +3239,11 @@ const DEAL_UPDATE_INPUT_SCHEMA = {
       description: 'Optional explicit external id used to resolve the target deal.',
     },
     ...DEAL_MUTATION_INPUT_PROPERTIES,
+    external_id: {
+      type: 'string',
+      description:
+        'target="integration" only: the provider deal id to update. A Sanka deal\'s external id cannot be changed; pass lookup_external_id to find a deal by it.',
+    },
   },
   required: ['case_id'],
 };
@@ -12471,6 +12480,16 @@ const assignPublicLineItems = (
   return lineItems;
 };
 
+// Deal writes go to the Sanka deal unless target names a connected CRM.
+const targetsSankaDeal = (args: Record<string, unknown> | undefined) =>
+  (readString(args?.['target']) ?? 'sanka') === 'sanka';
+
+// workspace_id pins Sanka deal writes; the integration route has no workspace parameter.
+const invalidDealWorkspaceResult = (args: Record<string, unknown> | undefined) =>
+  readString(args?.['workspace_id']) && !targetsSankaDeal(args) ?
+    asErrorResult('`workspace_id` applies to Sanka deals only; omit it with target="integration".')
+  : undefined;
+
 const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
   assignStringFields(body, args, [
@@ -12482,6 +12501,7 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
     'provider',
     'status',
     'target',
+    'workspace_id',
   ]);
   assignBooleanFields(body, args, ['confirm', 'dry_run']);
 
@@ -19838,6 +19858,10 @@ export const crmCreateDealTool: McpTool = {
     if (authError) {
       return authError;
     }
+    const workspaceError = invalidDealWorkspaceResult(args);
+    if (workspaceError) {
+      return workspaceError;
+    }
 
     const response = (await reqContext.client.public.deals.create(
       buildDealMutationBody(args),
@@ -19897,6 +19921,15 @@ export const crmUpdateDealTool: McpTool = {
     const { caseID, params } = buildDealUpdateParams(args);
     if (!caseID) {
       return asErrorResult('`case_id` is required.');
+    }
+    const workspaceError = invalidDealWorkspaceResult(args);
+    if (workspaceError) {
+      return workspaceError;
+    }
+    if (targetsSankaDeal(args) && readString(args?.['external_id'])) {
+      return asErrorResult(
+        "A Sanka deal's `external_id` cannot be changed; the API protects it. To find the deal by its external id, pass it as `lookup_external_id`.",
+      );
     }
 
     const response = (await reqContext.client.public.deals.update(
