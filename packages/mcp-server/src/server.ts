@@ -373,7 +373,6 @@ import {
   updateWatchtowerFindingTool,
 } from './watchtower-tools';
 import { convoyTools } from './convoy-tools';
-import { lookoutCreateLpBatchTool, lookoutGetRunTool } from './lookout-tools';
 import { talentTools } from './talent-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import {
@@ -1046,8 +1045,6 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     createBuyRequestFromFindingTool,
     getWatchtowerSummaryTool,
     ...convoyTools,
-    lookoutCreateLpBatchTool,
-    lookoutGetRunTool,
     crmListItemsTool,
     crmGetItemTool,
     crmCreateItemTool,
