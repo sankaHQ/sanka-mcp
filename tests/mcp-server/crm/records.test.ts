@@ -623,6 +623,16 @@ describe('CRM record query, merge, and association tools', () => {
     });
   });
 
+  it('reports whether delete_association deleted the association', async () => {
+    const { result } = await sendThroughSDK({
+      tool: crmDeleteAssociationTool,
+      args: { association_id: 'association-1', source_object: 'companies', source_id: 'company-1' },
+      response: { edge: null, edges: [], edge_ids: ['association-1'], created: false, deleted: true },
+    });
+
+    expect(result.structuredContent).toMatchObject({ deleted: true, message: expect.any(String) });
+  });
+
   it('reports the id of the association create_association created', async () => {
     const { result } = await sendThroughSDK({
       tool: crmCreateAssociationTool,

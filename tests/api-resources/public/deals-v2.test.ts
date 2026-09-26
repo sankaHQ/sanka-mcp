@@ -142,7 +142,7 @@ describe('public deal resource on V2', () => {
     ]);
   });
 
-  test('uses V2 create route for default local deal creates', async () => {
+  test('creates Sanka deals through the public deals route', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -179,10 +179,10 @@ describe('public deal resource on V2', () => {
       ctx_id: 'ctx-test',
     });
 
-    expect(calls).toEqual(['POST http://localhost:5000/api/v2/deals']);
+    expect(calls).toEqual(['POST http://localhost:5000/api/v2/public/deals']);
   });
 
-  test('uses V2 PATCH for scalar deal updates', async () => {
+  test('updates Sanka deals through the public deals route', async () => {
     const calls: string[] = [];
     const client = new Sanka({
       apiKey: 'My API Key',
@@ -221,6 +221,6 @@ describe('public deal resource on V2', () => {
       ctx_id: 'ctx-test',
     });
 
-    expect(calls).toEqual(['PATCH http://localhost:5000/api/v2/deals/deal-1']);
+    expect(calls).toEqual(['PUT http://localhost:5000/api/v2/public/deals/deal-1']);
   });
 });
