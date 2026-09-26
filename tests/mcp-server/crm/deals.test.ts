@@ -43,7 +43,7 @@ const v2Requests: V2RequestCase[] = [
         body: {
           properties: {
             name: 'Acme renewal',
-            caseStatus: 'opportunities',
+            case_status: 'opportunities',
             companyId: 'company-1',
             externalId: 'DEAL-1',
             line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
@@ -78,7 +78,7 @@ const v2Requests: V2RequestCase[] = [
           provider: 'hubspot',
           target: 'integration',
           dry_run: true,
-          caseStatus: 'appointmentscheduled',
+          case_status: 'appointmentscheduled',
           custom_fields: { source: 'signup' },
         },
       },

@@ -290,7 +290,7 @@ export interface Case {
 }
 
 export interface PublicCaseRequest {
-  caseStatus?: string | null;
+  case_status?: string | null;
 
   channel_id?: string | null;
 
@@ -416,7 +416,7 @@ export namespace DealListPipelinesResponse {
 }
 
 export interface DealCreateParams {
-  caseStatus?: string | null;
+  case_status?: string | null;
 
   channel_id?: string | null;
 
@@ -487,7 +487,7 @@ export interface DealUpdateParams {
   /**
    * Body param
    */
-  caseStatus?: string | null;
+  case_status?: string | null;
 
   /**
    * Body param

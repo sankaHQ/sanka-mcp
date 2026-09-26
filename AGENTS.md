@@ -10,8 +10,10 @@ sanka-project workspace `AGENTS.md`; AI-authored changes use the workspace
 
 Follow the workspace `test-audit` skill.
 
-- Before adding a test, state in the PR which real bug it catches and why no
-  existing test at a stronger boundary already catches it. No answer, no test.
+- Before adding a test, state in the PR which failure it catches (for new
+  behaviour: the specified behaviour not holding) and why no existing test at a
+  stronger boundary already catches it. Tests for new behaviour go at the single
+  boundary that owns it; a test that cannot name a failure is not added.
 - One owner per behaviour. A tool test asserts the outgoing HTTP request and the
   tool result for a given response (see
   `tests/mcp-server/mutation-passthrough-v2.test.ts`), not that an SDK mock was
@@ -21,6 +23,9 @@ Follow the workspace `test-audit` skill.
   a public contract; only asserts that a mock was called; asserts
   `toBeDefined`/`typeof`; asserts that a tool is registered; or computes the
   expected value with the code under test.
+- Documented compatibility contracts are the exception to the literal rule: tool
+  names and input schemas that are published to clients, error codes and
+  retained URLs are asserted exactly, once, at their owning boundary.
 - Do not write unit tests after the code to cover a diff. A regression test must
   fail on the pre-fix code; say so in the PR.
 - Test lines added in a PR may not exceed non-test lines added unless the PR

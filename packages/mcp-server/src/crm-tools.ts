@@ -139,6 +139,13 @@ const RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES = {
   },
 };
 
+// Deletes take no remote operation: the API route always deletes and the client rejects
+// `operation` on every delete.
+const { operation: _companyDeleteOperation, ...COMPANY_INTEGRATION_DELETE_INPUT_PROPERTIES } =
+  COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES;
+const { operation: _recordDeleteOperation, ...RECORD_INTEGRATION_DELETE_INPUT_PROPERTIES } =
+  RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES;
+
 const LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -182,6 +189,21 @@ const LIST_INPUT_SCHEMA = {
         'Optional fields to return when scope/provider routing is used, for example ["id", "name", "url"].',
       items: { type: 'string' },
     },
+  },
+};
+
+// The V2 contacts list has no integration scope: the client rejects scope=integration,
+// provider, channel_id, external_object_type and reference_id. Integration-side contacts
+// are read with query_records or aggregate_records.
+const CONTACT_LIST_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    search: LIST_INPUT_SCHEMA.properties.search,
+    limit: LIST_INPUT_SCHEMA.properties.limit,
+    page: LIST_INPUT_SCHEMA.properties.page,
+    sort: LIST_INPUT_SCHEMA.properties.sort,
+    view: LIST_INPUT_SCHEMA.properties.view,
+    language: LIST_INPUT_SCHEMA.properties.language,
   },
 };
 
@@ -921,7 +943,7 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
       description:
         'Company identifier to delete. For target=integration with provider=freee/moneyforward/salesforce, pass the provider record id here or in external_id.',
     },
-    ...COMPANY_INTEGRATION_MUTATION_INPUT_PROPERTIES,
+    ...COMPANY_INTEGRATION_DELETE_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description:
@@ -1012,7 +1034,7 @@ const CONTACT_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Contact identifier to delete.',
     },
-    ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
+    ...RECORD_INTEGRATION_DELETE_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -3224,7 +3246,7 @@ const DEAL_DELETE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Deal identifier to delete.',
     },
-    ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
+    ...RECORD_INTEGRATION_DELETE_INPUT_PROPERTIES,
     external_id: {
       type: 'string',
       description: 'Optional explicit external id lookup override.',
@@ -4302,7 +4324,13 @@ const APP_BUILDER_ARTIFACT_SCHEMA = {
       description: 'Artifact format, usually markdown or mermaid.',
     },
   },
-  required: ['artifact_type', 'title', 'content'],
+  // The API reads the kind from artifact_type, artifactType or type and the text from
+  // content or body; slug and title have no default.
+  required: ['slug', 'title'],
+  allOf: [
+    { anyOf: [{ required: ['artifact_type'] }, { required: ['artifactType'] }, { required: ['type'] }] },
+    { anyOf: [{ required: ['content'] }, { required: ['body'] }] },
+  ],
 };
 
 const APP_BUILDER_BLUEPRINT_DSL_SCHEMA = {
@@ -8061,7 +8089,18 @@ const ITEM_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status', 'external_id'],
 };
 
-const SUBSCRIPTION_ITEM_INPUT_SCHEMA = PUBLIC_LINE_ITEM_INPUT_SCHEMA;
+// Rows copied from get_invoice or get_order carry item_id: null when no item is linked;
+// the subscription handler treats null as no linked item.
+const SUBSCRIPTION_ITEM_INPUT_SCHEMA = {
+  ...PUBLIC_LINE_ITEM_INPUT_SCHEMA,
+  properties: {
+    ...PUBLIC_LINE_ITEM_INPUT_SCHEMA.properties,
+    item_id: {
+      ...PUBLIC_LINE_ITEM_INPUT_SCHEMA.properties.item_id,
+      type: ['string', 'null'],
+    },
+  },
+};
 
 const SUBSCRIPTION_DISCOUNT_INPUT_PROPERTIES = {
   discount_id: {
@@ -8543,10 +8582,10 @@ const PAYMENT_MUTATION_INPUT_PROPERTIES = {
   },
 };
 
+// external_id is optional, as on the API and on the other finance documents.
 const PAYMENT_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: PAYMENT_MUTATION_INPUT_PROPERTIES,
-  required: ['external_id'],
 };
 
 const PAYMENT_RETRIEVE_INPUT_SCHEMA = {
@@ -12454,7 +12493,9 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
   const externalID = readString(args?.['external_id']);
 
   if (caseStatus) {
-    body['caseStatus'] = caseStatus;
+    // Sanka deals accept case_status (stored as the stage), not caseStatus; integration
+    // targets map either spelling to the provider stage.
+    body['case_status'] = caseStatus;
   }
   if (companyExternalID) {
     body['companyExternalId'] = companyExternalID;
@@ -16870,7 +16911,7 @@ export const crmListContactsTool: McpTool = defineListTool({
   title: 'List contacts',
   description:
     'Search and review contacts in Sanka. Use this when the user wants to find or inspect contacts, not to create or update them.',
-  inputSchema: LIST_INPUT_SCHEMA,
+  inputSchema: CONTACT_LIST_INPUT_SCHEMA,
   outputSchema: LIST_OUTPUT_SCHEMA,
   label: 'contacts',
   fetchList: ({ reqContext, args }) =>
