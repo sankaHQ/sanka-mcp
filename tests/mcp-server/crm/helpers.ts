@@ -53,8 +53,15 @@ const envelope = (data: unknown) =>
 const isToolHeader = (name: string) =>
   name === 'accept-language' || name === 'x-language' || name.startsWith('x-sanka-');
 
-/** Calls the tool handler with a real SDK client whose `fetch` records every request. */
-export const sendThroughSDK = async ({ tool, args }: Pick<V2RequestCase, 'tool' | 'args'>) => {
+/**
+ * Calls the tool handler with a real SDK client whose `fetch` records every request and answers
+ * with `response` (the V2 envelope's data) when given.
+ */
+export const sendThroughSDK = async ({
+  tool,
+  args,
+  response,
+}: Pick<V2RequestCase, 'tool' | 'args'> & { response?: unknown }) => {
   const requests: V2Request[] = [];
   const client = new Sanka({
     apiKey: 'My API Key',
@@ -71,6 +78,7 @@ export const sendThroughSDK = async ({ tool, args }: Pick<V2RequestCase, 'tool' 
         ...(init?.body ? { body: JSON.parse(String(init.body)) } : undefined),
         ...(Object.keys(headers).length > 0 ? { headers } : undefined),
       });
+      if (response !== undefined) return envelope(response);
       return tool.tool.name.startsWith('list_') ?
           envelope({ items: [], page: 1, page_size: 10, total: 0 })
         : envelope({ id: 'record-1', record_id: '1001', object_type: 'record', properties: {} });

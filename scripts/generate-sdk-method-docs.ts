@@ -24,6 +24,7 @@ const HTTP_METHODS: ReadonlySet<string> = new Set(['get', 'post', 'put', 'patch'
 
 // Object-argument fields for methods that validate input before sending the request.
 const SAMPLE_FIELDS: Record<string, Record<string, unknown>> = {
+  'client.public.associations.list': { source_object: 'companies', source_id: 'company-1' },
   'client.public.reports.create': { reportMetadata: { name: 'Pipeline report' } },
 };
 
