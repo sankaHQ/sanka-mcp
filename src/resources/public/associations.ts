@@ -2,7 +2,9 @@
 
 import { APIResource } from '../../core/resource';
 import { APIPromise } from '../../core/api-promise';
+import { SankaError } from '../../core/error';
 import { RequestOptions } from '../../internal/request-options';
+import { path } from '../../internal/utils/path';
 import { unwrapV2DataPromise } from '../../internal/v2';
 
 const associationRefFromParams = (
@@ -29,6 +31,17 @@ const associationMutationBody = (params: AssociationCreateParams | AssociationDe
   ...(params.label_id != null ? { definition_id: params.label_id } : undefined),
   ...(params.label != null ? { label: params.label } : undefined),
 });
+
+// The API deletes an association by id only under one of the two records it links.
+const associationLinkedRecord = (params: AssociationDeleteParams) => {
+  if (params.source_object && params.source_id) {
+    return associationRefFromParams(params.source_object, params.source_id, params.source_custom_object_id);
+  }
+  if (params.target_object && params.target_id) {
+    return associationRefFromParams(params.target_object, params.target_id, params.target_custom_object_id);
+  }
+  return undefined;
+};
 
 export class Associations extends APIResource {
   /**
@@ -63,11 +76,32 @@ export class Associations extends APIResource {
   }
 
   /**
-   * Delete Association
+   * Delete Association. With `association_id`, deletes it under one of the records it links;
+   * otherwise deletes the association between the source and target records with the given
+   * label, in `workspace_id` when set.
    */
   delete(params: AssociationDeleteParams, options?: RequestOptions): APIPromise<AssociationDeleteResponse> {
+    if (params.association_id) {
+      const record = associationLinkedRecord(params);
+      if (!record) {
+        throw new SankaError(
+          'association_id must be sent with source_object/source_id or target_object/target_id of a record it links.',
+        );
+      }
+      return unwrapV2DataPromise(
+        this._client.v2Delete<AssociationDeleteResponse>(
+          path`/records/${record.object_type}/${record.record_id}/associations/${params.association_id}`,
+          {
+            query:
+              record.custom_object_id != null ? { custom_object_id: record.custom_object_id } : undefined,
+            ...options,
+          },
+        ),
+      );
+    }
     return unwrapV2DataPromise(
       this._client.v2Delete<AssociationDeleteResponse>('/public/associations', {
+        query: params.workspace_id != null ? { workspace_id: params.workspace_id } : undefined,
         body: associationMutationBody(params),
         ...options,
       }),

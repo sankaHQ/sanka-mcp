@@ -337,8 +337,9 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     name: 'delete',
     httpMethod: 'delete',
     endpoint: '/api/v2/public/associations',
-    summary: 'Delete Association',
-    description: 'Delete Association',
+    summary: 'Delete Association.',
+    description:
+      'Delete Association. With `association_id`, deletes it under one of the records it links; otherwise deletes the association between the source and target records with the given label, in `workspace_id` when set.',
     signature:
       'client.public.associations.delete(params: AssociationDeleteParams, options?: RequestOptions): APIPromise<AssociationDeleteResponse>',
     params: [

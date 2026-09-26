@@ -53,7 +53,8 @@ const envelope = (data: unknown) =>
 const isToolHeader = (name: string) =>
   name === 'accept-language' || name === 'x-language' || name.startsWith('x-sanka-');
 
-const sendThroughSDK = async ({ tool, args }: V2RequestCase) => {
+/** Calls the tool handler with a real SDK client whose `fetch` records every request. */
+export const sendThroughSDK = async ({ tool, args }: Pick<V2RequestCase, 'tool' | 'args'>) => {
   const requests: V2Request[] = [];
   const client = new Sanka({
     apiKey: 'My API Key',
