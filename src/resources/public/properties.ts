@@ -7,8 +7,12 @@ import { RequestOptions } from '../../internal/request-options';
 import { path } from '../../internal/utils/path';
 import { V2Envelope, unwrapV2Data } from '../../internal/v2';
 
+// Both the Sanka and the integration scope page their rows and report these fields.
 type V2PropertyListData = {
   data?: Array<Record<string, unknown>>;
+  page?: number;
+  total?: number;
+  has_next?: boolean;
 };
 
 type V2PropertyMutationData = {
@@ -54,7 +58,13 @@ const unwrapV2PropertyList = (
 ): APIPromise<PropertyListResponse> => {
   return promise._thenUnwrap((envelope) => {
     const data = unwrapV2Data(envelope);
-    return (data.data ?? []).map((row) => propertyFromV2(row, objectName));
+    const properties = (data.data ?? []).map((row) => propertyFromV2(row, objectName));
+    return {
+      data: properties,
+      page: data.page ?? 1,
+      total: data.total ?? properties.length,
+      has_next: data.has_next ?? false,
+    };
   });
 };
 
@@ -351,7 +361,18 @@ export interface PropertyUpsert {
   unique?: boolean | null;
 }
 
-export type PropertyListResponse = Array<Property>;
+/**
+ * One page of properties. `total` counts every property that matches the filters.
+ */
+export interface PropertyListResponse {
+  data: Array<Property>;
+
+  page: number;
+
+  total: number;
+
+  has_next: boolean;
+}
 
 export interface PropertyCreateParams {
   badge_color?: string | null;
@@ -612,6 +633,11 @@ export interface PropertyListParams {
    * Query param
    */
   limit?: number | null;
+
+  /**
+   * Query param
+   */
+  page?: number | null;
 
   /**
    * Query param
