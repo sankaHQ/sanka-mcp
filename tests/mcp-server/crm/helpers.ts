@@ -44,7 +44,7 @@ export type V2RequestCase = {
   expectedRequests: V2Request[];
 };
 
-const envelope = (data: unknown) =>
+export const envelope = (data: unknown) =>
   new Response(JSON.stringify({ success: true, data, meta: { ctx_id: 'ctx-v2-request' } }), {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -55,13 +55,14 @@ const isToolHeader = (name: string) =>
 
 /**
  * Calls the tool handler with a real SDK client whose `fetch` records every request and answers
- * with `response` (the V2 envelope's data) when given.
+ * the Nth request with `responses[N]`, else with `response` (the V2 envelope's data) when given.
  */
 export const sendThroughSDK = async ({
   tool,
   args,
   response,
-}: Pick<V2RequestCase, 'tool' | 'args'> & { response?: unknown }) => {
+  responses = [],
+}: Pick<V2RequestCase, 'tool' | 'args'> & { response?: unknown; responses?: Response[] }) => {
   const requests: V2Request[] = [];
   const client = new Sanka({
     apiKey: 'My API Key',
@@ -78,6 +79,8 @@ export const sendThroughSDK = async ({
         ...(init?.body ? { body: JSON.parse(String(init.body)) } : undefined),
         ...(Object.keys(headers).length > 0 ? { headers } : undefined),
       });
+      const next = responses[requests.length - 1];
+      if (next) return next;
       if (response !== undefined) return envelope(response);
       return tool.tool.name.startsWith('list_') ?
           envelope({ items: [], page: 1, page_size: 10, total: 0 })
