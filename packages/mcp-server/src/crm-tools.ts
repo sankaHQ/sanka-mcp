@@ -6461,15 +6461,17 @@ const VIEW_FILTER_INPUT_SCHEMA = {
   properties: {
     field: {
       type: 'string',
-      description: 'Field key to filter on.',
+      description:
+        'Field id to filter on: `standard:<name>` for a standard field or `custom_property:<uuid>` for a custom property.',
     },
     operator: {
       type: 'string',
-      description: 'Filter operator such as equals, contains, between, is_empty, or is_not_empty.',
+      description: 'Filter operator such as equals, contains, in, between, is_empty, or is_not_empty.',
       default: 'equals',
     },
     value: {
-      description: 'Filter value. Omit for empty/not-empty operators.',
+      description:
+        'Filter value. Use the option `value` key for choice fields and a list for in/not_in. Omit for empty/not-empty operators.',
     },
     value2: {
       description: 'Second filter value for between filters.',
@@ -6561,7 +6563,7 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
     },
     sort_order_by: {
       type: 'string',
-      description: 'Optional sort field key.',
+      description: 'Optional sort field id, for example `standard:created_at`.',
     },
     sort_order_method: {
       type: 'string',
@@ -6570,7 +6572,7 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
     },
     filters: {
       type: 'array',
-      description: 'Optional saved view filters.',
+      description: "Optional saved view filters. When given, they replace the view's saved filters.",
       items: VIEW_FILTER_INPUT_SCHEMA,
     },
     form_data: {
@@ -13278,7 +13280,7 @@ const buildViewListParams = (args: Record<string, unknown> | undefined) => {
   return {
     object,
     params: {
-      ...(object ? { object } : undefined),
+      ...(object ? { object_type: object } : undefined),
       ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
@@ -13305,22 +13307,11 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
   const customObjectID = readString(args?.['custom_object_id'] ?? args?.['customObjectId']);
   const name = readString(args?.['name'] ?? args?.['title']);
   const viewType = readString(args?.['view_type'] ?? args?.['viewType'] ?? args?.['view']);
-  const sortOrderBy = readString(args?.['sort_order_by'] ?? args?.['sortOrderBy'] ?? args?.['order_by']);
-  const sortOrderMethod = readString(
-    args?.['sort_order_method'] ?? args?.['sortOrderMethod'] ?? args?.['sort_method'],
-  );
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const isPrivate = readBoolean(args?.['is_private'] ?? args?.['isPrivate'] ?? args?.['private']);
   const columns = readStringArray(args?.['columns']);
-  const filters =
-    Array.isArray(args?.['filters']) ?
-      (args?.['filters'] as unknown[])
-        .map((entry) => readRecord(entry))
-        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
-    : [];
   const formData = readRecord(args?.['form_data'] ?? args?.['formData']);
-  const pagination = args?.['pagination'];
 
   if (object) {
     body['object'] = object;
@@ -13339,14 +13330,10 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
     body['columns'] = columns;
     body['column_field_ids'] = columns;
   }
-  if (typeof pagination === 'number' && Number.isInteger(pagination)) body['pagination'] = pagination;
   if (isPrivate !== undefined) {
     body['is_private'] = isPrivate;
     body['visibility'] = isPrivate ? 'private' : 'workspace';
   }
-  if (sortOrderBy) body['sort_order_by'] = sortOrderBy;
-  if (sortOrderMethod) body['sort_order_method'] = sortOrderMethod;
-  if (filters.length > 0) body['filters'] = filters;
   if (formData) body['form_data'] = formData;
 
   return {
@@ -13356,6 +13343,108 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+// Filters, sort and page size live on the view's filter record. The view
+// create/update routes ignore them; only PUT /api/v2/views/{view_id}/filter
+// saves them. Returns undefined when the call changes none of them.
+const buildViewFilterUpdate = (
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined => {
+  const update: Record<string, unknown> = {};
+  const filters = args?.['filters'];
+  if (Array.isArray(filters)) {
+    update['expressions'] = filters
+      .map((entry) => readRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      .map((filter) => {
+        // A SearchFilterExpression takes both `between` bounds as one list value.
+        const value2 = filter['value2'];
+        const value = value2 === undefined || value2 === null ? filter['value'] : [filter['value'], value2];
+        return {
+          field: { field_id: readString(filter['field']) },
+          operator: readString(filter['operator']) ?? 'equals',
+          ...(value === undefined ? undefined : { value }),
+        };
+      });
+  }
+  const sortFieldID = readString(args?.['sort_order_by'] ?? args?.['sortOrderBy'] ?? args?.['order_by']);
+  const sortDirection = readString(
+    args?.['sort_order_method'] ?? args?.['sortOrderMethod'] ?? args?.['sort_method'],
+  );
+  const pagination = args?.['pagination'];
+  if (sortFieldID) update['sort_field_id'] = sortFieldID;
+  if (sortDirection) update['sort_direction'] = sortDirection;
+  if (typeof pagination === 'number' && Number.isInteger(pagination)) update['page_size'] = pagination;
+  return Object.keys(update).length > 0 ? update : undefined;
+};
+
+// The filter PUT replaces the whole record, so the parts this call does not
+// change are copied from the current record. `view` is the view this tool call
+// already created or updated; when it is set and the save fails, the result
+// says the view exists without the requested filters instead of hiding it.
+const saveViewFilter = async ({
+  reqContext,
+  viewID,
+  query,
+  update,
+  view,
+  action,
+}: {
+  reqContext: McpRequestContext;
+  viewID: string;
+  query: Record<string, unknown>;
+  update: Record<string, unknown>;
+  view: Record<string, unknown> | undefined;
+  action: 'Created' | 'Updated';
+}): Promise<ToolCallResult> => {
+  const path = `/api/v2/views/${encodeURIComponent(viewID)}/filter`;
+  try {
+    const current: Record<string, unknown> =
+      readRecord(view?.['filter']) ??
+      readRecord(
+        normalizeViewDetailPayload((await reqContext.client.get(path, { query })) as Record<string, unknown>)[
+          'filter'
+        ],
+      ) ??
+      {};
+    const { expressions, sort_field_id, sort_direction, archive_mode, page_size } = current;
+    const saved = normalizeViewDetailPayload(
+      (await reqContext.client.put(path, {
+        body: { expressions, sort_field_id, sort_direction, archive_mode, page_size, ...update },
+        query,
+      })) as Record<string, unknown>,
+    );
+    const savedFilter = readRecord(saved['filter']) ?? {};
+    const savedCount = Array.isArray(savedFilter['expressions']) ? savedFilter['expressions'].length : 0;
+    const sortField = readString(savedFilter['sort_field_id']);
+    const sortText =
+      sortField ? `${sortField} ${readString(savedFilter['sort_direction']) ?? ''}`.trim() : 'none';
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `${action} saved view ${viewID}. Saved filters: ${savedCount}; sort: ${sortText}.`,
+        },
+      ],
+      structuredContent: { ...(view ?? { view_id: viewID, ctx_id: saved['ctx_id'] }), filter: savedFilter },
+    };
+  } catch (error) {
+    if (!view) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `${action} saved view ${viewID}, but its filters and sort were NOT saved: ${message} The view exists without the requested filters and sort; retry with update_view and view_id ${viewID} instead of creating the view again.`,
+        },
+      ],
+      isError: true,
+      structuredContent: { ...view, filter_saved: false, filter_error: message },
+    };
+  }
 };
 
 const buildReportListParams = (args: Record<string, unknown> | undefined) => {
@@ -22897,6 +22986,7 @@ export const crmCreateViewTool: McpTool = {
     }
 
     const { body, query } = buildViewMutationBody(args);
+    const filterUpdate = buildViewFilterUpdate(args);
     const payload = normalizeViewDetailPayload(
       (await reqContext.client.post('/api/v2/views', {
         body,
@@ -22905,6 +22995,20 @@ export const crmCreateViewTool: McpTool = {
     );
     const data = readRecord(payload['data']) ?? {};
     const viewID = readString(data['view_id']);
+    if (filterUpdate) {
+      return viewID ?
+          saveViewFilter({
+            reqContext,
+            viewID,
+            query,
+            update: filterUpdate,
+            view: payload,
+            action: 'Created',
+          })
+        : asErrorResult(
+            'Created a saved view, but the API returned no view_id, so its filters were NOT saved.',
+          );
+    }
     return {
       content: [{ type: 'text', text: `Created saved view${viewID ? ` ${viewID}` : ''}.` }],
       structuredContent: payload,
@@ -22949,12 +23053,35 @@ export const crmUpdateViewTool: McpTool = {
       return asErrorResult('`view_id` is required.');
     }
     const { body, query } = buildViewMutationBody(args);
+    const filterUpdate = buildViewFilterUpdate(args);
+    // The view route updates only title, mode and visibility, and rejects a
+    // request with none of them, so a filter-only update skips it.
+    if (filterUpdate && !['title', 'mode', 'visibility'].some((key) => key in body)) {
+      return saveViewFilter({
+        reqContext,
+        viewID,
+        query,
+        update: filterUpdate,
+        view: undefined,
+        action: 'Updated',
+      });
+    }
     const payload = normalizeViewDetailPayload(
       (await reqContext.client.patch(`/api/v2/views/${encodeURIComponent(viewID)}`, {
         body,
         query,
       })) as Record<string, unknown>,
     );
+    if (filterUpdate) {
+      return saveViewFilter({
+        reqContext,
+        viewID,
+        query,
+        update: filterUpdate,
+        view: payload,
+        action: 'Updated',
+      });
+    }
     return {
       content: [{ type: 'text', text: `Updated saved view ${viewID}.` }],
       structuredContent: payload,
