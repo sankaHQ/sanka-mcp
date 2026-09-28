@@ -21,26 +21,10 @@ describe('public properties resource on V2', () => {
         if (method === 'GET' && requestURL.endsWith('/api/v2/properties/orders/priority')) {
           return envelope({ id: 'prop-1', internal_name: 'priority', name: 'Priority' });
         }
-        if (method === 'GET') {
-          return envelope({
-            data: [{ id: 'prop-1', internal_name: 'priority', name: 'Priority' }],
-            count: 1,
-            total: 1,
-            page: 1,
-          });
-        }
         return envelope({ property_id: 'prop-1', page_group_type: 'commerce_orders' });
       },
     });
 
-    await expect(client.public.properties.list('orders', { search: 'priority', limit: 2 })).resolves.toEqual([
-      expect.objectContaining({
-        id: 'prop-1',
-        internal_name: 'priority',
-        name: 'Priority',
-        object: 'orders',
-      }),
-    ]);
     await expect(
       client.public.properties.retrieve('priority', { object_name: 'orders' }),
     ).resolves.toMatchObject({
@@ -69,10 +53,6 @@ describe('public properties resource on V2', () => {
     ).resolves.toMatchObject({ status: 'deleted', property_id: 'prop-1' });
 
     expect(calls).toEqual([
-      {
-        url: 'http://localhost:5000/api/v2/properties/orders?search=priority&limit=2',
-        method: 'GET',
-      },
       { url: 'http://localhost:5000/api/v2/properties/orders/priority', method: 'GET' },
       {
         url: 'http://localhost:5000/api/v2/properties/orders',

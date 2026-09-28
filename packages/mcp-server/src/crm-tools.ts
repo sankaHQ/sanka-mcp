@@ -2355,6 +2355,7 @@ const LIST_OUTPUT_SCHEMA = {
     count: { type: 'integer' },
     page: { type: 'integer' },
     total: { type: 'integer' },
+    has_next: { type: 'boolean' },
     message: { type: 'string' },
     permission: { type: 'string' },
     data_origin: { type: 'string' },
@@ -3793,10 +3794,16 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     },
     limit: {
       type: 'integer',
-      description: 'Maximum number of properties to return from the fetched list.',
+      description: 'Number of properties per page.',
       minimum: 1,
       maximum: 100,
       default: 25,
+    },
+    page: {
+      type: 'integer',
+      description: 'Page number to fetch. When the result has has_next=true, request the next page.',
+      minimum: 1,
+      default: 1,
     },
     workspace_id: {
       type: 'string',
@@ -14050,12 +14057,9 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
   const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
   const externalObjectType = readString(args?.['external_object_type'] ?? args?.['externalObjectType']);
   const search = readString(args?.['search']);
-  const rawLimit = readNumber(args?.['limit'], 25);
-  const limit = Math.max(1, Math.min(100, rawLimit));
 
   return {
     objectName,
-    limit,
     params: {
       ...(customOnly !== undefined ? { custom_only: customOnly } : undefined),
       ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
@@ -14065,6 +14069,9 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
       ...(channelID ? { channel_id: channelID } : undefined),
       ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
       ...(search ? { search } : undefined),
+      // The API pages the list itself, so it needs the tool's page size and page.
+      limit: clampListLimit(args?.['limit'], 25),
+      page: Math.max(1, Math.trunc(readNumber(args?.['page'], 1))),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
       ...(language ? { 'Accept-Language': language } : undefined),
     },
@@ -26462,24 +26469,29 @@ export const crmListPropertiesTool: McpTool = {
       return authError;
     }
 
-    const { objectName, limit, params } = buildPropertyListParams(args);
+    const { objectName, params } = buildPropertyListParams(args);
     if (!objectName) {
       return asErrorResult('`object_name` is required.');
     }
 
-    const properties = await reqContext.client.public.properties.list(objectName, params, undefined);
-    const results = properties
-      .slice(0, limit)
-      .map((property) => property as unknown as Record<string, unknown>);
+    const { data, page, total, has_next } = await reqContext.client.public.properties.list(
+      objectName,
+      params,
+      undefined,
+    );
+    const results = data.map((property) => property as unknown as Record<string, unknown>);
 
     return buildListResult({
       label: 'properties',
       payload: {
         count: results.length,
         data: results,
-        message: `Returned ${results.length} of ${properties.length} properties.`,
-        page: 1,
-        total: properties.length,
+        has_next,
+        message:
+          `Returned ${results.length} of ${total} properties.` +
+          (has_next ? ` Request page ${page + 1} for the next page.` : ''),
+        page,
+        total,
       },
       previewKeys: ['name', 'internal_name', 'id'],
     });

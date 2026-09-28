@@ -42,6 +42,10 @@ export type V2RequestCase = {
   tool: McpTool;
   args: Record<string, unknown>;
   expectedRequests: V2Request[];
+  /** V2 envelope data the fake API answers every request with. */
+  response?: unknown;
+  /** Fields the tool's structuredContent must then contain. */
+  expectedResult?: Record<string, unknown>;
 };
 
 export const envelope = (data: unknown) =>
@@ -107,5 +111,8 @@ export const describeV2Requests = (cases: V2RequestCase[]) =>
 
       expect(result.isError).toBeFalsy();
       expect(requests).toEqual(scenario.expectedRequests);
+      if (scenario.expectedResult) {
+        expect(result.structuredContent).toMatchObject(scenario.expectedResult);
+      }
     });
   });

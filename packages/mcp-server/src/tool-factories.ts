@@ -66,6 +66,7 @@ export type ListToolPayload = {
   message: string;
   page: number;
   total: number;
+  has_next?: boolean;
   permission?: string | null;
   hasBlockingPending?: boolean;
   rules?: unknown[];
@@ -169,6 +170,7 @@ const buildListModelContextPreview = ({
     count: payload.count,
     total: payload.total,
     page: payload.page,
+    ...(payload.has_next !== undefined ? { has_next: payload.has_next } : undefined),
     message: payload.message,
     results: payload.data.slice(0, STRUCTURED_TEXT_PREVIEW_ITEM_LIMIT),
   });
@@ -301,6 +303,7 @@ export const buildListResult = ({
       count: payload.count,
       page: payload.page,
       total: payload.total,
+      ...(payload.has_next !== undefined ? { has_next: payload.has_next } : undefined),
       message: payload.message,
       permission: payload.permission ?? undefined,
       results: payload.data,

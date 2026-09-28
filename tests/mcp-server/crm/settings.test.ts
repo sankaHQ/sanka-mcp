@@ -166,19 +166,43 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'lists custom object properties by slug',
+    name: 'lists one API page of custom object properties by slug',
     tool: crmListPropertiesTool,
     args: {
       object_name: 'custom_objects',
       custom_object: 'mgs_owned_machine',
-      limit: 10,
+      custom_only: true,
+      limit: 2,
+      page: 2,
+      workspace_id: 'workspace-1',
+      language: 'en',
+    },
+    response: {
+      data: [
+        { id: 'prop-3', name: 'Serial number', is_custom: true },
+        { id: 'prop-4', name: 'Next service date', is_custom: true },
+      ],
+      count: 2,
+      total: 5,
+      page: 2,
+      per_page: '2',
+      page_count: 3,
+      has_next: true,
     },
     expectedRequests: [
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/properties/custom_objects?custom_object_slug=mgs_owned_machine',
+        url: 'http://localhost:5000/api/v2/properties/custom_objects?custom_only=true&custom_object_slug=mgs_owned_machine&limit=2&page=2&workspace_id=workspace-1',
+        headers: { 'accept-language': 'en' },
       },
     ],
+    expectedResult: {
+      count: 2,
+      page: 2,
+      total: 5,
+      has_next: true,
+      results: [{ id: 'prop-3' }, { id: 'prop-4' }],
+    },
   },
   {
     name: 'creates a custom object property by slug',
@@ -329,12 +353,15 @@ const v2Requests: V2RequestCase[] = [
       object_name: 'contacts',
       scope: 'integration',
       provider: 'hubspot',
+      channel_id: 'channel-1',
+      external_object_type: 'contacts',
+      search: 'lifecycle',
       limit: 10,
     },
     expectedRequests: [
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/properties/contacts?scope=integration&provider=hubspot',
+        url: 'http://localhost:5000/api/v2/properties/contacts?scope=integration&provider=hubspot&channel_id=channel-1&external_object_type=contacts&search=lifecycle&limit=10&page=1',
       },
     ],
   },
@@ -646,164 +673,6 @@ describe('CRM settings, governance, and saved view tools', () => {
       status: 'deleted',
       report_id: 'report-1',
     });
-  });
-
-  it('lists properties with a local result limit', async () => {
-    const list = jest.fn().mockResolvedValue([
-      {
-        id: 'prop-1',
-        name: 'Priority',
-        internal_name: 'priority',
-        object: 'orders',
-        is_custom: true,
-        immutable: false,
-      },
-      {
-        id: 'prop-2',
-        name: 'Region',
-        internal_name: 'region',
-        object: 'orders',
-        is_custom: true,
-        immutable: false,
-      },
-      {
-        id: 'prop-3',
-        name: 'Channel',
-        internal_name: 'channel',
-        object: 'orders',
-        is_custom: true,
-        immutable: false,
-      },
-    ]);
-
-    const result = await crmListPropertiesTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            properties: { list },
-          },
-        } as any,
-        auth: oauthContext(),
-        toolProfile: 'full',
-      },
-      args: {
-        object_name: 'orders',
-        custom_only: true,
-        limit: 2,
-        workspace_id: 'workspace-1',
-        language: 'en',
-      },
-    });
-
-    expect(list).toHaveBeenCalledWith(
-      'orders',
-      {
-        custom_only: true,
-        workspace_id: 'workspace-1',
-        'Accept-Language': 'en',
-      },
-      undefined,
-    );
-    expect(result.structuredContent).toEqual({
-      count: 2,
-      page: 1,
-      total: 3,
-      message: 'Returned 2 of 3 properties.',
-      permission: undefined,
-      results: [
-        {
-          id: 'prop-1',
-          name: 'Priority',
-          internal_name: 'priority',
-          object: 'orders',
-          is_custom: true,
-          immutable: false,
-        },
-        {
-          id: 'prop-2',
-          name: 'Region',
-          internal_name: 'region',
-          object: 'orders',
-          is_custom: true,
-          immutable: false,
-        },
-      ],
-    });
-    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('Found 3 properties. Examples: Priority, Region.');
-    expect(text).toContain('properties model context:');
-    expect(text).toContain('"internal_name": "priority"');
-  });
-
-  it('lists integration properties with provider routing', async () => {
-    const list = jest.fn().mockResolvedValue([
-      {
-        id: 'hs/lifecycle_stage',
-        name: 'Lifecycle stage',
-        internal_name: 'lifecycle_stage',
-        object: 'companies',
-        scope: 'integration',
-        provider: 'hubspot',
-        is_custom: false,
-        immutable: false,
-      },
-    ]);
-
-    const result = await crmListPropertiesTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            properties: { list },
-          },
-        } as any,
-        auth: oauthContext(),
-        toolProfile: 'full',
-      },
-      args: {
-        object_name: 'companies',
-        scope: 'integration',
-        provider: 'hubspot',
-        channel_id: 'channel-1',
-        external_object_type: 'companies',
-        search: 'lifecycle',
-        limit: 2,
-      },
-    });
-
-    expect(list).toHaveBeenCalledWith(
-      'companies',
-      {
-        scope: 'integration',
-        provider: 'hubspot',
-        channel_id: 'channel-1',
-        external_object_type: 'companies',
-        search: 'lifecycle',
-      },
-      undefined,
-    );
-    expect(result.structuredContent).toEqual({
-      count: 1,
-      page: 1,
-      total: 1,
-      message: 'Returned 1 of 1 properties.',
-      permission: undefined,
-      results: [
-        {
-          id: 'hs/lifecycle_stage',
-          name: 'Lifecycle stage',
-          internal_name: 'lifecycle_stage',
-          object: 'companies',
-          scope: 'integration',
-          provider: 'hubspot',
-          is_custom: false,
-          immutable: false,
-        },
-      ],
-    });
-    const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('Found 1 properties. Examples: Lifecycle stage.');
-    expect(text).toContain('properties model context:');
-    expect(text).toContain('"provider": "hubspot"');
   });
 
   it('lists approval rules through the public rule settings API', async () => {

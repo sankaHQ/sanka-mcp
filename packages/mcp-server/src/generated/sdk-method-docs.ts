@@ -3440,6 +3440,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'lang?: string | null;',
       'language?: string | null;',
       'limit?: number | null;',
+      'page?: number | null;',
       'provider?: string | null;',
       'scope?: string | null;',
       'search?: string | null;',
@@ -3447,8 +3448,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
       "'Accept-Language'?: string;",
     ],
-    response:
-      'Array<{ id: string; immutable: boolean; is_custom: boolean; object: string; badge_color?: string | null; choice_values?: { [key: string]: string } | Array<string> | null; conditional_choice_mapping?: { [key: string]: unknown } | null; created_at?: string | null; external_id?: string | null; external_object_type?: string | null; field_type?: string | null; group_name?: string | null; description?: string | null; options?: Array<{ [key: string]: unknown }> | null; provider?: string | null; raw?: { [key: string]: unknown } | null; scope?: string | null; internal_name?: string | null; channel_id?: string | null; channel_name?: string | null; multiple_select?: boolean | null; name?: string | null; number_format?: string | null; order?: number | null; required_field?: boolean | null; show_badge?: boolean | null; tag_values?: Array<string> | null; type?: string | null; unique?: boolean | null; updated_at?: string | null; }>',
+    response: '{ data: Array<Property>; page: number; total: number; has_next: boolean; }',
   },
   {
     qualified: 'client.public.properties.retrieve',
