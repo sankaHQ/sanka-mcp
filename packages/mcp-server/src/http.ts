@@ -710,6 +710,19 @@ const handleStreamableRequest =
     await transportContext.transport.handleRequest(req, res, req.body);
   };
 
+// Every request gets a fresh stateless transport, so a standalone GET stream could never
+// carry a server message. The edge resets such idle streams after ~125 s, and Claude Code
+// re-initializes after three resets, which mints a new MCP session id and drops the
+// Connect Sanka approval bound to the old one. The spec allows declining with 405.
+const declineStandaloneSseStream = (_req: express.Request, res: express.Response) => {
+  res.setHeader('Allow', 'POST, DELETE');
+  res.status(405).json({
+    jsonrpc: '2.0',
+    error: { code: -32000, message: 'Method not allowed.' },
+    id: null,
+  });
+};
+
 export const streamableHTTPApp = ({
   clientOptions = {},
   mcpOptions,
@@ -759,7 +772,7 @@ export const streamableHTTPApp = ({
   }
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
   for (const routePath of STREAMABLE_HTTP_PATHS) {
-    app.get(routePath, streamableHandler);
+    app.get(routePath, declineStandaloneSseStream);
     app.post(routePath, streamableHandler);
     app.delete(routePath, streamableHandler);
   }

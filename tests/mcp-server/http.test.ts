@@ -343,7 +343,7 @@ describe('streamable HTTP transport', () => {
     expect(body).toContain('"connect_sanka"');
   });
 
-  it('supports stateless follow-up requests after authenticated initialize', async () => {
+  it('supports stateless follow-up requests and declines the standalone GET stream', async () => {
     const initializeResponse = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -398,8 +398,8 @@ describe('streamable HTTP transport', () => {
       },
     });
 
-    expect(streamResponse.status).toBe(200);
-    expect(streamResponse.headers.get('content-type')).toContain('text/event-stream');
+    // An idle stream here is reset by the edge, and clients re-initialize with a new session.
+    expect(streamResponse.status).toBe(405);
     await streamResponse.body?.cancel();
   });
 
