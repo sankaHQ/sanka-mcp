@@ -103,6 +103,8 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `update_deal`: update a deal
 - `delete_deal`: delete a deal
 - `list_deal_pipelines`: inspect deal pipelines and stages
+- `create_deal_pipeline`: create a deal pipeline with ordered stages
+- `update_deal_pipeline`: rename a deal pipeline or add, reorder, rename, hide or remove its stages, moving deals off removed stages
 - `list_contract_templates`: review uploaded Contract templates
 - `download_contract_template`: download a Contract template source file or signing PDF
 - `upload_contract_template`: upload a PDF/DOC/DOCX Contract template

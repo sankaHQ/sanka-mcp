@@ -741,11 +741,29 @@ export interface paths {
     /** List Public Deal Pipelines */
     get: operations['list_public_deal_pipelines_api_v2_public_deals_pipelines_get'];
     put?: never;
-    post?: never;
+    /** Create Public Deal Pipeline */
+    post: operations['create_public_deal_pipeline_api_v2_public_deals_pipelines_post'];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  '/v2/public/deals/pipelines/{pipeline_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Public Deal Pipeline */
+    patch: operations['update_public_deal_pipeline_api_v2_public_deals_pipelines__pipeline_id__patch'];
     trace?: never;
   };
   '/v2/public/deals/{deal_id}': {
@@ -4303,6 +4321,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    CreatePublicDealPipelineApiV2PublicDealsPipelinesPost201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DealPipelineData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     CreatePublicDeveloperPropertyApiV2PublicPropertiesObjectNamePost200Envelope: {
       /** @constant */
       success: true;
@@ -4672,6 +4696,42 @@ export interface components {
        * @default false
        */
       activate: boolean;
+    };
+    /** DealPipelineCreateRequest */
+    DealPipelineCreateRequest: {
+      /** Name */
+      name: string;
+      /**
+       * Is Default
+       * @description Make this the workspace's default Deal pipeline.
+       * @default false
+       */
+      is_default: boolean;
+      /**
+       * Stages
+       * @description Ordered stages. When empty the standard default stages are created.
+       */
+      stages?: components['schemas']['DealPipelineStageCreate'][];
+    };
+    /** DealPipelineUpdateRequest */
+    DealPipelineUpdateRequest: {
+      /** Name */
+      name?: string | null;
+      /**
+       * Is Default
+       * @description Set true to make this the workspace's default Deal pipeline.
+       */
+      is_default?: boolean | null;
+      /**
+       * Stages
+       * @description Complete ordered stage list. Every existing stage must appear here by id or in removed_stages. Omit it to keep the current stages and order.
+       */
+      stages?: components['schemas']['DealPipelineStageUpdate'][] | null;
+      /**
+       * Removed Stages
+       * @description Stages to delete. A stage is only deleted when listed here.
+       */
+      removed_stages?: components['schemas']['DealPipelineStageRemoval'][];
     };
     DeletePublicAbsenceApiV2PublicAbsencesAbsenceIdDelete200Envelope: {
       /** @constant */
@@ -8016,6 +8076,12 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UpdatePublicDealPipelineApiV2PublicDealsPipelinesPipelineIdPatch200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['DealPipelineData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     UpdatePublicDeveloperPropertyApiV2PublicPropertiesObjectNamePropertyRefPut200Envelope: {
       /** @constant */
       success: true;
@@ -8632,6 +8698,27 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** DealPipelineData */
+    DealPipelineData: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Internal Name */
+      internal_name: string;
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default: boolean;
+      /**
+       * Order
+       * @default 0
+       */
+      order: number;
+      /** Stages */
+      stages?: components['schemas']['DealPipelineStageData'][];
+    };
     /** FerryDiagramData */
     FerryDiagramData: {
       /** Name */
@@ -8915,6 +9002,69 @@ export interface components {
       version: number;
       occupant?: components['schemas']['PositionOccupantData'] | null;
       job?: components['schemas']['PositionJobData'] | null;
+    };
+    /** DealPipelineStageCreate */
+    DealPipelineStageCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Internal Value
+       * @description Value stored on Deals in this stage. Derived from the name when omitted; normalized to lowercase letters, digits and underscores.
+       */
+      internal_value?: string | null;
+      /**
+       * Score
+       * @default 0
+       */
+      score: number;
+      /**
+       * Is Default
+       * @description Exactly one stage is the default. The first stage is used when none is.
+       * @default false
+       */
+      is_default: boolean;
+      /**
+       * Is Hidden
+       * @default false
+       */
+      is_hidden: boolean;
+    };
+    /** DealPipelineStageRemoval */
+    DealPipelineStageRemoval: {
+      /** Id */
+      id: string;
+      /**
+       * Replacement Stage Id
+       * @description Kept stage of the same pipeline that receives this stage's Deals. Required when Deals use the removed stage.
+       */
+      replacement_stage_id?: string | null;
+    };
+    /** DealPipelineStageUpdate */
+    DealPipelineStageUpdate: {
+      /**
+       * Id
+       * @description Existing stage id. Omit it to add a new stage at this position.
+       */
+      id?: string | null;
+      /**
+       * Name
+       * @description Required for a new stage; an existing stage keeps its name when omitted.
+       */
+      name?: string | null;
+      /**
+       * Internal Value
+       * @description An existing stage keeps its value when omitted. Changing it moves the stage's Deals to the new value.
+       */
+      internal_value?: string | null;
+      /** Score */
+      score?: number | null;
+      /**
+       * Is Default
+       * @description Set true on one stage to make it the default. Omit it everywhere to keep the current default stage.
+       */
+      is_default?: boolean | null;
+      /** Is Hidden */
+      is_hidden?: boolean | null;
     };
     /** FerryDiagramDeleteData */
     FerryDiagramDeleteData: {
@@ -9928,6 +10078,35 @@ export interface components {
       meta?: {
         [key: string]: unknown;
       };
+    };
+    /** DealPipelineStageData */
+    DealPipelineStageData: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Internal Value */
+      internal_value: string;
+      /**
+       * Score
+       * @default 0
+       */
+      score: number;
+      /**
+       * Order
+       * @default 0
+       */
+      order: number;
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default: boolean;
+      /**
+       * Is Hidden
+       * @default false
+       */
+      is_hidden: boolean;
     };
     /** FerryProgramEndpoint */
     FerryProgramEndpoint: {
@@ -12960,6 +13139,70 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ListPublicDealPipelinesApiV2PublicDealsPipelinesGet200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_deal_pipeline_api_v2_public_deals_pipelines_post: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DealPipelineCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicDealPipelineApiV2PublicDealsPipelinesPost201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_deal_pipeline_api_v2_public_deals_pipelines__pipeline_id__patch: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        pipeline_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DealPipelineUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicDealPipelineApiV2PublicDealsPipelinesPipelineIdPatch200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];

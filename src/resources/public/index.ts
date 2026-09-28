@@ -123,12 +123,15 @@ export {
   type PublicCaseResponse,
   type DealListResponse,
   type DealListPipelinesResponse,
+  type DealPipeline,
   type DealCreateParams,
   type DealRetrieveParams,
   type DealUpdateParams,
   type DealListParams,
   type DealDeleteParams,
   type DealListPipelinesParams,
+  type DealCreatePipelineParams,
+  type DealUpdatePipelineParams,
 } from './deals';
 export {
   Disbursements,

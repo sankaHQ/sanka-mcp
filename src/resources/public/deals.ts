@@ -281,6 +281,39 @@ export class Deals extends APIResource {
     void query;
     return unwrapV2DataPromise(this._client.v2Get<DealListPipelinesResponse>('/deals/pipelines', options));
   }
+
+  /**
+   * Create Deal Pipeline
+   */
+  createPipeline(params: DealCreatePipelineParams, options?: RequestOptions): APIPromise<DealPipeline> {
+    const { workspace_id, ...body } = params;
+    return unwrapV2DataPromise(
+      this._client.v2Post<DealPipeline>('/public/deals/pipelines', {
+        query: workspace_id != null ? { workspace_id } : undefined,
+        body,
+        ...options,
+      }),
+    );
+  }
+
+  /**
+   * Update Deal Pipeline. `stages` is the complete ordered stage list; a stage is deleted only
+   * when it is listed in `removed_stages`.
+   */
+  updatePipeline(
+    pipelineID: string,
+    params: DealUpdatePipelineParams,
+    options?: RequestOptions,
+  ): APIPromise<DealPipeline> {
+    const { workspace_id, ...body } = params;
+    return unwrapV2DataPromise(
+      this._client.v2Patch<DealPipeline>(path`/public/deals/pipelines/${pipelineID}`, {
+        query: workspace_id != null ? { workspace_id } : undefined,
+        body,
+        ...options,
+      }),
+    );
+  }
 }
 
 export interface Case {
@@ -438,6 +471,123 @@ export namespace DealListPipelinesResponse {
 
       score?: number | null;
     }
+  }
+}
+
+export interface DealPipeline {
+  id: string;
+
+  name: string;
+
+  internal_name: string;
+
+  is_default?: boolean;
+
+  order?: number;
+
+  stages?: Array<DealPipeline.Stage>;
+}
+
+export namespace DealPipeline {
+  export interface Stage {
+    id: string;
+
+    name: string;
+
+    internal_value: string;
+
+    score?: number;
+
+    order?: number;
+
+    is_default?: boolean;
+
+    is_hidden?: boolean;
+  }
+}
+
+export interface DealCreatePipelineParams {
+  /**
+   * Query param
+   */
+  workspace_id?: string | null;
+
+  /**
+   * Body param
+   */
+  name: string;
+
+  /**
+   * Body param: make this the workspace's default Deal pipeline
+   */
+  is_default?: boolean;
+
+  /**
+   * Body param: ordered stages; the standard default stages are created when omitted
+   */
+  stages?: Array<DealCreatePipelineParams.Stage>;
+}
+
+export namespace DealCreatePipelineParams {
+  export interface Stage {
+    name: string;
+
+    internal_value?: string | null;
+
+    score?: number;
+
+    is_default?: boolean;
+
+    is_hidden?: boolean;
+  }
+}
+
+export interface DealUpdatePipelineParams {
+  /**
+   * Query param
+   */
+  workspace_id?: string | null;
+
+  /**
+   * Body param
+   */
+  name?: string | null;
+
+  /**
+   * Body param: make this the workspace's default Deal pipeline
+   */
+  is_default?: boolean | null;
+
+  /**
+   * Body param: complete ordered stage list, existing stages by id and new stages without one
+   */
+  stages?: Array<DealUpdatePipelineParams.Stage> | null;
+
+  /**
+   * Body param: stages to delete; Deals in a used stage move to its replacement_stage_id
+   */
+  removed_stages?: Array<DealUpdatePipelineParams.RemovedStage>;
+}
+
+export namespace DealUpdatePipelineParams {
+  export interface Stage {
+    id?: string | null;
+
+    name?: string | null;
+
+    internal_value?: string | null;
+
+    score?: number | null;
+
+    is_default?: boolean | null;
+
+    is_hidden?: boolean | null;
+  }
+
+  export interface RemovedStage {
+    id: string;
+
+    replacement_stage_id?: string | null;
   }
 }
 
@@ -692,11 +842,14 @@ export declare namespace Deals {
     type PublicCaseResponse as PublicCaseResponse,
     type DealListResponse as DealListResponse,
     type DealListPipelinesResponse as DealListPipelinesResponse,
+    type DealPipeline as DealPipeline,
     type DealCreateParams as DealCreateParams,
     type DealRetrieveParams as DealRetrieveParams,
     type DealUpdateParams as DealUpdateParams,
     type DealListParams as DealListParams,
     type DealDeleteParams as DealDeleteParams,
     type DealListPipelinesParams as DealListPipelinesParams,
+    type DealCreatePipelineParams as DealCreatePipelineParams,
+    type DealUpdatePipelineParams as DealUpdatePipelineParams,
   };
 }

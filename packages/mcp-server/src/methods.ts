@@ -550,6 +550,18 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/deals/pipelines',
   },
   {
+    clientCallName: 'client.public.deals.createPipeline',
+    fullyQualifiedName: 'public.deals.createPipeline',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/deals/pipelines',
+  },
+  {
+    clientCallName: 'client.public.deals.updatePipeline',
+    fullyQualifiedName: 'public.deals.updatePipeline',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/public/deals/pipelines/{pipeline_id}',
+  },
+  {
     clientCallName: 'client.public.tickets.create',
     fullyQualifiedName: 'public.tickets.create',
     httpMethod: 'post',

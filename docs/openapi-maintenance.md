@@ -64,8 +64,11 @@ entry to add.
 - Larger schema churn: regenerate types, then fix the affected wrappers intentionally.
 - Do not regenerate the entire repository blindly.
 
-The generated type snapshot now includes the public Flow plan/use and managed
-status/construct contract, alongside the already implemented Developer Cloud
-routes. Regeneration uses the shared SDK input; existing path, schema and operation
-members remain unchanged. This updates client types only. No dedicated Flow tool,
-verification/activation handler or plugin package is added by this snapshot.
+The generated type snapshot tracks sanka-api's generated public contract,
+`docs/api/sanka-public-api.yaml`; the Flow refresh and the Deal pipeline write
+refresh were both generated from it with
+`pnpm generate:openapi-types ../sanka-api/docs/api/sanka-public-api.yaml`.
+The shared SDK input (`../sanka-sdks/openapi.json`) receives only reviewed
+operations and carries SDK-only routes, so regenerating from it rewrites
+unrelated members. After a refresh, check that the diff adds only the intended
+operations and schemas.

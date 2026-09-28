@@ -3274,6 +3274,137 @@ const DEAL_PIPELINES_INPUT_SCHEMA = {
   },
 };
 
+const DEAL_PIPELINE_STAGE_INPUT_PROPERTIES = {
+  name: { type: 'string', minLength: 1, maxLength: 200, description: 'Stage name.' },
+  internal_value: {
+    type: 'string',
+    minLength: 1,
+    maxLength: 100,
+    description:
+      'Value stored on Deals in this stage, normalized to lowercase letters, digits and underscores. Derived from the name for a new stage when omitted.',
+  },
+  score: { type: 'integer', minimum: 0, maximum: 100, description: 'Stage score from 0 to 100.' },
+  is_default: {
+    type: 'boolean',
+    description: 'Default stage for new Deals. Set it on at most one stage.',
+  },
+  is_hidden: { type: 'boolean', description: 'Hide the stage instead of showing it.' },
+};
+
+const DEAL_PIPELINE_CREATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 200, description: 'Pipeline name.' },
+    is_default: {
+      type: 'boolean',
+      description:
+        "Make this the workspace's default Deal pipeline. A workspace's first pipeline is always the default.",
+    },
+    stages: {
+      type: 'array',
+      description:
+        'Stages from first to last. The first stage is the default stage unless one sets is_default=true. Omit to create the standard default stages.',
+      items: {
+        type: 'object',
+        properties: DEAL_PIPELINE_STAGE_INPUT_PROPERTIES,
+        required: ['name'],
+        additionalProperties: false,
+      },
+    },
+    workspace_id: { type: 'string', description: WORKSPACE_ID_DESCRIPTION },
+  },
+  required: ['name'],
+  additionalProperties: false,
+};
+
+const DEAL_PIPELINE_UPDATE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    pipeline_id: {
+      type: 'string',
+      minLength: 1,
+      description: 'Deal pipeline id from list_deal_pipelines.',
+    },
+    name: { type: 'string', minLength: 1, maxLength: 200, description: 'New pipeline name.' },
+    is_default: {
+      type: 'boolean',
+      description:
+        "true makes this the workspace's default Deal pipeline. false on the default pipeline hands that role to the first pipeline by order.",
+    },
+    stages: {
+      type: 'array',
+      minItems: 1,
+      description:
+        'The complete ordered stage list after the update; array position sets the order. List every kept stage by id and add new stages without an id. Every existing stage must appear exactly once, here or in removed_stages. Omit to keep the current stages and order.',
+      items: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            minLength: 1,
+            description: 'Existing stage id. Omit it to add a new stage at this position.',
+          },
+          ...DEAL_PIPELINE_STAGE_INPUT_PROPERTIES,
+          name: {
+            ...DEAL_PIPELINE_STAGE_INPUT_PROPERTIES.name,
+            description:
+              'Stage name. Required for a new stage; an existing stage keeps its name when omitted.',
+          },
+          internal_value: {
+            ...DEAL_PIPELINE_STAGE_INPUT_PROPERTIES.internal_value,
+            description:
+              "Value stored on Deals in this stage. An existing stage keeps its value when omitted; changing it moves the stage's Deals to the new value.",
+          },
+          is_default: {
+            type: 'boolean',
+            description:
+              'Set true on one stage to make it the default stage. Omit it on every stage to keep the current default.',
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+    removed_stages: {
+      type: 'array',
+      description:
+        'Existing stages to delete; a stage is deleted only when listed here. If Deals use a removed stage, replacement_stage_id must name a kept stage of this pipeline and those Deals move to it; without one the API refuses with STAGE_IN_USE and nothing changes. The current default stage cannot be removed.',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', minLength: 1, description: 'Id of the stage to delete.' },
+          replacement_stage_id: {
+            type: 'string',
+            minLength: 1,
+            description: "Kept stage of the same pipeline that receives this stage's Deals.",
+          },
+        },
+        required: ['id'],
+        additionalProperties: false,
+      },
+    },
+    workspace_id: { type: 'string', description: WORKSPACE_ID_DESCRIPTION },
+  },
+  required: ['pipeline_id'],
+  additionalProperties: false,
+};
+
+const DEAL_PIPELINE_MUTATION_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ok: { type: 'boolean' },
+    status: { type: 'string' },
+    pipeline_id: { type: 'string' },
+    // `record` is the container the result normalizer reads returned fields from.
+    record: {
+      type: 'object',
+      additionalProperties: true,
+      description: 'The Deal pipeline after the write, with its ordered stages and their ids.',
+    },
+    changes: { type: 'object', additionalProperties: true },
+  },
+  required: ['ok', 'status'],
+};
+
 const PIPELINE_SNAPSHOT_CAPTURE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -19672,6 +19803,245 @@ export const crmListDealPipelinesTool: McpTool = {
       },
       previewKeys: ['name', 'internal_name'],
     });
+  },
+};
+
+type DealsClient = McpRequestContext['client']['public']['deals'];
+
+const DEAL_PIPELINE_STAGE_FIELDS = ['name', 'internal_value', 'score', 'is_default', 'is_hidden'];
+
+const pickDefinedFields = (source: Record<string, unknown>, keys: string[]): Record<string, unknown> =>
+  Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
+
+const readRecordList = (value: unknown): Record<string, unknown>[] | undefined =>
+  Array.isArray(value) ? value.map((entry) => readRecord(entry) ?? {}) : undefined;
+
+const dealPipelineStages = (pipeline: Record<string, unknown>): Record<string, unknown>[] =>
+  readRecordList(pipeline['stages']) ?? [];
+
+const describeDealPipeline = (pipeline: Record<string, unknown>): string => {
+  const stages = dealPipelineStages(pipeline)
+    .map(
+      (stage) =>
+        `${readString(stage['name']) ?? readString(stage['id'])}${
+          stage['is_default'] === true ? ' (default)' : ''
+        }`,
+    )
+    .join(', ');
+  return `"${readString(pipeline['name']) ?? ''}" (${readString(pipeline['id']) ?? ''})${
+    pipeline['is_default'] === true ? ', the default Deal pipeline' : ''
+  }. Stages: ${stages || 'none'}.`;
+};
+
+// Codes the pipeline editor returns for requests it rejects. A 4xx answer writes nothing.
+const DEAL_PIPELINE_ERROR_HINTS: Record<string, string> = {
+  STAGE_IN_USE:
+    'Ask the user which kept stage of this pipeline should receive those Deals, then pass it as replacement_stage_id on that removed_stages entry.',
+  INVALID_PIPELINE_STAGE:
+    'Read the pipeline with list_deal_pipelines, then list every existing stage exactly once: by id in stages, or in removed_stages.',
+};
+
+const buildDealPipelineErrorResult = (error: unknown): ToolCallResult | undefined => {
+  const errorCandidates = collectApiErrorCandidates(error);
+  const apiError = errorCandidates.find(
+    (candidate) => readString(candidate['code']) && readString(candidate['message']),
+  );
+  const statusCode = errorCandidates
+    .map((candidate) => candidate['status'])
+    .find((status): status is number => typeof status === 'number');
+  if (!apiError || (statusCode !== undefined && statusCode >= 500)) {
+    return undefined;
+  }
+  const code = readString(apiError['code']) ?? '';
+  const message = readString(apiError['message']) ?? '';
+  const hint = DEAL_PIPELINE_ERROR_HINTS[code];
+  const meta = errorCandidates.map((candidate) => readRecord(candidate['meta'])).find(Boolean);
+  return {
+    content: [{ type: 'text', text: `Nothing was changed (${code}): ${message}${hint ? ` ${hint}` : ''}` }],
+    isError: true,
+    structuredContent: {
+      ok: false,
+      status: 'error',
+      status_code: statusCode,
+      code,
+      message,
+      details: apiError['details'],
+      ctx_id: readString(meta?.['ctx_id']),
+    },
+  };
+};
+
+const writeDealPipeline = async (
+  write: () => Promise<unknown>,
+  summarize: (pipeline: Record<string, unknown>) => { status: string; text: string; changes?: unknown },
+): Promise<ToolCallResult> => {
+  let pipeline: Record<string, unknown>;
+  try {
+    pipeline = readRecord(await write()) ?? {};
+  } catch (error) {
+    const result = buildDealPipelineErrorResult(error);
+    if (result) {
+      return result;
+    }
+    throw error;
+  }
+  const { status, text, changes } = summarize(pipeline);
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: {
+      ok: true,
+      status,
+      pipeline_id: readString(pipeline['id']),
+      record: pipeline,
+      ...(changes ? { changes } : undefined),
+    },
+  };
+};
+
+export const crmCreateDealPipelineTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'write',
+    tags: ['crm', 'deals'],
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/deals/pipelines',
+    operationId: 'public.deals.createPipeline',
+  },
+  tool: {
+    name: 'create_deal_pipeline',
+    title: 'Create deal pipeline',
+    description:
+      'Create a Deal pipeline with ordered stages in the current workspace. Stages are created in the given order; the first is the default stage unless one sets is_default=true, and omitting stages creates the standard default stages. Returns the pipeline with its new stage ids.',
+    inputSchema: DEAL_PIPELINE_CREATE_INPUT_SCHEMA,
+    outputSchema: DEAL_PIPELINE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Create deal pipeline',
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Create deal pipeline',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const stages = readRecordList(args?.['stages']);
+    const params = {
+      ...pickDefinedFields(args ?? {}, ['name', 'is_default']),
+      ...(stages ?
+        { stages: stages.map((stage) => pickDefinedFields(stage, DEAL_PIPELINE_STAGE_FIELDS)) }
+      : {}),
+      ...(readString(args?.['workspace_id']) ? { workspace_id: readString(args?.['workspace_id']) } : {}),
+    } as unknown as Parameters<DealsClient['createPipeline']>[0];
+
+    return writeDealPipeline(
+      () => reqContext.client.public.deals.createPipeline(params, undefined),
+      (pipeline) => ({ status: 'created', text: `Created deal pipeline ${describeDealPipeline(pipeline)}` }),
+    );
+  },
+};
+
+export const crmUpdateDealPipelineTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'write',
+    tags: ['crm', 'deals'],
+    httpMethod: 'patch',
+    httpPath: '/api/v2/public/deals/pipelines/{pipeline_id}',
+    operationId: 'public.deals.updatePipeline',
+  },
+  tool: {
+    name: 'update_deal_pipeline',
+    title: 'Update deal pipeline',
+    description:
+      'Rename a Deal pipeline, make it the workspace default, or add, rename, reorder, hide or remove its stages. Read the current stage ids with list_deal_pipelines first. `stages` replaces the whole ordered list: include every kept stage by id (omitted fields keep their values) and new stages without an id; each existing stage must appear exactly once in `stages` or `removed_stages`, or nothing is written (INVALID_PIPELINE_STAGE). Omit `stages` to keep the current stages. Removing a stage that Deals use needs `replacement_stage_id`, and those Deals move to that stage; without it the API returns STAGE_IN_USE and nothing changes. Confirm stage removals and Deal moves with the user first.',
+    inputSchema: DEAL_PIPELINE_UPDATE_INPUT_SCHEMA,
+    outputSchema: DEAL_PIPELINE_MUTATION_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'Update deal pipeline',
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'Update deal pipeline',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const pipelineID = readString(args?.['pipeline_id']);
+    if (!pipelineID) {
+      return asErrorResult('`pipeline_id` is required.');
+    }
+    const stages = readRecordList(args?.['stages']);
+    const removedStages = readRecordList(args?.['removed_stages']);
+    const params = {
+      ...pickDefinedFields(args ?? {}, ['name', 'is_default']),
+      ...(stages ?
+        { stages: stages.map((stage) => pickDefinedFields(stage, ['id', ...DEAL_PIPELINE_STAGE_FIELDS])) }
+      : {}),
+      ...(removedStages ?
+        {
+          removed_stages: removedStages.map((stage) =>
+            pickDefinedFields(stage, ['id', 'replacement_stage_id']),
+          ),
+        }
+      : {}),
+      ...(readString(args?.['workspace_id']) ? { workspace_id: readString(args?.['workspace_id']) } : {}),
+    } as unknown as Parameters<DealsClient['updatePipeline']>[1];
+
+    return writeDealPipeline(
+      () => reqContext.client.public.deals.updatePipeline(pipelineID, params, undefined),
+      (pipeline) => {
+        const keptStageIDs = new Set((stages ?? []).map((stage) => readString(stage['id'])));
+        const stagesAfter = dealPipelineStages(pipeline);
+        const stageName = (id: string | undefined) =>
+          readString(stagesAfter.find((stage) => readString(stage['id']) === id)?.['name']) ?? id;
+        const addedStages =
+          stages ?
+            stagesAfter
+              .filter((stage) => !keptStageIDs.has(readString(stage['id'])))
+              .map((stage) => ({ id: readString(stage['id']), name: readString(stage['name']) }))
+          : [];
+        const removed = (removedStages ?? []).map((stage) => {
+          const replacementID = readString(stage['replacement_stage_id']);
+          return {
+            id: readString(stage['id']),
+            ...(replacementID ?
+              { replacement_stage_id: replacementID, replacement_stage_name: stageName(replacementID) }
+            : {}),
+          };
+        });
+        const text = [
+          `Updated deal pipeline ${describeDealPipeline(pipeline)}`,
+          addedStages.length > 0 ? `Added stages: ${addedStages.map((stage) => stage.name).join(', ')}.` : '',
+          ...removed.map(
+            (stage) =>
+              `Removed stage ${stage.id}${
+                stage.replacement_stage_name ?
+                  `; its Deals, if any, moved to ${stage.replacement_stage_name}`
+                : ''
+              }.`,
+          ),
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return { status: 'updated', text, changes: { added_stages: addedStages, removed_stages: removed } };
+      },
+    );
   },
 };
 

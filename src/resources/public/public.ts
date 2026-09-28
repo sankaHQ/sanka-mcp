@@ -121,13 +121,16 @@ import * as DealsAPI from './deals';
 import {
   Case,
   DealCreateParams,
+  DealCreatePipelineParams,
   DealDeleteParams,
   DealListParams,
   DealListPipelinesParams,
   DealListPipelinesResponse,
   DealListResponse,
+  DealPipeline,
   DealRetrieveParams,
   DealUpdateParams,
+  DealUpdatePipelineParams,
   Deals,
   PublicCaseRequest,
   PublicCaseResponse,
@@ -870,12 +873,15 @@ export declare namespace Public {
     type PublicCaseResponse as PublicCaseResponse,
     type DealListResponse as DealListResponse,
     type DealListPipelinesResponse as DealListPipelinesResponse,
+    type DealPipeline as DealPipeline,
     type DealCreateParams as DealCreateParams,
     type DealRetrieveParams as DealRetrieveParams,
     type DealUpdateParams as DealUpdateParams,
     type DealListParams as DealListParams,
     type DealDeleteParams as DealDeleteParams,
     type DealListPipelinesParams as DealListPipelinesParams,
+    type DealCreatePipelineParams as DealCreatePipelineParams,
+    type DealUpdatePipelineParams as DealUpdatePipelineParams,
   };
 
   export {
