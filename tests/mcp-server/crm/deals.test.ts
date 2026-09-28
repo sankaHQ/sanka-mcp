@@ -1,6 +1,7 @@
 import {
   crmCapturePipelineSnapshotTool,
   crmComparePipelineSnapshotsTool,
+  crmCreateDealPipelineTool,
   crmCreateDealTool,
   crmDeleteDealTool,
   crmGetDealTool,
@@ -9,13 +10,16 @@ import {
   crmListDealsTool,
   crmListPipelineSnapshotBatchesTool,
   crmSyncPipelineSnapshotHubSpotPropertiesTool,
+  crmUpdateDealPipelineTool,
   crmUpdateDealTool,
 } from '../../../packages/mcp-server/src/crm-tools';
+import { validateToolArguments } from '../../../packages/mcp-server/src/tool-argument-validator';
 import {
   describeV2Requests,
   firstTextContent,
   oauthContext,
   sendThroughSDK,
+  type V2Request,
   type V2RequestCase,
 } from './helpers';
 
@@ -139,7 +143,161 @@ const v2Requests: V2RequestCase[] = [
   },
 ];
 
+const jsonResponse = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const pipelineStage = (id: string, name: string, internal_value: string, order: number, score = 0) => ({
+  id,
+  name,
+  internal_value,
+  score,
+  order,
+  is_default: false,
+  is_hidden: false,
+});
+const createdPipeline = {
+  id: 'pipeline-1',
+  name: 'Enterprise',
+  internal_name: 'enterprise',
+  is_default: false,
+  order: 1,
+  stages: [
+    pipelineStage('stage-1', 'Qualified', 'qualified', 0, 10),
+    { ...pipelineStage('stage-2', 'Proposal', 'proposal', 1, 60), is_default: true },
+  ],
+};
+const updatedPipeline = {
+  ...createdPipeline,
+  name: 'Enterprise 2026',
+  stages: [
+    { ...pipelineStage('stage-2', 'Proposal', 'proposal', 0, 60), is_default: true },
+    pipelineStage('stage-1', 'Discovery', 'qualified', 1, 10),
+    pipelineStage('stage-4', 'Negotiation', 'negotiation', 2, 80),
+  ],
+};
+
+// Each row: the tool call, the one request it must send, the API answer and what the tool returns.
+const pipelineWrites: Array<{
+  name: string;
+  tool: typeof crmCreateDealPipelineTool;
+  args: Record<string, unknown>;
+  request: V2Request;
+  response: Response;
+  isError: boolean;
+  structuredContent: Record<string, unknown>;
+  text: string[];
+}> = [
+  {
+    name: 'create_deal_pipeline creates ordered stages in the given workspace',
+    tool: crmCreateDealPipelineTool,
+    args: {
+      name: 'Enterprise',
+      stages: [
+        { name: 'Qualified', score: 10 },
+        { name: 'Proposal', score: 60, is_default: true },
+      ],
+      workspace_id: 'workspace-1',
+    },
+    request: {
+      method: 'POST',
+      url: 'http://localhost:5000/api/v2/public/deals/pipelines?workspace_id=workspace-1',
+      body: {
+        name: 'Enterprise',
+        stages: [
+          { name: 'Qualified', score: 10 },
+          { name: 'Proposal', score: 60, is_default: true },
+        ],
+      },
+    },
+    response: jsonResponse(201, { success: true, data: createdPipeline, meta: { ctx_id: 'ctx-1' } }),
+    isError: false,
+    structuredContent: { ok: true, status: 'created', pipeline_id: 'pipeline-1', record: createdPipeline },
+    text: ['Created deal pipeline "Enterprise" (pipeline-1)', 'Qualified, Proposal (default)'],
+  },
+  {
+    name: 'update_deal_pipeline sends the full stage list and moves Deals off a removed stage',
+    tool: crmUpdateDealPipelineTool,
+    args: {
+      pipeline_id: 'pipeline-1',
+      name: 'Enterprise 2026',
+      stages: [{ id: 'stage-2' }, { id: 'stage-1', name: 'Discovery' }, { name: 'Negotiation', score: 80 }],
+      removed_stages: [{ id: 'stage-3', replacement_stage_id: 'stage-1' }],
+    },
+    request: {
+      method: 'PATCH',
+      url: 'http://localhost:5000/api/v2/public/deals/pipelines/pipeline-1',
+      body: {
+        name: 'Enterprise 2026',
+        stages: [{ id: 'stage-2' }, { id: 'stage-1', name: 'Discovery' }, { name: 'Negotiation', score: 80 }],
+        removed_stages: [{ id: 'stage-3', replacement_stage_id: 'stage-1' }],
+      },
+    },
+    response: jsonResponse(200, { success: true, data: updatedPipeline, meta: { ctx_id: 'ctx-2' } }),
+    isError: false,
+    structuredContent: {
+      ok: true,
+      status: 'updated',
+      pipeline_id: 'pipeline-1',
+      record: updatedPipeline,
+      changes: {
+        added_stages: [{ id: 'stage-4', name: 'Negotiation' }],
+        removed_stages: [
+          { id: 'stage-3', replacement_stage_id: 'stage-1', replacement_stage_name: 'Discovery' },
+        ],
+      },
+    },
+    text: [
+      'Added stages: Negotiation',
+      'Removed stage stage-3; its Deals, if any, moved to Discovery',
+      'Proposal (default)',
+    ],
+  },
+  {
+    name: 'update_deal_pipeline surfaces STAGE_IN_USE when a used stage has no replacement',
+    tool: crmUpdateDealPipelineTool,
+    args: { pipeline_id: 'pipeline-1', removed_stages: [{ id: 'stage-3' }] },
+    request: {
+      method: 'PATCH',
+      url: 'http://localhost:5000/api/v2/public/deals/pipelines/pipeline-1',
+      body: { removed_stages: [{ id: 'stage-3' }] },
+    },
+    response: jsonResponse(409, {
+      success: false,
+      error: {
+        code: 'STAGE_IN_USE',
+        message: '2 Deal record(s) use this Stage. Select a replacement Stage before deleting it.',
+        details: { usage_count: 2 },
+      },
+      meta: { ctx_id: 'ctx-3' },
+    }),
+    isError: true,
+    structuredContent: {
+      ok: false,
+      status_code: 409,
+      code: 'STAGE_IN_USE',
+      details: { usage_count: 2 },
+      ctx_id: 'ctx-3',
+    },
+    text: ['STAGE_IN_USE', '2 Deal record(s) use this Stage', 'replacement_stage_id', 'Nothing was changed'],
+  },
+];
+
 describe('CRM deal and pipeline tools', () => {
+  it.each(pipelineWrites)(
+    '$name',
+    async ({ tool, args, request, response, isError, structuredContent, text }) => {
+      expect(validateToolArguments({ mcpTool: tool, args })).toBeUndefined();
+
+      const { requests, result } = await sendThroughSDK({ tool, args, responses: [response] });
+
+      expect(requests).toEqual([request]);
+      expect(result.isError === true).toBe(isError);
+      expect(result.structuredContent).toMatchObject(structuredContent);
+      for (const fact of text) {
+        expect(firstTextContent(result)).toContain(fact);
+      }
+    },
+  );
+
   it('lists deals with a local result limit', async () => {
     const list = jest.fn().mockResolvedValue([
       {

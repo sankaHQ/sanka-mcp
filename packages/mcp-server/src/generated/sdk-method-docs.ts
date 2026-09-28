@@ -972,6 +972,24 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       '{ ok: boolean; status: string; case_id?: string | null; ctx_id?: string | null; external_id?: string | null; record_preview?: PublicCaseResponse.RecordPreview | null; updated_fields?: Record<string, unknown> | null; target?: string | null; provider?: string | null; channel_id?: string | null; channel_name?: string | null; external_object_type?: string | null; operation?: string | null; dry_run?: boolean | null; remote?: Record<string, unknown> | null; sync_state?: Record<string, unknown> | null; warnings?: Array<string> | null; message?: string | null; }',
   },
   {
+    qualified: 'client.public.deals.createPipeline',
+    name: 'create_pipeline',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/deals/pipelines',
+    summary: 'Create Deal Pipeline',
+    description: 'Create Deal Pipeline',
+    signature:
+      'client.public.deals.createPipeline(params: DealCreatePipelineParams, options?: RequestOptions): APIPromise<DealPipeline>',
+    params: [
+      'workspace_id?: string | null;',
+      'name: string;',
+      'is_default?: boolean;',
+      'stages?: Array<DealCreatePipelineParams.Stage>;',
+    ],
+    response:
+      '{ id: string; name: string; internal_name: string; is_default?: boolean; order?: number; stages?: Array<DealPipeline.Stage>; }',
+  },
+  {
     qualified: 'client.public.deals.delete',
     name: 'delete',
     httpMethod: 'delete',
@@ -1086,6 +1104,27 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     ],
     response:
       '{ ok: boolean; status: string; case_id?: string | null; ctx_id?: string | null; external_id?: string | null; record_preview?: PublicCaseResponse.RecordPreview | null; updated_fields?: Record<string, unknown> | null; target?: string | null; provider?: string | null; channel_id?: string | null; channel_name?: string | null; external_object_type?: string | null; operation?: string | null; dry_run?: boolean | null; remote?: Record<string, unknown> | null; sync_state?: Record<string, unknown> | null; warnings?: Array<string> | null; message?: string | null; }',
+  },
+  {
+    qualified: 'client.public.deals.updatePipeline',
+    name: 'update_pipeline',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/public/deals/pipelines/{pipelineID}',
+    summary: 'Update Deal Pipeline.',
+    description:
+      'Update Deal Pipeline. `stages` is the complete ordered stage list; a stage is deleted only when it is listed in `removed_stages`.',
+    signature:
+      'client.public.deals.updatePipeline(pipelineID: string, params: DealUpdatePipelineParams, options?: RequestOptions): APIPromise<DealPipeline>',
+    params: [
+      'pipelineID: string;',
+      'workspace_id?: string | null;',
+      'name?: string | null;',
+      'is_default?: boolean | null;',
+      'stages?: Array<DealUpdatePipelineParams.Stage> | null;',
+      'removed_stages?: Array<DealUpdatePipelineParams.RemovedStage>;',
+    ],
+    response:
+      '{ id: string; name: string; internal_name: string; is_default?: boolean; order?: number; stages?: Array<DealPipeline.Stage>; }',
   },
   {
     qualified: 'client.public.disbursements.create',
