@@ -30,7 +30,8 @@ const propertyFromV2 = (value: unknown, objectName?: string): Property => {
     ...row,
     id: String(row['id'] ?? row['property_id'] ?? row['internal_name'] ?? ''),
     immutable: Boolean(row['immutable'] ?? false),
-    is_custom: Boolean(row['is_custom'] ?? true),
+    // Only the API knows a row's source; never report an unmarked row as custom.
+    is_custom: row['is_custom'] === true,
     object: String(row['object'] ?? objectName ?? ''),
   } as Property;
 };
