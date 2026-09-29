@@ -7,6 +7,9 @@ cd "$(dirname "$0")/.."
 echo "==> Running eslint"
 ./node_modules/.bin/eslint .
 
+echo "==> Checking names"
+./node_modules/.bin/ts-node -T scripts/naming-guard.ts
+
 echo "==> Building"
 ./scripts/build
 

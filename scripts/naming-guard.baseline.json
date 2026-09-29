@@ -1,0 +1,11 @@
+{
+  "packages/mcp-server/src/ferry-diagram-tools.ts": 6,
+  "packages/mcp-server/src/ferry-program-tools.ts": 10,
+  "src/resources/public/ferry-diagrams.ts": 22,
+  "src/resources/public/ferry-programs.ts": 28,
+  "src/resources/public/public.ts": 2,
+  "tests/api-resources/public/ferry-diagrams.test.ts": 1,
+  "tests/api-resources/public/ferry-programs.test.ts": 1,
+  "tests/mcp-server/ferry-diagram-tools.test.ts": 1,
+  "tests/mcp-server/ferry-program-tools.test.ts": 1
+}

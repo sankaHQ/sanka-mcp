@@ -67,6 +67,12 @@ To lint:
 $ pnpm lint
 ```
 
+`pnpm lint` also runs the naming guard (`scripts/naming-guard.ts`). Ferry is now Sanka, so new
+code names things `migration`; the guard fails on new ferry-named declarations or files. Published
+MCP tool names and API paths are strings and keep their names. The per-file counts in
+`scripts/naming-guard.baseline.json` only go down: after a rename, run
+`pnpm lint:naming --update-baseline`.
+
 To format and fix all lint issues automatically:
 
 ```sh
