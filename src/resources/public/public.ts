@@ -420,6 +420,8 @@ import {
 } from './payments';
 import * as PropertiesAPI from './properties';
 import {
+  LineItemPropertyDeleteParams,
+  LineItemPropertyListParams,
   Properties,
   Property,
   PropertyCreateParams,
@@ -1035,6 +1037,8 @@ export declare namespace Public {
     type PropertyUpdateParams as PropertyUpdateParams,
     type PropertyListParams as PropertyListParams,
     type PropertyDeleteParams as PropertyDeleteParams,
+    type LineItemPropertyListParams as LineItemPropertyListParams,
+    type LineItemPropertyDeleteParams as LineItemPropertyDeleteParams,
   };
 
   export {

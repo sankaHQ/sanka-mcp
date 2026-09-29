@@ -410,6 +410,8 @@ export {
   type PropertyUpdateParams,
   type PropertyListParams,
   type PropertyDeleteParams,
+  type LineItemPropertyListParams,
+  type LineItemPropertyDeleteParams,
 } from './properties';
 export { Public } from './public';
 export {

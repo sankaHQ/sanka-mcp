@@ -28,7 +28,46 @@ import {
   crmUpdateViewTool,
   crmUpsertApprovalRuleTool,
 } from '../../../packages/mcp-server/src/crm-tools';
-import { describeV2Requests, firstTextContent, oauthContext, type V2RequestCase } from './helpers';
+import {
+  describeV2Requests,
+  firstTextContent,
+  oauthContext,
+  sendThroughSDK,
+  type V2Request,
+  type V2RequestCase,
+} from './helpers';
+
+// The deal line-item settings the API answers with: fixed columns first, then the custom properties.
+const lineItemEditor = {
+  page_group_type: 'customer_case',
+  default_rows: [
+    {
+      id: 'item',
+      name: 'Item',
+      internal_name: 'item',
+      type_label: 'Default',
+      is_default: true,
+      editable: false,
+    },
+  ],
+  custom_rows: [
+    ['line-prop-status', 'Allocation status', 'allocation_status', 'text'],
+    ['line-prop-unit', 'Allocated unit', 'allocated_unit', 'inventory_record'],
+    ['line-prop-stage', 'Allocation stage', 'allocation_stage', 'choice'],
+  ].map(([id, name, internal_name, property_type]) => ({
+    id,
+    name,
+    internal_name,
+    type_label: property_type,
+    property_type,
+    is_default: false,
+    editable: true,
+  })),
+};
+const lineItemEditorRequest: V2Request = {
+  method: 'GET',
+  url: 'http://localhost:5000/api/v2/workspace-object-settings/properties/line-item-editor?page_group_type=deals',
+};
 
 const v2Requests: V2RequestCase[] = [
   {
@@ -416,6 +455,93 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
+    name: 'creates a deal line-item property instead of a deal property',
+    tool: crmCreatePropertyTool,
+    args: { object_name: 'deals', line_item: true, name: 'Allocated unit', type: 'inventory_record' },
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: 'http://localhost:5000/api/v2/properties/deals',
+        body: { name: 'Allocated unit', type: 'inventory_record', editor_variant: 'line_item_property' },
+      },
+    ],
+  },
+  {
+    name: 'lists deal line-item properties from the line-item settings',
+    tool: crmListPropertiesTool,
+    args: { object_name: 'deals', line_item: true, language: 'ja', limit: 2 },
+    response: lineItemEditor,
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: 'http://localhost:5000/api/v2/workspace-object-settings/properties/line-item-editor?page_group_type=deals&language=ja',
+      },
+    ],
+    expectedResult: {
+      count: 2,
+      page: 1,
+      total: 3,
+      has_next: true,
+      results: [
+        { id: 'line-prop-status', internal_name: 'allocation_status', type: 'text', line_item: true },
+        { id: 'line-prop-unit', internal_name: 'allocated_unit', type: 'inventory_record', line_item: true },
+      ],
+    },
+  },
+  {
+    name: 'gets a deal line-item property by internal name',
+    tool: crmGetPropertyTool,
+    args: { object_name: 'deals', property_ref: 'allocated_unit', line_item: true },
+    response: lineItemEditor,
+    expectedRequests: [lineItemEditorRequest],
+    expectedResult: {
+      id: 'line-prop-unit',
+      name: 'Allocated unit',
+      type: 'inventory_record',
+      line_item: true,
+    },
+  },
+  {
+    name: 'renames a deal line-item property and keeps its type',
+    tool: crmUpdatePropertyTool,
+    args: {
+      object_name: 'deals',
+      property_ref: 'allocation_status',
+      line_item: true,
+      name: 'Allocation state',
+    },
+    responses: [lineItemEditor, { property_id: 'line-prop-status', page_group_type: 'customer_case' }],
+    expectedRequests: [
+      lineItemEditorRequest,
+      {
+        method: 'PUT',
+        url: 'http://localhost:5000/api/v2/properties/deals/line-prop-status',
+        body: { name: 'Allocation state', type: 'text', editor_variant: 'line_item_property' },
+      },
+    ],
+    expectedResult: { property_id: 'line-prop-status', status: 'updated' },
+  },
+  {
+    name: 'deletes a deal line-item property through the line-item settings',
+    tool: crmDeletePropertyTool,
+    args: { object_name: 'deals', property_ref: 'Allocated unit', line_item: true },
+    responses: [lineItemEditor, { property_id: 'line-prop-unit', page_group_type: 'customer_case' }],
+    expectedRequests: [
+      lineItemEditorRequest,
+      {
+        method: 'PATCH',
+        url: 'http://localhost:5000/api/v2/workspace-object-settings/properties/editor',
+        body: {
+          page_group_type: 'deals',
+          property_id: 'line-prop-unit',
+          editor_variant: 'line_item_property',
+          delete_property: true,
+        },
+      },
+    ],
+    expectedResult: { property_id: 'line-prop-unit', status: 'deleted' },
+  },
+  {
     name: 'lists routed object schemas from integration scope',
     tool: crmListObjectSchemasTool,
     args: {
@@ -764,6 +890,38 @@ describe('CRM settings, governance, and saved view tools', () => {
         },
       ],
     });
+  });
+
+  // Each row: a line-item property call the tool must refuse, the requests it sends before refusing,
+  // and the argument the error points at.
+  it.each([
+    {
+      name: 'refuses to route a line-item property to a connected CRM',
+      tool: crmCreatePropertyTool,
+      args: { object_name: 'deals', line_item: true, provider: 'hubspot', name: 'Status', type: 'text' },
+      expectedRequests: [],
+      argument: 'line_item',
+    },
+    {
+      name: 'refuses an update that would clear the choices of a choice line-item property',
+      tool: crmUpdatePropertyTool,
+      args: { object_name: 'deals', property_ref: 'allocation_stage', line_item: true, name: 'Stage' },
+      expectedRequests: [lineItemEditorRequest],
+      argument: 'choice_values',
+    },
+    {
+      name: 'reports a line-item property that does not exist',
+      tool: crmGetPropertyTool,
+      args: { object_name: 'deals', property_ref: 'allocation_owner', line_item: true },
+      expectedRequests: [lineItemEditorRequest],
+      argument: 'allocation_owner',
+    },
+  ])('$name', async ({ tool, args, expectedRequests, argument }) => {
+    const { requests, result } = await sendThroughSDK({ tool, args, response: lineItemEditor });
+
+    expect(requests).toEqual(expectedRequests);
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain(argument);
   });
 
   it('rejects provider with explicit Sanka property creation', async () => {

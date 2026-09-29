@@ -6,6 +6,7 @@ import {
   crmDeleteDealTool,
   crmGetDealTool,
   crmGetPipelineSnapshotBatchTool,
+  crmListDealLineItemsTool,
   crmListDealPipelinesTool,
   crmListDealsTool,
   crmListPipelineSnapshotBatchesTool,
@@ -35,6 +36,30 @@ const v2Requests: V2RequestCase[] = [
         headers: { 'accept-language': 'en' },
       },
     ],
+  },
+  {
+    name: "lists a deal's line items with their numeric ids and line-item property values",
+    tool: crmListDealLineItemsTool,
+    args: { case_id: 'deal-1' },
+    response: {
+      id: 'deal-1',
+      object_type: 'deal',
+      line_item_type: 'normal',
+      total: 2,
+      items: [
+        { line_item_id: '11001', item_name: 'Generator', custom_fields: { 'line-prop-status': 'allocated' } },
+        { line_item_id: '11002', item_name: 'Generator', custom_fields: {} },
+      ],
+    },
+    expectedRequests: [{ method: 'GET', url: 'http://localhost:5000/api/v2/deals/deal-1/line-items' }],
+    expectedResult: {
+      case_id: 'deal-1',
+      count: 2,
+      line_items: [
+        { line_item_id: '11001', custom_fields: { 'line-prop-status': 'allocated' } },
+        { line_item_id: '11002', custom_fields: {} },
+      ],
+    },
   },
   {
     name: 'creates a Sanka deal for a company through the public deals route in the given workspace',

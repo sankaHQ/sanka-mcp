@@ -33,6 +33,15 @@ export interface PublicLineItem {
 
   quantity?: number | null;
 
+  /**
+   * `section` for a section heading row in the line-item layout.
+   */
+  row_type?: string | null;
+
+  section_label?: string | null;
+
+  section_type?: string | null;
+
   source_item_fields?: Record<string, unknown>;
 
   status?: string | null;

@@ -40,6 +40,42 @@ const propertyFromV2 = (value: unknown, objectName?: string): Property => {
   } as Property;
 };
 
+// `editor_variant` that makes the property routes write line-item properties.
+const LINE_ITEM_PROPERTY_EDITOR_VARIANT = 'line_item_property';
+
+// One row of an object's line-item settings. `custom_rows` holds the line-item properties.
+type V2LineItemPropertyRow = {
+  id?: string;
+  name?: string;
+  internal_name?: string;
+  type_label?: string;
+  property_type?: string | null;
+  reference_item_property?: string | null;
+  editable?: boolean;
+};
+
+type V2LineItemSettingsData = {
+  custom_rows?: Array<V2LineItemPropertyRow>;
+};
+
+// The line-item settings routes match object names exactly, without the lower-casing and
+// purchase-orders -> purchase_orders rewrite that the property routes apply.
+const lineItemPageGroupType = (objectName: string): string =>
+  objectName.trim().toLowerCase().replace(/-/g, '_');
+
+const lineItemPropertyFromV2 = (row: V2LineItemPropertyRow, objectName: string): Property => ({
+  id: String(row.id ?? ''),
+  name: row.name ?? null,
+  internal_name: row.internal_name ?? null,
+  type: row.property_type ?? null,
+  type_label: row.type_label ?? null,
+  ...(row.reference_item_property ? { reference_item_property: row.reference_item_property } : undefined),
+  immutable: row.editable === false,
+  is_custom: true,
+  line_item: true,
+  object: objectName,
+});
+
 const normalizePropertyMutationBody = (
   params: PropertyCreateParams | Omit<PropertyUpdateParams, 'object_name'>,
 ): Record<string, unknown> => {
@@ -218,6 +254,49 @@ export class Properties extends APIResource {
       query,
     );
   }
+
+  /**
+   * List the line-item properties of an object with line items: deals, orders, estimates, invoices,
+   * purchase orders, subscriptions or disbursements. A property's `id` keys the `custom_fields` of
+   * that object's line items. Create and update them with `editor_variant: 'line_item_property'`.
+   */
+  listLineItemProperties(
+    objectName: string,
+    params: LineItemPropertyListParams | null | undefined = {},
+    options?: RequestOptions,
+  ): APIPromise<Array<Property>> {
+    return this._client
+      .v2Get<V2LineItemSettingsData>('/workspace-object-settings/properties/line-item-editor', {
+        query: { page_group_type: lineItemPageGroupType(objectName), ...params },
+        ...options,
+      })
+      ._thenUnwrap((envelope) =>
+        (unwrapV2Data(envelope).custom_rows ?? []).map((row) => lineItemPropertyFromV2(row, objectName)),
+      );
+  }
+
+  /**
+   * Delete a line-item property by its id.
+   */
+  deleteLineItemProperty(
+    propertyID: string,
+    params: LineItemPropertyDeleteParams,
+    options?: RequestOptions,
+  ): APIPromise<PropertyMutation> {
+    return unwrapV2PropertyMutation(
+      this._client.v2Patch<V2PropertyMutationData>('/workspace-object-settings/properties/editor', {
+        body: {
+          page_group_type: lineItemPageGroupType(params.object_name),
+          property_id: propertyID,
+          editor_variant: LINE_ITEM_PROPERTY_EDITOR_VARIANT,
+          delete_property: true,
+        },
+        ...options,
+      }),
+      params.object_name,
+      'deleted',
+    );
+  }
 }
 
 export interface Property {
@@ -261,6 +340,11 @@ export interface Property {
 
   channel_name?: string | null;
 
+  /**
+   * True for a line-item property, a column on the object's line items.
+   */
+  line_item?: boolean | null;
+
   multiple_select?: boolean | null;
 
   name?: string | null;
@@ -269,6 +353,11 @@ export interface Property {
 
   order?: number | null;
 
+  /**
+   * Item property a `reference_item_property` line-item property shows.
+   */
+  reference_item_property?: string | null;
+
   required_field?: boolean | null;
 
   show_badge?: boolean | null;
@@ -276,6 +365,8 @@ export interface Property {
   tag_values?: Array<string> | null;
 
   type?: string | null;
+
+  type_label?: string | null;
 
   unique?: boolean | null;
 
@@ -388,6 +479,11 @@ export interface PropertyCreateParams {
 
   dry_run?: boolean | null;
 
+  /**
+   * `line_item_property` creates a line-item property of the object instead.
+   */
+  editor_variant?: string | null;
+
   external_id?: string | null;
 
   external_object_type?: string | null;
@@ -411,6 +507,8 @@ export interface PropertyCreateParams {
   order?: number | null;
 
   provider?: string | null;
+
+  reference_item_property?: string | null;
 
   required_field?: boolean | null;
 
@@ -519,6 +617,11 @@ export interface PropertyUpdateParams {
   dry_run?: boolean | null;
 
   /**
+   * Body param. `line_item_property` updates a line-item property of the object instead.
+   */
+  editor_variant?: string | null;
+
+  /**
    * Body param
    */
   external_id?: string | null;
@@ -572,6 +675,11 @@ export interface PropertyUpdateParams {
    * Body param
    */
   provider?: string | null;
+
+  /**
+   * Body param
+   */
+  reference_item_property?: string | null;
 
   /**
    * Body param
@@ -687,6 +795,17 @@ export interface PropertyDeleteParams {
   target?: string | null;
 }
 
+export interface LineItemPropertyListParams {
+  /**
+   * Query param. Language of the type labels, for example `ja`.
+   */
+  language?: string | null;
+}
+
+export interface LineItemPropertyDeleteParams {
+  object_name: string;
+}
+
 export declare namespace Properties {
   export {
     type Property as Property,
@@ -698,5 +817,7 @@ export declare namespace Properties {
     type PropertyUpdateParams as PropertyUpdateParams,
     type PropertyListParams as PropertyListParams,
     type PropertyDeleteParams as PropertyDeleteParams,
+    type LineItemPropertyListParams as LineItemPropertyListParams,
+    type LineItemPropertyDeleteParams as LineItemPropertyDeleteParams,
   };
 }

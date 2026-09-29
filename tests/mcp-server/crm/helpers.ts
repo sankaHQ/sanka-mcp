@@ -44,6 +44,8 @@ export type V2RequestCase = {
   expectedRequests: V2Request[];
   /** V2 envelope data the fake API answers every request with. */
   response?: unknown;
+  /** V2 envelope data for each request in order, when the requests need different answers. */
+  responses?: unknown[];
   /** Fields the tool's structuredContent must then contain. */
   expectedResult?: Record<string, unknown>;
 };
@@ -107,7 +109,12 @@ export const describeV2Requests = (cases: V2RequestCase[]) =>
     it.each(cases)('$name', async (scenario) => {
       expect(validateToolArguments({ mcpTool: scenario.tool, args: scenario.args })).toBeUndefined();
 
-      const { requests, result } = await sendThroughSDK(scenario);
+      const { requests, result } = await sendThroughSDK({
+        tool: scenario.tool,
+        args: scenario.args,
+        response: scenario.response,
+        responses: scenario.responses?.map(envelope) ?? [],
+      });
 
       expect(result.isError).toBeFalsy();
       expect(requests).toEqual(scenario.expectedRequests);

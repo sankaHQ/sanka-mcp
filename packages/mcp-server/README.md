@@ -99,6 +99,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `delete_contact`: delete a contact
 - `list_deals`: read-only deal search
 - `get_deal`: load a single deal
+- `list_deal_line_items`: list a deal's line items with their numeric ids and line-item property values
 - `create_deal`: create or upsert a deal by external reference
 - `update_deal`: update a deal
 - `delete_deal`: delete a deal
@@ -179,6 +180,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `create_property`: create a custom property
 - `update_property`: update a custom property
 - `delete_property`: delete a custom property
+- Pass `line_item: true` to the five property tools for line-item properties, the custom columns on the line items of deals, orders, estimates, invoices, purchase orders, subscriptions and disbursements
 - `get_calendar_bootstrap`: load calendar booking context
 - `check_calendar_availability`: inspect available booking slots
 - `create_calendar_attendance`: book a calendar attendance

@@ -24,6 +24,10 @@ type V2ObjectRecordList = {
   total?: number;
 };
 
+type V2DealLineItemListData = {
+  items?: Array<PublicLineItem>;
+};
+
 type V2LifecycleData = {
   id?: string | null;
   record_id?: string | null;
@@ -269,6 +273,17 @@ export class Deals extends APIResource {
         ...options,
       })
       ._thenUnwrap((envelope) => dealDeleteResponseFromV2Lifecycle(envelope, external_id));
+  }
+
+  /**
+   * List one deal's line items in display order. `line_item_id` is the numeric line id, and
+   * `custom_fields` maps line-item property ids to values. Rows with `row_type: 'section'` are
+   * section headings.
+   */
+  listLineItems(caseID: string, options?: RequestOptions): APIPromise<Array<PublicLineItem>> {
+    return this._client
+      .v2Get<V2DealLineItemListData>(path`/deals/${caseID}/line-items`, options)
+      ._thenUnwrap((envelope) => unwrapV2Data(envelope).items ?? []);
   }
 
   /**
