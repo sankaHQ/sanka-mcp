@@ -544,6 +544,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/deals/{case_id}',
   },
   {
+    clientCallName: 'client.public.deals.listLineItems',
+    fullyQualifiedName: 'public.deals.listLineItems',
+    httpMethod: 'get',
+    httpPath: '/api/v2/deals/{case_id}/line-items',
+  },
+  {
     clientCallName: 'client.public.deals.listPipelines',
     fullyQualifiedName: 'public.deals.listPipelines',
     httpMethod: 'get',
@@ -1058,6 +1064,18 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.properties.delete',
     httpMethod: 'delete',
     httpPath: '/api/v2/properties/{object_name}/{property_ref}',
+  },
+  {
+    clientCallName: 'client.public.properties.listLineItemProperties',
+    fullyQualifiedName: 'public.properties.listLineItemProperties',
+    httpMethod: 'get',
+    httpPath: '/api/v2/workspace-object-settings/properties/line-item-editor',
+  },
+  {
+    clientCallName: 'client.public.properties.deleteLineItemProperty',
+    fullyQualifiedName: 'public.properties.deleteLineItemProperty',
+    httpMethod: 'patch',
+    httpPath: '/api/v2/workspace-object-settings/properties/editor',
   },
   {
     clientCallName: 'client.public.objectSchemas.list',

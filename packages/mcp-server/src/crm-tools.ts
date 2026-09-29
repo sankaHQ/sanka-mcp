@@ -3090,6 +3090,30 @@ const DEAL_RETRIEVE_INPUT_SCHEMA = {
   required: ['case_id'],
 };
 
+const DEAL_LINE_ITEMS_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    case_id: DEAL_RETRIEVE_INPUT_SCHEMA.properties.case_id,
+  },
+  required: ['case_id'],
+};
+
+const DEAL_LINE_ITEMS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    case_id: { type: 'string' },
+    count: { type: 'integer' },
+    line_items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  required: ['case_id', 'count', 'line_items'],
+};
+
 const PUBLIC_LINE_ITEM_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -3613,7 +3637,22 @@ const PROPERTY_CUSTOM_OBJECT_INPUT_PROPERTIES = {
   },
 };
 
+const LINE_ITEM_PROPERTY_DESCRIPTION =
+  'Set true for line-item properties: custom columns on the line items of deals, orders, estimates, invoices, purchase orders, subscriptions, or disbursements. Each line item keeps their values in custom_fields by property id (see list_deal_line_items). Sanka only; do not combine with provider, dry_run, or integration routing.';
+
+const LINE_ITEM_PROPERTY_REF_DESCRIPTION =
+  ' With line_item, property_ref may be the property id, internal name, or name.';
+
 const PROPERTY_MUTATION_INPUT_PROPERTIES = {
+  line_item: {
+    type: 'boolean',
+    description: `${LINE_ITEM_PROPERTY_DESCRIPTION}${LINE_ITEM_PROPERTY_REF_DESCRIPTION} Line-item property types: text, number, choice, date, date_time, image, file, discount, frequency_choices, inventory_record, inventory_transaction_record, meter_record, contact_record, company_record, and reference_item_property. An update keeps the current name and type when they are omitted and replaces the choices, so pass the full choice_values for a choice property.`,
+  },
+  reference_item_property: {
+    type: 'string',
+    description:
+      'For a line-item property of type reference_item_property: the item property id (from list_properties with object_name=items) whose value the column shows.',
+  },
   target: {
     type: 'string',
     description:
@@ -3754,6 +3793,10 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
       type: 'string',
       description:
         'Object family to inspect, for example `orders`, `companies`, `invoices`, or `purchase-orders`.',
+    },
+    line_item: {
+      type: 'boolean',
+      description: `${LINE_ITEM_PROPERTY_DESCRIPTION} Lists every line-item property; limit, page, and search apply to that list.`,
     },
     custom_only: {
       type: 'boolean',
@@ -4091,6 +4134,10 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
       type: 'string',
       description: 'Property identifier or reference.',
     },
+    line_item: {
+      type: 'boolean',
+      description: `${LINE_ITEM_PROPERTY_DESCRIPTION}${LINE_ITEM_PROPERTY_REF_DESCRIPTION}`,
+    },
     scope: {
       type: 'string',
       description:
@@ -4170,6 +4217,10 @@ const PROPERTY_DELETE_INPUT_SCHEMA = {
     property_ref: {
       type: 'string',
       description: 'Property identifier or reference to delete.',
+    },
+    line_item: {
+      type: 'boolean',
+      description: `${LINE_ITEM_PROPERTY_DESCRIPTION}${LINE_ITEM_PROPERTY_REF_DESCRIPTION}`,
     },
     target: {
       type: 'string',
@@ -14257,6 +14308,100 @@ const buildPropertyDeleteParams = (args: Record<string, unknown> | undefined) =>
   };
 };
 
+// The property create and update routes write a line-item property when the body carries this.
+const LINE_ITEM_PROPERTY_EDITOR_VARIANT = 'line_item_property';
+
+type PropertiesClient = McpRequestContext['client']['public']['properties'];
+type LineItemProperty = Awaited<ReturnType<PropertiesClient['listLineItemProperties']>>[number];
+
+const isLineItemPropertyRequest = (args: Record<string, unknown> | undefined): boolean =>
+  readBoolean(args?.['line_item']) === true;
+
+// A provider or integration target would send the definition to the connected CRM as an ordinary
+// property, and line-item properties have no dry run.
+const lineItemPropertyRoutingError = (args: Record<string, unknown> | undefined): string | undefined => {
+  const target = readLowerString(args?.['target']);
+  const scope = readLowerString(args?.['scope'] ?? args?.['source']);
+  const routedElsewhere =
+    readString(args?.['provider']) !== undefined ||
+    (target !== undefined && target !== 'sanka') ||
+    (scope !== undefined && scope !== 'sanka') ||
+    readBoolean(args?.['dry_run']) === true;
+  return routedElsewhere ?
+      '`line_item` properties exist only in Sanka; omit provider, dry_run, and an integration target or scope.'
+    : undefined;
+};
+
+const findLineItemProperty = async (
+  properties: PropertiesClient,
+  objectName: string,
+  propertyRef: string,
+  language?: string,
+): Promise<LineItemProperty | undefined> => {
+  const rows = await properties.listLineItemProperties(objectName, language ? { language } : undefined);
+  return (
+    rows.find((row) => row.id === propertyRef || row.internal_name === propertyRef) ??
+    rows.find((row) => row.name === propertyRef)
+  );
+};
+
+const lineItemPropertyNotFound = (objectName: string, propertyRef: string): ToolCallResult =>
+  asErrorResult(
+    `No ${objectName} line-item property matches \`${propertyRef}\`. List them with list_properties and line_item=true.`,
+  );
+
+// An update rewrites the item property a reference_item_property column shows, so keep the current one.
+const lineItemPropertyMutationFields = (
+  args: Record<string, unknown> | undefined,
+  current?: LineItemProperty,
+): Record<string, unknown> => {
+  const referenceItemProperty =
+    readString(args?.['reference_item_property']) ?? readString(current?.reference_item_property);
+  return {
+    editor_variant: LINE_ITEM_PROPERTY_EDITOR_VARIANT,
+    ...(referenceItemProperty ? { reference_item_property: referenceItemProperty } : undefined),
+  };
+};
+
+// The line-item settings return every property of the object, so the tool filters and pages them.
+const listLineItemProperties = async (
+  properties: PropertiesClient,
+  objectName: string,
+  args: Record<string, unknown> | undefined,
+): Promise<ToolCallResult> => {
+  const routingError = lineItemPropertyRoutingError(args);
+  if (routingError) {
+    return asErrorResult(routingError);
+  }
+  const language = readString(args?.['language']);
+  const search = readLowerString(args?.['search']);
+  const matched = (
+    await properties.listLineItemProperties(objectName, language ? { language } : undefined)
+  ).filter(
+    (row) => !search || [row.name, row.internal_name].some((value) => value?.toLowerCase().includes(search)),
+  );
+  const limit = clampListLimit(args?.['limit'], 25);
+  const page = Math.max(1, Math.trunc(readNumber(args?.['page'], 1)));
+  const data = matched
+    .slice((page - 1) * limit, page * limit)
+    .map((row) => row as unknown as Record<string, unknown>);
+  const hasNext = page * limit < matched.length;
+  return buildListResult({
+    label: 'line-item properties',
+    payload: {
+      count: data.length,
+      data,
+      has_next: hasNext,
+      message:
+        `Returned ${data.length} of ${matched.length} ${objectName} line-item properties.` +
+        (hasNext ? ` Request page ${page + 1} for the next page.` : ''),
+      page,
+      total: matched.length,
+    },
+    previewKeys: ['name', 'internal_name', 'id'],
+  });
+};
+
 const readArrayPayload = (payload: unknown): Array<Record<string, unknown>> => {
   if (Array.isArray(payload)) {
     return payload.map((row) => readRecord(row) ?? {}).filter(Boolean);
@@ -19723,7 +19868,8 @@ export const crmGetDealTool: McpTool = {
   tool: {
     name: 'get_deal',
     title: 'Get deal',
-    description: 'Load one deal from Sanka by case id, deal numeric id, or external reference.',
+    description:
+      'Load one deal from Sanka by case id, deal numeric id, or external reference. Read its line items with list_deal_line_items.',
     inputSchema: DEAL_RETRIEVE_INPUT_SCHEMA,
     outputSchema: DEAL_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -19757,6 +19903,66 @@ export const crmGetDealTool: McpTool = {
     return {
       content: [{ type: 'text', text: buildDealDetailSummary(deal) }],
       structuredContent: deal,
+    };
+  },
+};
+
+export const crmListDealLineItemsTool: McpTool = {
+  metadata: {
+    resource: 'deals',
+    operation: 'read',
+    tags: ['crm', 'deals', 'line-items'],
+    httpMethod: 'get',
+    httpPath: '/api/v2/deals/{case_id}/line-items',
+    operationId: 'public.deals.listLineItems',
+  },
+  tool: {
+    name: 'list_deal_line_items',
+    title: 'List deal line items',
+    description:
+      "List one deal's line items in display order. line_item_id is the numeric line id, the one a workflow Update Record action on deal_line_item takes in explicit_records. custom_fields maps line-item property ids (list_properties with object_name=deals and line_item=true) to values. Rows with row_type=section are section headings, not line items.",
+    inputSchema: DEAL_LINE_ITEMS_INPUT_SCHEMA,
+    outputSchema: DEAL_LINE_ITEMS_OUTPUT_SCHEMA,
+    securitySchemes: [{ type: 'oauth2' }],
+    annotations: {
+      title: 'List deal line items',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  handler: async ({ reqContext, args }) => {
+    const authError = requireAuthentication({
+      reqContext,
+      toolTitle: 'List deal line items',
+    });
+    if (authError) {
+      return authError;
+    }
+
+    const caseID = readString(args?.['case_id']);
+    if (!caseID) {
+      return asErrorResult('`case_id` is required.');
+    }
+
+    const lineItems = await reqContext.client.public.deals.listLineItems(caseID, undefined);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Returned ${lineItems.length} line item${lineItems.length === 1 ? '' : 's'} for deal ${caseID}.`,
+            buildStructuredTextPreview('deal line items', lineItems),
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
+        },
+      ],
+      structuredContent: {
+        case_id: caseID,
+        count: lineItems.length,
+        line_items: lineItems,
+      },
     };
   },
 };
@@ -26449,7 +26655,7 @@ export const crmListPropertiesTool: McpTool = {
     name: 'list_properties',
     title: 'List properties',
     description:
-      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema. Company billing_cycle and payment_cycle are standard company fields, not a custom-property discovery flow.',
+      'List properties for a Sanka object family such as orders, companies, or deals. Use this before creating or updating object records when you need the current property schema. Pass line_item=true for the line-item properties of deals and other objects with line items. Company billing_cycle and payment_cycle are standard company fields, not a custom-property discovery flow.',
     inputSchema: PROPERTY_LIST_INPUT_SCHEMA,
     outputSchema: LIST_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -26472,6 +26678,9 @@ export const crmListPropertiesTool: McpTool = {
     const { objectName, params } = buildPropertyListParams(args);
     if (!objectName) {
       return asErrorResult('`object_name` is required.');
+    }
+    if (isLineItemPropertyRequest(args)) {
+      return listLineItemProperties(reqContext.client.public.properties, objectName, args);
     }
 
     const { data, page, total, has_next } = await reqContext.client.public.properties.list(
@@ -26537,6 +26746,35 @@ export const crmGetPropertyTool: McpTool = {
     if (!propertyRef) {
       return asErrorResult('`property_ref` is required.');
     }
+    if (isLineItemPropertyRequest(args)) {
+      const routingError = lineItemPropertyRoutingError(args);
+      if (routingError) {
+        return asErrorResult(routingError);
+      }
+      const lineItemProperty = await findLineItemProperty(
+        reqContext.client.public.properties,
+        objectName,
+        propertyRef,
+        readString(args?.['language']),
+      );
+      if (!lineItemProperty) {
+        return lineItemPropertyNotFound(objectName, propertyRef);
+      }
+      const payload = lineItemProperty as unknown as Record<string, unknown>;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: buildEntityDetailSummary({
+              entity: 'line-item property',
+              payload,
+              previewKeys: ['name', 'internal_name', 'id'],
+            }),
+          },
+        ],
+        structuredContent: payload,
+      };
+    }
 
     const property = (await reqContext.client.public.properties.retrieve(
       propertyRef,
@@ -26573,7 +26811,7 @@ export const crmCreatePropertyTool: McpTool = {
     name: 'create_property',
     title: 'Create property',
     description:
-      'Create a custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
+      'Create a custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties. Pass line_item=true to create a line-item property, a column on the line items of deals and other objects with line items. Do not use this for company billing_cycle or payment_cycle; those are standard company fields set through create_company/update_company.',
     inputSchema: PROPERTY_CREATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -26598,7 +26836,15 @@ export const crmCreatePropertyTool: McpTool = {
       return asErrorResult('`object_name` is required.');
     }
 
-    const body = buildPropertyMutationBody(args);
+    const lineItem = isLineItemPropertyRequest(args);
+    const lineItemRoutingError = lineItem ? lineItemPropertyRoutingError(args) : undefined;
+    if (lineItemRoutingError) {
+      return asErrorResult(lineItemRoutingError);
+    }
+    const body = {
+      ...buildPropertyMutationBody(args),
+      ...(lineItem ? lineItemPropertyMutationFields(args) : undefined),
+    };
     const routingError = validateAndNormalizePropertyMutationRouting(body);
     if (routingError) {
       return asErrorResult(routingError);
@@ -26615,7 +26861,7 @@ export const crmCreatePropertyTool: McpTool = {
         {
           type: 'text',
           text: buildEntityMutationSummary({
-            entity: 'Property',
+            entity: lineItem ? 'Line-item property' : 'Property',
             action: 'created',
             payload: response,
             idKeys: ['property_id'],
@@ -26669,14 +26915,45 @@ export const crmUpdatePropertyTool: McpTool = {
       return asErrorResult('`property_ref` is required.');
     }
 
-    const body = buildPropertyMutationBody(args);
+    let body = buildPropertyMutationBody(args);
+    let propertyID = propertyRef;
+    const lineItem = isLineItemPropertyRequest(args);
+    if (lineItem) {
+      const lineItemRoutingError = lineItemPropertyRoutingError(args);
+      if (lineItemRoutingError) {
+        return asErrorResult(lineItemRoutingError);
+      }
+      const current = await findLineItemProperty(
+        reqContext.client.public.properties,
+        objectName,
+        propertyRef,
+      );
+      if (!current) {
+        return lineItemPropertyNotFound(objectName, propertyRef);
+      }
+      // The API rewrites the whole definition: it needs the name and type again, and it replaces the
+      // choices, which no route returns for a line-item property.
+      const type = readString(body['type']) ?? readString(current.type);
+      if (type === 'choice' && body['choice_values'] === undefined) {
+        return asErrorResult(
+          'Updating a choice line-item property replaces its choices; pass the full `choice_values` list.',
+        );
+      }
+      body = {
+        ...body,
+        ...lineItemPropertyMutationFields(args, current),
+        name: readString(body['name']) ?? current.name,
+        type,
+      };
+      propertyID = current.id;
+    }
     const routingError = validateAndNormalizePropertyMutationRouting(body);
     if (routingError) {
       return asErrorResult(routingError);
     }
 
     const response = (await reqContext.client.public.properties.update(
-      propertyRef,
+      propertyID,
       {
         object_name: objectName,
         ...body,
@@ -26689,7 +26966,7 @@ export const crmUpdatePropertyTool: McpTool = {
         {
           type: 'text',
           text: buildEntityMutationSummary({
-            entity: 'Property',
+            entity: lineItem ? 'Line-item property' : 'Property',
             action: 'updated',
             payload: response,
             idKeys: ['property_id'],
@@ -26740,6 +27017,39 @@ export const crmDeletePropertyTool: McpTool = {
     }
     if (!propertyRef) {
       return asErrorResult('`property_ref` is required.');
+    }
+    if (isLineItemPropertyRequest(args)) {
+      const lineItemRoutingError = lineItemPropertyRoutingError(args);
+      if (lineItemRoutingError) {
+        return asErrorResult(lineItemRoutingError);
+      }
+      const current = await findLineItemProperty(
+        reqContext.client.public.properties,
+        objectName,
+        propertyRef,
+      );
+      if (!current) {
+        return lineItemPropertyNotFound(objectName, propertyRef);
+      }
+      const deleted = (await reqContext.client.public.properties.deleteLineItemProperty(
+        current.id,
+        { object_name: objectName },
+        undefined,
+      )) as unknown as Record<string, unknown>;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: buildEntityMutationSummary({
+              entity: 'Line-item property',
+              action: 'deleted',
+              payload: deleted,
+              idKeys: ['property_id'],
+            }),
+          },
+        ],
+        structuredContent: deleted,
+      };
     }
 
     const routingError = validateAndNormalizePropertyMutationRouting(params);

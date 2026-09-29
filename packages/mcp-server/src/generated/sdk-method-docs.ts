@@ -1039,6 +1039,20 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'Array<{ created_at: string; updated_at: string; id?: string | null; case_status?: string | null; currency?: string | null; deal_id?: number | null; line_items?: Array<PublicLineItem>; name?: string | null; pipeline_name?: string | null; pipeline_order?: number | null; stage_key?: string | null; stage_label?: string | null; stage_position?: number | null; stage_score?: number | null; status?: string | null; }>',
   },
   {
+    qualified: 'client.public.deals.listLineItems',
+    name: 'list_line_items',
+    httpMethod: 'get',
+    endpoint: '/api/v2/deals/{caseID}/line-items',
+    summary: "List one deal's line items in display order.",
+    description:
+      "List one deal's line items in display order. `line_item_id` is the numeric line id, and `custom_fields` maps line-item property ids to values. Rows with `row_type: 'section'` are section headings.",
+    signature:
+      'client.public.deals.listLineItems(caseID: string, options?: RequestOptions): APIPromise<Array<PublicLineItem>>',
+    params: ['caseID: string;'],
+    response:
+      'Array<{ amount_item?: number | null; amount_price?: number | null; currency?: string | null; custom_item_name?: string | null; custom_fields?: Record<string, unknown>; id?: string | null; item_id?: string | null; item_record_id?: string | null; item_name?: string | null; line_item_id?: string | null; linked_item_name?: string | null; linked_item_number?: unknown | null; name?: string | null; price?: number | null; price_without_tax?: number | null; quantity?: number | null; row_type?: string | null; section_label?: string | null; section_type?: string | null; source_item_fields?: Record<string, unknown>; status?: string | null; tax_rate?: unknown | null; tax_type?: string | null; total_price?: number | null; total_price_without_tax?: number | null; unit_price?: number | null; }>',
+  },
+  {
     qualified: 'client.public.deals.listPipelines',
     name: 'list_pipelines',
     httpMethod: 'get',
@@ -2372,7 +2386,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'client.public.invoices.listLineItems(invoiceID: string, options?: RequestOptions): APIPromise<Array<PublicLineItem>>',
     params: ['invoiceID: string;'],
     response:
-      'Array<{ amount_item?: number | null; amount_price?: number | null; currency?: string | null; custom_item_name?: string | null; custom_fields?: Record<string, unknown>; id?: string | null; item_id?: string | null; item_record_id?: string | null; item_name?: string | null; line_item_id?: string | null; linked_item_name?: string | null; linked_item_number?: unknown | null; name?: string | null; price?: number | null; price_without_tax?: number | null; quantity?: number | null; source_item_fields?: Record<string, unknown>; status?: string | null; tax_rate?: unknown | null; tax_type?: string | null; total_price?: number | null; total_price_without_tax?: number | null; unit_price?: number | null; }>',
+      'Array<{ amount_item?: number | null; amount_price?: number | null; currency?: string | null; custom_item_name?: string | null; custom_fields?: Record<string, unknown>; id?: string | null; item_id?: string | null; item_record_id?: string | null; item_name?: string | null; line_item_id?: string | null; linked_item_name?: string | null; linked_item_number?: unknown | null; name?: string | null; price?: number | null; price_without_tax?: number | null; quantity?: number | null; row_type?: string | null; section_label?: string | null; section_type?: string | null; source_item_fields?: Record<string, unknown>; status?: string | null; tax_rate?: unknown | null; tax_type?: string | null; total_price?: number | null; total_price_without_tax?: number | null; unit_price?: number | null; }>',
   },
   {
     qualified: 'client.public.invoices.listOverdue',
@@ -3379,6 +3393,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'confirm?: boolean | null;',
       'description?: string | null;',
       'dry_run?: boolean | null;',
+      'editor_variant?: string | null;',
       'external_id?: string | null;',
       'external_object_type?: string | null;',
       'field_type?: string | null;',
@@ -3391,6 +3406,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'options?: Array<{ [key: string]: unknown }> | null;',
       'order?: number | null;',
       'provider?: string | null;',
+      'reference_item_property?: string | null;',
       'required_field?: boolean | null;',
       'show_badge?: boolean | null;',
       'tag_values?: Array<string> | null;',
@@ -3424,6 +3440,19 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       '{ ctx_id: string; object: string; ok: boolean; property_id: string; status: string; channel_id?: string | null; channel_name?: string | null; dry_run?: boolean | null; external_id?: string | null; external_object_type?: string | null; message?: string | null; provider?: string | null; remote?: { [key: string]: unknown } | null; target?: string | null; }',
   },
   {
+    qualified: 'client.public.properties.deleteLineItemProperty',
+    name: 'delete_line_item_property',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/workspace-object-settings/properties/editor',
+    summary: 'Delete a line-item property by its id.',
+    description: 'Delete a line-item property by its id.',
+    signature:
+      'client.public.properties.deleteLineItemProperty(propertyID: string, params: LineItemPropertyDeleteParams, options?: RequestOptions): APIPromise<PropertyMutation>',
+    params: ['propertyID: string;', 'object_name: string;'],
+    response:
+      '{ ctx_id: string; object: string; ok: boolean; property_id: string; status: string; channel_id?: string | null; channel_name?: string | null; dry_run?: boolean | null; external_id?: string | null; external_object_type?: string | null; message?: string | null; provider?: string | null; remote?: { [key: string]: unknown } | null; target?: string | null; }',
+  },
+  {
     qualified: 'client.public.properties.list',
     name: 'list',
     httpMethod: 'get',
@@ -3451,6 +3480,21 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     response: '{ data: Array<Property>; page: number; total: number; has_next: boolean; }',
   },
   {
+    qualified: 'client.public.properties.listLineItemProperties',
+    name: 'list_line_item_properties',
+    httpMethod: 'get',
+    endpoint: '/api/v2/workspace-object-settings/properties/line-item-editor',
+    summary:
+      'List the line-item properties of an object with line items: deals, orders, estimates, invoices, purchase orders, subscriptions or disbursements.',
+    description:
+      "List the line-item properties of an object with line items: deals, orders, estimates, invoices, purchase orders, subscriptions or disbursements. A property's `id` keys the `custom_fields` of that object's line items. Create and update them with `editor_variant: 'line_item_property'`.",
+    signature:
+      'client.public.properties.listLineItemProperties(objectName: string, params?: LineItemPropertyListParams | null | undefined, options?: RequestOptions): APIPromise<Array<Property>>',
+    params: ['objectName: string;', 'language?: string | null;'],
+    response:
+      'Array<{ id: string; immutable: boolean; is_custom: boolean; object: string; badge_color?: string | null; choice_values?: { [key: string]: string } | Array<string> | null; conditional_choice_mapping?: { [key: string]: unknown } | null; created_at?: string | null; external_id?: string | null; external_object_type?: string | null; field_type?: string | null; group_name?: string | null; description?: string | null; options?: Array<{ [key: string]: unknown }> | null; provider?: string | null; raw?: { [key: string]: unknown } | null; scope?: string | null; internal_name?: string | null; channel_id?: string | null; channel_name?: string | null; line_item?: boolean | null; multiple_select?: boolean | null; name?: string | null; number_format?: string | null; order?: number | null; reference_item_property?: string | null; required_field?: boolean | null; show_badge?: boolean | null; tag_values?: Array<string> | null; type?: string | null; type_label?: string | null; unique?: boolean | null; updated_at?: string | null; }>',
+  },
+  {
     qualified: 'client.public.properties.retrieve',
     name: 'retrieve',
     httpMethod: 'get',
@@ -3473,7 +3517,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       "'Accept-Language'?: string;",
     ],
     response:
-      '{ id: string; immutable: boolean; is_custom: boolean; object: string; badge_color?: string | null; choice_values?: { [key: string]: string } | Array<string> | null; conditional_choice_mapping?: { [key: string]: unknown } | null; created_at?: string | null; external_id?: string | null; external_object_type?: string | null; field_type?: string | null; group_name?: string | null; description?: string | null; options?: Array<{ [key: string]: unknown }> | null; provider?: string | null; raw?: { [key: string]: unknown } | null; scope?: string | null; internal_name?: string | null; channel_id?: string | null; channel_name?: string | null; multiple_select?: boolean | null; name?: string | null; number_format?: string | null; order?: number | null; required_field?: boolean | null; show_badge?: boolean | null; tag_values?: Array<string> | null; type?: string | null; unique?: boolean | null; updated_at?: string | null; }',
+      '{ id: string; immutable: boolean; is_custom: boolean; object: string; badge_color?: string | null; choice_values?: { [key: string]: string } | Array<string> | null; conditional_choice_mapping?: { [key: string]: unknown } | null; created_at?: string | null; external_id?: string | null; external_object_type?: string | null; field_type?: string | null; group_name?: string | null; description?: string | null; options?: Array<{ [key: string]: unknown }> | null; provider?: string | null; raw?: { [key: string]: unknown } | null; scope?: string | null; internal_name?: string | null; channel_id?: string | null; channel_name?: string | null; line_item?: boolean | null; multiple_select?: boolean | null; name?: string | null; number_format?: string | null; order?: number | null; reference_item_property?: string | null; required_field?: boolean | null; show_badge?: boolean | null; tag_values?: Array<string> | null; type?: string | null; type_label?: string | null; unique?: boolean | null; updated_at?: string | null; }',
   },
   {
     qualified: 'client.public.properties.update',
@@ -3494,6 +3538,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'confirm?: boolean | null;',
       'description?: string | null;',
       'dry_run?: boolean | null;',
+      'editor_variant?: string | null;',
       'external_id?: string | null;',
       'external_object_type?: string | null;',
       'field_type?: string | null;',
@@ -3505,6 +3550,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'options?: Array<{ [key: string]: unknown }> | null;',
       'order?: number | null;',
       'provider?: string | null;',
+      'reference_item_property?: string | null;',
       'required_field?: boolean | null;',
       'show_badge?: boolean | null;',
       'tag_values?: Array<string> | null;',
