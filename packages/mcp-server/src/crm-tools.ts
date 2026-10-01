@@ -519,6 +519,31 @@ const CUSTOM_OBJECT_RECORD_DATA_SCHEMA = {
   additionalProperties: true,
 };
 
+const CUSTOM_OBJECT_RECORD_ASSOCIATION_TARGET_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    object_type: {
+      type: 'string',
+      description:
+        'Target Sanka object, for example inventory, companies, contacts, deals, or custom_objects.',
+    },
+    id: {
+      type: 'string',
+      description: 'Target record UUID.',
+    },
+    record_id: {
+      type: 'string',
+      description: 'Alias for id.',
+    },
+    custom_object_id: {
+      type: 'string',
+      description: 'Target custom object UUID. Required when object_type is custom_objects.',
+    },
+  },
+  required: ['object_type'],
+  anyOf: [{ required: ['id'] }, { required: ['record_id'] }],
+};
+
 const CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -559,8 +584,13 @@ const CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA = {
     associations: {
       type: 'object',
       description:
-        'Optional association targets keyed by association label id/name. Values are record references such as {id, object_type}.',
-      additionalProperties: true,
+        'Optional associations saved with the new row, keyed by association label id (UUID). Each value is a target record reference {object_type, id}, or an array of them. Requires custom_object_id (the custom object UUID). To link by label name, create the row and then call create_association.',
+      additionalProperties: {
+        anyOf: [
+          CUSTOM_OBJECT_RECORD_ASSOCIATION_TARGET_SCHEMA,
+          { type: 'array', items: CUSTOM_OBJECT_RECORD_ASSOCIATION_TARGET_SCHEMA },
+        ],
+      },
     },
     form_set_id: {
       type: 'string',
@@ -586,7 +616,6 @@ const CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA = {
       description: 'Custom object row UUID to update.',
     },
     data: CUSTOM_OBJECT_RECORD_DATA_SCHEMA,
-    associations: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.associations,
     form_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.form_set_id,
     property_set_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.property_set_id,
     view_id: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA.properties.view_id,
@@ -10807,7 +10836,6 @@ const buildCustomObjectRecordMutationBody = (
 ): Record<string, unknown> => {
   const externalObjectType = readCustomObjectIdentifier(args);
   const data = readRecord(args?.['data']);
-  const associations = readRecord(args?.['associations']);
   const formSetID = readString(args?.['form_set_id'] ?? args?.['formSetId']);
   const propertySetID = readString(args?.['property_set_id'] ?? args?.['propertySetId']);
   const viewID = readString(args?.['view_id'] ?? args?.['viewId']);
@@ -10842,12 +10870,80 @@ const buildCustomObjectRecordMutationBody = (
   return {
     ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
     data: mergedData,
-    ...(associations ? { associations } : undefined),
     ...(formSetID ? { form_set_id: formSetID } : undefined),
     ...(propertySetID ? { property_set_id: propertySetID } : undefined),
     ...(viewID ? { view_id: viewID } : undefined),
   };
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Maps `associations` (targets keyed by association label id) onto the API's association
+// mutations, [{ definition_id, target_refs: [{ object_type, record_id, custom_object_id? }] }].
+// An absent or empty argument maps to no mutations.
+const buildCustomObjectRecordAssociations = (
+  value: unknown,
+): { associations: Array<Record<string, unknown>> } | { error: string } => {
+  if (value === undefined || value === null) {
+    return { associations: [] };
+  }
+  const targetsByLabel = readRecord(value);
+  if (!targetsByLabel) {
+    return { error: '`associations` must be an object keyed by association label id.' };
+  }
+  const associations: Array<Record<string, unknown>> = [];
+  for (const [labelID, targets] of Object.entries(targetsByLabel)) {
+    if (!UUID_PATTERN.test(labelID)) {
+      return {
+        error: `\`associations\` must be keyed by association label id (UUID), not "${labelID}". To link by label name, create the row and then call create_association with \`label\`.`,
+      };
+    }
+    const targetRefs: Array<Record<string, unknown>> = [];
+    for (const target of Array.isArray(targets) ? targets : [targets]) {
+      const ref = readRecord(target);
+      const objectType = readString(ref?.['object_type']);
+      const recordID = readString(ref?.['id']) ?? readString(ref?.['record_id']);
+      if (!objectType || !recordID) {
+        return { error: `Each target of association label ${labelID} needs \`object_type\` and \`id\`.` };
+      }
+      const customObjectID = readString(ref?.['custom_object_id']);
+      targetRefs.push({
+        object_type: objectType,
+        record_id: recordID,
+        ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
+      });
+    }
+    associations.push({ definition_id: labelID, target_refs: targetRefs });
+  }
+  return { associations };
+};
+
+const CUSTOM_OBJECT_RECORD_STANDARD_PROPERTY_KEYS = new Set(['owner_id', 'row_id', 'usage_status']);
+
+// Maps `data` onto record properties the way the records route does (sanka-api
+// `_public_custom_object_properties`); the custom object route takes properties as given.
+const customObjectRecordProperties = (data: Record<string, unknown>): Record<string, unknown> => {
+  const properties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    const propertyKey = key.trim();
+    if (!propertyKey) {
+      continue;
+    }
+    const isRecordProperty =
+      propertyKey.startsWith('standard:') ||
+      propertyKey.startsWith('custom_property:') ||
+      CUSTOM_OBJECT_RECORD_STANDARD_PROPERTY_KEYS.has(propertyKey);
+    properties[isRecordProperty ? propertyKey : `custom_property:${propertyKey}`] = value;
+  }
+  return properties;
+};
+
+const readCustomObjectUUID = (args: Record<string, unknown> | undefined): string | undefined =>
+  [
+    readString(args?.['custom_object_id']),
+    readString(args?.['customObjectId']),
+    readCustomObjectIdentifier(args),
+  ].find((identifier) => identifier !== undefined && UUID_PATTERN.test(identifier));
 
 const buildCustomObjectRecordMutationResult = ({
   toolName,
@@ -16874,7 +16970,7 @@ export const crmCreateCustomObjectRecordTool: McpTool = {
     name: 'create_custom_object_record',
     title: 'Create custom object record',
     description:
-      'Create a Sanka custom object row. Set custom_object or custom_object_slug to the custom object slug/internal key or id. Use data keys as field names, internal_name values, or field UUIDs.',
+      'Create a Sanka custom object row. Set custom_object or custom_object_slug to the custom object slug/internal key or id. Use data keys as field names, internal_name values, or field UUIDs. To link the new row to other records in the same call, pass associations with custom_object_id.',
     inputSchema: CUSTOM_OBJECT_RECORD_CREATE_INPUT_SCHEMA,
     outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16898,10 +16994,36 @@ export const crmCreateCustomObjectRecordTool: McpTool = {
     if (!body['external_object_type']) {
       return asErrorResult('`custom_object` or `custom_object_slug` is required.');
     }
+    const mapped = buildCustomObjectRecordAssociations(args?.['associations']);
+    if ('error' in mapped) {
+      return asErrorResult(`${mapped.error} Nothing was created.`);
+    }
 
-    const payload = (await reqContext.client.post('/api/v2/public/records/custom-objects/records', {
-      body,
-    })) as Record<string, unknown>;
+    let payload: Record<string, unknown>;
+    if (mapped.associations.length === 0) {
+      payload = (await reqContext.client.post('/api/v2/public/records/custom-objects/records', {
+        body,
+      })) as Record<string, unknown>;
+    } else {
+      // The records route above ignores associations. The custom object route saves the row
+      // and its associations in one transaction, and addresses the custom object by UUID.
+      const customObjectID = readCustomObjectUUID(args);
+      if (!customObjectID) {
+        return asErrorResult(
+          '`associations` requires `custom_object_id`, the custom object UUID (list_object_schemas returns it). Nothing was created.',
+        );
+      }
+      const recordBody: Record<string, unknown> = {
+        ...body,
+        properties: customObjectRecordProperties(readRecord(body['data']) ?? {}),
+        associations: mapped.associations,
+      };
+      delete recordBody['external_object_type'];
+      delete recordBody['data'];
+      payload = (await reqContext.client.post(`/api/v2/public/custom-objects/${customObjectID}/records`, {
+        body: recordBody,
+      })) as Record<string, unknown>;
+    }
 
     return buildCustomObjectRecordMutationResult({
       toolName: 'create_custom_object_record',
@@ -16924,7 +17046,7 @@ export const crmUpdateCustomObjectRecordTool: McpTool = {
     name: 'update_custom_object_record',
     title: 'Update custom object record',
     description:
-      'Update a Sanka custom object row by row UUID. Use data keys as field names, internal_name values, or field UUIDs.',
+      'Update a Sanka custom object row by row UUID. Use data keys as field names, internal_name values, or field UUIDs. It does not change associations; use create_association and delete_association for that.',
     inputSchema: CUSTOM_OBJECT_RECORD_UPDATE_INPUT_SCHEMA,
     outputSchema: CUSTOM_OBJECT_RECORD_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16947,6 +17069,15 @@ export const crmUpdateCustomObjectRecordTool: McpTool = {
     const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
     if (!recordID) {
       return asErrorResult('`record_id` is required.');
+    }
+    // The records route ignores associations. The custom object route refuses an update that
+    // changes only associations, and it replaces all of a label's links, so links change through
+    // create_association and delete_association.
+    const mapped = buildCustomObjectRecordAssociations(args?.['associations']);
+    if ('error' in mapped || mapped.associations.length > 0) {
+      return asErrorResult(
+        'update_custom_object_record does not change associations, so nothing was updated. Call it again without `associations`, and use create_association or delete_association to link or unlink the row.',
+      );
     }
     const body = buildCustomObjectRecordMutationBody(args);
     delete body['external_object_type'];

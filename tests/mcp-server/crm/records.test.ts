@@ -18,7 +18,53 @@ import {
   type V2RequestCase,
 } from './helpers';
 
+const CUSTOM_OBJECT_ID = 'c0000000-0000-4000-8000-000000000001';
+const MACHINE_LABEL_ID = 'a0000000-0000-4000-8000-000000000001';
+const SITE_LABEL_ID = 'a0000000-0000-4000-8000-000000000002';
+const MACHINE_ID = 'b0000000-0000-4000-8000-000000000001';
+const SITE_ID = 'b0000000-0000-4000-8000-000000000002';
+const SITE_CUSTOM_OBJECT_ID = 'c0000000-0000-4000-8000-000000000002';
+
 const v2Requests: V2RequestCase[] = [
+  {
+    name: 'creates a custom object record together with its associations',
+    tool: crmCreateCustomObjectRecordTool,
+    args: {
+      custom_object_id: CUSTOM_OBJECT_ID,
+      data: { Subject: 'Lift rental', owner_id: 'user-1' },
+      associations: {
+        [MACHINE_LABEL_ID]: { object_type: 'inventory', id: MACHINE_ID },
+        [SITE_LABEL_ID]: [
+          { object_type: 'custom_objects', record_id: SITE_ID, custom_object_id: SITE_CUSTOM_OBJECT_ID },
+        ],
+      },
+    },
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: `http://localhost:5000/api/v2/public/custom-objects/${CUSTOM_OBJECT_ID}/records`,
+        body: {
+          properties: { 'custom_property:Subject': 'Lift rental', owner_id: 'user-1' },
+          associations: [
+            {
+              definition_id: MACHINE_LABEL_ID,
+              target_refs: [{ object_type: 'inventory', record_id: MACHINE_ID }],
+            },
+            {
+              definition_id: SITE_LABEL_ID,
+              target_refs: [
+                {
+                  object_type: 'custom_objects',
+                  record_id: SITE_ID,
+                  custom_object_id: SITE_CUSTOM_OBJECT_ID,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  },
   {
     name: 'creates an association with a label',
     tool: crmCreateAssociationTool,
@@ -753,6 +799,38 @@ describe('CRM record query, merge, and association tools', () => {
     ['an association id without a record it links', { association_id: 'association-1' }],
   ])('rejects delete_association with %s before sending a request', async (_case, args) => {
     const { requests, result } = await sendThroughSDK({ tool: crmDeleteAssociationTool, args });
+
+    expect(result.isError).toBe(true);
+    expect(requests).toEqual([]);
+  });
+
+  const machineAssociation = { [MACHINE_LABEL_ID]: { object_type: 'inventory', id: MACHINE_ID } };
+
+  it.each([
+    [
+      'create_custom_object_record given associations without the custom object UUID',
+      crmCreateCustomObjectRecordTool,
+      {
+        custom_object: 'machine_rentals',
+        data: { Subject: 'Lift rental' },
+        associations: machineAssociation,
+      },
+    ],
+    [
+      'create_custom_object_record given associations keyed by label name',
+      crmCreateCustomObjectRecordTool,
+      {
+        custom_object_id: CUSTOM_OBJECT_ID,
+        associations: { 'Rented machine': { object_type: 'inventory', id: MACHINE_ID } },
+      },
+    ],
+    [
+      'update_custom_object_record given associations',
+      crmUpdateCustomObjectRecordTool,
+      { record_id: SITE_ID, data: { Subject: 'Lift rental' }, associations: machineAssociation },
+    ],
+  ])('rejects %s before sending a request', async (_case, tool, args) => {
+    const { requests, result } = await sendThroughSDK({ tool, args });
 
     expect(result.isError).toBe(true);
     expect(requests).toEqual([]);
