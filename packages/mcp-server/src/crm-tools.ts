@@ -665,7 +665,8 @@ const ASSOCIATION_REF_INPUT_PROPERTIES = {
   },
   source_custom_object_id: {
     type: 'string',
-    description: 'Required when source_object is custom_objects; pass the custom object id, slug, or name.',
+    description:
+      'Required when source_object is custom_objects: the custom object UUID, which list_object_schemas returns as id. A slug or name is refused.',
   },
   target_object: {
     type: 'string',
@@ -678,7 +679,8 @@ const ASSOCIATION_REF_INPUT_PROPERTIES = {
   },
   target_custom_object_id: {
     type: 'string',
-    description: 'Required when target_object is custom_objects; pass the custom object id, slug, or name.',
+    description:
+      'Required when target_object is custom_objects: the custom object UUID, which list_object_schemas returns as id. A slug or name is refused.',
   },
   label_id: {
     type: 'string',
@@ -11173,6 +11175,22 @@ const hasAssociationTargetRef = (params: Record<string, unknown>) =>
 const hasAssociationLabelRef = (params: Record<string, unknown>) =>
   Boolean(readString(params['label_id']) || readString(params['label']));
 
+// The API matches custom objects by UUID only: given a slug or name, a write fails (as a missing
+// label when looked up by label name) and a list finds no associations.
+const invalidAssociationCustomObjectIDResult = (
+  params: Record<string, unknown>,
+): ToolCallResult | undefined => {
+  for (const key of ['source_custom_object_id', 'target_custom_object_id']) {
+    const customObjectID = readString(params[key]);
+    if (customObjectID && !UUID_PATTERN.test(customObjectID)) {
+      return asErrorResult(
+        `\`${key}\` must be the custom object UUID (list_object_schemas returns it as id), not "${customObjectID}".`,
+      );
+    }
+  }
+  return undefined;
+};
+
 const associationEndpointLabel = (
   association: Record<string, unknown> | undefined,
   key: 'source' | 'target',
@@ -17187,6 +17205,10 @@ export const crmListAssociationsTool: McpTool = {
     if (!hasAssociationSourceRef(params) && !hasAssociationTargetRef(params)) {
       return asErrorResult('`source_object`/`source_id` or `target_object`/`target_id` is required.');
     }
+    const customObjectIDError = invalidAssociationCustomObjectIDResult(params);
+    if (customObjectIDError) {
+      return customObjectIDError;
+    }
 
     const payload = (await reqContext.client.public.associations.list(
       params,
@@ -17236,6 +17258,10 @@ export const crmCreateAssociationTool: McpTool = {
     }
     if (!hasAssociationLabelRef(body)) {
       return asErrorResult('`label_id` or `label` is required.');
+    }
+    const customObjectIDError = invalidAssociationCustomObjectIDResult(body);
+    if (customObjectIDError) {
+      return customObjectIDError;
     }
 
     const payload = (await reqContext.client.public.associations.create(
@@ -17299,6 +17325,10 @@ export const crmDeleteAssociationTool: McpTool = {
       if (!hasAssociationLabelRef(params)) {
         return asErrorResult('`label_id` or `label` is required when deleting without `association_id`.');
       }
+    }
+    const customObjectIDError = invalidAssociationCustomObjectIDResult(params);
+    if (customObjectIDError) {
+      return customObjectIDError;
     }
 
     const payload = (await reqContext.client.public.associations.delete(

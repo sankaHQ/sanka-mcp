@@ -128,12 +128,12 @@ const v2Requests: V2RequestCase[] = [
       association_id: 'association-1',
       target_object: 'custom_objects',
       target_id: 'record-1',
-      target_custom_object_id: 'custom-object-1',
+      target_custom_object_id: CUSTOM_OBJECT_ID,
     },
     expectedRequests: [
       {
         method: 'DELETE',
-        url: 'http://localhost:5000/api/v2/records/custom_objects/record-1/associations/association-1?custom_object_id=custom-object-1',
+        url: `http://localhost:5000/api/v2/records/custom_objects/record-1/associations/association-1?custom_object_id=${CUSTOM_OBJECT_ID}`,
       },
     ],
   },
@@ -828,6 +828,33 @@ describe('CRM record query, merge, and association tools', () => {
       'update_custom_object_record given associations',
       crmUpdateCustomObjectRecordTool,
       { record_id: SITE_ID, data: { Subject: 'Lift rental' }, associations: machineAssociation },
+    ],
+    [
+      'list_associations given a custom object slug',
+      crmListAssociationsTool,
+      { source_object: 'custom_objects', source_id: SITE_ID, source_custom_object_id: 'sites' },
+    ],
+    [
+      'create_association given a custom object name',
+      crmCreateAssociationTool,
+      {
+        source_object: 'inventory',
+        source_id: MACHINE_ID,
+        target_object: 'custom_objects',
+        target_id: SITE_ID,
+        target_custom_object_id: 'Sites',
+        label: 'Rented machine',
+      },
+    ],
+    [
+      'delete_association given a custom object slug',
+      crmDeleteAssociationTool,
+      {
+        association_id: 'association-1',
+        source_object: 'custom_objects',
+        source_id: SITE_ID,
+        source_custom_object_id: 'sites',
+      },
     ],
   ])('rejects %s before sending a request', async (_case, tool, args) => {
     const { requests, result } = await sendThroughSDK({ tool, args });
