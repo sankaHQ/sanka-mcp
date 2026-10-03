@@ -42,6 +42,12 @@ $ pnpm tsn -T examples/<your-example>.ts
 
 The main production artifact is the hosted MCP endpoint at `https://mcp.sanka.com/mcp`, not an SDK package published from this repo.
 
+Production deployment uses `.github/workflows/deploy.yml` with an expected main SHA.
+Its Fly build runs through `scripts/ci/remote_build.py`, copied from the workspace's
+`scripts/shared/remote_build.py`. Keep that copy in sync with the maintained helper;
+its behavior tests live in the workspace's `scripts/tests/test_remote_build.py`.
+The guard coordinates builds on one host and does not provide a lock across GitHub runners or developer machines.
+
 ## Running tests
 
 ```sh
