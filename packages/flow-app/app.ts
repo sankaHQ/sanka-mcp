@@ -13,6 +13,7 @@ const text = (value: unknown) => (typeof value === 'string' ? value : '');
 const items = (value: unknown) => (Array.isArray(value) ? value : []);
 type ToolResult = { isError?: boolean; structuredContent?: unknown; content?: unknown[] };
 let workspaceID = '';
+let contextVersion = 0;
 let connectURL = '';
 let busy = true;
 let language: 'en' | 'ja' = navigator.language.startsWith('ja') ? 'ja' : 'en';
@@ -70,11 +71,20 @@ function checkResult(result: ToolResult): Record<string, unknown> {
   return data;
 }
 async function call(name: string, args: Record<string, unknown>) {
-  return checkResult(
-    await app.callServerTool({ name, arguments: { expected_workspace_id: workspaceID, ...args } }),
-  );
+  const version = contextVersion;
+  const result = await app.callServerTool({
+    name,
+    arguments: { expected_workspace_id: workspaceID, ...args },
+  });
+  if (version !== contextVersion) {
+    throw new Error(
+      t('Workspace context changed. Review again.', 'ワークスペースが更新されました。再確認してください。'),
+    );
+  }
+  return checkResult(result);
 }
 function showConnection(data: Record<string, unknown>) {
+  contextVersion++;
   workspaceID = '';
   clearResults();
   element('workspace-content').hidden = true;
@@ -89,6 +99,7 @@ function showConnection(data: Record<string, unknown>) {
 }
 function renderWorkspace(result: ToolResult) {
   const data = checkResult(result);
+  contextVersion++;
   clearResults();
   const nextID = text(data['workspace_id']);
   if (workspaceID !== nextID) {
