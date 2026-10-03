@@ -1,0 +1,13 @@
+{
+  "name": "sanka-flow-chatgpt-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json && node ../../scripts/build-flow-app.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "2.0.3",
+    "zod": "^4.2.0"
+  }
+}

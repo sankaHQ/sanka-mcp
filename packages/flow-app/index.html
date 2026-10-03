@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sanka Flow</title>
+    <style>
+      :root {
+        font-family: var(--font-sans, system-ui);
+        color: var(--color-text-primary, CanvasText);
+        background: var(--color-background-primary, Canvas);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        max-width: 760px;
+        margin: auto;
+        padding: 24px;
+      }
+      header,
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 4px 0 8px;
+        font-weight: 600;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+      p {
+        line-height: 1.5;
+        margin: 8px 0;
+      }
+      .muted,
+      small {
+        color: var(--color-text-secondary, GrayText);
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      section {
+        border-top: 1px solid var(--color-border-primary, ButtonBorder);
+        padding: 24px 0;
+      }
+      header {
+        padding-bottom: 24px;
+      }
+      form {
+        margin-top: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      input {
+        min-width: 0;
+        width: 100%;
+      }
+      input,
+      button {
+        font: inherit;
+        font-size: 14px;
+        border: 1px solid var(--color-border-primary, ButtonBorder);
+        border-radius: var(--border-radius-md, 8px);
+        padding: 10px 12px;
+        background: var(--color-background-primary, Canvas);
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      button.primary {
+        background: var(--color-background-inverse, CanvasText);
+        color: var(--color-text-inverse, Canvas);
+        border-color: transparent;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      :focus-visible {
+        outline: 2px solid var(--color-text-primary, Highlight);
+        outline-offset: 3px;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: var(--border-radius-md, 8px);
+        background: var(--color-background-secondary, ButtonFace);
+      }
+      .result h3 {
+        font-size: 15px;
+        margin: 0 0 8px;
+      }
+      #notice {
+        margin: 0 0 16px;
+      }
+      #workspace-id {
+        display: block;
+        overflow-wrap: anywhere;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: minmax(100px, 1fr) 2fr;
+        gap: 8px 16px;
+      }
+      dt {
+        color: var(--color-text-secondary, GrayText);
+      }
+      dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      article + article {
+        border-top: 1px solid var(--color-border-primary, ButtonBorder);
+        padding-top: 16px;
+        margin-top: 16px;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 12px;
+        max-height: 400px;
+        overflow: auto;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 480px) {
+        main {
+          padding: 16px;
+        }
+        .row {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        header {
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <div class="eyebrow muted">Sanka Flow</div>
+          <h1 id="workspace-name">Sanka Flow</h1>
+          <small id="workspace-id">Connecting…</small>
+        </div>
+        <div class="row">
+          <button id="language" disabled>日本語</button
+          ><button id="refresh" disabled data-en="Refresh" data-ja="再読み込み">Refresh</button>
+        </div>
+      </header>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <button id="connect" type="button" hidden data-en="Connect Sanka" data-ja="Sankaに接続">
+        Connect Sanka
+      </button>
+      <div id="workspace-content" hidden>
+        <section>
+          <h2 data-en="From order to invoice" data-ja="受注から売上請求を作成">From order to invoice</h2>
+          <p
+            class="muted"
+            data-en="Review the draft, confirm creation, then check the saved invoice."
+            data-ja="下書きを確認して作成し、保存された売上請求を確認します。"
+          >
+            Review the draft, confirm creation, then check the saved invoice.
+          </p>
+          <form id="preview-form">
+            <label for="order-id" data-en="Order number or ID" data-ja="受注番号またはID"
+              >Order number or ID</label
+            >
+            <div class="row">
+              <input id="order-id" required autocomplete="off" /><button
+                class="primary"
+                type="submit"
+                data-en="Review order"
+                data-ja="受注を確認"
+              >
+                Review order
+              </button>
+            </div>
+          </form>
+          <div id="preview-result" class="result" aria-live="polite" hidden></div>
+          <div id="confirmation" class="result" hidden>
+            <p
+              data-en="Create the reviewed invoice draft in this workspace?"
+              data-ja="確認した売上請求の下書きを、このワークスペースに作成しますか？"
+            >
+              Create the reviewed invoice draft in this workspace?
+            </p>
+            <button
+              id="create"
+              class="primary"
+              type="button"
+              disabled
+              data-en="Create invoice draft"
+              data-ja="売上請求の下書きを作成"
+            >
+              Create invoice draft
+            </button>
+          </div>
+          <div id="recovery" class="result" hidden>
+            <button
+              id="recover"
+              type="button"
+              data-en="Check status and saved invoices"
+              data-ja="状態と保存内容を確認"
+            >
+              Check status and saved invoices
+            </button>
+          </div>
+          <div id="run-result" class="result" aria-live="polite" hidden></div>
+          <div id="invoice-result" class="result" aria-live="polite" hidden></div>
+        </section>
+        <section>
+          <h2 data-en="Workflow status" data-ja="ワークフローの状態">Workflow status</h2>
+          <form id="run-form">
+            <label for="run-id" data-en="Run ID" data-ja="実行ID">Run ID</label>
+            <div class="row">
+              <input id="run-id" required autocomplete="off" /><button
+                type="submit"
+                data-en="View status"
+                data-ja="状態を表示"
+              >
+                View status
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+      <footer>
+        <small
+          data-en="Pilot · One submission per order. Use Sanka for additional billing."
+          data-ja="試験提供：受注ごとに1回実行できます。追加の請求はSankaで操作してください。"
+          >Pilot · One submission per order. Use Sanka for additional billing.</small
+        >
+      </footer>
+    </main>
+    <!-- APP_SCRIPT -->
+  </body>
+</html>

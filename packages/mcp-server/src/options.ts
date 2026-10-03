@@ -14,6 +14,11 @@ export type CLIOptions = McpOptions & {
 };
 
 export type McpOptions = {
+  chatgptConnectorEnabled?: boolean | undefined;
+  chatgptConnectorIssuer?: string | undefined;
+  chatgptConnectorResource?: string | undefined;
+  /** Set only by the dedicated HTTP route, never by client query parameters. */
+  nativeOAuth?: boolean | undefined;
   authorizationServerUrl?: string | undefined;
   internalAuthorizationServerUrl?: string | undefined;
   tokenExchangeSharedSecret?: string | undefined;
@@ -39,6 +44,21 @@ export function parseCLIOptions(): CLIOptions {
   };
 
   const opts = yargs(hideBin(process.argv))
+    .option('chatgpt-connector-enabled', {
+      type: 'boolean',
+      default: false,
+      description: 'Enable the separate ChatGPT OAuth connector endpoint.',
+    })
+    .option('chatgpt-connector-issuer', {
+      type: 'string',
+      default: 'https://api-v2.sanka.com/oauth/chatgpt',
+      description: 'Canonical OAuth issuer for the ChatGPT connector.',
+    })
+    .option('chatgpt-connector-resource', {
+      type: 'string',
+      default: 'https://mcp.sanka.com/chatgpt',
+      description: 'Canonical resource identifier for the ChatGPT connector.',
+    })
     .option('authorization-server-url', {
       type: 'string',
       description: 'Base URL for the Sanka web app that serves Connect Sanka, such as https://app.sanka.com',
@@ -140,6 +160,9 @@ export function parseCLIOptions(): CLIOptions {
     : 'json';
 
   return {
+    chatgptConnectorEnabled: argv.chatgptConnectorEnabled === true,
+    chatgptConnectorIssuer: optionalString(argv.chatgptConnectorIssuer),
+    chatgptConnectorResource: optionalString(argv.chatgptConnectorResource),
     authorizationServerUrl: optionalString(argv.authorizationServerUrl),
     internalAuthorizationServerUrl: optionalString(argv.internalAuthorizationServerUrl),
     tokenExchangeSharedSecret: optionalString(argv.tokenExchangeSharedSecret),

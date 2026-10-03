@@ -17,7 +17,7 @@ async function* walk(dir) {
 async function copyFiles() {
   // copy runtime files
   for await (const file of walk(distDir)) {
-    if (!/[cm]?js$/.test(file)) continue;
+    if (!/[cm]?js$/.test(file) && file !== path.join(distDir, 'flow-app.html')) continue;
     const dest = path.join(distBundleDir, path.relative(distDir, file));
     await fs.promises.mkdir(path.dirname(dest), { recursive: true });
     await fs.promises.copyFile(file, dest);
