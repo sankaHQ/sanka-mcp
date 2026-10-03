@@ -19,7 +19,9 @@ describe('Flow invoice tools', () => {
             { id: 'invoice-1', properties: { total_price: '123.45', currency: 'USD', status: 'draft' } }
           : url.endsWith('/line-items') ? { items: [{ id: 'line-1', total_price: '123.45' }] }
           : { order_id: 'order-1', status: 'submitted' };
-        return new Response(JSON.stringify({ success: true, data, meta: { ctx_id: 'test' } }), { headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, data, meta: { ctx_id: 'test' } }), {
+          headers: { 'content-type': 'application/json' },
+        });
       },
     });
     const result = await tool.handler({
