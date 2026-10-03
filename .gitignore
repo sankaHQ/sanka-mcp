@@ -17,3 +17,4 @@ packages/*/.browser-use-artifacts/
 packages/*/.browser-use-profiles/
 .worktrees
 worktrees
+packages/mcp-server/src/flow-app.html

@@ -35,6 +35,7 @@ export type ResolvedClientAuth = {
     resourceMetadataUrl: string;
     resourceUrl: string;
     scopes: string[];
+    nativeOAuth?: boolean | undefined;
     connectUrl?: string | undefined;
     connectUrlForScopes?: ((scopes?: string[] | undefined) => string | undefined) | undefined;
     workspace_id?: string | undefined;
@@ -415,6 +416,9 @@ export const resolveClientAuth = async ({
   resourceMetadataUrl: string;
   resourceUrl: string;
 }): Promise<ResolvedClientAuth> => {
+  if (mcpOptions.nativeOAuth) {
+    return resolveChatGPTClientAuth({ mcpOptions, req, resourceMetadataUrl, resourceUrl });
+  }
   const authorizationHeader = singleHeader(req.headers.authorization);
   const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
   const authorizationServerUrl = resolveAuthorizationServerUrl(mcpOptions);
@@ -490,4 +494,84 @@ export const resolveClientAuth = async ({
     message:
       'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
   });
+};
+
+const resolveChatGPTClientAuth = async ({
+  mcpOptions,
+  req,
+  resourceMetadataUrl,
+  resourceUrl,
+}: {
+  mcpOptions: McpOptions;
+  req: IncomingMessage;
+  resourceMetadataUrl: string;
+  resourceUrl: string;
+}): Promise<ResolvedClientAuth> => {
+  const header = singleHeader(req.headers.authorization) ?? '';
+  const token = /^Bearer (sccat_[A-Za-z0-9_-]+)$/i.exec(header)?.[1];
+  if (!token || req.headers['x-sanka-api-key']) {
+    throw new AuthenticationError({ message: 'Connect Sanka Flow in ChatGPT to continue.' });
+  }
+  const origin =
+    mcpOptions.internalAuthorizationServerUrl ?
+      stripTrailingSlash(mcpOptions.internalAuthorizationServerUrl)
+    : new URL(mcpOptions.chatgptConnectorIssuer!).origin;
+  let response: Response;
+  try {
+    response = await fetch(`${origin}/oauth/internal/chatgpt-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Sanka-MCP-Token-Exchange-Secret': mcpOptions.tokenExchangeSharedSecret ?? '',
+      },
+      body: JSON.stringify({ access_token: token, resource: resourceUrl }),
+      signal: AbortSignal.timeout(UPSTREAM_AUTH_REQUEST_TIMEOUT_MS),
+      redirect: 'error',
+    });
+  } catch {
+    throw new AuthenticationError({
+      message: 'Sanka authorization is temporarily unavailable.',
+      statusCode: 503,
+    });
+  }
+  if (!response.ok) {
+    throw new AuthenticationError({
+      message:
+        response.status >= 500 ?
+          'Sanka authorization is temporarily unavailable.'
+        : 'Reconnect Sanka Flow in ChatGPT.',
+      statusCode: response.status >= 500 ? 503 : 401,
+    });
+  }
+  const payload = (await response.json().catch(() => ({}))) as McpSessionTokenEnvelope;
+  const scopes = normalizeScopeClaim(payload.scope);
+  if (
+    typeof payload.access_token !== 'string' ||
+    !payload.access_token.startsWith('soat_') ||
+    typeof payload.workspace_id !== 'string' ||
+    !payload.workspace_id ||
+    !scopes.includes('mcp:access') ||
+    !(Number(payload.expires_in) > 0)
+  ) {
+    throw new AuthenticationError({
+      message: 'Sanka returned an invalid authorization result.',
+      statusCode: 503,
+    });
+  }
+  // This API credential is minted for the backend. Never pass the incoming
+  // resource token through to the business API or cache authorization decisions.
+  return {
+    authMode: 'oauth_bearer',
+    clientOptions: { apiKey: payload.access_token },
+    oauth: {
+      nativeOAuth: true,
+      authorizationServerUrl: mcpOptions.chatgptConnectorIssuer!,
+      resourceMetadataUrl,
+      resourceUrl,
+      scopes,
+      workspace_id: payload.workspace_id,
+      ...(payload.workspace_code ? { workspace_code: payload.workspace_code } : {}),
+      ...(payload.workspace_name ? { workspace_name: payload.workspace_name } : {}),
+    },
+  };
 };

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -exuo pipefail
 
+node ../../scripts/build-flow-app.mjs
+
 rm -rf dist; mkdir dist
 
 # Copy src to dist/src and build from dist/src into dist, so that
@@ -24,6 +26,7 @@ node scripts/postprocess-dist-package-json.cjs
 
 # build to .js/.mjs/.d.ts files
 ./node_modules/.bin/tsc-multi
+cp src/flow-app.html dist/flow-app.html
 
 cp tsconfig.dist-src.json dist/src/tsconfig.json
 

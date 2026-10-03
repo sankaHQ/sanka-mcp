@@ -7,4 +7,5 @@ cd "$(dirname "$0")/.."
 
 
 echo "==> Running tests"
+node scripts/build-flow-app.mjs
 ./node_modules/.bin/jest "$@"

@@ -16,6 +16,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   SetLevelRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { ClientOptions } from 'sanka-sdk';
@@ -393,6 +395,14 @@ import { applyRequiredScopesToSecuritySchemes, getToolRequiredScopes } from './t
 import { validateToolArguments } from './tool-argument-validator';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
+import { flowInvoiceTools } from './flow-invoice-tools';
+import {
+  flowWorkspaceTool,
+  flowInvoiceTool,
+  flowAppResource,
+  isFlowAppEnabled,
+  readFlowAppResource,
+} from './flow-app';
 
 export const SANKA_MCP_SERVER_NAME = 'sanka';
 // Compatibility export for existing integrations importing the former name.
@@ -414,7 +424,7 @@ export const newMcpServer = async ({
     },
     {
       instructions: await getInstructions({ customInstructionsPath, toolProfile }),
-      capabilities: { tools: {}, logging: {} },
+      capabilities: { tools: {}, logging: {}, ...(isFlowAppEnabled() ? { resources: {} } : {}) },
     },
   );
 
@@ -647,6 +657,7 @@ const preparedToolsCacheKey = (options: McpOptions | undefined, profile: ToolPro
   const includeDocsTools = includeGenericTools && (options?.includeDocsTools ?? true);
   return JSON.stringify({
     profile,
+    flowApp: isFlowAppEnabled(),
     includeCodeTool,
     includeDocsTools,
     codeAllowHttpGets: includeCodeTool ? options?.codeAllowHttpGets ?? null : null,
@@ -687,7 +698,11 @@ export function selectPreparedTools(options?: McpOptions, profile: ToolProfile =
 export const clientForTool = (client: Sanka, mcpTool: Pick<McpTool, 'metadata'>): Sanka =>
   mcpTool.metadata.operation === 'read' ? client : client.withOptions({ maxRetries: 0 });
 
-const publicToolDescriptor = (mcpTool: McpTool): McpTool['tool'] => {
+const publicToolDescriptor = (mcpTool: McpTool, nativeOAuth = false): McpTool['tool'] => {
+  if (nativeOAuth) {
+    const securitySchemes = [{ type: 'oauth2' as const, scopes: ['mcp:access'] }];
+    return { ...mcpTool.tool, securitySchemes, _meta: { ...mcpTool.tool._meta, securitySchemes } };
+  }
   const advertisedSecuritySchemes = mcpTool.tool.securitySchemes?.filter(
     (scheme) => scheme.type !== 'oauth2',
   );
@@ -766,8 +781,30 @@ export async function initMcpServer(params: {
   };
 
   const toolProfile = params.toolProfile ?? 'full';
-  const providedTools = selectPreparedTools(params.mcpOptions, toolProfile);
+  const selectedTools = selectPreparedTools(params.mcpOptions, toolProfile);
+  // The connector pilot exposes only the reviewed Flow surface. In particular,
+  // it cannot select a different workspace or invoke the generic code executor.
+  const providedTools =
+    params.mcpOptions?.nativeOAuth ?
+      selectedTools.filter(({ tool }) =>
+        [
+          'open_flow_workspace',
+          'get_flow_invoice',
+          'preview_flow_invoice',
+          'start_flow_invoice',
+          'get_flow_invoice_attempt',
+          'get_workflow_run',
+        ].includes(tool.name),
+      )
+    : selectedTools;
   const toolMap = Object.fromEntries(providedTools.map((mcpTool) => [mcpTool.tool.name, mcpTool]));
+
+  if (isFlowAppEnabled()) {
+    server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [flowAppResource] }));
+    server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
+      readFlowAppResource(request.params.uri),
+    );
+  }
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
@@ -775,7 +812,7 @@ export async function initMcpServer(params: {
       // advertising it would trigger the native client flow that this hosted
       // server intentionally does not implement. Clients connect via the
       // Connect Sanka session exchange instead.
-      tools: providedTools.map(publicToolDescriptor),
+      tools: providedTools.map((tool) => publicToolDescriptor(tool, params.mcpOptions?.nativeOAuth)),
     };
   });
 
@@ -935,6 +972,8 @@ export async function initMcpServer(params: {
  */
 export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
+
+  if (isFlowAppEnabled()) includedTools.push(flowWorkspaceTool, flowInvoiceTool, ...flowInvoiceTools);
 
   const includeGenericTools = _profile === 'full';
 

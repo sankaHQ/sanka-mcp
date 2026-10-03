@@ -173,6 +173,12 @@ const createRequestTransport = async ({
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {
+      if (mcpOptions.nativeOAuth && error.statusCode === 401) {
+        res.setHeader(
+          'WWW-Authenticate',
+          `Bearer resource_metadata="${resourceMetadataUrl}", scope="mcp:access"`,
+        );
+      }
       if (!incomingSessionId) {
         res.setHeader('mcp-session-id', mcpSessionId);
       }
@@ -576,6 +582,13 @@ const requestOrigin = (req: express.Request): string => {
 };
 
 const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
+  if (mcpOptions.nativeOAuth) {
+    const resourceUrl = mcpOptions.chatgptConnectorResource!;
+    return {
+      resourceUrl,
+      resourceMetadataUrl: new URL('/.well-known/oauth-protected-resource/chatgpt', resourceUrl).href,
+    };
+  }
   const resourceUrl =
     mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString();
   const metadataOrigin = new URL(resourceUrl).origin;
@@ -677,7 +690,10 @@ const handleStreamableRequest =
       res.setHeader('mcp-session-id', transportContext.generatedSessionId);
     }
 
-    if (await maybeHandleInlineToolCall({ req, res, toolProfile, transportContext })) {
+    if (
+      !options.mcpOptions.nativeOAuth &&
+      (await maybeHandleInlineToolCall({ req, res, toolProfile, transportContext }))
+    ) {
       return;
     }
 
@@ -771,6 +787,47 @@ export const streamableHTTPApp = ({
     app.get(routePath, sendBinaryDownload);
   }
   const streamableHandler = handleStreamableRequest({ clientOptions, mcpOptions });
+  if (mcpOptions.chatgptConnectorEnabled) {
+    const resource = mcpOptions.chatgptConnectorResource ?? 'https://mcp.sanka.com/chatgpt';
+    const issuer = mcpOptions.chatgptConnectorIssuer ?? 'https://api-v2.sanka.com/oauth/chatgpt';
+    for (const [value, path] of [
+      [resource, '/chatgpt'],
+      [issuer, '/oauth/chatgpt'],
+    ] as const) {
+      const url = new URL(value);
+      if (
+        url.protocol !== 'https:' ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        url.pathname !== path ||
+        url.href !== value
+      ) {
+        throw new Error('ChatGPT connector requires canonical HTTPS resource and issuer URLs.');
+      }
+    }
+    if (!mcpOptions.tokenExchangeSharedSecret)
+      throw new Error('ChatGPT connector requires token exchange configuration.');
+    const nativeOptions: McpOptions = {
+      ...mcpOptions,
+      nativeOAuth: true,
+      chatgptConnectorResource: resource,
+      chatgptConnectorIssuer: issuer,
+    };
+    app.get('/.well-known/oauth-protected-resource/chatgpt', (_req, res) => {
+      res.json({
+        resource,
+        authorization_servers: [issuer],
+        scopes_supported: ['mcp:access'],
+        bearer_methods_supported: ['header'],
+      });
+    });
+    const nativeHandler = handleStreamableRequest({ clientOptions, mcpOptions: nativeOptions });
+    app.get('/chatgpt', declineStandaloneSseStream);
+    app.post('/chatgpt', nativeHandler);
+    app.delete('/chatgpt', nativeHandler);
+  }
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, declineStandaloneSseStream);
     app.post(routePath, streamableHandler);

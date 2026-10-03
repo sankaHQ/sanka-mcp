@@ -80,6 +80,14 @@ const WORKFLOW_LANGUAGE_SCHEMA = {
     'Optional workflow and app URL language. Defaults to en. Generated PDFs use their selected template document language; this is only a fallback for unpinned legacy templates.',
 };
 
+const EXPECTED_WORKSPACE_SCHEMA = {
+  type: 'string' as const,
+  minLength: 1,
+  pattern: '\\S',
+  description:
+    'Internal workspace UUID shown in the current app or preview. When provided, stop if this MCP session has switched workspaces. Refresh the app before retrying.',
+};
+
 const WORKFLOW_RUN_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -165,6 +173,7 @@ const RESOLVE_RECORD_INPUT_SCHEMA = {
 const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    expected_workspace_id: EXPECTED_WORKSPACE_SCHEMA,
     workflow_type: WORKFLOW_TYPE_SCHEMA,
     source_record: SOURCE_RECORD_SCHEMA,
     options: {
@@ -377,6 +386,7 @@ const PREVIEW_WORKFLOW_INPUT_SCHEMA = {
 const START_WORKFLOW_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    expected_workspace_id: EXPECTED_WORKSPACE_SCHEMA,
     workflow_type: WORKFLOW_TYPE_SCHEMA,
     source_record: SOURCE_RECORD_SCHEMA,
     options: {
@@ -507,6 +517,7 @@ const START_WORKFLOW_INPUT_SCHEMA = {
 const GET_WORKFLOW_RUN_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
+    expected_workspace_id: EXPECTED_WORKSPACE_SCHEMA,
     run_id: {
       type: 'string',
       description: 'Workflow run id returned by start_workflow.',
@@ -639,12 +650,21 @@ const workflowResult = (payload: Record<string, unknown>, fallbackSummary: strin
   };
 };
 
-const workflowWorkspaceHeaders = async (
+export const workflowWorkspaceHeaders = async (
   reqContext: Parameters<McpTool['handler']>[0]['reqContext'],
+  expectedWorkspaceID?: string,
 ): Promise<{ error?: ToolCallResult; headers?: Record<string, string> }> => {
+  const mismatch = (): { error: ToolCallResult } => ({
+    error: {
+      ...asErrorResult(
+        'The workspace has changed or could not be verified. Refresh Sanka Flow before retrying. No workflow request was sent.',
+      ),
+      structuredContent: { error: 'WORKSPACE_CONTEXT_MISMATCH' },
+    },
+  });
   const mcpSessionID = reqContext.mcpSessionId?.trim();
   if (!mcpSessionID) {
-    return {};
+    return expectedWorkspaceID ? mismatch() : {};
   }
 
   const sessionResponse = (await reqContext.client.get('/api/v2/public/auth/session', {
@@ -659,6 +679,9 @@ const workflowWorkspaceHeaders = async (
     readString(currentWorkspace?.['id']) ??
     readString(currentWorkspace?.['workspace_id']) ??
     readString(sessionData?.['workspace_id']);
+  if (expectedWorkspaceID && workspaceID !== expectedWorkspaceID) {
+    return mismatch();
+  }
   if (!workspaceID) {
     return {
       error: asErrorResult(
@@ -681,11 +704,13 @@ const postWorkflowRunEndpoint = async ({
   path,
   body,
   summary,
+  expectedWorkspaceID,
 }: {
   reqContext: Parameters<McpTool['handler']>[0]['reqContext'];
   path: string;
   body: Record<string, unknown>;
   summary: string;
+  expectedWorkspaceID?: string | undefined;
 }): Promise<ToolCallResult> => {
   const authError = requireAuthentication({
     reqContext,
@@ -695,7 +720,7 @@ const postWorkflowRunEndpoint = async ({
     return authError;
   }
 
-  const workspaceBinding = await workflowWorkspaceHeaders(reqContext);
+  const workspaceBinding = await workflowWorkspaceHeaders(reqContext, expectedWorkspaceID);
   if (workspaceBinding.error) {
     return workspaceBinding.error;
   }
@@ -808,6 +833,7 @@ export const previewWorkflowTool: McpTool = {
         path: '/api/v2/public/cpq/quote-readiness/salesforce/preview',
         body,
         summary: 'Previewed Salesforce quote readiness',
+        expectedWorkspaceID: readString(args?.['expected_workspace_id']),
       });
     }
     return postWorkflowRunEndpoint({
@@ -820,6 +846,7 @@ export const previewWorkflowTool: McpTool = {
         language,
       },
       summary: 'Previewed workflow',
+      expectedWorkspaceID: readString(args?.['expected_workspace_id']),
     });
   },
 };
@@ -873,6 +900,7 @@ export const startWorkflowTool: McpTool = {
         language,
       },
       summary: 'Started workflow',
+      expectedWorkspaceID: readString(args?.['expected_workspace_id']),
     });
   },
 };
@@ -913,7 +941,10 @@ export const getWorkflowRunTool: McpTool = {
     if (!runID) {
       return asErrorResult('`run_id` is required.');
     }
-    const workspaceBinding = await workflowWorkspaceHeaders(reqContext);
+    const workspaceBinding = await workflowWorkspaceHeaders(
+      reqContext,
+      readString(args?.['expected_workspace_id']),
+    );
     if (workspaceBinding.error) {
       return workspaceBinding.error;
     }
