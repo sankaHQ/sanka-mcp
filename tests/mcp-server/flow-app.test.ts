@@ -9,19 +9,25 @@ import type { ResolvedClientAuth } from '../../packages/mcp-server/src/auth';
 // exercises the Sanka dispatcher, scope enforcement, and HTTP response together.
 describe('Sanka Flow MCP App protocol', () => {
   const priorFlag = process.env['SANKA_MCP_FLOW_APP_ENABLED'];
+  const priorWorkspaceFlag = process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'];
   beforeAll(() => configureLogger({ level: 'error', pretty: false }));
   afterAll(() => {
     if (priorFlag === undefined) delete process.env['SANKA_MCP_FLOW_APP_ENABLED'];
     else process.env['SANKA_MCP_FLOW_APP_ENABLED'] = priorFlag;
+    if (priorWorkspaceFlag === undefined) delete process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'];
+    else process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'] = priorWorkspaceFlag;
   });
 
-  async function connect(enabled: boolean, scopes = ['auth:read']) {
+  async function connect(enabled: boolean, scopes = ['auth:read'], workspace = false) {
     process.env['SANKA_MCP_FLOW_APP_ENABLED'] = enabled ? '1' : '0';
+    process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'] = workspace ? '1' : '0';
     const requests: string[] = [];
+    const network: { url: string; method: string | undefined; body: unknown; headers: Headers }[] = [];
     const auth: ResolvedClientAuth = {
       authMode: 'oauth_bearer',
       clientOptions: {},
       oauth: {
+        nativeOAuth: workspace,
         scopes,
         resourceUrl: 'https://mcp.example.test/mcp',
         resourceMetadataUrl: '',
@@ -31,14 +37,33 @@ describe('Sanka Flow MCP App protocol', () => {
     const server = await newMcpServer({ toolProfile: 'hosted' });
     await initMcpServer({
       server,
+      mcpSessionId: 'flow-app-test-session',
       toolProfile: 'hosted',
       auth,
       clientOptions: {
         apiKey: 'test-only',
         baseURL: 'https://api.example.test',
         maxRetries: 0,
-        fetch: async (input) => {
+        fetch: async (input, init) => {
           requests.push(String(input));
+          network.push({
+            url: String(input),
+            method: init?.method,
+            body: init?.body,
+            headers: new Headers(init?.headers),
+          });
+          if (String(input).endsWith('/chatgpt-connector/launch'))
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: {
+                  ticket: 'scwt_' + 't'.repeat(43),
+                  browser_origin: 'https://' + 'b'.repeat(32) + '.flow-chatgpt.sanka.com',
+                  expires_in: 60,
+                },
+              }),
+              { headers: { 'content-type': 'application/json' } },
+            );
           return new Response(
             JSON.stringify({
               data: {
@@ -58,6 +83,7 @@ describe('Sanka Flow MCP App protocol', () => {
     return {
       client,
       requests,
+      network,
       close: async () => {
         await client.close();
         await server.close();
@@ -71,7 +97,7 @@ describe('Sanka Flow MCP App protocol', () => {
       const { tools } = await session.client.listTools();
       const tool = tools.find((candidate) => candidate.name === 'open_flow_workspace')!;
       expect(tool._meta).toMatchObject({
-        ui: { resourceUri: 'ui://sanka/flow-workspace' },
+        ui: { resourceUri: 'ui://sanka/flow-workspace-v2' },
         'openai/ui': { entrypoints: [{ type: 'global' }, { type: 'thread' }] },
       });
       const result = await session.client.callTool({ name: tool.name, arguments: {} });
@@ -87,6 +113,10 @@ describe('Sanka Flow MCP App protocol', () => {
         mimeType: 'text/html;profile=mcp-app',
         text: expect.stringContaining('<title>Sanka Flow</title>'),
       });
+      const legacy = await session.client.readResource({ uri: 'ui://sanka/flow-workspace' });
+      const content = resource.contents[0]!;
+      if (!('text' in content)) throw new Error('The Flow app resource must contain HTML text');
+      expect(legacy.contents[0]).toMatchObject({ text: content.text });
       await expect(session.client.readResource({ uri: 'ui://sanka/unknown' })).rejects.toThrow(
         'Unknown resource',
       );
@@ -114,6 +144,38 @@ describe('Sanka Flow MCP App protocol', () => {
       await expect(session.client.callTool({ name: 'open_flow_workspace', arguments: {} })).rejects.toThrow(
         'Unknown tool',
       );
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('launches a pinned browser session without putting its one-use ticket in model content or audit', async () => {
+    const session = await connect(true, ['mcp:access'], true);
+    try {
+      const result = await session.client.callTool({
+        name: 'start_flow_workspace_session',
+        arguments: {
+          expected_workspace_id: 'workspace-a',
+          browser_challenge: 'a'.repeat(64),
+          browser_origin: 'https://' + 'b'.repeat(32) + '.flow-chatgpt.sanka.com',
+        },
+      });
+      expect(result.isError).not.toBe(true);
+      const request = session.network.find((entry) => entry.url.endsWith('/chatgpt-connector/launch'))!;
+      expect(request.method).toBe('POST');
+      expect(JSON.parse(String(request.body))).toEqual({
+        expected_workspace_id: 'workspace-a',
+        browser_challenge: 'a'.repeat(64),
+        browser_origin: 'https://' + 'b'.repeat(32) + '.flow-chatgpt.sanka.com',
+      });
+      expect(request.headers.get('X-Workspace-Code')).toBe('workspace-a');
+      expect(result._meta).toMatchObject({ flow_workspace_session: { ticket: 'scwt_' + 't'.repeat(43) } });
+      expect(
+        JSON.stringify({ content: result.content, structuredContent: result.structuredContent }),
+      ).not.toContain('scwt_');
+      expect(
+        JSON.stringify(session.network.filter((entry) => entry.url.endsWith('/mcp/tool-call-log'))),
+      ).not.toContain('scwt_');
     } finally {
       await session.close();
     }

@@ -397,6 +397,8 @@ import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-nor
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 import { flowInvoiceTools } from './flow-invoice-tools';
 import { flowOrderSearchTool } from './flow-order-search';
+import { flowWorkspaceOrigin } from './flow-workspace-config';
+import { flowWorkspaceSessionTool } from './flow-workspace-session';
 import {
   flowWorkspaceTool,
   flowInvoiceTool,
@@ -659,6 +661,7 @@ const preparedToolsCacheKey = (options: McpOptions | undefined, profile: ToolPro
   return JSON.stringify({
     profile,
     flowApp: isFlowAppEnabled(),
+    flowWorkspace: Boolean(flowWorkspaceOrigin()),
     includeCodeTool,
     includeDocsTools,
     codeAllowHttpGets: includeCodeTool ? options?.codeAllowHttpGets ?? null : null,
@@ -790,6 +793,7 @@ export async function initMcpServer(params: {
       selectedTools.filter(({ tool }) =>
         [
           'open_flow_workspace',
+          'start_flow_workspace_session',
           'search_flow_orders',
           'get_flow_invoice',
           'preview_flow_invoice',
@@ -977,6 +981,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
 
   if (isFlowAppEnabled())
     includedTools.push(flowWorkspaceTool, flowInvoiceTool, flowOrderSearchTool, ...flowInvoiceTools);
+  if (flowWorkspaceOrigin()) includedTools.push(flowWorkspaceSessionTool);
 
   const includeGenericTools = _profile === 'full';
 

@@ -5,6 +5,7 @@ import { crmCurrentWorkspaceTool } from './crm-tools';
 import { McpTool, asErrorResult } from './types';
 import { requireAuthentication } from './tool-auth';
 import { workflowWorkspaceHeaders } from './workflow-run-tools';
+import { flowWorkspaceOrigin, flowWidgetOrigin } from './flow-workspace-config';
 
 // Canonical Sanka mark from the maintained web app; theme variants keep it legible.
 const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -32,7 +33,8 @@ const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="non
 </defs>
 </svg>`;
 
-export const FLOW_APP_URI = 'ui://sanka/flow-workspace';
+export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v2';
+const LEGACY_FLOW_APP_URI = 'ui://sanka/flow-workspace';
 export const FLOW_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 export const isFlowAppEnabled = (): boolean => process.env['SANKA_MCP_FLOW_APP_ENABLED'] === '1';
 
@@ -43,7 +45,12 @@ export const flowWorkspaceTool: McpTool = {
     name: 'open_flow_workspace',
     title: 'Flow workspace',
     description:
-      'Open Sanka Flow to find orders, preview an invoice draft, and inspect saved results in the connected workspace.',
+      'Open the connected Sanka Flow workspace in ChatGPT. Full workspace access provides the maintained record screens, workflows, approvals, and reports. Invoice-only connections retain the invoice assistant. An optional workspace-relative page opens a specific page or record.',
+    inputSchema: {
+      type: 'object',
+      properties: { page: { type: 'string', maxLength: 2048 } },
+      additionalProperties: false,
+    },
     icons: (['light', 'dark'] as const).map((theme) => ({
       src:
         'data:image/svg+xml,' +
@@ -64,7 +71,19 @@ export const flowWorkspaceTool: McpTool = {
     },
   },
   // Invoked only through the existing dispatcher: scope, validation and audit apply.
-  handler: crmCurrentWorkspaceTool.handler,
+  handler: async (input) => {
+    const result = await crmCurrentWorkspaceTool.handler(input);
+    if (result.isError) return result;
+    return {
+      ...result,
+      structuredContent: {
+        ...result.structuredContent,
+        workspace_access: input.reqContext.auth?.oauth.workspace_access || 'invoice_pilot',
+        full_workspace_available: Boolean(flowWorkspaceOrigin() && input.reqContext.auth?.oauth.nativeOAuth),
+        ...(typeof input.args?.['page'] === 'string' ? { page: input.args['page'] } : {}),
+      },
+    };
+  },
 };
 
 export const flowInvoiceTool: McpTool = {
@@ -128,15 +147,30 @@ export const flowAppResource = {
 };
 
 export async function readFlowAppResource(uri: string) {
-  if (uri !== FLOW_APP_URI) throw new McpError(ErrorCode.InvalidParams, 'Unknown resource');
+  if (uri !== FLOW_APP_URI && uri !== LEGACY_FLOW_APP_URI)
+    throw new McpError(ErrorCode.InvalidParams, 'Unknown resource');
+  const workspaceOrigin = flowWorkspaceOrigin();
+  const html = await readFile(join(__dirname, 'flow-app.html'), 'utf8');
+  const configuration = JSON.stringify({ workspaceOrigin }).replace(/</g, '\\u003c');
   return {
     contents: [
       {
         uri,
         mimeType: FLOW_APP_MIME_TYPE,
-        text: await readFile(join(__dirname, 'flow-app.html'), 'utf8'),
+        text: html.replace(
+          '<!-- WORKSPACE_CONFIG -->',
+          `<script type="application/json" id="workspace-config">${configuration}</script>`,
+        ),
         _meta: {
-          ui: { csp: { connectDomains: [], resourceDomains: [] }, prefersBorder: false },
+          ui: {
+            ...(flowWidgetOrigin() ? { domain: flowWidgetOrigin() } : {}),
+            csp: {
+              connectDomains: [],
+              resourceDomains: [],
+              ...(workspaceOrigin ? { frameDomains: [workspaceOrigin.replace('://', '://*.')] } : {}),
+            },
+            prefersBorder: false,
+          },
           'openai/ui': {
             preferredDisplayMode: 'fullscreen',
             availableDisplayModes: ['inline', 'fullscreen'],

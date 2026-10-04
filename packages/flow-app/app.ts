@@ -1,4 +1,5 @@
 import { App, applyDocumentTheme, applyHostStyleVariables } from '@modelcontextprotocol/ext-apps';
+import { createWorkspaceView } from './workspace';
 
 const app = new App(
   { name: 'Sanka Flow', version: '0.2.0' },
@@ -25,6 +26,7 @@ let searchPageSize = 20;
 let searchTotal = 0;
 const t = (en: string, ja: string) => (language === 'ja' ? ja : en);
 const unknown = () => t('Not available', '未確認');
+const workspaceView = createWorkspaceView(app, () => language, status);
 
 function status(message: string) {
   element('notice').textContent = message;
@@ -37,6 +39,7 @@ function setBusy(value: boolean) {
   element<HTMLButtonElement>('create').disabled = value || !review;
   element<HTMLButtonElement>('search-previous').disabled = value || searchPage <= 1;
   element<HTMLButtonElement>('search-next').disabled = value || searchPage * searchPageSize >= searchTotal;
+  workspaceView.controls(value);
 }
 function clearSearch() {
   searchQuery = '';
@@ -130,6 +133,8 @@ async function call(name: string, args: Record<string, unknown>) {
   return checkResult(result);
 }
 function showConnection(data: Record<string, unknown>) {
+  workspaceView.reset();
+  workspaceView.update({});
   contextVersion++;
   workspaceID = '';
   clearResults();
@@ -169,6 +174,7 @@ function renderWorkspace(result: ToolResult) {
       t('Select a workspace when connecting Sanka.', 'Sankaへの接続時にワークスペースを選択してください。')
     ),
   );
+  workspaceView.update(data);
 }
 function renderResult(target: string, title: string, message: string, payload: Record<string, unknown>) {
   const container = element(target);

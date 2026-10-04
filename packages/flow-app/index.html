@@ -148,6 +148,48 @@
       [hidden] {
         display: none !important;
       }
+      #workspace-frame {
+        flex: 1;
+        min-height: 0;
+      }
+      #workspace-frame iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+      #full-workspace {
+        height: calc(100vh - 96px);
+        min-height: 420px;
+        display: flex;
+        flex-direction: column;
+      }
+      .full-workspace main {
+        max-width: none;
+        padding: 0;
+      }
+      .full-workspace main > header {
+        display: none;
+      }
+      .full-workspace #workspace-launch {
+        padding: 8px 16px;
+      }
+      .full-workspace #workspace-launch > p,
+      .full-workspace #open-workspace {
+        display: none;
+      }
+      .full-workspace #notice {
+        padding: 0 16px;
+        margin: 0;
+      }
+      #workspace-launch {
+        padding-bottom: 16px;
+      }
+      #workspace-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       @media (max-width: 480px) {
         main {
           padding: 16px;
@@ -179,6 +221,62 @@
       <button id="connect" type="button" hidden data-en="Connect Sanka" data-ja="Sankaに接続">
         Connect Sanka
       </button>
+      <div id="workspace-launch" hidden>
+        <p
+          data-en="Use your Flow records, workflows, approvals, and reports in ChatGPT."
+          data-ja="ChatGPT内でFlowのレコード・ワークフロー・承認・レポートを利用できます。"
+        >
+          Use your Flow records, workflows, approvals, and reports in ChatGPT.
+        </p>
+        <p
+          id="workspace-consent"
+          class="muted"
+          data-en="Reconnect Sanka and choose Full Flow workspace to enable this view. Your invoice assistant remains available below."
+          data-ja="この画面を利用するには、Sankaに再接続して「Flowワークスペース全体」を選択してください。売上請求アシスタントは下の画面で引き続き利用できます。"
+        >
+          Reconnect Sanka and choose Full Flow workspace to enable this view.
+        </p>
+        <div id="workspace-controls">
+          <button
+            id="open-workspace"
+            type="button"
+            class="primary"
+            disabled
+            data-en="Open workspace"
+            data-ja="ワークスペースを開く"
+          >
+            Open workspace
+          </button>
+          <button
+            id="workspace-switch"
+            type="button"
+            hidden
+            data-en="Invoice assistant"
+            data-ja="売上請求アシスタント"
+          >
+            Invoice assistant
+          </button>
+          <button
+            id="workspace-external"
+            type="button"
+            data-en="Open workspace in Sanka"
+            data-ja="ワークスペースをSankaで開く"
+          >
+            Open workspace in Sanka
+          </button>
+        </div>
+      </div>
+      <div id="full-workspace" hidden>
+        <div id="workspace-frame"></div>
+        <button
+          id="workspace-retry"
+          type="button"
+          data-en="Reopen workspace"
+          data-ja="ワークスペースを開き直す"
+        >
+          Reopen workspace
+        </button>
+      </div>
       <div id="workspace-content" hidden>
         <section>
           <h2 data-en="From order to invoice" data-ja="受注から売上請求を作成">From order to invoice</h2>
@@ -286,6 +384,7 @@
         >
       </footer>
     </main>
+    <!-- WORKSPACE_CONFIG -->
     <!-- APP_SCRIPT -->
   </body>
 </html>
