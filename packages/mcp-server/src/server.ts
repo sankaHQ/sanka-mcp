@@ -396,6 +396,7 @@ import { validateToolArguments } from './tool-argument-validator';
 import { buildToolErrorResult, normalizeToolCallResult } from './tool-result-normalizer';
 import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 import { flowInvoiceTools } from './flow-invoice-tools';
+import { flowOrderSearchTool } from './flow-order-search';
 import {
   flowWorkspaceTool,
   flowInvoiceTool,
@@ -789,6 +790,7 @@ export async function initMcpServer(params: {
       selectedTools.filter(({ tool }) =>
         [
           'open_flow_workspace',
+          'search_flow_orders',
           'get_flow_invoice',
           'preview_flow_invoice',
           'start_flow_invoice',
@@ -973,7 +975,8 @@ export async function initMcpServer(params: {
 export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'): McpTool[] {
   const includedTools = [];
 
-  if (isFlowAppEnabled()) includedTools.push(flowWorkspaceTool, flowInvoiceTool, ...flowInvoiceTools);
+  if (isFlowAppEnabled())
+    includedTools.push(flowWorkspaceTool, flowInvoiceTool, flowOrderSearchTool, ...flowInvoiceTools);
 
   const includeGenericTools = _profile === 'full';
 

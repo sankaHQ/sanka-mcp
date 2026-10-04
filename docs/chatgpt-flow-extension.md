@@ -58,3 +58,22 @@ Sign in with ChatGPT until the corresponding live acceptance passes.
 References: [extensions](https://developers.openai.com/plugins/build/extensions),
 [connector authentication](https://developers.openai.com/plugins/build/auth),
 [Sign in with ChatGPT](https://developers.openai.com/siwc/chatgpt-plugin).
+
+## Order search and pilot guidance
+
+`search_flow_orders` uses the existing connection and expected workspace. It returns
+20 matching orders per page for customer names, order notes and line-item text.
+Choose a matching order before previewing it; multiple matches never authorize
+an automatic selection or write. The panel exposes search, pagination, explicit
+selection and cancellation. Changing search input, language or workspace clears
+the old confirmation. Existing order-number lookup remains available.
+
+The global/thread entrypoint uses the canonical Sanka mark with light/dark variants.
+After MCP deployment, refresh the private plugin's tools and start a new chat so
+the host can load the updated search tool and icon metadata.
+
+The review token is a SHA-256 content fingerprint, not an authentication credential.
+It detects changes to the reviewed order; the separate host-managed OAuth token
+authenticates every request. Host write approvals remain enabled. If the host
+blocks a confirmed write, stop and read the attempt state; do not reroute or retry
+the mutation. A successful panel write does not prove conversational acceptance.

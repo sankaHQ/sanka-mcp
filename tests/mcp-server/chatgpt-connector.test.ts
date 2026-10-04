@@ -115,6 +115,7 @@ describe('ChatGPT connector transport', () => {
     for (const tool of tools) {
       expect([
         'open_flow_workspace',
+        'search_flow_orders',
         'get_flow_invoice',
         'preview_flow_invoice',
         'start_flow_invoice',
