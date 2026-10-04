@@ -34,7 +34,16 @@ function invoiceTool(operation: 'preview' | 'start' | 'attempt'): McpTool {
         properties: {
           order_id: { type: 'string', minLength: 1 },
           expected_workspace_id: { type: 'string', minLength: 1 },
-          ...(write ? { review_token: { type: 'string', pattern: '^[a-f0-9]{64}$' } } : {}),
+          ...(write ?
+            {
+              review_token: {
+                type: 'string',
+                pattern: '^[a-f0-9]{64}$',
+                description:
+                  'The SHA-256 fingerprint returned by the reviewed preview. It detects changed order contents; it is not an authentication credential. OAuth remains managed by the host.',
+              },
+            }
+          : {}),
           language: { type: 'string', enum: ['en', 'ja'], default: 'en' },
         },
         required: ['order_id', 'expected_workspace_id', ...(write ? ['review_token'] : [])],

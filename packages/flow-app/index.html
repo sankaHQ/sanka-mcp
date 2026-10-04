@@ -189,6 +189,31 @@
           >
             Review the draft, confirm creation, then check the saved invoice.
           </p>
+          <form id="search-form">
+            <label
+              for="order-search"
+              data-en="Customer or order description"
+              data-ja="取引先名または受注の内容"
+              >Customer or order description</label
+            >
+            <div class="row">
+              <input id="order-search" type="search" required maxlength="200" autocomplete="off" />
+              <button type="submit" data-en="Find orders" data-ja="受注を検索">Find orders</button>
+            </div>
+            <p
+              class="muted"
+              data-en="Search customer names, order notes, and line-item names or descriptions."
+              data-ja="取引先名、受注の備考、品目名・説明で検索します。"
+            >
+              Search customer names, order notes, and line-item names or descriptions.
+            </p>
+          </form>
+          <div id="search-result" class="result" aria-live="polite" hidden></div>
+          <div id="search-pages" class="row" hidden>
+            <button id="search-previous" type="button" data-en="Previous" data-ja="前へ">Previous</button>
+            <span id="search-page"></span>
+            <button id="search-next" type="button" data-en="Next" data-ja="次へ">Next</button>
+          </div>
           <form id="preview-form">
             <label for="order-id" data-en="Order number or ID" data-ja="受注番号またはID"
               >Order number or ID</label
@@ -222,6 +247,7 @@
             >
               Create invoice draft
             </button>
+            <button id="cancel" type="button" data-en="Cancel" data-ja="キャンセル">Cancel</button>
           </div>
           <div id="recovery" class="result" hidden>
             <button

@@ -19,6 +19,10 @@ let busy = true;
 let language: 'en' | 'ja' = navigator.language.startsWith('ja') ? 'ja' : 'en';
 let review: { orderID: string; token: string } | null = null;
 let submittedOrderID = '';
+let searchQuery = '';
+let searchPage = 1;
+let searchPageSize = 20;
+let searchTotal = 0;
 const t = (en: string, ja: string) => (language === 'ja' ? ja : en);
 const unknown = () => t('Not available', '未確認');
 
@@ -31,6 +35,16 @@ function setBusy(value: boolean) {
     control.disabled = value;
   });
   element<HTMLButtonElement>('create').disabled = value || !review;
+  element<HTMLButtonElement>('search-previous').disabled = value || searchPage <= 1;
+  element<HTMLButtonElement>('search-next').disabled = value || searchPage * searchPageSize >= searchTotal;
+}
+function clearSearch() {
+  searchQuery = '';
+  searchPage = 1;
+  searchTotal = 0;
+  element('search-result').replaceChildren();
+  element('search-result').hidden = true;
+  element('search-pages').hidden = true;
 }
 function clearResults() {
   review = null;
@@ -44,10 +58,12 @@ function checkResult(result: ToolResult): Record<string, unknown> {
   const data = record(result.structuredContent);
   if (result.isError || data['error']) {
     const error = record(data['error']);
-    const code = text(data['error']) || text(error['code']);
+    const code = text(data['code']) || text(data['error']) || text(error['code']);
+    const httpStatus = Number(data['status_code']);
     if (code === 'WORKSPACE_CONTEXT_MISMATCH') {
       workspaceID = '';
       clearResults();
+      clearSearch();
       element('workspace-content').hidden = true;
       throw new Error(
         t(
@@ -56,17 +72,47 @@ function checkResult(result: ToolResult): Record<string, unknown> {
         ),
       );
     }
-    if (code === 'invalid_token' || code === 'insufficient_scope') {
+    if (code === 'invalid_token' || httpStatus === 401) {
       showConnection(data);
       throw new Error(
         t('Reconnect Sanka in ChatGPT, then refresh.', 'ChatGPTでSankaに再接続し、再読み込みしてください。'),
       );
     }
-    throw new Error(
-      text(data['message']) ||
-        text(error['message']) ||
-        t('Sanka could not complete this request.', 'リクエストを完了できませんでした。'),
-    );
+    const messages: Record<string, string> = {
+      PREVIEW_CHANGED: t(
+        'The order changed after review. Review it again before creating.',
+        '確認後に受注が変更されました。内容を再確認してから作成してください。',
+      ),
+      ORDER_ALREADY_SUBMITTED: t(
+        'This order already has a submission by another user. Open it in Sanka to check the invoice.',
+        'この受注は別のユーザーが実行済みです。Sankaで受注と売上請求を確認してください。',
+      ),
+      NOT_FOUND: t(
+        'No matching record was found in this workspace. Check the number or search for the order.',
+        'このワークスペースに該当するレコードが見つかりません。番号を確認するか、受注を検索してください。',
+      ),
+      ORDER_TO_INVOICE_SOURCE_UNAVAILABLE: t(
+        'This order is unavailable. Check the workspace and order number.',
+        '受注を取得できません。ワークスペースと受注番号を確認してください。',
+      ),
+      NOT_READY: t(
+        'This order is not ready for an invoice. Review its details in Sanka.',
+        '売上請求を作成できる状態ではありません。Sankaで受注の内容を確認してください。',
+      ),
+    };
+    const message =
+      messages[code] ||
+      (httpStatus === 403 || code === 'insufficient_scope' ?
+        t(
+          'You do not have permission for this action. Ask a workspace administrator to check your access.',
+          'この操作の権限がありません。ワークスペースの管理者に確認してください。',
+        )
+      : t(
+          'Sanka could not complete this request. Try the read again. After a creation error, use Check status before doing anything else.',
+          'リクエストを完了できませんでした。読み取りは再試行できます。作成時のエラーは、先に「状態と保存内容を確認」で確認してください。',
+        ));
+    const reference = text(data['ctx_id']) || text(record(data['meta'])['ctx_id']);
+    throw new Error(reference ? `${message} (${reference})` : message);
   }
   return data;
 }
@@ -87,6 +133,7 @@ function showConnection(data: Record<string, unknown>) {
   contextVersion++;
   workspaceID = '';
   clearResults();
+  clearSearch();
   element('workspace-content').hidden = true;
   connectURL = '';
   try {
@@ -101,9 +148,11 @@ function renderWorkspace(result: ToolResult) {
   const data = checkResult(result);
   contextVersion++;
   clearResults();
+  clearSearch();
   const nextID = text(data['workspace_id']);
   if (workspaceID !== nextID) {
     element<HTMLInputElement>('order-id').value = '';
+    element<HTMLInputElement>('order-search').value = '';
     element<HTMLInputElement>('run-id').value = '';
   }
   workspaceID = nextID;
@@ -337,6 +386,7 @@ element('language').onclick = () => {
   language = language === 'en' ? 'ja' : 'en';
   applyLanguage();
   clearResults();
+  clearSearch();
 };
 element('refresh').onclick = () =>
   void run(async () =>
@@ -347,19 +397,88 @@ element('connect').onclick = () =>
     if (connectURL) await app.openLink({ url: connectURL });
   });
 element('order-id').addEventListener('input', clearResults);
+element('order-search').addEventListener('input', () => {
+  clearSearch();
+  clearResults();
+});
+async function reviewOrder(orderID: string) {
+  clearResults();
+  const attempt = record((await call('get_flow_invoice_attempt', { order_id: orderID }))['data']);
+  if (attempt['status'] !== 'not_started') {
+    await renderAttempt(attempt);
+    return;
+  }
+  renderPreview(record((await call('preview_flow_invoice', { order_id: orderID, language }))['data']));
+}
+async function findOrders(page: number) {
+  clearResults();
+  element('search-result').hidden = true;
+  element('search-pages').hidden = true;
+  const data = record((await call('search_flow_orders', { query: searchQuery, page }))['data']);
+  searchPage = Number(data['page']);
+  searchPageSize = Number(data['page_size']);
+  searchTotal = Number(data['total']);
+  const matches = items(data['items']);
+  const container = element('search-result');
+  const heading = document.createElement('h3');
+  heading.textContent =
+    matches.length ? t('Choose an order', '受注を選択') : t('No matching orders', '該当する受注がありません');
+  container.replaceChildren(heading);
+  if (!matches.length) {
+    const hint = document.createElement('p');
+    hint.textContent = t(
+      'Try a different customer name or description, or enter an order number below.',
+      '取引先名や受注の内容を変更するか、下の欄に受注番号を入力してください。',
+    );
+    container.append(hint);
+  }
+  for (const value of matches) {
+    const order = record(value);
+    const id = text(order['order_id']);
+    if (!id) continue;
+    const card = document.createElement('article');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${t('Review order', '受注を確認')} ${order['order_number'] ?? id}`;
+    button.onclick = () =>
+      void run(async () => {
+        element<HTMLInputElement>('order-id').value = id;
+        await reviewOrder(id);
+      });
+    fields(card, [
+      [t('Customer', '取引先'), order['customer']],
+      [t('Total', '合計'), order['total']],
+      [t('Currency', '通貨'), order['currency']],
+      [t('Order date', '受注日'), order['order_date']],
+      [t('Status', 'ステータス'), order['status']],
+      [t('Notes', '備考'), order['description']],
+    ]);
+    card.append(button);
+    container.append(card);
+  }
+  container.hidden = false;
+  element('search-pages').hidden = searchTotal <= searchPageSize;
+  element('search-page').textContent = `${t('Page', 'ページ')} ${searchPage} · ${searchTotal} ${t(
+    'orders',
+    '件',
+  )}`;
+}
+element('search-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  searchQuery = element<HTMLInputElement>('order-search').value.trim();
+  if (workspaceID && searchQuery) void run(() => findOrders(1));
+});
+element('search-previous').onclick = () => void run(() => findOrders(searchPage - 1));
+element('search-next').onclick = () => void run(() => findOrders(searchPage + 1));
+element('cancel').onclick = () => {
+  clearResults();
+  status(t('Canceled. No invoice was created.', 'キャンセルしました。売上請求は作成されていません。'));
+};
 element('preview-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const orderID = element<HTMLInputElement>('order-id').value.trim();
   if (!workspaceID || !orderID) return;
-  void run(async () => {
-    clearResults();
-    const attempt = record((await call('get_flow_invoice_attempt', { order_id: orderID }))['data']);
-    if (attempt['status'] !== 'not_started') {
-      await renderAttempt(attempt);
-      return;
-    }
-    renderPreview(record((await call('preview_flow_invoice', { order_id: orderID, language }))['data']));
-  });
+  void run(() => reviewOrder(orderID));
 });
 element('create').onclick = () =>
   void run(async () => {
