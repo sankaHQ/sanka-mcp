@@ -33,8 +33,8 @@ const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="non
 </defs>
 </svg>`;
 
-export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v2';
-const LEGACY_FLOW_APP_URI = 'ui://sanka/flow-workspace';
+export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v3';
+const LEGACY_FLOW_APP_URIS = ['ui://sanka/flow-workspace', 'ui://sanka/flow-workspace-v2'];
 export const FLOW_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 export const isFlowAppEnabled = (): boolean => process.env['SANKA_MCP_FLOW_APP_ENABLED'] === '1';
 
@@ -74,12 +74,51 @@ export const flowWorkspaceTool: McpTool = {
   handler: async (input) => {
     const result = await crmCurrentWorkspaceTool.handler(input);
     if (result.isError) return result;
+    const { reqContext } = input;
+    const oauth = reqContext.auth?.oauth;
+    let access = oauth?.workspace_access || 'invoice_pilot';
+    let available = Boolean(flowWorkspaceOrigin() && oauth?.nativeOAuth);
+    let consentUrl: string | undefined;
+    const expected = result.structuredContent?.['workspace_id'];
+    if (
+      flowWorkspaceOrigin() &&
+      !oauth?.nativeOAuth &&
+      reqContext.auth?.authMode === 'oauth_bearer' &&
+      reqContext.mcpSessionId &&
+      typeof expected === 'string'
+    ) {
+      const response = await reqContext.client.get<{
+        data: {
+          workspace_id: string;
+          workspace_access: 'invoice_pilot' | 'full_workspace';
+          full_workspace_available: boolean;
+        };
+      }>('/api/v2/auth/chatgpt-connector/mcp/status', {
+        query: { expected_workspace_id: expected },
+        headers: { 'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId, 'X-Workspace-Code': expected },
+        maxRetries: 0,
+      });
+      if (response.data?.workspace_id !== expected) return asErrorResult('Workspace changed. Refresh Sanka.');
+      access = response.data.workspace_access;
+      available = response.data.full_workspace_available;
+      if (available && access !== 'full_workspace' && oauth?.connectUrl) {
+        const url = new URL(oauth.connectUrl);
+        const token = url.searchParams.get('token');
+        if (token) {
+          url.pathname = '/oauth/mcp/workspace';
+          url.search = new URLSearchParams({ token, expected_workspace_id: expected }).toString();
+          url.hash = '';
+          consentUrl = url.href;
+        }
+      }
+    }
     return {
       ...result,
+      ...(consentUrl ? { _meta: { ...result._meta, flow_workspace_consent_url: consentUrl } } : {}),
       structuredContent: {
         ...result.structuredContent,
-        workspace_access: input.reqContext.auth?.oauth.workspace_access || 'invoice_pilot',
-        full_workspace_available: Boolean(flowWorkspaceOrigin() && input.reqContext.auth?.oauth.nativeOAuth),
+        workspace_access: access,
+        full_workspace_available: available,
         ...(typeof input.args?.['page'] === 'string' ? { page: input.args['page'] } : {}),
       },
     };
@@ -147,7 +186,7 @@ export const flowAppResource = {
 };
 
 export async function readFlowAppResource(uri: string) {
-  if (uri !== FLOW_APP_URI && uri !== LEGACY_FLOW_APP_URI)
+  if (uri !== FLOW_APP_URI && !LEGACY_FLOW_APP_URIS.includes(uri))
     throw new McpError(ErrorCode.InvalidParams, 'Unknown resource');
   const workspaceOrigin = flowWorkspaceOrigin();
   const html = await readFile(join(__dirname, 'flow-app.html'), 'utf8');

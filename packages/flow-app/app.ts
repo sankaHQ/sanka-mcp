@@ -12,7 +12,7 @@ const record = (value: unknown): Record<string, unknown> =>
   : {};
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
 const items = (value: unknown) => (Array.isArray(value) ? value : []);
-type ToolResult = { isError?: boolean; structuredContent?: unknown; content?: unknown[] };
+type ToolResult = { isError?: boolean; structuredContent?: unknown; content?: unknown[]; _meta?: unknown };
 let workspaceID = '';
 let contextVersion = 0;
 let connectURL = '';
@@ -150,7 +150,13 @@ function showConnection(data: Record<string, unknown>) {
   element('connect').hidden = !connectURL;
 }
 function renderWorkspace(result: ToolResult) {
-  const data = checkResult(result);
+  let data: Record<string, unknown>;
+  try {
+    data = checkResult(result);
+  } catch (error) {
+    workspaceView.reset();
+    throw error;
+  }
   contextVersion++;
   clearResults();
   clearSearch();
@@ -174,7 +180,7 @@ function renderWorkspace(result: ToolResult) {
       t('Select a workspace when connecting Sanka.', 'Sankaへの接続時にワークスペースを選択してください。')
     ),
   );
-  workspaceView.update(data);
+  workspaceView.update(data, record(result._meta));
 }
 function renderResult(target: string, title: string, message: string, payload: Record<string, unknown>) {
   const container = element(target);
@@ -391,6 +397,7 @@ function applyLanguage() {
 element('language').onclick = () => {
   language = language === 'en' ? 'ja' : 'en';
   applyLanguage();
+  workspaceView.controls();
   clearResults();
   clearSearch();
 };

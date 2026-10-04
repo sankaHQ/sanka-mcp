@@ -223,20 +223,25 @@
       </button>
       <div id="workspace-launch" hidden>
         <p
-          data-en="Use your Flow records, workflows, approvals, and reports in ChatGPT."
-          data-ja="ChatGPT内でFlowのレコード・ワークフロー・承認・レポートを利用できます。"
+          data-en="Use the Sanka sidebar, dashboard, record tables, workflows, and reports in ChatGPT."
+          data-ja="ChatGPT内でSankaのサイドバー・ダッシュボード・レコード一覧・ワークフロー・レポートを利用できます。"
         >
-          Use your Flow records, workflows, approvals, and reports in ChatGPT.
+          Use the Sanka sidebar, dashboard, record tables, workflows, and reports in ChatGPT.
         </p>
-        <p
-          id="workspace-consent"
-          class="muted"
-          data-en="Reconnect Sanka and choose Full Flow workspace to enable this view. Your invoice assistant remains available below."
-          data-ja="この画面を利用するには、Sankaに再接続して「Flowワークスペース全体」を選択してください。売上請求アシスタントは下の画面で引き続き利用できます。"
-        >
+        <p id="workspace-consent" class="muted">
           Reconnect Sanka and choose Full Flow workspace to enable this view.
         </p>
         <div id="workspace-controls">
+          <button
+            id="enable-workspace"
+            type="button"
+            class="primary"
+            hidden
+            data-en="Enable full workspace"
+            data-ja="ワークスペース全体へのアクセスを許可"
+          >
+            Enable full workspace
+          </button>
           <button
             id="open-workspace"
             type="button"
