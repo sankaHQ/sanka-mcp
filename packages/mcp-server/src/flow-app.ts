@@ -47,7 +47,7 @@ export const flowWorkspaceTool: McpTool = {
     icons: (['light', 'dark'] as const).map((theme) => ({
       src:
         'data:image/svg+xml,' +
-        encodeURIComponent(theme === 'dark' ? sankaMark.replaceAll('#1B0F0B', '#FFFFFF') : sankaMark),
+        encodeURIComponent(theme === 'dark' ? sankaMark.replace(/#1B0F0B/g, '#FFFFFF') : sankaMark),
       mimeType: 'image/svg+xml',
       sizes: ['any'],
       theme,
