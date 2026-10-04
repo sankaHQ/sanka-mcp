@@ -114,7 +114,9 @@ describe('Sanka Flow MCP App protocol', () => {
         text: expect.stringContaining('<title>Sanka Flow</title>'),
       });
       const legacy = await session.client.readResource({ uri: 'ui://sanka/flow-workspace' });
-      expect(legacy.contents[0]?.text).toBe(resource.contents[0]?.text);
+      const content = resource.contents[0]!;
+      if (!('text' in content)) throw new Error('The Flow app resource must contain HTML text');
+      expect(legacy.contents[0]).toMatchObject({ text: content.text });
       await expect(session.client.readResource({ uri: 'ui://sanka/unknown' })).rejects.toThrow(
         'Unknown resource',
       );
