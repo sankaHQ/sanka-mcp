@@ -41,6 +41,7 @@ export type ResolvedClientAuth = {
     workspace_id?: string | undefined;
     workspace_code?: string | undefined;
     workspace_name?: string | undefined;
+    workspace_access?: 'invoice_pilot' | 'full_workspace' | undefined;
   };
 };
 
@@ -60,6 +61,7 @@ type McpSessionTokenEnvelope = {
   workspace_id?: string | null;
   workspace_code?: string | null;
   workspace_name?: string | null;
+  workspace_access?: 'invoice_pilot' | 'full_workspace';
 };
 
 const mcpSessionTokenCache = new Map<
@@ -572,6 +574,7 @@ const resolveChatGPTClientAuth = async ({
       workspace_id: payload.workspace_id,
       ...(payload.workspace_code ? { workspace_code: payload.workspace_code } : {}),
       ...(payload.workspace_name ? { workspace_name: payload.workspace_name } : {}),
+      ...(payload.workspace_access ? { workspace_access: payload.workspace_access } : {}),
     },
   };
 };

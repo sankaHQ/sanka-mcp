@@ -1,6 +1,7 @@
-# Sanka Flow ChatGPT connector pilot
+# Sanka Flow ChatGPT workspace and invoice assistant
 
-Unreleased and disabled by default. The panel connects an existing Sanka account,
+The full workspace is implemented behind a disabled-by-default flag and awaits
+live acceptance. The private invoice pilot has been released. The panel connects an existing Sanka account,
 reviews one order, creates one invoice draft after confirmation, and reads its
 saved status, currency, amount and lines. Sign in with ChatGPT remains separate.
 
@@ -16,15 +17,16 @@ issuer `https://api-v2.sanka.com/oauth/chatgpt` and resource
 Set the existing token-exchange shared secret and optional internal authorization
 server URL. The API must have matching configuration and migrations first.
 
-The native endpoint permits only `open_flow_workspace`, `preview_flow_invoice`,
+The native endpoint permits `open_flow_workspace`, `search_flow_orders`, `preview_flow_invoice`,
 `start_flow_invoice`, `get_flow_invoice_attempt`, `get_flow_invoice`, and
 `get_workflow_run`. It exchanges/revalidates credentials on every request and
 cannot switch workspaces. `/mcp` retains Connect Sanka session behavior and still
 rejects direct bearer/API-key headers. Local plugin manifests stay on `/mcp`.
 
-`open_flow_workspace` accepts `{}` and exposes global/thread entrypoints and
-`ui://sanka/flow-workspace`. The static app uses the MCP Apps host bridge, has no
-external network dependencies, and receives no raw credentials. EN/JA copy and
+`open_flow_workspace` accepts an optional workspace-relative `page` and exposes
+global/thread entrypoints and `ui://sanka/flow-workspace-v2`. The old resource URI
+remains readable. The outer app uses the MCP Apps host bridge and receives no
+application API credentials. EN/JA copy and
 narrow layout are included. Other hosts can use the tools' text results.
 
 Review reads any prior attempt before preparing a new draft. Creation requires
@@ -48,7 +50,8 @@ The companion sanka-e2e suite accepts that absolute path as
 `SANKA_CHATGPT_APP_HTML` and runs `npm run test:chatgpt-extension`. It supplies a
 synthetic host: browser actions and reload/recovery are tested, but all business
 records are fixtures. API PostgreSQL tests own credential/attempt persistence.
-Live ChatGPT installation, consent and saved business records remain unverified.
+The private invoice pilot has live evidence; the new full-workspace bridge still
+requires a real ChatGPT host and persisted business-record acceptance.
 
 Release API/schema first, consent UI second, MCP third, then enable the pilot
 only after approved configuration. Disable native/app flags to roll back
@@ -77,3 +80,48 @@ It detects changes to the reviewed order; the separate host-managed OAuth token
 authenticates every request. Host write approvals remain enabled. If the host
 blocks a confirmed write, stop and read the attempt state; do not reroute or retry
 the mutation. A successful panel write does not prove conversational acceptance.
+
+## Full workspace view
+
+Set `SANKA_MCP_FLOW_WORKSPACE_ENABLED=1` only after the API and React workspace
+session capability is released and configured. `CHATGPT_WORKSPACE_ORIGIN`
+defaults to `https://flow-chatgpt.sanka.com`; all three services must agree.
+`SANKA_MCP_FLOW_WIDGET_ORIGIN` optionally sets resource `ui.domain` to an exact
+HTTPS origin. A unique widget origin is required before directory submission;
+React must trust that exact origin through `CHATGPT_WORKSPACE_PARENT_ORIGINS`.
+Private hosts using the default `https://web-sandbox.oaiusercontent.com` must
+keep that origin in the React allowlist. No wildcard parent origin is accepted.
+
+The user reconnects and explicitly chooses full-workspace access. The Open
+workspace button embeds the maintained Sanka React UI at a random 32-hex
+subdomain of the configured origin. The resource requests only that wildcard
+under `ui.csp.frameDomains`; connect/resource domains remain empty for the outer
+app. Wildcard DNS/TLS and trusted-edge routing to React are deployment prerequisites.
+The nested Sanka page applies its own CSP and first-party authenticated proxies.
+
+The app-only `start_flow_workspace_session` tool validates the pinned workspace,
+native connector, browser origin and challenge. Its one-time ticket appears only
+in `_meta.flow_workspace_session`, never model-visible content or tool audit
+arguments. It is posted to the exact waiting frame; React exchanges it and stores
+the API credential in Secure, HttpOnly, Partitioned, host-only cookies. Ticket
+redemption requires the browser's HttpOnly bootstrap nonce and is single-use.
+No tool creates a general account session or accepts arbitrary HTTP operations.
+
+The full view reuses Flow navigation, record tables/details/editors, workflows,
+approvals and reports with existing Sanka permissions. Manual UI actions retain
+their Sanka confirmations and approvals. The invoice assistant and conversation
+tools retain their own preview/confirmation/recovery and host approval boundaries.
+Account, billing, credentials/provider setup, migration, developer, sandbox and
+security control-plane pages provide a handoff to the normal Sanka application.
+
+Active-page context contains only the workspace identity and a sanitized path;
+record contents and credentials are excluded. Share page sends a user message
+only after the user's button click. `open_flow_workspace` with a valid `page`
+navigates the current view. Workspace changes clear the old frame and context.
+Open in Sanka remains available when embedding or partitioned cookies fail.
+
+Submission must explain that the iframe reuses Sanka's existing authenticated
+business editor on a Sanka-owned domain. OpenAI reviews `frameDomains` separately;
+local protocol tests do not establish host approval or directory acceptance.
+See [plugin guidelines](https://developers.openai.com/plugins/plugin-guidelines)
+and [resource metadata](https://developers.openai.com/plugins/reference).
