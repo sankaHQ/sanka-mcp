@@ -97,15 +97,17 @@ Sanka consent page showing the same account and workspace. After allowing access
 the user selects Refresh and the workspace opens automatically. Native `/chatgpt`
 connections use their existing reconnect consent. Existing connections are never
 silently upgraded.
-The resource cache key is `ui://sanka/flow-workspace-v5`; previous URIs remain
+The resource cache key is `ui://sanka/flow-workspace-v6`; previous URIs remain
 readable for existing conversations.
 
 An authorized connection opens the maintained Sanka React UI automatically and
 requests fullscreen from the host, without an additional launcher click. The app
 waits for the host bridge and confirmed full-workspace access before opening;
 connections that still need authorization retain the consent screen. The host
-controls whether fullscreen is available. Reopen workspace and Open in Sanka
-remain available for recovery. The app embeds the workspace at a random 32-hex
+controls whether fullscreen is available. The workspace fills the panel without
+the wrapper's external-open header or retry footer. Those controls appear if the
+workspace fails to open or takes too long; Sanka's own Open in Sanka action remains
+available inside the loaded workspace. The app embeds the workspace at a random 32-hex
 subdomain of the configured origin. The resource requests only that wildcard
 under `ui.csp.frameDomains`; connect/resource domains remain empty for the outer
 app. Wildcard DNS/TLS and trusted-edge routing to React are deployment prerequisites.
