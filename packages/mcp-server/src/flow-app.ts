@@ -33,8 +33,12 @@ const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="non
 </defs>
 </svg>`;
 
-export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v3';
-const LEGACY_FLOW_APP_URIS = ['ui://sanka/flow-workspace', 'ui://sanka/flow-workspace-v2'];
+export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v4';
+const LEGACY_FLOW_APP_URIS = [
+  'ui://sanka/flow-workspace',
+  'ui://sanka/flow-workspace-v2',
+  'ui://sanka/flow-workspace-v3',
+];
 export const FLOW_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 export const isFlowAppEnabled = (): boolean => process.env['SANKA_MCP_FLOW_APP_ENABLED'] === '1';
 
@@ -45,7 +49,7 @@ export const flowWorkspaceTool: McpTool = {
     name: 'open_flow_workspace',
     title: 'Flow workspace',
     description:
-      'Open the connected Sanka Flow workspace in ChatGPT. Full workspace access provides the maintained record screens, workflows, approvals, and reports. Invoice-only connections retain the invoice assistant. An optional workspace-relative page opens a specific page or record.',
+      'Open the connected Sanka Flow workspace in ChatGPT. Full workspace access provides the maintained record screens, workflows, approvals, and reports. Full workspace access must be authorized before opening the embedded workspace. An optional workspace-relative page opens a specific page or record.',
     inputSchema: {
       type: 'object',
       properties: { page: { type: 'string', maxLength: 2048 } },

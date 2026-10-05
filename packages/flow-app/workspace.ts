@@ -83,8 +83,6 @@ export function createWorkspaceView(
     visible = showWorkspace;
     document.body.classList.toggle('full-workspace', showWorkspace);
     element('full-workspace').hidden = !showWorkspace;
-    element('workspace-content').hidden = showWorkspace || !workspace.id;
-    element('workspace-switch').hidden = !showWorkspace;
   }
 
   function reset() {
@@ -202,7 +200,6 @@ export function createWorkspaceView(
     );
     void app.requestDisplayMode({ mode: 'fullscreen' }).catch(() => undefined);
   };
-  element('workspace-switch').onclick = () => show(false);
   element('workspace-external').onclick = () => {
     const path = safePath(currentPath || workspace.page, workspace.code) || `/${workspace.code}`;
     if (workspace.id)
