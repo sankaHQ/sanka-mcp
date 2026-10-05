@@ -446,13 +446,16 @@ const expectedVersion = async (reqContext: McpRequestContext, goalID: string, ar
 const label = (owner: { id: number; label: string } | null | undefined): string =>
   owner ? `${owner.label} (member ${owner.id})` : 'Company';
 
+// The measure that counts the records matching a goal's filters at each month end.
+const SNAPSHOT_MEASURE = 'active';
+
 const describeGoal = (goal: GoalData): string => {
   const measured =
-    goal.metric === 'custom' ?
-      `custom: ${goal.definition.source} ${goal.definition.measure ?? 'count'} by ${
+    goal.metric !== 'custom' ? `${goal.metric}${goal.amount ? ` ${goal.amount}` : ''}`
+    : goal.definition.measure === SNAPSHOT_MEASURE ? `custom: ${goal.definition.source} active at month end`
+    : `custom: ${goal.definition.source} ${goal.definition.measure ?? 'count'} by ${
         goal.definition.date_field ?? 'created_at'
-      }`
-    : `${goal.metric}${goal.amount ? ` ${goal.amount}` : ''}`;
+      }`;
   const money = goal.unit === 'money' ? ` in ${goal.currency ?? 'the workspace currency'}` : '';
   const people = goal.assignees.length > 0 ? `: ${goal.assignees.map(label).join(', ')}` : '';
   return `"${goal.name}" (goal_id ${goal.id}, version ${goal.version}; ${measured}, ${goal.unit}${money}; for ${goal.assignment}${people})`;
