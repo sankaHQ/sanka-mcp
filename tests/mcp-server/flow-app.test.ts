@@ -113,7 +113,7 @@ describe('Sanka Flow MCP App protocol', () => {
       const { tools } = await session.client.listTools();
       const tool = tools.find((candidate) => candidate.name === 'open_flow_workspace')!;
       expect(tool._meta).toMatchObject({
-        ui: { resourceUri: 'ui://sanka/flow-workspace-v5' },
+        ui: { resourceUri: 'ui://sanka/flow-workspace-v6' },
         'openai/ui': { entrypoints: [{ type: 'global' }, { type: 'thread' }] },
       });
       const result = await session.client.callTool({ name: tool.name, arguments: {} });
@@ -136,6 +136,7 @@ describe('Sanka Flow MCP App protocol', () => {
         'ui://sanka/flow-workspace-v2',
         'ui://sanka/flow-workspace-v3',
         'ui://sanka/flow-workspace-v4',
+        'ui://sanka/flow-workspace-v5',
       ]) {
         const legacy = await session.client.readResource({ uri });
         expect(legacy.contents[0]).toMatchObject({ text: content.text });

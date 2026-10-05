@@ -86,8 +86,14 @@ export function createWorkspaceView(
     element('full-workspace').hidden = !showWorkspace;
   }
 
+  function showRecovery(message: string) {
+    document.body.classList.add('workspace-recovery');
+    status(message);
+  }
+
   function reset() {
     clearTimeout(openingTimer);
+    document.body.classList.remove('workspace-recovery');
     iframe?.remove();
     iframe = null;
     frameOrigin = '';
@@ -199,7 +205,7 @@ export function createWorkspaceView(
     status(t('Opening your workspace…', 'ワークスペースを開いています…'));
     openingTimer = setTimeout(
       () =>
-        status(
+        showRecovery(
           t(
             'The workspace is still opening. Check the ChatGPT approval, or open it in Sanka.',
             'ワークスペースを開いています。ChatGPTの許可を確認するか、Sankaで開いてください。',
@@ -259,7 +265,7 @@ export function createWorkspaceView(
         } catch {
           if (frameOrigin === origin) {
             clearTimeout(openingTimer);
-            status(
+            showRecovery(
               t(
                 'The workspace could not be opened. Check the ChatGPT approval and connection, then try again.',
                 'ワークスペースを開けませんでした。ChatGPTの許可と接続を確認し、再度開いてください。',
@@ -275,7 +281,7 @@ export function createWorkspaceView(
     }
     if (type === 'sanka.flow.launch-error') {
       clearTimeout(openingTimer);
-      status(
+      showRecovery(
         t(
           'Open the workspace again. If cookies are blocked, open the page in Sanka.',
           'ワークスペースを再度開いてください。Cookieがブロックされている場合は、Sankaで開いてください。',
@@ -289,6 +295,7 @@ export function createWorkspaceView(
     const url = `https://app.sanka.com${path}`;
     if (type === 'sanka.flow.context') {
       clearTimeout(openingTimer);
+      document.body.classList.remove('workspace-recovery');
       status('');
       host();
       if (path === currentPath) return;

@@ -91,19 +91,27 @@
         min-height: 0;
       }
       #workspace-frame iframe {
+        display: block;
         width: 100%;
         height: 100%;
         border: 0;
       }
       #full-workspace {
-        height: calc(100vh - 96px);
-        min-height: 420px;
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
       }
       .full-workspace main {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
         max-width: none;
         padding: 0;
+      }
+      .full-workspace:not(.workspace-recovery) #workspace-launch,
+      .full-workspace:not(.workspace-recovery) #workspace-retry {
+        display: none;
       }
       .full-workspace main > header {
         display: none;
