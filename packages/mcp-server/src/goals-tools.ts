@@ -77,7 +77,7 @@ const FILTER_OPERATORS = [
 const DEFINITION_SCHEMA = {
   type: 'object',
   description:
-    "Custom metric, for metric=custom only: one source object's active records, counted or summed by the month of one of their dates. Copy a template's definition from list_goal_metrics or build one from a source's keys.",
+    "Custom metric, for metric=custom only: one source object's active records, counted or summed by the month of one of their dates; measure active instead counts them at each month end. Copy a template's definition from list_goal_metrics or build one from a source's keys.",
   properties: {
     source: {
       type: 'string',
@@ -90,13 +90,14 @@ const DEFINITION_SCHEMA = {
       minLength: 1,
       maxLength: 64,
       description:
-        'Measure key of the source, such as count (the default) or total_before_tax. Its unit makes the goal a count, money or number goal.',
+        'Measure key of the source, such as count (the default), total_before_tax or active (a snapshot: how many records match the filters at month end). Its unit makes the goal a count, money or number goal.',
     },
     date_field: {
       type: 'string',
       minLength: 1,
       maxLength: 64,
-      description: 'Date field key of the source that places each record in a month. Defaults to created_at.',
+      description:
+        'Date field key of the source that places each record in a month. Defaults to created_at; measure active does not use it.',
     },
     filters: {
       type: 'array',
@@ -445,13 +446,16 @@ const expectedVersion = async (reqContext: McpRequestContext, goalID: string, ar
 const label = (owner: { id: number; label: string } | null | undefined): string =>
   owner ? `${owner.label} (member ${owner.id})` : 'Company';
 
+// The measure that counts the records matching a goal's filters at each month end.
+const SNAPSHOT_MEASURE = 'active';
+
 const describeGoal = (goal: GoalData): string => {
   const measured =
-    goal.metric === 'custom' ?
-      `custom: ${goal.definition.source} ${goal.definition.measure ?? 'count'} by ${
+    goal.metric !== 'custom' ? `${goal.metric}${goal.amount ? ` ${goal.amount}` : ''}`
+    : goal.definition.measure === SNAPSHOT_MEASURE ? `custom: ${goal.definition.source} active at month end`
+    : `custom: ${goal.definition.source} ${goal.definition.measure ?? 'count'} by ${
         goal.definition.date_field ?? 'created_at'
-      }`
-    : `${goal.metric}${goal.amount ? ` ${goal.amount}` : ''}`;
+      }`;
   const money = goal.unit === 'money' ? ` in ${goal.currency ?? 'the workspace currency'}` : '';
   const people = goal.assignees.length > 0 ? `: ${goal.assignees.map(label).join(', ')}` : '';
   return `"${goal.name}" (goal_id ${goal.id}, version ${goal.version}; ${measured}, ${goal.unit}${money}; for ${goal.assignment}${people})`;
@@ -652,7 +656,7 @@ export const createGoalTool = defineGoalTool({
   name: 'create_goal',
   title: 'Create goal',
   description:
-    "Create a goal: one metric with monthly targets for the company, for assigned people, or both. Call list_goal_metrics first, then pass a template's metric (and, when that metric is custom, its definition) or a custom definition built from a source's measures, date fields and saved-view style filters. A money goal counts records in its currency (default: the workspace currency). assignment company takes no assignee_ids; people and company_and_people need assignee_ids, the workspace member ids that list_employees returns as each row's id. Set monthly targets afterwards with set_goal_targets.",
+    "Create a goal: one metric with monthly targets for the company, for assigned people, or both. Call list_goal_metrics first, then pass a template's metric (and, when that metric is custom, its definition) or a custom definition built from a source's measures, date fields and saved-view style filters. measure active makes a snapshot goal that counts the records matching the filters at each month end, such as open tasks; the open_deals template has no default filter, so add a stage filter that leaves out won and lost stages. A money goal counts records in its currency (default: the workspace currency). assignment company takes no assignee_ids; people and company_and_people need assignee_ids, the workspace member ids that list_employees returns as each row's id. Set monthly targets afterwards with set_goal_targets.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: GOALS_PATH,
@@ -725,7 +729,7 @@ export const setGoalTargetsTool = defineGoalTool({
   name: 'set_goal_targets',
   title: 'Set goal targets',
   description:
-    "Set or clear a goal's monthly targets. Each cell is one month (YYYY-MM-01) for the company row (owner_id null) or one person (owner_id: a workspace member id, the id of a list_employees row), and target null clears it; cells not listed keep their values. Targets are monthly: split a quarterly or yearly target across its months, which follow the workspace fiscal year (fiscal_year_start_month from list_goals). Giving a person a target assigns them and turns a company goal into company_and_people; a people goal takes no company cells. Omit expected_version to use the goal's current version.",
+    "Set or clear a goal's monthly targets. Each cell is one month (YYYY-MM-01) for the company row (owner_id null) or one person (owner_id: a workspace member id, the id of a list_employees row), and target null clears it; cells not listed keep their values. Targets are monthly: split a quarterly or yearly target across its months, which follow the workspace fiscal year (fiscal_year_start_month from list_goals). A snapshot goal (measure active) takes a month-end level instead: set 10 in every month to keep 10 active projects. Giving a person a target assigns them and turns a company goal into company_and_people; a people goal takes no company cells. Omit expected_version to use the goal's current version.",
   operation: 'write',
   httpMethod: 'put',
   httpPath: `${GOALS_PATH}/{goal_id}/targets`,
@@ -757,7 +761,7 @@ export const getGoalProgressTool = defineGoalTool({
   name: 'get_goal_progress',
   title: 'Get goal progress',
   description:
-    "Load a goal's target versus actual: monthly actual and target (no actual for future months), the month, quarter, half and fiscal year containing today with their actual, target and pace (expected: the targets of finished months plus today's share of this month's), and with people_period one row per person plus Unassigned. subject picks the company (every record), me, or one person (owner_id). excluded_records counts records in other currencies that a money goal leaves out.",
+    "Load a goal's target versus actual: monthly actual and target (no actual for future months), the month, quarter, half and fiscal year containing today with their actual, target and pace (expected: the targets of finished months plus today's share of this month's), and with people_period one row per person plus Unassigned. A snapshot goal (measure active) reports each month's count at month end (this month's as of now; no actual before the goal's first capture, except for subscriptions) and each period's latest month against its latest target, with this month's target as pace. subject picks the company (every record), me, or one person (owner_id). excluded_records counts records in other currencies that a money goal leaves out.",
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${GOALS_PATH}/{goal_id}/progress`,

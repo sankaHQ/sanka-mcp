@@ -32,6 +32,7 @@ const goal = {
   created_at: '2026-09-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
 };
+const snapshotDefinition = { source: 'tasks', measure: 'active', date_field: 'created_at', filters: [] };
 const months = Array.from({ length: 12 }, (_, index) => {
   const month = new Date(Date.UTC(2026, 3 + index, 1));
   return month.toISOString().slice(0, 10);
@@ -106,6 +107,14 @@ const cases: Array<{
     requests: [{ method: 'GET', url: `${GOALS}/${GOAL_ID}?fiscal_year=2027` }],
     structuredContent: detail,
     text: ['FY2027 targets for 2026-04, 2026-05', '- Aiko Sato (member 12): 400000.00, 400000.00'],
+  },
+  {
+    name: 'get_goal summarizes a snapshot goal by its month-end count, not by a date field',
+    tool: getGoalTool,
+    args: { goal_id: GOAL_ID },
+    responses: [envelope({ ...detail, goal: { ...goal, unit: 'count', definition: snapshotDefinition } })],
+    requests: [{ method: 'GET', url: `${GOALS}/${GOAL_ID}` }],
+    text: ['custom: tasks active at month end, count;'],
   },
   {
     name: 'create_goal posts a filtered custom goal for assigned people in the given workspace',
