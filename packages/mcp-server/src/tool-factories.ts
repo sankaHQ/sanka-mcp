@@ -809,6 +809,15 @@ const buildChunkedAttachmentUploadFinishInputSchema = (
   anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
 });
 
+// The verified workspace survives native OAuth token rotation and client-selected
+// session churn. Older authenticated contexts share a conservative fallback pool.
+const uploadPrincipal = (context: McpRequestContext): string =>
+  context.auth ?
+    context.auth.oauth.workspace_id ?
+      `workspace:${context.auth.oauth.workspace_id}`
+    : 'hosted:unresolved'
+  : 'stdio';
+
 export const createChunkedAttachmentUploadTools = (
   config: ChunkedAttachmentUploadToolConfig,
 ): {
@@ -866,7 +875,11 @@ export const createChunkedAttachmentUploadTools = (
         expectedBase64Length,
         expectedByteLength: typeof args?.['byte_length'] === 'number' ? args['byte_length'] : undefined,
         sessionId: reqContext.mcpSessionId,
+        principalId: uploadPrincipal(reqContext),
       });
+      if (!upload.ok) {
+        return asErrorResult(upload.message);
+      }
 
       return {
         content: [
@@ -949,6 +962,7 @@ export const createChunkedAttachmentUploadTools = (
         contentBase64,
         offset: typeof args?.['offset'] === 'number' ? args['offset'] : undefined,
         sessionId: reqContext.mcpSessionId,
+        principalId: uploadPrincipal(reqContext),
       });
       if (!chunk.ok) {
         return asErrorResult(chunk.message);
@@ -1035,34 +1049,39 @@ export const createChunkedAttachmentUploadTools = (
       const assembled = finishBinaryUpload({
         uploadToken,
         sessionId: reqContext.mcpSessionId,
+        principalId: uploadPrincipal(reqContext),
       });
       if (!assembled.ok) {
         return asErrorResult(assembled.message);
       }
 
-      const file = new File([assembled.buffer], assembled.filename, {
-        type: assembled.mimeType,
-      });
-      const response = (await config.uploadAttachment(reqContext, file)) as Record<string, unknown>;
+      try {
+        const file = new File([assembled.buffer], assembled.filename, {
+          type: assembled.mimeType,
+        });
+        const response = (await config.uploadAttachment(reqContext, file)) as Record<string, unknown>;
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Uploaded ${config.attachmentLabel} ${
-              readString(response['filename']) || assembled.filename
-            }.`,
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Uploaded ${config.attachmentLabel} ${
+                readString(response['filename']) || assembled.filename
+              }.`,
+            },
+          ],
+          structuredContent: {
+            ...response,
+            filename: readString(response['filename']) || assembled.filename,
+            byte_length: assembled.byteLength,
+            content_base64_length: assembled.contentBase64Length,
+            completion_status: 'uploaded',
+            next_action: `Pass structuredContent.file_id in attachment_file_ids when calling ${createOrUpdateLabel}, then read the ${config.entityName} back if attachment confirmation matters.`,
           },
-        ],
-        structuredContent: {
-          ...response,
-          filename: readString(response['filename']) || assembled.filename,
-          byte_length: assembled.byteLength,
-          content_base64_length: assembled.contentBase64Length,
-          completion_status: 'uploaded',
-          next_action: `Pass structuredContent.file_id in attachment_file_ids when calling ${createOrUpdateLabel}, then read the ${config.entityName} back if attachment confirmation matters.`,
-        },
-      };
+        };
+      } finally {
+        assembled.release();
+      }
     },
   };
 
