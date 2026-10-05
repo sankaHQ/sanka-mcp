@@ -1,4 +1,5 @@
 import { File } from 'node:buffer';
+import Sanka from 'sanka-sdk';
 import {
   crmAppendBillAttachmentUploadChunkTool,
   crmAppendExpenseAttachmentUploadChunkTool,
@@ -25,13 +26,74 @@ import {
   BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
   resetBinaryUploadStoreForTests,
 } from '../../../packages/mcp-server/src/binary-upload-store';
-import { oauthContext } from './helpers';
+import { envelope, oauthContext } from './helpers';
 
 describe('CRM attachment upload tools', () => {
   beforeEach(() => {
     resetBinaryDownloadStoreForTests();
     resetBinaryUploadStoreForTests();
   });
+
+  it.each([200, 500])(
+    'holds capacity through the SDK transfer and releases it after HTTP %s',
+    async (status) => {
+      let entered!: () => void;
+      const receiving = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let complete!: () => void;
+      const responseReady = new Promise<void>((resolve) => {
+        complete = resolve;
+      });
+      const client = new Sanka({
+        apiKey: 'test',
+        apiVersion: 'v2',
+        baseURL: 'http://localhost:5000/',
+        maxRetries: 0,
+        fetch: async (url, init) => {
+          const request = new Request(url, { ...init, duplex: 'half' } as RequestInit);
+          const multipart = await request.formData();
+          expect(await (multipart.get('file') as Blob).text()).toBe('pdf');
+          entered();
+          await responseReady;
+          return status === 200 ?
+              envelope({ file_id: 'saved', filename: 'proof.pdf' })
+            : new Response('failed', { status });
+        },
+      });
+      const reqContext = {
+        client,
+        auth: oauthContext({ workspace: { id: 'workspace-A' } }),
+        mcpSessionId: 'A',
+      };
+      const start = () =>
+        crmStartBillAttachmentUploadTool.handler({ reqContext, args: { filename: 'proof.pdf' } });
+      const admitted = await start();
+      await start();
+      const uploadToken = admitted.structuredContent?.['upload_token'];
+      await crmAppendBillAttachmentUploadChunkTool.handler({
+        reqContext,
+        args: { upload_token: uploadToken, content_base64: 'cGRm' },
+      });
+      const forwarding = crmFinishBillAttachmentUploadTool
+        .handler({ reqContext, args: { upload_token: uploadToken } })
+        .then(
+          (result) => ({ result, error: undefined }),
+          (error: Error) => ({ result: undefined, error }),
+        );
+      await receiving;
+      const denied = await crmStartBillAttachmentUploadTool.handler({
+        reqContext: { ...reqContext, mcpSessionId: 'rotated-session' },
+        args: { filename: 'too-many.pdf' },
+      });
+      expect(denied.isError).toBe(true);
+      complete();
+      const finished = await forwarding;
+      if (status === 200) expect(finished.result?.structuredContent?.['file_id']).toBe('saved');
+      else expect(finished.error?.message).toContain('500');
+      expect((await start()).isError).not.toBe(true);
+    },
+  );
 
   it('uploads a bill attachment from base64 content', async () => {
     const uploadAttachment = jest.fn().mockResolvedValue({

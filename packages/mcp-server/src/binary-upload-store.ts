@@ -6,10 +6,18 @@ export const BINARY_UPLOAD_CHUNK_BASE64_LENGTH = 160_000;
 
 const UPLOAD_TTL_MS = 60 * 60 * 1000;
 const MAX_UPLOADS = 100;
+const MAX_PRINCIPAL_UPLOADS = 8;
 const MAX_UPLOAD_BASE64_LENGTH = 12 * 1024 * 1024;
+// Reserve for the ASCII buffer, assembly, decoded bytes, and outbound File/body
+// copies. Leave most of the 1 GiB host available for normal MCP requests.
+const MAX_RESERVED_BYTES = 400 * 1024 * 1024;
+const MAX_PRINCIPAL_RESERVED_BYTES = 200 * 1024 * 1024;
 
 type BinaryUploadEntry = {
-  chunks: string[];
+  content: Buffer;
+  reservedBytes: number;
+  principalId: string;
+  finishing: boolean;
   filename: string;
   mimeType: string;
   contentBase64Length: number;
@@ -26,14 +34,24 @@ export type StartBinaryUploadInput = {
   expectedBase64Length?: number | undefined;
   expectedByteLength?: number | undefined;
   sessionId?: string | undefined;
+  principalId?: string | undefined;
 };
 
 export type StartedBinaryUploadReference = {
+  ok: true;
   uploadToken: string;
   chunkSize: number;
   expiresAt: string;
   nextOffset: number;
 };
+
+type StartBinaryUploadResult =
+  | StartedBinaryUploadReference
+  | {
+      ok: false;
+      reason: 'invalid_length' | 'capacity_exceeded';
+      message: string;
+    };
 
 export type AppendBinaryUploadChunkResult =
   | {
@@ -69,6 +87,7 @@ export type FinishBinaryUploadResult =
       contentBase64Length: number;
       byteLength: number;
       buffer: Buffer;
+      release: () => void;
     }
   | {
       ok: false;
@@ -82,42 +101,78 @@ const nowMs = (): number => Date.now();
 
 const cleanupUploads = (now = nowMs()): void => {
   for (const [uploadToken, entry] of uploads) {
-    if (entry.expiresAt <= now) {
+    if (!entry.finishing && entry.expiresAt <= now) {
       uploads.delete(uploadToken);
     }
   }
-
-  while (uploads.size > MAX_UPLOADS) {
-    const oldestToken = uploads.keys().next().value as string | undefined;
-    if (!oldestToken) {
-      return;
-    }
-    uploads.delete(oldestToken);
-  }
 };
 
-const asPositiveInteger = (value: number | undefined): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : undefined;
+const validLength = (value: number | undefined, maximum: number): boolean =>
+  value === undefined || (Number.isSafeInteger(value) && value > 0 && value <= maximum);
 
-export const startBinaryUpload = (input: StartBinaryUploadInput): StartedBinaryUploadReference => {
+export const startBinaryUpload = (input: StartBinaryUploadInput): StartBinaryUploadResult => {
   const now = nowMs();
   cleanupUploads(now);
+
+  if (
+    !validLength(input.expectedBase64Length, MAX_UPLOAD_BASE64_LENGTH) ||
+    !validLength(input.expectedByteLength, (MAX_UPLOAD_BASE64_LENGTH * 3) / 4)
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid_length',
+      message: 'Upload lengths must be positive integers within the supported file limit.',
+    };
+  }
+  const capacity =
+    input.expectedBase64Length ??
+    (input.expectedByteLength === undefined ?
+      MAX_UPLOAD_BASE64_LENGTH
+    : Math.ceil(input.expectedByteLength / 3) * 4);
+  const principalId = input.principalId ?? 'stdio';
+  const reservedBytes = capacity * 8 + 4096 + 2 * (input.filename.length + (input.mimeType?.length ?? 0));
+  let globalReserved = 0;
+  let principalReserved = 0;
+  let principalCount = 0;
+  for (const entry of uploads.values()) {
+    globalReserved += entry.reservedBytes;
+    if (entry.principalId === principalId) {
+      principalReserved += entry.reservedBytes;
+      principalCount++;
+    }
+  }
+  if (
+    uploads.size >= MAX_UPLOADS ||
+    principalCount >= MAX_PRINCIPAL_UPLOADS ||
+    globalReserved + reservedBytes > MAX_RESERVED_BYTES ||
+    principalReserved + reservedBytes > MAX_PRINCIPAL_RESERVED_BYTES
+  ) {
+    return {
+      ok: false,
+      reason: 'capacity_exceeded',
+      message: 'Chunked upload capacity is full. Finish existing uploads or retry after they expire.',
+    };
+  }
 
   const uploadToken = randomUUID();
   const expiresAt = now + UPLOAD_TTL_MS;
   uploads.set(uploadToken, {
-    chunks: [],
+    content: Buffer.allocUnsafe(capacity),
+    reservedBytes,
+    principalId,
+    finishing: false,
     filename: input.filename,
     mimeType: input.mimeType || 'application/octet-stream',
     contentBase64Length: 0,
-    expectedBase64Length: asPositiveInteger(input.expectedBase64Length),
-    expectedByteLength: asPositiveInteger(input.expectedByteLength),
+    expectedBase64Length: input.expectedBase64Length,
+    expectedByteLength: input.expectedByteLength,
     createdAt: now,
     expiresAt,
     sessionId: input.sessionId,
   });
 
   return {
+    ok: true,
     uploadToken,
     chunkSize: BINARY_UPLOAD_CHUNK_BASE64_LENGTH,
     expiresAt: new Date(expiresAt).toISOString(),
@@ -132,17 +187,19 @@ export const appendBinaryUploadChunk = ({
   contentBase64,
   offset,
   sessionId,
+  principalId = 'stdio',
 }: {
   uploadToken: string;
   contentBase64: string;
   offset?: number | undefined;
   sessionId?: string | undefined;
+  principalId?: string | undefined;
 }): AppendBinaryUploadChunkResult => {
   const now = nowMs();
   cleanupUploads(now);
 
   const entry = uploads.get(uploadToken);
-  if (!entry) {
+  if (!entry || entry.finishing) {
     return {
       ok: false,
       reason: 'not_found',
@@ -150,7 +207,7 @@ export const appendBinaryUploadChunk = ({
     };
   }
 
-  if (entry.sessionId && entry.sessionId !== sessionId) {
+  if (entry.sessionId !== sessionId || entry.principalId !== principalId) {
     return {
       ok: false,
       reason: 'session_mismatch',
@@ -158,6 +215,9 @@ export const appendBinaryUploadChunk = ({
     };
   }
 
+  if (contentBase64.length > MAX_UPLOAD_BASE64_LENGTH) {
+    return { ok: false, reason: 'exceeds_max_length', message: 'Chunk exceeds the supported upload size.' };
+  }
   const normalizedChunk = contentBase64.replace(/\s+/g, '');
   if (!normalizedChunk || !hasOnlyBase64Characters(normalizedChunk)) {
     return {
@@ -179,7 +239,7 @@ export const appendBinaryUploadChunk = ({
   }
 
   const nextLength = currentOffset + normalizedChunk.length;
-  if (nextLength > MAX_UPLOAD_BASE64_LENGTH) {
+  if (nextLength > entry.content.length) {
     return {
       ok: false,
       reason: 'exceeds_max_length',
@@ -194,7 +254,7 @@ export const appendBinaryUploadChunk = ({
     };
   }
 
-  entry.chunks.push(normalizedChunk);
+  entry.content.write(normalizedChunk, currentOffset, 'ascii');
   entry.contentBase64Length = nextLength;
 
   const done =
@@ -218,15 +278,17 @@ export const appendBinaryUploadChunk = ({
 export const finishBinaryUpload = ({
   uploadToken,
   sessionId,
+  principalId = 'stdio',
 }: {
   uploadToken: string;
   sessionId?: string | undefined;
+  principalId?: string | undefined;
 }): FinishBinaryUploadResult => {
   const now = nowMs();
   cleanupUploads(now);
 
   const entry = uploads.get(uploadToken);
-  if (!entry) {
+  if (!entry || entry.finishing) {
     return {
       ok: false,
       reason: 'not_found',
@@ -234,7 +296,7 @@ export const finishBinaryUpload = ({
     };
   }
 
-  if (entry.sessionId && entry.sessionId !== sessionId) {
+  if (entry.sessionId !== sessionId || entry.principalId !== principalId) {
     return {
       ok: false,
       reason: 'session_mismatch',
@@ -250,7 +312,7 @@ export const finishBinaryUpload = ({
     };
   }
 
-  const contentBase64 = entry.chunks.join('');
+  const contentBase64 = entry.content.toString('ascii', 0, entry.contentBase64Length);
   let buffer: Buffer;
   try {
     buffer = Buffer.from(contentBase64, 'base64');
@@ -270,7 +332,8 @@ export const finishBinaryUpload = ({
     };
   }
 
-  uploads.delete(uploadToken);
+  entry.finishing = true;
+  entry.content = Buffer.alloc(0);
 
   return {
     ok: true,
@@ -279,6 +342,9 @@ export const finishBinaryUpload = ({
     contentBase64Length: entry.contentBase64Length,
     byteLength: buffer.byteLength,
     buffer,
+    release: () => {
+      uploads.delete(uploadToken);
+    },
   };
 };
 
