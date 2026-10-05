@@ -18,16 +18,18 @@ describe('Sanka Flow MCP App protocol', () => {
     else process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'] = priorWorkspaceFlag;
   });
 
-  async function connect(enabled: boolean, scopes = ['auth:read'], workspace = false) {
+  async function connect(enabled: boolean, scopes = ['auth:read'], workspace = false, native = true) {
     process.env['SANKA_MCP_FLOW_APP_ENABLED'] = enabled ? '1' : '0';
     process.env['SANKA_MCP_FLOW_WORKSPACE_ENABLED'] = workspace ? '1' : '0';
     const requests: string[] = [];
     const network: { url: string; method: string | undefined; body: unknown; headers: Headers }[] = [];
+    let consented = false;
     const auth: ResolvedClientAuth = {
       authMode: 'oauth_bearer',
       clientOptions: {},
       oauth: {
-        nativeOAuth: workspace,
+        nativeOAuth: workspace && native,
+        connectUrl: 'https://app.sanka.com/oauth/mcp/connect?token=test-connect-token',
         scopes,
         resourceUrl: 'https://mcp.example.test/mcp',
         resourceMetadataUrl: '',
@@ -52,6 +54,17 @@ describe('Sanka Flow MCP App protocol', () => {
             body: init?.body,
             headers: new Headers(init?.headers),
           });
+          if (String(input).includes('/chatgpt-connector/mcp/status'))
+            return new Response(
+              JSON.stringify({
+                data: {
+                  workspace_id: 'workspace-a',
+                  full_workspace_available: true,
+                  workspace_access: consented ? 'full_workspace' : 'invoice_pilot',
+                },
+              }),
+              { headers: { 'content-type': 'application/json' } },
+            );
           if (String(input).endsWith('/chatgpt-connector/launch'))
             return new Response(
               JSON.stringify({
@@ -84,6 +97,9 @@ describe('Sanka Flow MCP App protocol', () => {
       client,
       requests,
       network,
+      approve: () => {
+        consented = true;
+      },
       close: async () => {
         await client.close();
         await server.close();
@@ -97,7 +113,7 @@ describe('Sanka Flow MCP App protocol', () => {
       const { tools } = await session.client.listTools();
       const tool = tools.find((candidate) => candidate.name === 'open_flow_workspace')!;
       expect(tool._meta).toMatchObject({
-        ui: { resourceUri: 'ui://sanka/flow-workspace-v2' },
+        ui: { resourceUri: 'ui://sanka/flow-workspace-v3' },
         'openai/ui': { entrypoints: [{ type: 'global' }, { type: 'thread' }] },
       });
       const result = await session.client.callTool({ name: tool.name, arguments: {} });
@@ -176,6 +192,47 @@ describe('Sanka Flow MCP App protocol', () => {
       expect(
         JSON.stringify(session.network.filter((entry) => entry.url.endsWith('/mcp/tool-call-log'))),
       ).not.toContain('scwt_');
+    } finally {
+      await session.close();
+    }
+  });
+
+  it('enables the installed /mcp entry after consent and forwards its parent binding on launch', async () => {
+    const session = await connect(true, ['mcp:access'], true, false);
+    try {
+      const before = await session.client.callTool({ name: 'open_flow_workspace', arguments: {} });
+      expect(before.structuredContent).toMatchObject({
+        full_workspace_available: true,
+        workspace_access: 'invoice_pilot',
+      });
+      const consent = new URL(String(before._meta?.['flow_workspace_consent_url']));
+      expect(consent.origin).toBe('https://app.sanka.com');
+      expect(consent.pathname).toBe('/oauth/mcp/workspace');
+      expect(consent.searchParams.get('expected_workspace_id')).toBe('workspace-a');
+      expect(
+        JSON.stringify({ content: before.content, structuredContent: before.structuredContent }),
+      ).not.toContain('test-connect-token');
+      session.approve();
+      const after = await session.client.callTool({ name: 'open_flow_workspace', arguments: {} });
+      expect(after.structuredContent).toMatchObject({
+        full_workspace_available: true,
+        workspace_access: 'full_workspace',
+      });
+      const status = session.network.filter((entry) => entry.url.includes('/chatgpt-connector/mcp/status'));
+      expect(status).toHaveLength(2);
+      expect(status[0]!.headers.get('X-Sanka-MCP-Session-ID')).toBe('flow-app-test-session');
+      const result = await session.client.callTool({
+        name: 'start_flow_workspace_session',
+        arguments: {
+          expected_workspace_id: 'workspace-a',
+          browser_challenge: 'a'.repeat(64),
+          browser_origin: 'https://' + 'b'.repeat(32) + '.flow-chatgpt.sanka.com',
+        },
+      });
+      expect(result.isError).not.toBe(true);
+      const launch = session.network.find((entry) => entry.url.endsWith('/chatgpt-connector/launch'))!;
+      expect(launch.headers.get('X-Sanka-MCP-Session-ID')).toBe('flow-app-test-session');
+      expect(result._meta).toMatchObject({ flow_workspace_session: { ticket: 'scwt_' + 't'.repeat(43) } });
     } finally {
       await session.close();
     }

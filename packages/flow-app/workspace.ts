@@ -49,6 +49,7 @@ export function createWorkspaceView(
   let lastChallenge = '';
   let currentPath = '';
   let visible = false;
+  let consentUrl = '';
   let openingTimer: ReturnType<typeof setTimeout> | undefined;
   const t = (en: string, ja: string) => (language() === 'ja' ? ja : en);
   const post = (message: Record<string, unknown>) => iframe?.contentWindow?.postMessage(message, frameOrigin);
@@ -103,12 +104,27 @@ export function createWorkspaceView(
     element<HTMLButtonElement>('open-workspace').disabled =
       busy || launching || !workspace.id || workspace.access !== 'full_workspace';
     element('workspace-consent').hidden = workspace.access === 'full_workspace';
+    element('enable-workspace').hidden = !consentUrl || workspace.access === 'full_workspace';
+    element('workspace-consent').textContent =
+      consentUrl ?
+        t(
+          'Allow full workspace access in Sanka, then select Refresh here.',
+          'Sankaでワークスペース全体へのアクセスを許可し、この画面を再読み込みしてください。',
+        )
+      : t(
+          'Reconnect Sanka and choose Full Flow workspace to enable this view.',
+          'Sankaに再接続して「Flowワークスペース全体」を選択してください。',
+        );
     element<HTMLButtonElement>('workspace-external').disabled = !workspace.id;
   }
 
-  function update(data: Record<string, unknown>) {
+  function update(data: Record<string, unknown>, metadata: Record<string, unknown> = {}) {
     const id = string(data['workspace_id']);
-    if (id !== workspace.id) reset();
+    if (
+      id !== workspace.id ||
+      (workspace.access === 'full_workspace' && data['workspace_access'] !== 'full_workspace')
+    )
+      reset();
     workspace = {
       id,
       code: string(data['workspace_code']),
@@ -116,6 +132,20 @@ export function createWorkspaceView(
       available: data['full_workspace_available'] === true,
       page: string(data['page']),
     };
+    consentUrl = '';
+    try {
+      const url = new URL(string(metadata['flow_workspace_consent_url']));
+      if (
+        url.origin === 'https://app.sanka.com' &&
+        url.pathname === '/oauth/mcp/workspace' &&
+        !url.username &&
+        !url.password &&
+        url.searchParams.get('expected_workspace_id') === id
+      )
+        consentUrl = url.href;
+    } catch {
+      /* No consent URL for native OAuth or an already authorized connection. */
+    }
     controls();
     const path = safePath(workspace.page, workspace.code);
     show(Boolean(iframe) && document.body.classList.contains('full-workspace'));
@@ -124,6 +154,20 @@ export function createWorkspaceView(
       post({ type: 'sanka.flow.navigate', path });
     }
   }
+
+  element('enable-workspace').onclick = () => {
+    if (consentUrl)
+      void app
+        .openLink({ url: consentUrl })
+        .catch(() =>
+          status(
+            t(
+              'The authorization page could not be opened. Refresh and try again.',
+              'アクセス許可の画面を開けませんでした。再読み込みして、もう一度お試しください。',
+            ),
+          ),
+        );
+  };
 
   element('open-workspace').onclick = () => {
     if (workspace.access !== 'full_workspace' || !workspace.id || !base) return;

@@ -92,7 +92,14 @@ React must trust that exact origin through `CHATGPT_WORKSPACE_PARENT_ORIGINS`.
 Private hosts using the default `https://web-sandbox.oaiusercontent.com` must
 keep that origin in the React allowlist. No wildcard parent origin is accepted.
 
-The user reconnects and explicitly chooses full-workspace access. The Open
+The installed `/mcp` Sanka entry offers **Enable full workspace**. It opens a
+Sanka consent page showing the same account and workspace. After allowing access,
+the user selects Refresh and Open workspace. Native `/chatgpt` connections use
+their existing reconnect consent. Existing connections are never silently upgraded.
+The resource cache key is `ui://sanka/flow-workspace-v3`; both previous URIs remain
+readable for existing conversations.
+
+The Open
 workspace button embeds the maintained Sanka React UI at a random 32-hex
 subdomain of the configured origin. The resource requests only that wildcard
 under `ui.csp.frameDomains`; connect/resource domains remain empty for the outer
@@ -100,7 +107,11 @@ app. Wildcard DNS/TLS and trusted-edge routing to React are deployment prerequis
 The nested Sanka page applies its own CSP and first-party authenticated proxies.
 
 The app-only `start_flow_workspace_session` tool validates the pinned workspace,
-native connector, browser origin and challenge. Its one-time ticket appears only
+native connector or consented installed MCP session, browser origin and challenge.
+The installed entry reads fresh server authorization rather than cached OAuth
+metadata and forwards its parent session ID for validation. Its consent URL is
+app-only `_meta.flow_workspace_consent_url`. Disconnecting or switching the parent
+connection invalidates its full-workspace sessions. Its one-time ticket appears only
 in `_meta.flow_workspace_session`, never model-visible content or tool audit
 arguments. It is posted to the exact waiting frame; React exchanges it and stores
 the API credential in Secure, HttpOnly, Partitioned, host-only cookies. Ticket
