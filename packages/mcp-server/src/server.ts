@@ -378,6 +378,7 @@ import {
   updateWatchtowerFindingTool,
 } from './watchtower-tools';
 import { convoyTools } from './convoy-tools';
+import { goalsTools } from './goals-tools';
 import { talentTools } from './talent-tools';
 import { createWorkflowTool, runWorkflowTool, updateWorkflowTool } from './workflow-tools';
 import {
@@ -1187,6 +1188,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     crmCreateReportTool,
     crmUpdateReportTool,
     crmDeleteReportTool,
+    ...goalsTools,
     crmGetInvoiceTool,
     crmListInvoiceLineItemsTool,
     crmDownloadInvoicePDFTool,

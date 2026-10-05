@@ -178,6 +178,44 @@ import {
 } from './expenses';
 import * as ExportsAPI from './exports';
 import { ExportCreateParams, ExportListParams, ExportListResponse, Exports } from './exports';
+import * as GoalsAPI from './goals';
+import {
+  GoalAmount,
+  GoalAssignment,
+  GoalCreateParams,
+  GoalData,
+  GoalDeleteParams,
+  GoalDetailData,
+  GoalFilterExpression,
+  GoalLanguageParams,
+  GoalListData,
+  GoalListItem,
+  GoalListMetricsParams,
+  GoalListParams,
+  GoalMeasureOption,
+  GoalMetric,
+  GoalMetricCatalog,
+  GoalMetricDefinition,
+  GoalMonthPoint,
+  GoalOption,
+  GoalOwner,
+  GoalPeriod,
+  GoalPeriodProgress,
+  GoalPersonProgress,
+  GoalProgressData,
+  GoalProgressRange,
+  GoalRetrieveParams,
+  GoalRetrieveProgressParams,
+  GoalSetTargetsParams,
+  GoalSourceOption,
+  GoalTargetCell,
+  GoalTargetRow,
+  GoalTemplate,
+  GoalUnit,
+  GoalUpdateParams,
+  GoalWorkspaceParams,
+  Goals,
+} from './goals';
 import * as ImportsAPI from './imports';
 import {
   ImportCreateParams,
@@ -566,6 +604,7 @@ export class Public extends APIResource {
   bills: BillsAPI.Bills = new BillsAPI.Bills(this._client);
   disbursements: DisbursementsAPI.Disbursements = new DisbursementsAPI.Disbursements(this._client);
   reports: ReportsAPI.Reports = new ReportsAPI.Reports(this._client);
+  goals: GoalsAPI.Goals = new GoalsAPI.Goals(this._client);
   workflows: WorkflowsAPI.Workflows = new WorkflowsAPI.Workflows(this._client);
   calendar: CalendarAPI.Calendar = new CalendarAPI.Calendar(this._client);
   auth: AuthAPI.Auth = new AuthAPI.Auth(this._client);
@@ -604,6 +643,7 @@ Public.Slips = Slips;
 Public.Bills = Bills;
 Public.Disbursements = Disbursements;
 Public.Reports = Reports;
+Public.Goals = Goals;
 Public.Workflows = Workflows;
 Public.Calendar = Calendar;
 Public.Auth = Auth;
@@ -1118,6 +1158,44 @@ export declare namespace Public {
     type ReportUpdateParams as ReportUpdateParams,
     type ReportListParams as ReportListParams,
     type ReportDeleteParams as ReportDeleteParams,
+  };
+
+  export {
+    Goals as Goals,
+    type GoalMetric as GoalMetric,
+    type GoalAmount as GoalAmount,
+    type GoalAssignment as GoalAssignment,
+    type GoalUnit as GoalUnit,
+    type GoalPeriod as GoalPeriod,
+    type GoalProgressRange as GoalProgressRange,
+    type GoalFilterExpression as GoalFilterExpression,
+    type GoalMetricDefinition as GoalMetricDefinition,
+    type GoalOwner as GoalOwner,
+    type GoalData as GoalData,
+    type GoalPeriodProgress as GoalPeriodProgress,
+    type GoalListItem as GoalListItem,
+    type GoalListData as GoalListData,
+    type GoalTargetRow as GoalTargetRow,
+    type GoalDetailData as GoalDetailData,
+    type GoalMonthPoint as GoalMonthPoint,
+    type GoalPersonProgress as GoalPersonProgress,
+    type GoalProgressData as GoalProgressData,
+    type GoalOption as GoalOption,
+    type GoalMeasureOption as GoalMeasureOption,
+    type GoalSourceOption as GoalSourceOption,
+    type GoalTemplate as GoalTemplate,
+    type GoalMetricCatalog as GoalMetricCatalog,
+    type GoalWorkspaceParams as GoalWorkspaceParams,
+    type GoalLanguageParams as GoalLanguageParams,
+    type GoalListParams as GoalListParams,
+    type GoalListMetricsParams as GoalListMetricsParams,
+    type GoalRetrieveParams as GoalRetrieveParams,
+    type GoalCreateParams as GoalCreateParams,
+    type GoalUpdateParams as GoalUpdateParams,
+    type GoalDeleteParams as GoalDeleteParams,
+    type GoalTargetCell as GoalTargetCell,
+    type GoalSetTargetsParams as GoalSetTargetsParams,
+    type GoalRetrieveProgressParams as GoalRetrieveProgressParams,
   };
 
   export {
