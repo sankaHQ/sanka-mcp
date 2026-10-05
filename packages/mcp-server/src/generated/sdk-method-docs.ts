@@ -1863,6 +1863,159 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       '{ id: string; workspaceId: string; templateSlug: string; status: FerryProgramStatus; plan: FerryProgramPlan; name: string; description: string; updatesMarkdown: string; sources: Array<FerryProgramEndpoint>; destinations: Array<FerryProgramEndpoint>; todos: Array<FerryProgramTodo>; taskPhases: Array<FerryProgramPhase>; linkedRunIds: Array<string>; planChangeLocked?: boolean; paymentState?: string; billingCurrency?: string; recordCount?: number | null; listPrice?: number | null; quotedPrice?: number | null; feeWaived?: boolean; feeWaiverReason?: string; expertUserId?: number | null; expertReviewThreadId?: string | null; expertSettings?: Record<string, unknown>; entitlements?: Record<string, unknown>; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; }',
   },
   {
+    qualified: 'client.public.goals.create',
+    name: 'create',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/goals',
+    summary: 'Create a goal.',
+    description: 'Create a goal.',
+    signature:
+      'client.public.goals.create(params: GoalCreateParams, options?: RequestOptions): APIPromise<GoalData>',
+    params: [
+      'name: string;',
+      'metric: GoalMetric;',
+      'amount?: GoalAmount;',
+      'currency?: string | null;',
+      'definition?: GoalMetricDefinition | null;',
+      'assignment?: GoalAssignment;',
+      'assignee_ids?: Array<number>;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; name: string; metric: GoalMetric; unit: GoalUnit; source: string; definition: GoalMetricDefinition; amount: GoalAmount | null; currency: string | null; assignment: GoalAssignment; assignees: Array<GoalOwner>; version: number; archived: boolean; created_at: string; updated_at: string; }',
+  },
+  {
+    qualified: 'client.public.goals.delete',
+    name: 'delete',
+    httpMethod: 'delete',
+    endpoint: '/api/v2/public/goals/{goalID}',
+    summary: 'Archive a goal and return it.',
+    description: 'Archive a goal and return it.',
+    signature:
+      'client.public.goals.delete(goalID: string, params?: GoalDeleteParams | null | undefined, options?: RequestOptions): APIPromise<GoalData>',
+    params: ['goalID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ id: string; name: string; metric: GoalMetric; unit: GoalUnit; source: string; definition: GoalMetricDefinition; amount: GoalAmount | null; currency: string | null; assignment: GoalAssignment; assignees: Array<GoalOwner>; version: number; archived: boolean; created_at: string; updated_at: string; }',
+  },
+  {
+    qualified: 'client.public.goals.list',
+    name: 'list',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/goals',
+    summary: "List active goals with this month's actual, target and pace.",
+    description: "List active goals with this month's actual, target and pace.",
+    signature:
+      'client.public.goals.list(params?: GoalListParams | null | undefined, options?: RequestOptions): APIPromise<GoalListData>',
+    params: [
+      'page?: number;',
+      'limit?: number;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ items: Array<GoalListItem>; total: number; can_edit: boolean; fiscal_year_start_month: number; default_currency: string; }',
+  },
+  {
+    qualified: 'client.public.goals.listMetrics',
+    name: 'list_metrics',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/goals/metrics',
+    summary:
+      'List the goal metric catalog: templates, and per object its measures, date fields and filter object type.',
+    description:
+      'List the goal metric catalog: templates, and per object its measures, date fields and filter object type.',
+    signature:
+      'client.public.goals.listMetrics(params?: GoalListMetricsParams | null | undefined, options?: RequestOptions): APIPromise<GoalMetricCatalog>',
+    params: ['language?: string | null;', 'workspace_id?: string | null;'],
+    response: '{ templates: Array<GoalTemplate>; sources: Array<GoalSourceOption>; }',
+  },
+  {
+    qualified: 'client.public.goals.retrieve',
+    name: 'retrieve',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/goals/{goalID}',
+    summary: 'Get a goal with its monthly targets for one fiscal year.',
+    description: 'Get a goal with its monthly targets for one fiscal year.',
+    signature:
+      'client.public.goals.retrieve(goalID: string, params?: GoalRetrieveParams | null | undefined, options?: RequestOptions): APIPromise<GoalDetailData>',
+    params: [
+      'goalID: string;',
+      'fiscal_year?: number | null;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ goal: GoalData; fiscal_year: number; fiscal_year_start_month: number; months: Array<string>; rows: Array<GoalTargetRow>; can_edit: boolean; }',
+  },
+  {
+    qualified: 'client.public.goals.retrieveProgress',
+    name: 'retrieve_progress',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/goals/{goalID}/progress',
+    summary: "Get a goal's target versus actual by month and for the current periods, optionally per person.",
+    description:
+      "Get a goal's target versus actual by month and for the current periods, optionally per person.",
+    signature:
+      'client.public.goals.retrieveProgress(goalID: string, params?: GoalRetrieveProgressParams | null | undefined, options?: RequestOptions): APIPromise<GoalProgressData>',
+    params: [
+      'goalID: string;',
+      'subject?: string;',
+      'range?: GoalProgressRange;',
+      'fiscal_year?: number | null;',
+      'people_period?: GoalPeriod | null;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ goal: GoalData; subject: string; owner: GoalOwner | null; as_of: string; fiscal_year: number; months: Array<GoalMonthPoint>; periods: Array<GoalPeriodProgress>; people_period?: GoalPeriod | null; people?: Array<GoalPersonProgress>; excluded_records?: number; }',
+  },
+  {
+    qualified: 'client.public.goals.setTargets',
+    name: 'set_targets',
+    httpMethod: 'put',
+    endpoint: '/api/v2/public/goals/{goalID}/targets',
+    summary: 'Set or clear monthly targets for the company row and assigned people.',
+    description:
+      'Set or clear monthly targets for the company row and assigned people. Fails with VERSION_CONFLICT when `expected_version` is stale.',
+    signature:
+      'client.public.goals.setTargets(goalID: string, params: GoalSetTargetsParams, options?: RequestOptions): APIPromise<GoalDetailData>',
+    params: [
+      'goalID: string;',
+      'fiscal_year?: number | null;',
+      'expected_version: number;',
+      'cells: Array<GoalTargetCell>;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ goal: GoalData; fiscal_year: number; fiscal_year_start_month: number; months: Array<string>; rows: Array<GoalTargetRow>; can_edit: boolean; }',
+  },
+  {
+    qualified: 'client.public.goals.update',
+    name: 'update',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/public/goals/{goalID}',
+    summary: "Update a goal's name, revenue amount, custom definition or assigned people.",
+    description:
+      "Update a goal's name, revenue amount, custom definition or assigned people. Fails with VERSION_CONFLICT when `expected_version` is stale.",
+    signature:
+      'client.public.goals.update(goalID: string, params: GoalUpdateParams, options?: RequestOptions): APIPromise<GoalData>',
+    params: [
+      'goalID: string;',
+      'expected_version: number;',
+      'name?: string | null;',
+      'amount?: GoalAmount | null;',
+      'definition?: GoalMetricDefinition | null;',
+      'assignment?: GoalAssignment | null;',
+      'assignee_ids?: Array<number> | null;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; name: string; metric: GoalMetric; unit: GoalUnit; source: string; definition: GoalMetricDefinition; amount: GoalAmount | null; currency: string | null; assignment: GoalAssignment; assignees: Array<GoalOwner>; version: number; archived: boolean; created_at: string; updated_at: string; }',
+  },
+  {
     qualified: 'client.public.imports.cancel',
     name: 'cancel',
     httpMethod: 'post',

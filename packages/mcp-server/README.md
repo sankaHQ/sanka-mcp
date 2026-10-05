@@ -106,6 +106,14 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `list_deal_pipelines`: inspect deal pipelines and stages
 - `create_deal_pipeline`: create a deal pipeline with ordered stages
 - `update_deal_pipeline`: rename a deal pipeline or add, reorder, rename, hide or remove its stages, moving deals off removed stages
+- `list_goals`: list active goals with this month's actual, target and pace
+- `get_goal`: load a goal and its monthly targets for one fiscal year
+- `get_goal_progress`: load a goal's target versus actual by month, period and person
+- `list_goal_metrics`: list the goal templates and, per object, the measures, date fields and filters a goal can use
+- `create_goal`: create a goal for the company, assigned people, or both
+- `update_goal`: rename a goal or change its amount, custom definition or assigned people
+- `set_goal_targets`: set or clear monthly targets for the company row and assigned people
+- `delete_goal`: archive a goal
 - `list_contract_templates`: review uploaded Contract templates
 - `download_contract_template`: download a Contract template source file or signing PDF
 - `upload_contract_template`: upload a PDF/DOC/DOCX Contract template

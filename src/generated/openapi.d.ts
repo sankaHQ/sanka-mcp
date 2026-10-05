@@ -713,6 +713,94 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/goals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Goals */
+    get: operations['list_public_goals'];
+    put?: never;
+    /** Create Public Goal */
+    post: operations['create_public_goal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/goals/metrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Public Goal Metrics */
+    get: operations['list_public_goal_metrics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/goals/{goal_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Goal */
+    get: operations['get_public_goal'];
+    put?: never;
+    post?: never;
+    /** Delete Public Goal */
+    delete: operations['delete_public_goal'];
+    options?: never;
+    head?: never;
+    /** Update Public Goal */
+    patch: operations['update_public_goal'];
+    trace?: never;
+  };
+  '/v2/public/goals/{goal_id}/targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Public Goal Targets */
+    put: operations['set_public_goal_targets'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/goals/{goal_id}/progress': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Goal Progress */
+    get: operations['get_public_goal_progress'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/deals': {
     parameters: {
       query?: never;
@@ -4414,6 +4502,12 @@ export interface components {
       data: components['schemas']['CustomCodeFunctionData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    CreatePublicGoal201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     CreatePublicImportJobApiV2PublicImportsPost200Envelope: {
       /** @constant */
       success: true;
@@ -4875,6 +4969,12 @@ export interface components {
       /** @constant */
       success: true;
       data: components['schemas']['FerryProgramData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    DeletePublicGoal200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     DeletePublicIncentivePlanApiV2PublicIncentivesPlansPlanIdDelete200Envelope: {
@@ -5568,6 +5668,18 @@ export interface components {
       data: components['schemas']['CustomCodeFunctionDetailData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    GetPublicGoal200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalDetailData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicGoalProgress200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalProgressData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     GetPublicImportJobApiV2PublicImportsJobIdGet200Envelope: {
       /** @constant */
       success: true;
@@ -5777,6 +5889,54 @@ export interface components {
       success: true;
       data: components['schemas']['WorkforceOrganizationData'];
       meta: components['schemas']['EnvelopeMeta'];
+    };
+    /** GoalCreateRequest */
+    GoalCreateRequest: {
+      /** Name */
+      name: string;
+      /**
+       * Metric
+       * @enum {string}
+       */
+      metric: 'deals_created' | 'invoice_revenue' | 'custom';
+      /**
+       * Amount
+       * @default before_tax
+       * @enum {string}
+       */
+      amount: 'before_tax' | 'including_tax';
+      /** Currency */
+      currency?: string | null;
+      definition?: components['schemas']['GoalMetricDefinition'] | null;
+      /**
+       * Assignment
+       * @default company
+       * @enum {string}
+       */
+      assignment: 'company' | 'people' | 'company_and_people';
+      /** Assignee Ids */
+      assignee_ids?: number[];
+    };
+    /** GoalTargetsSaveRequest */
+    GoalTargetsSaveRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Cells */
+      cells: components['schemas']['GoalTargetCell'][];
+    };
+    /** GoalUpdateRequest */
+    GoalUpdateRequest: {
+      /** Expected Version */
+      expected_version: number;
+      /** Name */
+      name?: string | null;
+      /** Amount */
+      amount?: ('before_tax' | 'including_tax') | null;
+      definition?: components['schemas']['GoalMetricDefinition'] | null;
+      /** Assignment */
+      assignment?: ('company' | 'people' | 'company_and_people') | null;
+      /** Assignee Ids */
+      assignee_ids?: number[] | null;
     };
     /** ImportJobCreateRequest */
     ImportJobCreateRequest: {
@@ -6244,6 +6404,18 @@ export interface components {
       /** @constant */
       success: true;
       data: components['schemas']['CustomCodeFunctionListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicGoalMetrics200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalMetricCatalog'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicGoals200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalListData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     ListPublicImportJobsApiV2PublicImportsGet200Envelope: {
@@ -7854,6 +8026,12 @@ export interface components {
       data: components['schemas']['CustomCodeAliasData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    SetPublicGoalTargets200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalDetailData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     SetPublicSecretApiV2PublicCodeFunctionsFunctionRefSecretsNamePut200Envelope: {
       /** @constant */
       success: true;
@@ -8149,6 +8327,12 @@ export interface components {
       /** @constant */
       success: true;
       data: components['schemas']['CustomCodeFunctionData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicGoal200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['GoalData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UpdatePublicIncentivePlanApiV2PublicIncentivesPlansPlanIdPatch200Envelope: {
@@ -8941,6 +9125,54 @@ export interface components {
       /** Created By Id */
       created_by_id?: number | null;
     };
+    /** GoalData */
+    GoalData: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Metric
+       * @enum {string}
+       */
+      metric: 'deals_created' | 'invoice_revenue' | 'custom';
+      /**
+       * Unit
+       * @enum {string}
+       */
+      unit: 'count' | 'money' | 'number';
+      /** Source */
+      source: string;
+      definition: components['schemas']['GoalMetricDefinition'];
+      /** Amount */
+      amount: ('before_tax' | 'including_tax') | null;
+      /** Currency */
+      currency: string | null;
+      /**
+       * Assignment
+       * @enum {string}
+       */
+      assignment: 'company' | 'people' | 'company_and_people';
+      /** Assignees */
+      assignees: components['schemas']['GoalOwner'][];
+      /** Version */
+      version: number;
+      /** Archived */
+      archived: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** PublicProjectMutationData */
     PublicProjectMutationData: {
       /** Ok */
@@ -9328,6 +9560,47 @@ export interface components {
       aliases?: components['schemas']['CustomCodeAliasData'][];
       latest_version?: components['schemas']['CustomCodeVersionData'] | null;
     };
+    /** GoalDetailData */
+    GoalDetailData: {
+      goal: components['schemas']['GoalData'];
+      /** Fiscal Year */
+      fiscal_year: number;
+      /** Fiscal Year Start Month */
+      fiscal_year_start_month: number;
+      /** Months */
+      months: string[];
+      /** Rows */
+      rows: components['schemas']['GoalTargetRow'][];
+      /** Can Edit */
+      can_edit: boolean;
+    };
+    /** GoalProgressData */
+    GoalProgressData: {
+      goal: components['schemas']['GoalData'];
+      /** Subject */
+      subject: string;
+      owner: components['schemas']['GoalOwner'] | null;
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string;
+      /** Fiscal Year */
+      fiscal_year: number;
+      /** Months */
+      months: components['schemas']['GoalMonthPoint'][];
+      /** Periods */
+      periods: components['schemas']['GoalPeriodProgress'][];
+      /** People Period */
+      people_period?: ('month' | 'quarter' | 'half' | 'year') | null;
+      /** People */
+      people?: components['schemas']['GoalPersonProgress'][];
+      /**
+       * Excluded Records
+       * @default 0
+       */
+      excluded_records: number;
+    };
     /** PublicProject */
     PublicProject: {
       /** Id */
@@ -9431,6 +9704,39 @@ export interface components {
       /** Unassigned Jobs */
       unassigned_jobs?: components['schemas']['UnassignedJobData'][];
       summary?: components['schemas']['WorkforceOrganizationSummary'];
+    };
+    /**
+     * GoalMetricDefinition
+     * @description What a goal counts or sums: one object's active records, by the month of one of their
+     *     dates, narrowed by filters (the same expressions as saved views).
+     */
+    GoalMetricDefinition: {
+      /** Source */
+      source: string;
+      /**
+       * Measure
+       * @default count
+       */
+      measure: string;
+      /**
+       * Date Field
+       * @default created_at
+       */
+      date_field: string;
+      /** Filters */
+      filters?: components['schemas']['SearchFilterExpression'][];
+    };
+    /** GoalTargetCell */
+    GoalTargetCell: {
+      /** Owner Id */
+      owner_id?: number | null;
+      /**
+       * Month
+       * Format: date
+       */
+      month: string;
+      /** Target */
+      target?: number | string | null;
     };
     /** TransferColumnMapping */
     TransferColumnMapping: {
@@ -9594,6 +9900,26 @@ export interface components {
        * @default 0
        */
       total_count: number;
+    };
+    /** GoalMetricCatalog */
+    GoalMetricCatalog: {
+      /** Templates */
+      templates: components['schemas']['GoalTemplate'][];
+      /** Sources */
+      sources: components['schemas']['GoalSourceOption'][];
+    };
+    /** GoalListData */
+    GoalListData: {
+      /** Items */
+      items: components['schemas']['GoalListItem'][];
+      /** Total */
+      total: number;
+      /** Can Edit */
+      can_edit: boolean;
+      /** Fiscal Year Start Month */
+      fiscal_year_start_month: number;
+      /** Default Currency */
+      default_currency: string;
     };
     /** PublicProjectListData */
     PublicProjectListData: {
@@ -10208,6 +10534,13 @@ export interface components {
       /** Assigneegroupids */
       assigneeGroupIds?: string[];
     };
+    /** GoalOwner */
+    GoalOwner: {
+      /** Id */
+      id: number;
+      /** Label */
+      label: string;
+    };
     /** PositionJobData */
     PositionJobData: {
       /** Id */
@@ -10287,6 +10620,58 @@ export interface components {
       x: number;
       /** Y */
       y: number;
+    };
+    /** GoalTargetRow */
+    GoalTargetRow: {
+      owner: components['schemas']['GoalOwner'] | null;
+      /** Targets */
+      targets: (string | null)[];
+    };
+    /** GoalMonthPoint */
+    GoalMonthPoint: {
+      /**
+       * Month
+       * Format: date
+       */
+      month: string;
+      /** Actual */
+      actual: string | null;
+      /** Target */
+      target: string | null;
+    };
+    /** GoalPeriodProgress */
+    GoalPeriodProgress: {
+      /**
+       * Key
+       * @enum {string}
+       */
+      key: 'month' | 'quarter' | 'half' | 'year';
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /** Actual */
+      actual: string;
+      /** Target */
+      target: string | null;
+      /** Expected */
+      expected: string | null;
+    };
+    /** GoalPersonProgress */
+    GoalPersonProgress: {
+      owner: components['schemas']['GoalOwner'] | null;
+      /** Actual */
+      actual: string;
+      /** Target */
+      target: string | null;
+      /** Expected */
+      expected: string | null;
     };
     /** PublicProjectStatus */
     PublicProjectStatus: {
@@ -10421,6 +10806,38 @@ export interface components {
        * @default 0
        */
       unassigned_jobs: number;
+    };
+    /** SearchFilterExpression */
+    SearchFilterExpression: {
+      field: components['schemas']['FieldReference'];
+      /**
+       * Operator
+       * @enum {string}
+       */
+      operator:
+        | 'equals'
+        | 'not_equals'
+        | 'contains'
+        | 'does_not_contain'
+        | 'starts_with'
+        | 'ends_with'
+        | 'in'
+        | 'not_in'
+        | 'is_empty'
+        | 'is_not_empty'
+        | 'greater_than'
+        | 'greater_than_or_equal'
+        | 'less_than'
+        | 'less_than_or_equal'
+        | 'between'
+        | 'equal_or_after_today'
+        | 'equal_or_before_today'
+        | 'last_x_days'
+        | 'more_than_x_days';
+      /** Value */
+      value?: unknown;
+      /** Selected Label */
+      selected_label?: string | null;
     };
     /** ObjectRecordSubtotalResult */
     ObjectRecordSubtotalResult: {
@@ -10615,6 +11032,46 @@ export interface components {
       createdAt?: string | null;
       /** Updatedat */
       updatedAt?: string | null;
+    };
+    /** GoalSourceOption */
+    GoalSourceOption: {
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      /** Measures */
+      measures: components['schemas']['GoalMeasureOption'][];
+      /** Date Fields */
+      date_fields: components['schemas']['GoalOption'][];
+      /** Default Date Field */
+      default_date_field: string;
+      /** Has Owner */
+      has_owner: boolean;
+      /** Filter Object Type */
+      filter_object_type: string | null;
+    };
+    /** GoalTemplate */
+    GoalTemplate: {
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      /**
+       * Metric
+       * @enum {string}
+       */
+      metric: 'deals_created' | 'invoice_revenue' | 'custom';
+      definition: components['schemas']['GoalMetricDefinition'];
+      /**
+       * Unit
+       * @enum {string}
+       */
+      unit: 'count' | 'money' | 'number';
+    };
+    /** GoalListItem */
+    GoalListItem: {
+      goal: components['schemas']['GoalData'];
+      this_month: components['schemas']['GoalPeriodProgress'];
     };
     /** WorkflowColumn */
     WorkflowColumn: {
@@ -10880,6 +11337,24 @@ export interface components {
       /** Label */
       label?: string | null;
     };
+    /** FieldReference */
+    FieldReference: {
+      /** Field Id */
+      field_id: string;
+      /** Source */
+      source?:
+        | (
+            | 'standard_field'
+            | 'custom_property'
+            | 'association'
+            | 'record_display'
+            | 'formatted_id'
+            | 'system'
+          )
+        | null;
+      /** Label */
+      label?: string | null;
+    };
     /** ActivityLogActor */
     ActivityLogActor: {
       /** Name */
@@ -10915,6 +11390,25 @@ export interface components {
       model_provider?: string | null;
       /** Model Name */
       model_name?: string | null;
+    };
+    /** GoalMeasureOption */
+    GoalMeasureOption: {
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
+      /**
+       * Unit
+       * @enum {string}
+       */
+      unit: 'count' | 'money' | 'number';
+    };
+    /** GoalOption */
+    GoalOption: {
+      /** Key */
+      key: string;
+      /** Label */
+      label: string;
     };
     /** PublicFlowFieldState */
     PublicFlowFieldState: {
@@ -13038,6 +13532,259 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ArchivePublicCustomObjectRecordCompatibilityApiV2PublicRecordsCustomObjectsRecordsRecordIdArchivePost200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_goals: {
+    parameters: {
+      query?: {
+        page?: number;
+        limit?: number;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicGoals200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_goal: {
+    parameters: {
+      query?: {
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GoalCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicGoal201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_goal_metrics: {
+    parameters: {
+      query?: {
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicGoalMetrics200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_goal: {
+    parameters: {
+      query?: {
+        fiscal_year?: number | null;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        goal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicGoal200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  delete_public_goal: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        goal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeletePublicGoal200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_goal: {
+    parameters: {
+      query?: {
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        goal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GoalUpdateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicGoal200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  set_public_goal_targets: {
+    parameters: {
+      query?: {
+        fiscal_year?: number | null;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        goal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GoalTargetsSaveRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetPublicGoalTargets200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_goal_progress: {
+    parameters: {
+      query?: {
+        subject?: string;
+        range?: 'fiscal_year' | 'last_12_months';
+        fiscal_year?: number | null;
+        people_period?: ('month' | 'quarter' | 'half' | 'year') | null;
+        language?: string | null;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        goal_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicGoalProgress200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];

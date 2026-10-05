@@ -71,4 +71,7 @@ refresh were both generated from it with
 The shared SDK input (`../sanka-sdks/openapi.json`) receives only reviewed
 operations and carries SDK-only routes, so regenerating from it rewrites
 unrelated members. After a refresh, check that the diff adds only the intended
-operations and schemas.
+operations and schemas. The Goals refresh kept only the goal paths, operations
+and schemas (with the `SearchFilterExpression` and `FieldReference` they
+reference); other public schemas the contract had gained since were left out,
+so the next refresh will show them as additions.
