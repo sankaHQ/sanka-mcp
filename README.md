@@ -223,3 +223,14 @@ Request-schema regeneration uses the shared V2 SDK input:
 python3 scripts/sync-developer-cloud-contract.py ../sanka-sdks/openapi.json
 pnpm exec prettier --write packages/mcp-server/src/generated/developer-cloud-schemas.ts
 ```
+
+## Embedded workspace
+
+The Sanka app opens the connected full Flow workspace: its sidebar, dashboards,
+record tables, workflows and reports. Full workspace access requires explicit
+Sanka authorization. Connections with narrower access show the authorization
+controls; the earlier Invoice assistant pilot screen is no longer offered.
+
+The hosted invoice MCP tools remain available under their existing scopes and
+confirmation requirements. Removing the pilot screen does not change invoice
+records or the API contract.

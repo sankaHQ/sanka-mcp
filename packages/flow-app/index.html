@@ -33,11 +33,6 @@
         margin: 4px 0 8px;
         font-weight: 600;
       }
-      h2 {
-        font-size: 18px;
-        margin: 0 0 8px;
-        font-weight: 600;
-      }
       p {
         line-height: 1.5;
         margin: 8px 0;
@@ -51,27 +46,9 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
-      section {
-        border-top: 1px solid var(--color-border-primary, ButtonBorder);
-        padding: 24px 0;
-      }
       header {
         padding-bottom: 24px;
       }
-      form {
-        margin-top: 20px;
-      }
-      label {
-        display: block;
-        margin-bottom: 8px;
-        font-size: 14px;
-        font-weight: 500;
-      }
-      input {
-        min-width: 0;
-        width: 100%;
-      }
-      input,
       button {
         font: inherit;
         font-size: 14px;
@@ -99,51 +76,12 @@
         outline: 2px solid var(--color-text-primary, Highlight);
         outline-offset: 3px;
       }
-      .result {
-        margin-top: 20px;
-        padding: 16px;
-        border-radius: var(--border-radius-md, 8px);
-        background: var(--color-background-secondary, ButtonFace);
-      }
-      .result h3 {
-        font-size: 15px;
-        margin: 0 0 8px;
-      }
       #notice {
         margin: 0 0 16px;
       }
       #workspace-id {
         display: block;
         overflow-wrap: anywhere;
-      }
-      dl {
-        display: grid;
-        grid-template-columns: minmax(100px, 1fr) 2fr;
-        gap: 8px 16px;
-      }
-      dt {
-        color: var(--color-text-secondary, GrayText);
-      }
-      dd {
-        margin: 0;
-        overflow-wrap: anywhere;
-      }
-      article + article {
-        border-top: 1px solid var(--color-border-primary, ButtonBorder);
-        padding-top: 16px;
-        margin-top: 16px;
-      }
-      pre {
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        font-size: 12px;
-        max-height: 400px;
-        overflow: auto;
-      }
-      summary {
-        cursor: pointer;
-        font-size: 13px;
-        margin-top: 12px;
       }
       [hidden] {
         display: none !important;
@@ -253,15 +191,6 @@
             Open workspace
           </button>
           <button
-            id="workspace-switch"
-            type="button"
-            hidden
-            data-en="Invoice assistant"
-            data-ja="売上請求アシスタント"
-          >
-            Invoice assistant
-          </button>
-          <button
             id="workspace-external"
             type="button"
             data-en="Open workspace in Sanka"
@@ -282,112 +211,6 @@
           Reopen workspace
         </button>
       </div>
-      <div id="workspace-content" hidden>
-        <section>
-          <h2 data-en="From order to invoice" data-ja="受注から売上請求を作成">From order to invoice</h2>
-          <p
-            class="muted"
-            data-en="Review the draft, confirm creation, then check the saved invoice."
-            data-ja="下書きを確認して作成し、保存された売上請求を確認します。"
-          >
-            Review the draft, confirm creation, then check the saved invoice.
-          </p>
-          <form id="search-form">
-            <label
-              for="order-search"
-              data-en="Customer or order description"
-              data-ja="取引先名または受注の内容"
-              >Customer or order description</label
-            >
-            <div class="row">
-              <input id="order-search" type="search" required maxlength="200" autocomplete="off" />
-              <button type="submit" data-en="Find orders" data-ja="受注を検索">Find orders</button>
-            </div>
-            <p
-              class="muted"
-              data-en="Search customer names, order notes, and line-item names or descriptions."
-              data-ja="取引先名、受注の備考、品目名・説明で検索します。"
-            >
-              Search customer names, order notes, and line-item names or descriptions.
-            </p>
-          </form>
-          <div id="search-result" class="result" aria-live="polite" hidden></div>
-          <div id="search-pages" class="row" hidden>
-            <button id="search-previous" type="button" data-en="Previous" data-ja="前へ">Previous</button>
-            <span id="search-page"></span>
-            <button id="search-next" type="button" data-en="Next" data-ja="次へ">Next</button>
-          </div>
-          <form id="preview-form">
-            <label for="order-id" data-en="Order number or ID" data-ja="受注番号またはID"
-              >Order number or ID</label
-            >
-            <div class="row">
-              <input id="order-id" required autocomplete="off" /><button
-                class="primary"
-                type="submit"
-                data-en="Review order"
-                data-ja="受注を確認"
-              >
-                Review order
-              </button>
-            </div>
-          </form>
-          <div id="preview-result" class="result" aria-live="polite" hidden></div>
-          <div id="confirmation" class="result" hidden>
-            <p
-              data-en="Create the reviewed invoice draft in this workspace?"
-              data-ja="確認した売上請求の下書きを、このワークスペースに作成しますか？"
-            >
-              Create the reviewed invoice draft in this workspace?
-            </p>
-            <button
-              id="create"
-              class="primary"
-              type="button"
-              disabled
-              data-en="Create invoice draft"
-              data-ja="売上請求の下書きを作成"
-            >
-              Create invoice draft
-            </button>
-            <button id="cancel" type="button" data-en="Cancel" data-ja="キャンセル">Cancel</button>
-          </div>
-          <div id="recovery" class="result" hidden>
-            <button
-              id="recover"
-              type="button"
-              data-en="Check status and saved invoices"
-              data-ja="状態と保存内容を確認"
-            >
-              Check status and saved invoices
-            </button>
-          </div>
-          <div id="run-result" class="result" aria-live="polite" hidden></div>
-          <div id="invoice-result" class="result" aria-live="polite" hidden></div>
-        </section>
-        <section>
-          <h2 data-en="Workflow status" data-ja="ワークフローの状態">Workflow status</h2>
-          <form id="run-form">
-            <label for="run-id" data-en="Run ID" data-ja="実行ID">Run ID</label>
-            <div class="row">
-              <input id="run-id" required autocomplete="off" /><button
-                type="submit"
-                data-en="View status"
-                data-ja="状態を表示"
-              >
-                View status
-              </button>
-            </div>
-          </form>
-        </section>
-      </div>
-      <footer>
-        <small
-          data-en="Pilot · One submission per order. Use Sanka for additional billing."
-          data-ja="試験提供：受注ごとに1回実行できます。追加の請求はSankaで操作してください。"
-          >Pilot · One submission per order. Use Sanka for additional billing.</small
-        >
-      </footer>
     </main>
     <!-- WORKSPACE_CONFIG -->
     <!-- APP_SCRIPT -->
