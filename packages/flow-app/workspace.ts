@@ -50,6 +50,7 @@ export function createWorkspaceView(
   let currentPath = '';
   let visible = false;
   let consentUrl = '';
+  let connected = false;
   let openingTimer: ReturnType<typeof setTimeout> | undefined;
   const t = (en: string, ja: string) => (language() === 'ja' ? ja : en);
   const post = (message: Record<string, unknown>) => iframe?.contentWindow?.postMessage(message, frameOrigin);
@@ -100,7 +101,13 @@ export function createWorkspaceView(
   function controls(busy = false) {
     element('workspace-launch').hidden = !base || !workspace.available;
     element<HTMLButtonElement>('open-workspace').disabled =
-      busy || launching || !workspace.id || workspace.access !== 'full_workspace';
+      busy ||
+      launching ||
+      !connected ||
+      !base ||
+      !workspace.available ||
+      !workspace.id ||
+      workspace.access !== 'full_workspace';
     element('workspace-consent').hidden = workspace.access === 'full_workspace';
     element('enable-workspace').hidden = !consentUrl || workspace.access === 'full_workspace';
     element('workspace-consent').textContent =
@@ -151,6 +158,7 @@ export function createWorkspaceView(
       show(true);
       post({ type: 'sanka.flow.navigate', path });
     }
+    openWorkspace();
   }
 
   element('enable-workspace').onclick = () => {
@@ -167,8 +175,9 @@ export function createWorkspaceView(
         );
   };
 
-  element('open-workspace').onclick = () => {
-    if (workspace.access !== 'full_workspace' || !workspace.id || !base) return;
+  function openWorkspace() {
+    if (!connected || workspace.access !== 'full_workspace' || !workspace.available || !workspace.id || !base)
+      return;
     if (iframe) {
       show(true);
       return;
@@ -199,7 +208,8 @@ export function createWorkspaceView(
       30_000,
     );
     void app.requestDisplayMode({ mode: 'fullscreen' }).catch(() => undefined);
-  };
+  }
+  element('open-workspace').onclick = openWorkspace;
   element('workspace-external').onclick = () => {
     const path = safePath(currentPath || workspace.page, workspace.code) || `/${workspace.code}`;
     if (workspace.id)
@@ -209,7 +219,7 @@ export function createWorkspaceView(
   };
   element('workspace-retry').onclick = () => {
     reset();
-    element<HTMLButtonElement>('open-workspace').click();
+    openWorkspace();
   };
 
   window.addEventListener('message', (event) => {
@@ -309,5 +319,10 @@ export function createWorkspaceView(
     }
   });
   app.addEventListener('hostcontextchanged', host);
-  return { update, reset, controls };
+  function ready() {
+    connected = true;
+    controls();
+    openWorkspace();
+  }
+  return { update, reset, controls, ready };
 }

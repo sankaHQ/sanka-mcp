@@ -113,7 +113,7 @@ describe('Sanka Flow MCP App protocol', () => {
       const { tools } = await session.client.listTools();
       const tool = tools.find((candidate) => candidate.name === 'open_flow_workspace')!;
       expect(tool._meta).toMatchObject({
-        ui: { resourceUri: 'ui://sanka/flow-workspace-v4' },
+        ui: { resourceUri: 'ui://sanka/flow-workspace-v5' },
         'openai/ui': { entrypoints: [{ type: 'global' }, { type: 'thread' }] },
       });
       const result = await session.client.callTool({ name: tool.name, arguments: {} });
@@ -129,10 +129,17 @@ describe('Sanka Flow MCP App protocol', () => {
         mimeType: 'text/html;profile=mcp-app',
         text: expect.stringContaining('<title>Sanka Flow</title>'),
       });
-      const legacy = await session.client.readResource({ uri: 'ui://sanka/flow-workspace' });
       const content = resource.contents[0]!;
       if (!('text' in content)) throw new Error('The Flow app resource must contain HTML text');
-      expect(legacy.contents[0]).toMatchObject({ text: content.text });
+      for (const uri of [
+        'ui://sanka/flow-workspace',
+        'ui://sanka/flow-workspace-v2',
+        'ui://sanka/flow-workspace-v3',
+        'ui://sanka/flow-workspace-v4',
+      ]) {
+        const legacy = await session.client.readResource({ uri });
+        expect(legacy.contents[0]).toMatchObject({ text: content.text });
+      }
       await expect(session.client.readResource({ uri: 'ui://sanka/unknown' })).rejects.toThrow(
         'Unknown resource',
       );

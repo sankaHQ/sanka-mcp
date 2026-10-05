@@ -33,11 +33,12 @@ const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="non
 </defs>
 </svg>`;
 
-export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v4';
+export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v5';
 const LEGACY_FLOW_APP_URIS = [
   'ui://sanka/flow-workspace',
   'ui://sanka/flow-workspace-v2',
   'ui://sanka/flow-workspace-v3',
+  'ui://sanka/flow-workspace-v4',
 ];
 export const FLOW_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 export const isFlowAppEnabled = (): boolean => process.env['SANKA_MCP_FLOW_APP_ENABLED'] === '1';

@@ -2,7 +2,7 @@ import { App, applyDocumentTheme, applyHostStyleVariables } from '@modelcontextp
 import { createWorkspaceView } from './workspace';
 
 const app = new App(
-  { name: 'Sanka Flow', version: '0.3.0' },
+  { name: 'Sanka Flow', version: '0.4.0' },
   { availableDisplayModes: ['inline', 'fullscreen'] },
 );
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -145,6 +145,7 @@ void app
   .then(() => {
     applyHost(app.getHostContext());
     setBusy(false);
+    workspaceView.ready();
   })
   .catch(() => {
     setBusy(true);
