@@ -182,7 +182,7 @@ const CREATE_INPUT_SCHEMA = {
       type: 'string',
       enum: ['deals_created', 'invoice_revenue', 'custom'],
       description:
-        "A template's metric from list_goal_metrics: deals_created counts new deals, invoice_revenue adds up billed invoices by invoice date, and custom measures `definition`.",
+        "A template's metric from list_goal_metrics: deals_created counts new deals, invoice_revenue adds up active invoices by invoice date whatever their status, and custom measures `definition`. A custom goal on invoices with a status filter can leave statuses such as drafts out.",
     },
     amount: AMOUNT_SCHEMA,
     currency: {
