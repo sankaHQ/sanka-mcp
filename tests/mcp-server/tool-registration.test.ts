@@ -7,6 +7,7 @@ import * as cargoCatalogTools from '../../packages/mcp-server/src/cargo-catalog-
 import * as crmTools from '../../packages/mcp-server/src/crm-tools';
 import * as demoTools from '../../packages/mcp-server/src/demo-tools';
 import * as docsSearchTool from '../../packages/mcp-server/src/docs-search-tool';
+import * as presentationTools from '../../packages/mcp-server/src/presentation-tools';
 import * as sankaBuyTools from '../../packages/mcp-server/src/sanka-buy-tools';
 import * as transferTools from '../../packages/mcp-server/src/transfer-tools';
 import * as watchtowerTools from '../../packages/mcp-server/src/watchtower-tools';
@@ -25,6 +26,7 @@ const TOOL_MODULES: Record<string, Record<string, unknown>> = {
   'crm-tools': crmTools,
   'demo-tools': demoTools,
   'docs-search-tool': docsSearchTool,
+  'presentation-tools': presentationTools,
   'sanka-buy-tools': sankaBuyTools,
   'transfer-tools': transferTools,
   'watchtower-tools': watchtowerTools,

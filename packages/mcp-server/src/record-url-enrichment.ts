@@ -318,9 +318,13 @@ function readWorkspaceCode(reqContext: McpRequestContext): string | undefined {
   return readString(reqContext.auth?.oauth?.workspace_code);
 }
 
+/** The Sanka app origin configured for links (`SANKA_V2_APP_BASE_URL`), if any. */
+export function configuredAppBaseUrl(): string | undefined {
+  return readString(readString(process.env['SANKA_V2_APP_BASE_URL'])?.replace(/\/+$/, ''));
+}
+
 function readAppBaseUrl(): string {
-  const configuredV2Base = readString(process.env['SANKA_V2_APP_BASE_URL']);
-  return (configuredV2Base || 'https://flow.sanka.com').replace(/\/+$/, '');
+  return configuredAppBaseUrl() || 'https://flow.sanka.com';
 }
 
 function readString(value: unknown): string | undefined {

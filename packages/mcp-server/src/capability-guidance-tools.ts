@@ -1,7 +1,11 @@
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-09-09.workflow-guidance.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-10-08.presentations.v1';
+
+// "presentation scheduled" is a HubSpot deal stage, not a deck.
+const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
+const PRESENTATION_INTENT_JA = ['スライド', 'プレゼン', 'パワーポイント', 'パワポ'];
 
 const WORKFLOW_HINT_MIN_LENGTH = 4;
 
@@ -96,6 +100,28 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
   const objectType = readString(args?.['object_type']).toLowerCase();
   const operation = readString(args?.['operation']).toLowerCase();
   const combined = [intent, provider, objectType, operation].join(' ');
+  // Before the migration branch: a deck about a migration is still a deck.
+  if (PRESENTATION_INTENT.test(combined) || includesAny(combined, PRESENTATION_INTENT_JA)) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'sanka_doc_presentations',
+      supported: true,
+      recommended_tools: [
+        'get_presentation_catalog',
+        'create_presentation',
+        'get_presentation',
+        'update_presentation',
+        'export_presentation',
+        'get_presentation_export',
+      ],
+      route:
+        "Call get_presentation_catalog once per session. Plan the outline first: one message per slide, a title that states the point, at most 6 bullets. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. create_presentation (program_id for a migration program's Docs, omitted for Sanka Flow Docs), then read it back with get_presentation. Edit with update_presentation ops at the revision you last read; on PRESENTATION_REVISION_CONFLICT re-read and re-apply only your change. Do not delete slides you did not create unless asked. For a file, export_presentation, poll get_presentation_export until completed, then give the user app_url and the download link.",
+      mutation_policy:
+        'create_presentation, update_presentation and export_presentation need expected_workspace_id from current_workspace and change nothing on WORKSPACE_CONTEXT_MISMATCH; never retry them in another workspace. update_presentation needs expected_revision. Reuse an idempotency_key only to retry the same export.',
+      fallback_when_missing:
+        'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+    };
+  }
   if (/\bmigrat(?:e|es|ing|ion|ions)\b/.test(combined)) {
     const codeMigration = includesAny(combined, ['code migration', 'drf', 'django', 'fastapi', 'repository']);
     return {
