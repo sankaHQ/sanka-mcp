@@ -57,7 +57,10 @@ export const envelope = (data: unknown) =>
 
 // Headers a tool sets on purpose. Transport headers (auth, user agent, retries) are not part of the row.
 const isToolHeader = (name: string) =>
-  name === 'accept-language' || name === 'x-language' || name.startsWith('x-sanka-');
+  name === 'accept-language' ||
+  name === 'idempotency-key' ||
+  name === 'x-language' ||
+  name.startsWith('x-sanka-');
 
 /**
  * Calls the tool handler with a real SDK client whose `fetch` records every request and answers
