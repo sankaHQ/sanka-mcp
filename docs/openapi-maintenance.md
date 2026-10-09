@@ -75,3 +75,10 @@ operations and schemas. The Goals refresh kept only the goal paths, operations
 and schemas (with the `SearchFilterExpression` and `FieldReference` they
 reference); other public schemas the contract had gained since were left out,
 so the next refresh will show them as additions.
+The presentations refresh was generated the same way (openapi-typescript 7.13)
+and kept only the `/v2/public/presentations/catalog`,
+`/v2/public/documents/presentations…` and
+`/v2/public/ferry/programs/{program_id}/presentations…` paths, their operations
+and the schemas they reference. Large generated insertions confuse git's default
+diff heuristic; review them with `git diff --minimal` (or `--histogram`), which
+shows a refresh like this one as additions only.

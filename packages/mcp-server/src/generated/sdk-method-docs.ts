@@ -3429,6 +3429,470 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       '{ message: string; payment?: Record<string, unknown> | null; invoice?: Record<string, unknown> | null; allocations?: Array<Record<string, unknown>>; adjustments?: Array<Record<string, unknown>>; adjustment_total?: number; available_invoices?: Array<Record<string, unknown>>; ctx_id?: string | null; }',
   },
   {
+    qualified: 'client.public.presentations.cancelExport',
+    name: 'cancel_export',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/exports/{exportID}/cancel',
+    summary: 'Cancel a queued or running export; a finished export is returned as it is.',
+    description: 'Cancel a queued or running export; a finished export is returned as it is.',
+    signature:
+      'client.public.presentations.cancelExport(presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: ['presentationID: string;', 'exportID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.presentations.catalog',
+    name: 'catalog',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/presentations/catalog',
+    summary:
+      'The presentation catalog: page sizes, layouts, blocks with their JSON Schemas and limits, accents, themes, icons, authoring guidance, the deck JSON Schema and an example deck.',
+    description:
+      'The presentation catalog: page sizes, layouts, blocks with their JSON Schemas and limits, accents, themes, icons, authoring guidance, the deck JSON Schema and an example deck.',
+    signature:
+      'client.public.presentations.catalog(options?: RequestOptions): APIPromise<PresentationCatalog>',
+    params: [],
+    response:
+      '{ schemaVersions: Array<string>; pageSizes: Array<Record<string, unknown>>; layouts: Array<Record<string, unknown>>; blocks: Array<Record<string, unknown>>; accents: Array<Record<string, unknown>>; themes: Array<Record<string, unknown>>; icons: Array<string>; limits: Record<string, number>; guidance: Array<string>; deckJsonSchema: Record<string, unknown>; example: Record<string, unknown>; }',
+  },
+  {
+    qualified: 'client.public.presentations.create',
+    name: 'create',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations',
+    summary: 'Create a presentation from deck JSON, Markdown, a Markdown Doc, or just a title.',
+    description: 'Create a presentation from deck JSON, Markdown, a Markdown Doc, or just a title.',
+    signature:
+      'client.public.presentations.create(params: PresentationCreateParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'title: string;',
+      'deck?: PresentationDeck | null;',
+      'markdown?: string | null;',
+      'sourceDocumentId?: string | null;',
+      'pageSize?: PresentationPageSize | null;',
+      'theme?: PresentationThemeChoice | null;',
+      'folderId?: string | null;',
+      'sourceRef?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.presentations.createExport',
+    name: 'create_export',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/exports',
+    summary: 'Start a PowerPoint or PDF export of the current revision; poll it until it is completed.',
+    description: 'Start a PowerPoint or PDF export of the current revision; poll it until it is completed.',
+    signature:
+      'client.public.presentations.createExport(presentationID: string, params: PresentationCreateExportParams, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: [
+      'presentationID: string;',
+      'format: PresentationExportFormat;',
+      'slideIds?: Array<string> | null;',
+      'includeHidden?: boolean;',
+      'includeNotes?: boolean;',
+      "'Idempotency-Key'?: string;",
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.presentations.downloadExport',
+    name: 'download_export',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/exports/{exportID}/download',
+    summary: "Download a completed export's `.pptx` or `.pdf` file, while it has not expired (7 days).",
+    description: "Download a completed export's `.pptx` or `.pdf` file, while it has not expired (7 days).",
+    signature:
+      'client.public.presentations.downloadExport(presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<Response>',
+    params: ['presentationID: string;', 'exportID: string;', 'workspace_id?: string | null;'],
+    response: 'Response',
+  },
+  {
+    qualified: 'client.public.presentations.importImage',
+    name: 'import_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/images/import',
+    summary: 'Fetch a public https:// image into the presentation, with its metadata stripped.',
+    description: 'Fetch a public https:// image into the presentation, with its metadata stripped.',
+    signature:
+      'client.public.presentations.importImage(presentationID: string, params: PresentationImportImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'presentationID: string;',
+      'url: string;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.presentations.list',
+    name: 'list',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/documents/presentations',
+    summary: 'List Sanka Flow presentations, most recently updated first (metadata only, no decks).',
+    description: 'List Sanka Flow presentations, most recently updated first (metadata only, no decks).',
+    signature:
+      'client.public.presentations.list(params?: PresentationListParams | null | undefined, options?: RequestOptions): APIPromise<PresentationList>',
+    params: [
+      'folder_id?: string | null;',
+      'cursor?: string | null;',
+      'limit?: number;',
+      'include_archived?: boolean;',
+      'workspace_id?: string | null;',
+    ],
+    response: '{ presentations: Array<PresentationSummary>; nextCursor?: string | null; }',
+  },
+  {
+    qualified: 'client.public.presentations.preview',
+    name: 'preview',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/previews',
+    summary: "Render slide images (base64) with each slide's fit; an overflow means the content did not fit.",
+    description:
+      "Render slide images (base64) with each slide's fit; an overflow means the content did not fit.",
+    signature:
+      'client.public.presentations.preview(presentationID: string, params?: PresentationPreviewParams | null | undefined, options?: RequestOptions): APIPromise<PresentationPreview>',
+    params: [
+      'presentationID: string;',
+      'slideIds?: Array<string> | null;',
+      'width?: PresentationPreviewWidth;',
+      "format?: 'jpeg' | 'png';",
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ revision: number; slides: Array<PresentationPreviewSlide>; warnings?: Array<Record<string, unknown>>; }',
+  },
+  {
+    qualified: 'client.public.presentations.replace',
+    name: 'replace',
+    httpMethod: 'put',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}',
+    summary:
+      'Replace the whole deck at `expectedRevision`; a stale revision fails with PRESENTATION_REVISION_CONFLICT.',
+    description:
+      'Replace the whole deck at `expectedRevision`; a stale revision fails with PRESENTATION_REVISION_CONFLICT.',
+    signature:
+      'client.public.presentations.replace(presentationID: string, params: PresentationReplaceParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'presentationID: string;',
+      'expectedRevision: number;',
+      'title?: string | null;',
+      'deck: PresentationDeck;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.presentations.retrieve',
+    name: 'retrieve',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}',
+    summary: 'Get a presentation: the deck with its slide and block IDs, its revision and an outline.',
+    description: 'Get a presentation: the deck with its slide and block IDs, its revision and an outline.',
+    signature:
+      'client.public.presentations.retrieve(presentationID: string, params?: PresentationRetrieveParams | null | undefined, options?: RequestOptions): APIPromise<Presentation>',
+    params: ['presentationID: string;', 'workspace_id?: string | null;'],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.presentations.retrieveExport',
+    name: 'retrieve_export',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/exports/{exportID}',
+    summary: "Get an export's status, progress, warnings and, once completed, its download path.",
+    description: "Get an export's status, progress, warnings and, once completed, its download path.",
+    signature:
+      'client.public.presentations.retrieveExport(presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: ['presentationID: string;', 'exportID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.presentations.update',
+    name: 'update',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}',
+    summary: 'Apply edit operations at `expectedRevision`, all or nothing.',
+    description: 'Apply edit operations at `expectedRevision`, all or nothing.',
+    signature:
+      'client.public.presentations.update(presentationID: string, params: PresentationUpdateParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'presentationID: string;',
+      'expectedRevision: number;',
+      'ops: Array<PresentationOp>;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.presentations.uploadImage',
+    name: 'upload_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/images',
+    summary: 'Upload an image (multipart) to the presentation; reference its `assetId` in the deck.',
+    description: 'Upload an image (multipart) to the presentation; reference its `assetId` in the deck.',
+    signature:
+      'client.public.presentations.uploadImage(presentationID: string, params: PresentationUploadImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'presentationID: string;',
+      'file: Uploadable;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.cancelExport',
+    name: 'cancel_export',
+    httpMethod: 'post',
+    endpoint:
+      '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/exports/{exportID}/cancel',
+    summary: 'Cancel a queued or running Sanka program presentation export.',
+    description: 'Cancel a queued or running Sanka program presentation export.',
+    signature:
+      'client.public.programPresentations.cancelExport(programID: string, presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'exportID: string;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.create',
+    name: 'create',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations',
+    summary:
+      "Create a presentation in a Sanka program's Docs from deck JSON, Markdown, a Markdown Doc, or just a title.",
+    description:
+      "Create a presentation in a Sanka program's Docs from deck JSON, Markdown, a Markdown Doc, or just a title.",
+    signature:
+      'client.public.programPresentations.create(programID: string, params: PresentationCreateParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'programID: string;',
+      'title: string;',
+      'deck?: PresentationDeck | null;',
+      'markdown?: string | null;',
+      'sourceDocumentId?: string | null;',
+      'pageSize?: PresentationPageSize | null;',
+      'theme?: PresentationThemeChoice | null;',
+      'folderId?: string | null;',
+      'sourceRef?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.programPresentations.createExport',
+    name: 'create_export',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/exports',
+    summary:
+      'Start a PowerPoint or PDF export of a Sanka program presentation; poll it until it is completed.',
+    description:
+      'Start a PowerPoint or PDF export of a Sanka program presentation; poll it until it is completed.',
+    signature:
+      'client.public.programPresentations.createExport(programID: string, presentationID: string, params: PresentationCreateExportParams, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'format: PresentationExportFormat;',
+      'slideIds?: Array<string> | null;',
+      'includeHidden?: boolean;',
+      'includeNotes?: boolean;',
+      "'Idempotency-Key'?: string;",
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.downloadExport',
+    name: 'download_export',
+    httpMethod: 'get',
+    endpoint:
+      '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/exports/{exportID}/download',
+    summary: "Download a completed Sanka program presentation export's `.pptx` or `.pdf` file.",
+    description: "Download a completed Sanka program presentation export's `.pptx` or `.pdf` file.",
+    signature:
+      'client.public.programPresentations.downloadExport(programID: string, presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<Response>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'exportID: string;',
+      'workspace_id?: string | null;',
+    ],
+    response: 'Response',
+  },
+  {
+    qualified: 'client.public.programPresentations.importImage',
+    name: 'import_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/images/import',
+    summary: 'Fetch a public https:// image into a Sanka program presentation, with its metadata stripped.',
+    description:
+      'Fetch a public https:// image into a Sanka program presentation, with its metadata stripped.',
+    signature:
+      'client.public.programPresentations.importImage(programID: string, presentationID: string, params: PresentationImportImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'url: string;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.list',
+    name: 'list',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations',
+    summary: "List a Sanka program's presentations, most recently updated first (metadata only, no decks).",
+    description:
+      "List a Sanka program's presentations, most recently updated first (metadata only, no decks).",
+    signature:
+      'client.public.programPresentations.list(programID: string, params?: PresentationListParams | null | undefined, options?: RequestOptions): APIPromise<PresentationList>',
+    params: [
+      'programID: string;',
+      'folder_id?: string | null;',
+      'cursor?: string | null;',
+      'limit?: number;',
+      'include_archived?: boolean;',
+      'workspace_id?: string | null;',
+    ],
+    response: '{ presentations: Array<PresentationSummary>; nextCursor?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.preview',
+    name: 'preview',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/previews',
+    summary: "Render slide images (base64) of a Sanka program presentation with each slide's fit.",
+    description: "Render slide images (base64) of a Sanka program presentation with each slide's fit.",
+    signature:
+      'client.public.programPresentations.preview(programID: string, presentationID: string, params?: PresentationPreviewParams | null | undefined, options?: RequestOptions): APIPromise<PresentationPreview>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'slideIds?: Array<string> | null;',
+      'width?: PresentationPreviewWidth;',
+      "format?: 'jpeg' | 'png';",
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ revision: number; slides: Array<PresentationPreviewSlide>; warnings?: Array<Record<string, unknown>>; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.replace',
+    name: 'replace',
+    httpMethod: 'put',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}',
+    summary: 'Replace the whole deck of a Sanka program presentation at `expectedRevision`.',
+    description: 'Replace the whole deck of a Sanka program presentation at `expectedRevision`.',
+    signature:
+      'client.public.programPresentations.replace(programID: string, presentationID: string, params: PresentationReplaceParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'expectedRevision: number;',
+      'title?: string | null;',
+      'deck: PresentationDeck;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.programPresentations.retrieve',
+    name: 'retrieve',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}',
+    summary:
+      'Get a Sanka program presentation: the deck with its slide and block IDs, its revision and an outline.',
+    description:
+      'Get a Sanka program presentation: the deck with its slide and block IDs, its revision and an outline.',
+    signature:
+      'client.public.programPresentations.retrieve(programID: string, presentationID: string, params?: PresentationRetrieveParams | null | undefined, options?: RequestOptions): APIPromise<Presentation>',
+    params: ['programID: string;', 'presentationID: string;', 'workspace_id?: string | null;'],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.programPresentations.retrieveExport',
+    name: 'retrieve_export',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/exports/{exportID}',
+    summary: "Get a Sanka program presentation export's status, progress, warnings and download path.",
+    description: "Get a Sanka program presentation export's status, progress, warnings and download path.",
+    signature:
+      'client.public.programPresentations.retrieveExport(programID: string, presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'exportID: string;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+  },
+  {
+    qualified: 'client.public.programPresentations.update',
+    name: 'update',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}',
+    summary: 'Apply edit operations to a Sanka program presentation at `expectedRevision`, all or nothing.',
+    description:
+      'Apply edit operations to a Sanka program presentation at `expectedRevision`, all or nothing.',
+    signature:
+      'client.public.programPresentations.update(programID: string, presentationID: string, params: PresentationUpdateParams, options?: RequestOptions): APIPromise<Presentation>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'expectedRevision: number;',
+      'ops: Array<PresentationOp>;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      "{ id: string; programId?: string | null; workspaceId: string; product: PresentationProduct; kind: 'presentation'; title: string; revision: number; deck: PresentationDeck; slideCount: number; outline: string; updatedVia: PresentationUpdatedVia; sourceRef?: string | null; pinned?: boolean; archivedAt?: string | null; createdById?: number | null; updatedById?: number | null; createdAt?: string | null; updatedAt?: string | null; appPath: string; warnings?: Array<PresentationWarning>; }",
+  },
+  {
+    qualified: 'client.public.programPresentations.uploadImage',
+    name: 'upload_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/images',
+    summary:
+      'Upload an image (multipart) to a Sanka program presentation; reference its `assetId` in the deck.',
+    description:
+      'Upload an image (multipart) to a Sanka program presentation; reference its `assetId` in the deck.',
+    signature:
+      'client.public.programPresentations.uploadImage(programID: string, presentationID: string, params: PresentationUploadImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'file: Uploadable;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
+  },
+  {
     qualified: 'client.public.projects.create',
     name: 'create',
     httpMethod: 'post',

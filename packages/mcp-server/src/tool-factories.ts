@@ -20,8 +20,10 @@ import { asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './typ
  * buildEntityMutationSummary). defineListTool / defineDetailTool /
  * defineMutationTool capture those templates once; the resource-specific parts
  * (schemas, descriptions, SDK call, param/body builders, preview keys) stay at
- * the call site. createChunkedAttachmentUploadTools generates the
- * start/append/finish chunked attachment upload triplet for a resource.
+ * the call site. createChunkedUploadTools generates a start/append/finish
+ * chunked upload triplet whose finish tool uploads the assembled file, and
+ * createChunkedAttachmentUploadTools is its attachment form, ending in a
+ * file_id for a resource's create and update tools.
  *
  * MIGRATING ANOTHER RESOURCE FAMILY ONTO THE FACTORIES
  *
@@ -655,6 +657,55 @@ export type ChunkedAttachmentUploadToolConfig = {
   uploadAttachment: (reqContext: McpRequestContext, file: File) => Promise<unknown>;
 };
 
+export type ChunkedUploadToolTriplet<T> = { start: T; append: T; finish: T };
+
+/** The assembled file a finish tool uploaded. */
+export type FinishedChunkedUpload = { filename: string; byteLength: number; contentBase64Length: number };
+
+/**
+ * A start/append/finish chunked upload: the binary upload store plumbing is shared, and the
+ * config supplies every user-visible string and what the finish tool does with the file.
+ */
+export type ChunkedUploadToolConfig = {
+  resource: string;
+  tags: string[];
+  /** The route the finish tool uploads the assembled file to. */
+  httpPath: string;
+  operationIds: ChunkedUploadToolTriplet<string>;
+  names: ChunkedUploadToolTriplet<string>;
+  titles: ChunkedUploadToolTriplet<string>;
+  /** The uploaded file, such as "expense attachment". */
+  fileLabel: string;
+  /** Typical files, such as "receipt/invoice PDFs". */
+  fileKindLabel: string;
+  /** Start inputs required besides filename, such as content_base64_length. */
+  startRequired?: string[];
+  /** append and chunk replace the default append tool and content_base64 descriptions. */
+  descriptions: { start: string; finish: string; append?: string; chunk?: string };
+  nextActions: {
+    /** After start; gets the number of max-size append calls when the length is known. */
+    start: (recommendedChunkCount: number | undefined) => string;
+    /** After an append that leaves chunks to send. */
+    chunk: string;
+    /** After the last chunk. */
+    finish: string;
+  };
+  finish: {
+    /** Finish inputs besides the upload token, such as the record the file goes to. */
+    inputProperties?: Record<string, unknown>;
+    required?: string[];
+    /** false refuses inputs the schema does not name. */
+    additionalProperties?: false;
+    outputSchema: ToolOutputSchema;
+    /** Runs before the chunks are assembled; a result stops the finish and keeps the upload. */
+    check?: (reqContext: McpRequestContext, args: ToolArgs) => Promise<ToolCallResult | undefined>;
+    upload: (reqContext: McpRequestContext, file: File, args: ToolArgs) => Promise<unknown>;
+    result: (response: unknown, upload: FinishedChunkedUpload, args: ToolArgs) => ToolCallResult;
+    /** Upload errors after which the staged file is kept for another finish; others end the upload. */
+    keepUploadOnError?: (error: unknown) => boolean;
+  };
+};
+
 const CHUNKED_ATTACHMENT_UPLOAD_START_OUTPUT_SCHEMA: ToolOutputSchema = {
   type: 'object' as const,
   properties: {
@@ -736,14 +787,12 @@ const CHUNKED_ATTACHMENT_UPLOAD_FINISH_OUTPUT_SCHEMA: ToolOutputSchema = {
 
 const capitalizeFirst = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
 
-const buildChunkedAttachmentUploadStartInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
+const buildChunkedUploadStartInputSchema = (config: ChunkedUploadToolConfig): ToolInputSchema => ({
   type: 'object' as const,
   properties: {
     filename: {
       type: 'string',
-      description: `${capitalizeFirst(config.attachmentLabel)} filename to preserve in Sanka.`,
+      description: `${capitalizeFirst(config.fileLabel)} filename to preserve in Sanka.`,
     },
     mime_type: {
       type: 'string',
@@ -751,26 +800,24 @@ const buildChunkedAttachmentUploadStartInputSchema = (
     },
     content_base64_length: {
       type: 'number',
-      description: `Optional total base64 character length. Pass this when known so ${config.finishToolName} can detect missing chunks.`,
+      description: `Optional total base64 character length. Pass this when known so ${config.names.finish} can detect missing chunks.`,
       minimum: 1,
     },
     byte_length: {
       type: 'number',
-      description: `Optional original byte length. Pass this when known so ${config.finishToolName} can verify the decoded file size.`,
+      description: `Optional original byte length. Pass this when known so ${config.names.finish} can verify the decoded file size.`,
       minimum: 1,
     },
   },
-  required: ['filename'],
+  required: ['filename', ...(config.startRequired ?? [])],
 });
 
-const buildChunkedAttachmentUploadAppendInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
+const buildChunkedUploadAppendInputSchema = (config: ChunkedUploadToolConfig): ToolInputSchema => ({
   type: 'object' as const,
   properties: {
     upload_token: {
       type: 'string',
-      description: `Opaque token returned by ${config.startToolName}.`,
+      description: `Opaque token returned by ${config.names.start}.`,
     },
     token: {
       type: 'string',
@@ -785,28 +832,31 @@ const buildChunkedAttachmentUploadAppendInputSchema = (
     },
     content_base64: {
       type: 'string',
-      description: `One base64 chunk of the original ${config.attachmentLabel}. Use the returned chunk_size as the normal target so ${config.fileKindLabel} often complete in one append call. Larger chunks are accepted up to the server max if the client can pass them without truncation.`,
+      description:
+        config.descriptions.chunk ??
+        `One base64 chunk of the original ${config.fileLabel}. Use the returned chunk_size as the normal target so ${config.fileKindLabel} often complete in one append call. Larger chunks are accepted up to the server max if the client can pass them without truncation.`,
     },
   },
   required: ['content_base64'],
   anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
 });
 
-const buildChunkedAttachmentUploadFinishInputSchema = (
-  config: ChunkedAttachmentUploadToolConfig,
-): ToolInputSchema => ({
+const buildChunkedUploadFinishInputSchema = (config: ChunkedUploadToolConfig): ToolInputSchema => ({
   type: 'object' as const,
   properties: {
     upload_token: {
       type: 'string',
-      description: `Opaque token returned by ${config.startToolName}.`,
+      description: `Opaque token returned by ${config.names.start}.`,
     },
     token: {
       type: 'string',
       description: 'Alias for upload_token.',
     },
+    ...config.finish.inputProperties,
   },
+  ...(config.finish.required?.length ? { required: config.finish.required } : undefined),
   anyOf: [{ required: ['upload_token'] }, { required: ['token'] }],
+  ...(config.finish.additionalProperties === false ? { additionalProperties: false } : undefined),
 });
 
 // The verified workspace survives native OAuth token rotation and client-selected
@@ -818,31 +868,29 @@ const uploadPrincipal = (context: McpRequestContext): string =>
     : 'hosted:unresolved'
   : 'stdio';
 
-export const createChunkedAttachmentUploadTools = (
-  config: ChunkedAttachmentUploadToolConfig,
+export const createChunkedUploadTools = (
+  config: ChunkedUploadToolConfig,
 ): {
   startTool: McpTool;
   appendTool: McpTool;
   finishTool: McpTool;
 } => {
-  const createOrUpdateLabel = `${config.createToolName} or ${config.updateToolName}`;
-
   const startTool: McpTool = {
     metadata: {
       resource: config.resource,
       operation: 'write',
       tags: config.tags,
-      operationId: `${config.operationIdPrefix}.startChunkedAttachmentUpload`,
+      operationId: config.operationIds.start,
     },
     tool: {
-      name: config.startToolName,
-      title: config.startToolTitle,
-      description: `Start a chunked ${config.attachmentLabel} upload for ${config.fileKindLabel} that are too large or unreliable to pass as one content_base64 string. Use ${config.directUploadToolName} when the client can pass content_base64 reliably. Start, append every chunk in order, then finish to receive a file_id for ${createOrUpdateLabel}. Do not abandon the attachment only because multiple append calls are required.`,
-      inputSchema: buildChunkedAttachmentUploadStartInputSchema(config),
+      name: config.names.start,
+      title: config.titles.start,
+      description: config.descriptions.start,
+      inputSchema: buildChunkedUploadStartInputSchema(config),
       outputSchema: CHUNKED_ATTACHMENT_UPLOAD_START_OUTPUT_SCHEMA,
       securitySchemes: [{ type: 'oauth2' }],
       annotations: {
-        title: config.startToolTitle,
+        title: config.titles.start,
         readOnlyHint: false,
         destructiveHint: false,
         openWorldHint: false,
@@ -851,7 +899,7 @@ export const createChunkedAttachmentUploadTools = (
     handler: async ({ reqContext, args }) => {
       const authError = requireAuthentication({
         reqContext,
-        toolTitle: config.startToolTitle,
+        toolTitle: config.titles.start,
       });
       if (authError) {
         return authError;
@@ -885,7 +933,7 @@ export const createChunkedAttachmentUploadTools = (
         content: [
           {
             type: 'text',
-            text: `Started chunked ${config.attachmentLabel} upload for ${filename}.`,
+            text: `Started chunked ${config.fileLabel} upload for ${filename}.`,
           },
         ],
         structuredContent: {
@@ -897,22 +945,12 @@ export const createChunkedAttachmentUploadTools = (
             { recommended_chunk_count: recommendedChunkCount }
           : undefined),
           completion_status: 'requires_chunks',
-          required_next_tool: config.appendToolName,
+          required_next_tool: config.names.append,
           recommended_upload_strategy:
             recommendedChunkCount === undefined || recommendedChunkCount <= 1 ?
               'single_append_then_finish'
             : 'append_chunks_then_finish',
-          next_action: `Call ${
-            config.appendToolName
-          } with content_base64 chunks around ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
-            recommendedChunkCount !== undefined ?
-              `; using max-size chunks this should take ${recommendedChunkCount} append call(s)`
-            : ''
-          }. For ordinary ${
-            config.fileKindLabel
-          }, prefer one reliable append call when the base64 fits within this size instead of manually slicing into tiny chunks. Then call ${
-            config.finishToolName
-          } to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and call ${createOrUpdateLabel} without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
+          next_action: config.nextActions.start(recommendedChunkCount),
         },
       };
     },
@@ -923,17 +961,19 @@ export const createChunkedAttachmentUploadTools = (
       resource: config.resource,
       operation: 'write',
       tags: config.tags,
-      operationId: `${config.operationIdPrefix}.appendChunkedAttachmentUpload`,
+      operationId: config.operationIds.append,
     },
     tool: {
-      name: config.appendToolName,
-      title: config.appendToolTitle,
-      description: `Append one base64 chunk to a ${config.attachmentLabel} upload started with ${config.startToolName}. Send the original file base64 in ordered chunks; chunk_size is the normal target, so ${config.fileKindLabel} often complete in one append. Continue appending until the result returns done=true, then call ${config.finishToolName}.`,
-      inputSchema: buildChunkedAttachmentUploadAppendInputSchema(config),
+      name: config.names.append,
+      title: config.titles.append,
+      description:
+        config.descriptions.append ??
+        `Append one base64 chunk to a ${config.fileLabel} upload started with ${config.names.start}. Send the original file base64 in ordered chunks; chunk_size is the normal target, so ${config.fileKindLabel} often complete in one append. Continue appending until the result returns done=true, then call ${config.names.finish}.`,
+      inputSchema: buildChunkedUploadAppendInputSchema(config),
       outputSchema: CHUNKED_ATTACHMENT_UPLOAD_APPEND_OUTPUT_SCHEMA,
       securitySchemes: [{ type: 'oauth2' }],
       annotations: {
-        title: config.appendToolTitle,
+        title: config.titles.append,
         readOnlyHint: false,
         destructiveHint: false,
         openWorldHint: false,
@@ -942,7 +982,7 @@ export const createChunkedAttachmentUploadTools = (
     handler: async ({ reqContext, args }) => {
       const authError = requireAuthentication({
         reqContext,
-        toolTitle: config.appendToolTitle,
+        toolTitle: config.titles.append,
       });
       if (authError) {
         return authError;
@@ -998,12 +1038,9 @@ export const createChunkedAttachmentUploadTools = (
           expires_at: chunk.expiresAt,
           completion_status: chunk.done ? 'chunks_received' : 'requires_next_chunk',
           ...(chunk.done ?
-            { required_next_tool: config.finishToolName }
-          : { required_next_tool: config.appendToolName }),
-          next_action:
-            chunk.done ?
-              `Call ${config.finishToolName} with this upload_token to upload the assembled file to Sanka and receive a file_id.`
-            : `Call ${config.appendToolName} again with next_offset and the next content_base64 chunk. Do not drop this in-progress user-provided or required attachment and switch to ${createOrUpdateLabel} without its file_id while chunks remain.`,
+            { required_next_tool: config.names.finish }
+          : { required_next_tool: config.names.append }),
+          next_action: chunk.done ? config.nextActions.finish : config.nextActions.chunk,
         },
       };
     },
@@ -1016,17 +1053,17 @@ export const createChunkedAttachmentUploadTools = (
       tags: config.tags,
       httpMethod: 'post',
       httpPath: config.httpPath,
-      operationId: `${config.operationIdPrefix}.finishChunkedAttachmentUpload`,
+      operationId: config.operationIds.finish,
     },
     tool: {
-      name: config.finishToolName,
-      title: config.finishToolTitle,
-      description: `Finish a chunked ${config.attachmentLabel} upload after all chunks have been appended, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for ${createOrUpdateLabel}.`,
-      inputSchema: buildChunkedAttachmentUploadFinishInputSchema(config),
-      outputSchema: CHUNKED_ATTACHMENT_UPLOAD_FINISH_OUTPUT_SCHEMA,
+      name: config.names.finish,
+      title: config.titles.finish,
+      description: config.descriptions.finish,
+      inputSchema: buildChunkedUploadFinishInputSchema(config),
+      outputSchema: config.finish.outputSchema,
       securitySchemes: [{ type: 'oauth2' }],
       annotations: {
-        title: config.finishToolTitle,
+        title: config.titles.finish,
         readOnlyHint: false,
         destructiveHint: false,
         openWorldHint: false,
@@ -1035,7 +1072,7 @@ export const createChunkedAttachmentUploadTools = (
     handler: async ({ reqContext, args }) => {
       const authError = requireAuthentication({
         reqContext,
-        toolTitle: config.finishToolTitle,
+        toolTitle: config.titles.finish,
       });
       if (authError) {
         return authError;
@@ -1046,44 +1083,120 @@ export const createChunkedAttachmentUploadTools = (
         return asErrorResult('`upload_token` is required.');
       }
 
+      const stopped = await config.finish.check?.(reqContext, args);
+      if (stopped) {
+        return stopped;
+      }
+
+      const keepUploadOnError = config.finish.keepUploadOnError;
       const assembled = finishBinaryUpload({
         uploadToken,
         sessionId: reqContext.mcpSessionId,
         principalId: uploadPrincipal(reqContext),
+        retain: keepUploadOnError !== undefined,
       });
       if (!assembled.ok) {
         return asErrorResult(assembled.message);
       }
 
+      let keepUpload = false;
       try {
         const file = new File([assembled.buffer], assembled.filename, {
           type: assembled.mimeType,
         });
-        const response = (await config.uploadAttachment(reqContext, file)) as Record<string, unknown>;
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Uploaded ${config.attachmentLabel} ${
-                readString(response['filename']) || assembled.filename
-              }.`,
-            },
-          ],
-          structuredContent: {
-            ...response,
-            filename: readString(response['filename']) || assembled.filename,
-            byte_length: assembled.byteLength,
-            content_base64_length: assembled.contentBase64Length,
-            completion_status: 'uploaded',
-            next_action: `Pass structuredContent.file_id in attachment_file_ids when calling ${createOrUpdateLabel}, then read the ${config.entityName} back if attachment confirmation matters.`,
+        const response = await config.finish.upload(reqContext, file, args);
+        return config.finish.result(
+          response,
+          {
+            filename: assembled.filename,
+            byteLength: assembled.byteLength,
+            contentBase64Length: assembled.contentBase64Length,
           },
-        };
+          args,
+        );
+      } catch (error) {
+        keepUpload = keepUploadOnError?.(error) === true;
+        throw error;
       } finally {
-        assembled.release();
+        if (keepUpload && assembled.reopen) {
+          assembled.reopen();
+        } else {
+          assembled.release();
+        }
       }
     },
   };
 
   return { startTool, appendTool, finishTool };
+};
+
+/** The start/append/finish triplet for a record attachment that ends in a file_id. */
+export const createChunkedAttachmentUploadTools = (
+  config: ChunkedAttachmentUploadToolConfig,
+): {
+  startTool: McpTool;
+  appendTool: McpTool;
+  finishTool: McpTool;
+} => {
+  const createOrUpdateLabel = `${config.createToolName} or ${config.updateToolName}`;
+
+  return createChunkedUploadTools({
+    resource: config.resource,
+    tags: config.tags,
+    httpPath: config.httpPath,
+    operationIds: {
+      start: `${config.operationIdPrefix}.startChunkedAttachmentUpload`,
+      append: `${config.operationIdPrefix}.appendChunkedAttachmentUpload`,
+      finish: `${config.operationIdPrefix}.finishChunkedAttachmentUpload`,
+    },
+    names: { start: config.startToolName, append: config.appendToolName, finish: config.finishToolName },
+    titles: { start: config.startToolTitle, append: config.appendToolTitle, finish: config.finishToolTitle },
+    fileLabel: config.attachmentLabel,
+    fileKindLabel: config.fileKindLabel,
+    descriptions: {
+      start: `Start a chunked ${config.attachmentLabel} upload for ${config.fileKindLabel} that are too large or unreliable to pass as one content_base64 string. Use ${config.directUploadToolName} when the client can pass content_base64 reliably. Start, append every chunk in order, then finish to receive a file_id for ${createOrUpdateLabel}. Do not abandon the attachment only because multiple append calls are required.`,
+      finish: `Finish a chunked ${config.attachmentLabel} upload after all chunks have been appended, assemble the uploaded chunks, upload the original file to Sanka, and return the file_id for ${createOrUpdateLabel}.`,
+    },
+    nextActions: {
+      start: (recommendedChunkCount) =>
+        `Call ${
+          config.appendToolName
+        } with content_base64 chunks around ${BINARY_UPLOAD_CHUNK_BASE64_LENGTH} characters, using next_offset each time until append returns done=true${
+          recommendedChunkCount !== undefined ?
+            `; using max-size chunks this should take ${recommendedChunkCount} append call(s)`
+          : ''
+        }. For ordinary ${
+          config.fileKindLabel
+        }, prefer one reliable append call when the base64 fits within this size instead of manually slicing into tiny chunks. Then call ${
+          config.finishToolName
+        } to get a file_id. If this upload was started for a user-provided or required attachment, do not drop it and call ${createOrUpdateLabel} without its file_id unless the upload returns an error or the user explicitly approves skipping that attachment.`,
+      chunk: `Call ${config.appendToolName} again with next_offset and the next content_base64 chunk. Do not drop this in-progress user-provided or required attachment and switch to ${createOrUpdateLabel} without its file_id while chunks remain.`,
+      finish: `Call ${config.finishToolName} with this upload_token to upload the assembled file to Sanka and receive a file_id.`,
+    },
+    finish: {
+      outputSchema: CHUNKED_ATTACHMENT_UPLOAD_FINISH_OUTPUT_SCHEMA,
+      upload: (reqContext, file) => config.uploadAttachment(reqContext, file),
+      result: (uploaded, upload) => {
+        const response = uploaded as Record<string, unknown>;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Uploaded ${config.attachmentLabel} ${
+                readString(response['filename']) || upload.filename
+              }.`,
+            },
+          ],
+          structuredContent: {
+            ...response,
+            filename: readString(response['filename']) || upload.filename,
+            byte_length: upload.byteLength,
+            content_base64_length: upload.contentBase64Length,
+            completion_status: 'uploaded',
+            next_action: `Pass structuredContent.file_id in attachment_file_ids when calling ${createOrUpdateLabel}, then read the ${config.entityName} back if attachment confirmation matters.`,
+          },
+        };
+      },
+    },
+  });
 };

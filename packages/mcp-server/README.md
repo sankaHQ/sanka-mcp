@@ -114,7 +114,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `update_goal`: rename a goal or change its amount, custom definition or assigned people
 - `set_goal_targets`: set or clear monthly targets for the company row and assigned people
 - `delete_goal`: archive a goal
-- Presentations — `get_presentation_catalog`, `create_presentation`, `get_presentation`, `update_presentation`, `export_presentation`, `get_presentation_export`: build and edit Sanka Doc slide decks, in a migration program's Docs (`program_id`) or in Sanka Flow Docs, and export them to PowerPoint; writes require `expected_workspace_id` and edits `expected_revision` (see `docs/presentation-tools.md`)
+- Presentations — `get_presentation_catalog`, `list_presentations`, `create_presentation`, `get_presentation`, `update_presentation`, `preview_presentation`, `start_presentation_image_upload`, `append_presentation_image_upload_chunk`, `finish_presentation_image_upload`, `import_presentation_image`, `export_presentation`, `get_presentation_export`, `download_presentation_export`: build, preview, illustrate and edit Sanka Doc slide decks, in a migration program's Docs (`program_id`) or in Sanka Flow Docs, and export them to PowerPoint or PDF; writes require `expected_workspace_id` and edits `expected_revision` (see `docs/presentation-tools.md`)
 - `list_contract_templates`: review uploaded Contract templates
 - `download_contract_template`: download a Contract template source file or signing PDF
 - `upload_contract_template`: upload a PDF/DOC/DOCX Contract template

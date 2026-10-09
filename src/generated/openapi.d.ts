@@ -1192,6 +1192,398 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v2/public/presentations/catalog': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Public Presentation Catalog
+     * @description Layouts, blocks with JSON Schemas and limits, themes, icons and authoring guidance.
+     */
+    get: operations['get_public_presentation_catalog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Public Program Presentations
+     * @description The Sanka program's presentations, most recently updated first (metadata only, no decks).
+     */
+    get: operations['list_public_program_presentations'];
+    put?: never;
+    /**
+     * Create Public Program Presentation
+     * @description Create a presentation from deck JSON, Markdown, a Markdown Doc, or just a title.
+     */
+    post: operations['create_public_program_presentation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Public Program Presentation
+     * @description The deck with its slide and block IDs, its revision and a read-only outline.
+     */
+    get: operations['get_public_program_presentation'];
+    /**
+     * Replace Public Program Presentation
+     * @description Replace the whole deck at `expectedRevision` (409 PRESENTATION_REVISION_CONFLICT).
+     */
+    put: operations['replace_public_program_presentation'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Public Program Presentation
+     * @description Apply edit operations at `expectedRevision`, all or nothing.
+     */
+    patch: operations['update_public_program_presentation'];
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/images': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Public Program Presentation Image
+     * @description Upload an image to the presentation; reference its `assetId` in the deck.
+     */
+    post: operations['upload_public_program_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/images/import': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Public Program Presentation Image
+     * @description Fetch a public https:// image into the presentation (metadata stripped).
+     */
+    post: operations['import_public_program_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/previews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview Public Program Presentation
+     * @description Slide images (base64) with each slide's fit; overflow means the content did not fit.
+     */
+    post: operations['preview_public_program_presentation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Public Program Presentation Export
+     * @description Start a PowerPoint or PDF export of the current revision; poll it until completed.
+     */
+    post: operations['create_public_program_presentation_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/exports/{export_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Program Presentation Export */
+    get: operations['get_public_program_presentation_export'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/exports/{export_id}/download': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download Public Program Presentation Export
+     * @description The exported `.pptx` or `.pdf` file, while it has not expired (7 days).
+     */
+    get: operations['download_public_program_presentation_export'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/exports/{export_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Public Program Presentation Export */
+    post: operations['cancel_public_program_presentation_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Public Flow Presentations
+     * @description Sanka Flow presentations, most recently updated first (metadata only, no decks).
+     */
+    get: operations['list_public_presentations'];
+    put?: never;
+    /**
+     * Create Public Flow Presentation
+     * @description Create a presentation from deck JSON, Markdown, a Markdown Doc, or just a title.
+     */
+    post: operations['create_public_presentation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Public Flow Presentation
+     * @description The deck with its slide and block IDs, its revision and a read-only outline.
+     */
+    get: operations['get_public_presentation'];
+    /**
+     * Replace Public Flow Presentation
+     * @description Replace the whole deck at `expectedRevision` (409 PRESENTATION_REVISION_CONFLICT).
+     */
+    put: operations['replace_public_presentation'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Public Flow Presentation
+     * @description Apply edit operations at `expectedRevision`, all or nothing.
+     */
+    patch: operations['update_public_presentation'];
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/images': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload Public Flow Presentation Image
+     * @description Upload an image to the presentation; reference its `assetId` in the deck.
+     */
+    post: operations['upload_public_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/images/import': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Public Flow Presentation Image
+     * @description Fetch a public https:// image into the presentation (metadata stripped).
+     */
+    post: operations['import_public_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/previews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview Public Flow Presentation
+     * @description Slide images (base64) with each slide's fit; overflow means the content did not fit.
+     */
+    post: operations['preview_public_presentation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Public Flow Presentation Export
+     * @description Start a PowerPoint or PDF export of the current revision; poll it until completed.
+     */
+    post: operations['create_public_presentation_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/exports/{export_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Public Flow Presentation Export */
+    get: operations['get_public_presentation_export'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/exports/{export_id}/download': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download Public Flow Presentation Export
+     * @description The exported `.pptx` or `.pdf` file, while it has not expired (7 days).
+     */
+    get: operations['download_public_presentation_export'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/exports/{export_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Public Flow Presentation Export */
+    post: operations['cancel_public_presentation_export'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v2/public/ferry/programs': {
     parameters: {
       query?: never;
@@ -4149,6 +4541,26 @@ export interface components {
       /** File */
       file: string;
     };
+    /** Body_upload_public_presentation_image */
+    Body_upload_public_presentation_image: {
+      /**
+       * File
+       * @description A PNG, JPEG or WebP image up to 10 MiB.
+       */
+      file: string;
+      /** Alt */
+      alt?: string | null;
+    };
+    /** Body_upload_public_program_presentation_image */
+    Body_upload_public_program_presentation_image: {
+      /**
+       * File
+       * @description A PNG, JPEG or WebP image up to 10 MiB.
+       */
+      file: string;
+      /** Alt */
+      alt?: string | null;
+    };
     /** Body_upload_public_purchase_order_file_api_v2_public_purchase_orders_files_post */
     Body_upload_public_purchase_order_file_api_v2_public_purchase_orders_files_post: {
       /** File */
@@ -4221,6 +4633,18 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CancelPublicPresentationExport200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CancelPublicProgramPresentationExport200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     /** CompanyMutationRequest */
@@ -4635,6 +5059,30 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicPresentation201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicPresentationExport202Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicProgramPresentation201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    CreatePublicProgramPresentationExport202Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     CreatePublicProjectApiV2PublicProjectsPost200Envelope: {
@@ -5782,6 +6230,36 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    GetPublicPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicPresentationCatalog200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationCatalogData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicPresentationExport200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicProgramPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    GetPublicProgramPresentationExport200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationExportData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     GetPublicProjectApiV2PublicProjectsProjectIdGet200Envelope: {
       /** @constant */
       success: true;
@@ -6014,6 +6492,18 @@ export interface components {
       action_tracker_id?: string | null;
       /** Workflow Language */
       workflow_language?: string | null;
+    };
+    ImportPublicPresentationImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ImportPublicProgramPresentationImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
+      meta: components['schemas']['EnvelopeMeta'];
     };
     /** IncentiveAllocationsReplaceRequest */
     IncentiveAllocationsReplaceRequest: {
@@ -6604,6 +7094,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ListPublicPresentations200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ListPublicProgramPresentations200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationListData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     ListPublicProjectsApiV2PublicProjectsGet200Envelope: {
       /** @constant */
       success: true;
@@ -7058,6 +7560,128 @@ export interface components {
       /** Employee Id */
       employee_id?: string | null;
     };
+    /** PresentationCreateRequest */
+    PresentationCreateRequest: {
+      /** Title */
+      title: string;
+      /**
+       * Deck
+       * @description A `sanka.deck/v1` deck. The presentations catalog (`GET …/presentations/catalog`) publishes its JSON Schema, limits and guidance. Give at most one of `deck`, `markdown` and `sourceDocumentId`; with none of them the presentation starts with one title slide.
+       */
+      deck?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Markdown
+       * @description Markdown to lay out as slides: `---` and the most frequent of the top two heading levels start slides; lists, tables, quotes, images and Mermaid fences become blocks.
+       */
+      markdown?: string | null;
+      /**
+       * Sourcedocumentid
+       * @description A Markdown Doc in the same Docs to convert; the Doc itself is unchanged.
+       */
+      sourceDocumentId?: string | null;
+      /**
+       * Pagesize
+       * @description Slide size; overrides `deck.page.size`. Defaults to 16:9.
+       */
+      pageSize?: ('16:9' | 'a4-landscape') | null;
+      /** @description Theme; overrides `deck.theme`. */
+      theme?: components['schemas']['PresentationThemeChoice'] | null;
+      /**
+       * Folderid
+       * @description Docs folder to create the presentation in.
+       */
+      folderId?: string | null;
+      /** Sourceref */
+      sourceRef?: string | null;
+    };
+    /** PresentationExportRequest */
+    PresentationExportRequest: {
+      /**
+       * Format
+       * @enum {string}
+       */
+      format: 'pptx' | 'pdf';
+      /** Slideids */
+      slideIds?: string[] | null;
+      /**
+       * Includehidden
+       * @default false
+       */
+      includeHidden: boolean;
+      /**
+       * Includenotes
+       * @default true
+       */
+      includeNotes: boolean;
+    };
+    /** PresentationImageImportRequest */
+    PresentationImageImportRequest: {
+      /**
+       * Url
+       * @description A public https:// image URL (JPEG, PNG or WebP, at most 10 MiB).
+       */
+      url: string;
+      /** Alt */
+      alt?: string | null;
+    };
+    /** PresentationPatchRequest */
+    PresentationPatchRequest: {
+      /** Expectedrevision */
+      expectedRevision: number;
+      /** Ops */
+      ops: (
+        | components['schemas']['InsertSlidesOp']
+        | components['schemas']['ReplaceSlideOp']
+        | components['schemas']['UpdateSlideOp']
+        | components['schemas']['DeleteSlidesOp']
+        | components['schemas']['MoveSlidesOp']
+        | components['schemas']['InsertBlocksOp']
+        | components['schemas']['UpdateBlockOp']
+        | components['schemas']['ReplaceBlockOp']
+        | components['schemas']['DeleteBlocksOp']
+        | components['schemas']['MoveBlockOp']
+        | components['schemas']['SetThemeOp']
+        | components['schemas']['SetTitleOp']
+        | components['schemas']['SetFooterOp']
+      )[];
+    };
+    /** PresentationPreviewRequest */
+    PresentationPreviewRequest: {
+      /**
+       * Slideids
+       * @description Slides to preview (up to 12); omit for the first 12 visible slides.
+       */
+      slideIds?: string[] | null;
+      /**
+       * Width
+       * @description Image width in px.
+       * @default 960
+       * @enum {integer}
+       */
+      width: 640 | 960 | 1280;
+      /**
+       * Format
+       * @default jpeg
+       * @enum {string}
+       */
+      format: 'jpeg' | 'png';
+    };
+    /** PresentationReplaceRequest */
+    PresentationReplaceRequest: {
+      /** Expectedrevision */
+      expectedRevision: number;
+      /** Title */
+      title?: string | null;
+      /**
+       * Deck
+       * @description A `sanka.deck/v1` deck. The presentations catalog (`GET …/presentations/catalog`) publishes its JSON Schema, limits and guidance.
+       */
+      deck: {
+        [key: string]: unknown;
+      };
+    };
     PreviewPublicFreeeInvoiceExportApiV2PublicInvoicesExportsFreeePreviewPost200Envelope: {
       /** @constant */
       success: true;
@@ -7110,6 +7734,18 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    PreviewPublicPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationPreviewData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    PreviewPublicProgramPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationPreviewData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     PreviewPublicQuickbooksBillExportApiV2PublicBillsExportsQuickbooksOnlinePreviewPost200Envelope: {
@@ -7860,6 +8496,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ReplacePublicPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ReplacePublicProgramPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     /** ReportMutationRequest */
     ReportMutationRequest: {
       /** Name */
@@ -8446,6 +9094,18 @@ export interface components {
       };
       meta: components['schemas']['EnvelopeMeta'];
     };
+    UpdatePublicPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UpdatePublicProgramPresentation200Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     UpdatePublicProjectApiV2PublicProjectsProjectIdPut200Envelope: {
       /** @constant */
       success: true;
@@ -8591,6 +9251,18 @@ export interface components {
       data: {
         [key: string]: unknown;
       };
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UploadPublicPresentationImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    UploadPublicProgramPresentationImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
     UploadPublicPurchaseOrderFileApiV2PublicPurchaseOrdersFilesPost200Envelope: {
@@ -8813,6 +9485,60 @@ export interface components {
       toast?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** PresentationExportData */
+    PresentationExportData: {
+      /** Id */
+      id: string;
+      /** Documentid */
+      documentId: string;
+      /**
+       * Product
+       * @enum {string}
+       */
+      product: 'sanka' | 'flow';
+      /** Revision */
+      revision: number;
+      /**
+       * Format
+       * @enum {string}
+       */
+      format: 'pptx' | 'pdf';
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'queued' | 'rendering' | 'writing' | 'uploading' | 'completed' | 'failed' | 'cancelled';
+      /**
+       * Progress
+       * @default 0
+       */
+      progress: number;
+      /** Filename */
+      filename?: string | null;
+      /** Sizebytes */
+      sizeBytes?: number | null;
+      /** Warnings */
+      warnings?: {
+        [key: string]: unknown;
+      }[];
+      /** Errorcode */
+      errorCode?: string | null;
+      /** Errormessage */
+      errorMessage?: string | null;
+      /**
+       * Downloadpath
+       * @description App-relative download route; present once the export completed.
+       */
+      downloadPath?: string | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Startedat */
+      startedAt?: string | null;
+      /** Finishedat */
+      finishedAt?: string | null;
+      /** Expiresat */
+      expiresAt?: string | null;
     };
     /** ObjectRecordAssociationMutation */
     ObjectRecordAssociationMutation: {
@@ -9172,6 +9898,67 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** PresentationData */
+    PresentationData: {
+      /** Id */
+      id: string;
+      /** Programid */
+      programId?: string | null;
+      /** Workspaceid */
+      workspaceId: string;
+      /**
+       * Product
+       * @enum {string}
+       */
+      product: 'sanka' | 'flow';
+      /**
+       * Kind
+       * @default presentation
+       * @constant
+       */
+      kind: 'presentation';
+      /** Title */
+      title: string;
+      /** Revision */
+      revision: number;
+      deck: components['schemas']['Deck'];
+      /** Slidecount */
+      slideCount: number;
+      /**
+       * Outline
+       * @description Read-only Markdown outline derived from the deck.
+       */
+      outline: string;
+      /**
+       * Updatedvia
+       * @enum {string}
+       */
+      updatedVia: 'app' | 'api' | 'mcp' | 'system';
+      /** Sourceref */
+      sourceRef?: string | null;
+      /**
+       * Pinned
+       * @default false
+       */
+      pinned: boolean;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /** Createdbyid */
+      createdById?: number | null;
+      /** Updatedbyid */
+      updatedById?: number | null;
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+      /**
+       * Apppath
+       * @description App-relative URL of the Docs page with this presentation open.
+       */
+      appPath: string;
+      /** Warnings */
+      warnings?: components['schemas']['PresentationWarning'][];
     };
     /** PublicProjectMutationData */
     PublicProjectMutationData: {
@@ -9601,6 +10388,50 @@ export interface components {
        */
       excluded_records: number;
     };
+    /** PresentationCatalogData */
+    PresentationCatalogData: {
+      /** Schemaversions */
+      schemaVersions: string[];
+      /** Pagesizes */
+      pageSizes: {
+        [key: string]: unknown;
+      }[];
+      /** Layouts */
+      layouts: {
+        [key: string]: unknown;
+      }[];
+      /** Blocks */
+      blocks: {
+        [key: string]: unknown;
+      }[];
+      /** Accents */
+      accents: {
+        [key: string]: unknown;
+      }[];
+      /** Themes */
+      themes: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Icons
+       * @description Lucide icon names allowed in card items.
+       */
+      icons: string[];
+      /** Limits */
+      limits: {
+        [key: string]: number;
+      };
+      /** Guidance */
+      guidance: string[];
+      /** Deckjsonschema */
+      deckJsonSchema: {
+        [key: string]: unknown;
+      };
+      /** Example */
+      example: {
+        [key: string]: unknown;
+      };
+    };
     /** PublicProject */
     PublicProject: {
       /** Id */
@@ -9746,6 +10577,24 @@ export interface components {
       target_field: string;
       /** Target Label */
       target_label?: string | null;
+    };
+    /**
+     * PresentationImageData
+     * @description An image stored with the presentation; use `assetId` in image blocks and accents.
+     */
+    PresentationImageData: {
+      /** Assetid */
+      assetId: string;
+      /** Contenttype */
+      contentType: string;
+      /** Sizebytes */
+      sizeBytes: number;
+      /** Width */
+      width: number;
+      /** Height */
+      height: number;
+      /** Alt */
+      alt?: string | null;
     };
     /** IncentiveAllocationLine */
     IncentiveAllocationLine: {
@@ -9921,6 +10770,16 @@ export interface components {
       /** Default Currency */
       default_currency: string;
     };
+    /** PresentationListData */
+    PresentationListData: {
+      /** Presentations */
+      presentations: components['schemas']['PresentationSummaryData'][];
+      /**
+       * Nextcursor
+       * @description Pass as `cursor` for the next page; null on the last page.
+       */
+      nextCursor?: string | null;
+    };
     /** PublicProjectListData */
     PublicProjectListData: {
       /** Items */
@@ -10055,6 +10914,224 @@ export interface components {
        * @constant
        */
       construction: 'inactive';
+    };
+    /** PresentationThemeChoice */
+    PresentationThemeChoice: {
+      /**
+       * Id
+       * @enum {string}
+       */
+      id: 'sanka-paper' | 'ink' | 'plain';
+      /**
+       * Version
+       * @description Omit for the latest version.
+       */
+      version?: number | null;
+    };
+    /** DeleteBlocksOp */
+    DeleteBlocksOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'delete_blocks';
+      /** Slideid */
+      slideId: string;
+      /** Blockids */
+      blockIds: string[];
+    };
+    /** DeleteSlidesOp */
+    DeleteSlidesOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'delete_slides';
+      /** Slideids */
+      slideIds: string[];
+    };
+    /** InsertBlocksOp */
+    InsertBlocksOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'insert_blocks';
+      /** Slideid */
+      slideId: string;
+      /** @description Insert into this column instead of the slide's top level. */
+      parent?: components['schemas']['BlockParent'] | null;
+      /**
+       * After
+       * @description Block to insert after; null inserts first; omit to append.
+       */
+      after?: string | null;
+      /** Blocks */
+      blocks: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** InsertSlidesOp */
+    InsertSlidesOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'insert_slides';
+      /**
+       * After
+       * @description Slide to insert after; null inserts first; omit to append.
+       */
+      after?: string | null;
+      /** Slides */
+      slides: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** MoveBlockOp */
+    MoveBlockOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'move_block';
+      /** Blockid */
+      blockId: string;
+      /** Toslideid */
+      toSlideId: string;
+      /** @description Move into this column instead of the slide's top level. */
+      parent?: components['schemas']['BlockParent'] | null;
+      /**
+       * After
+       * @description Block to move after; null moves first; omit to move last.
+       */
+      after?: string | null;
+    };
+    /** MoveSlidesOp */
+    MoveSlidesOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'move_slides';
+      /** Slideids */
+      slideIds: string[];
+      /**
+       * After
+       * @description Slide to move after; null moves first; omit to move last.
+       */
+      after?: string | null;
+    };
+    /** ReplaceBlockOp */
+    ReplaceBlockOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'replace_block';
+      /** Slideid */
+      slideId: string;
+      /** Blockid */
+      blockId: string;
+      /** Block */
+      block: {
+        [key: string]: unknown;
+      };
+    };
+    /** ReplaceSlideOp */
+    ReplaceSlideOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'replace_slide';
+      /** Slideid */
+      slideId: string;
+      /** Slide */
+      slide: {
+        [key: string]: unknown;
+      };
+    };
+    /** SetFooterOp */
+    SetFooterOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'set_footer';
+      /** Footer */
+      footer: {
+        [key: string]: unknown;
+      };
+    };
+    /** SetThemeOp */
+    SetThemeOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'set_theme';
+      /** Theme */
+      theme: {
+        [key: string]: unknown;
+      };
+    };
+    /** SetTitleOp */
+    SetTitleOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'set_title';
+      /** Title */
+      title: string;
+    };
+    /** UpdateBlockOp */
+    UpdateBlockOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'update_block';
+      /** Slideid */
+      slideId: string;
+      /** Blockid */
+      blockId: string;
+      /**
+       * Set
+       * @description Type-specific block fields to change.
+       */
+      set: {
+        [key: string]: unknown;
+      };
+    };
+    /** UpdateSlideOp */
+    UpdateSlideOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'update_slide';
+      /** Slideid */
+      slideId: string;
+      /**
+       * Set
+       * @description Slide fields to change: layout, accent, accentSize, overlay, align, background, notes, hidden.
+       */
+      set: {
+        [key: string]: unknown;
+      };
+    };
+    /** PresentationPreviewData */
+    PresentationPreviewData: {
+      /** Revision */
+      revision: number;
+      /** Slides */
+      slides: components['schemas']['PresentationPreviewSlide'][];
+      /** Warnings */
+      warnings?: {
+        [key: string]: unknown;
+      }[];
     };
     /** ProspectCompaniesData */
     ProspectCompaniesData: {
@@ -10540,6 +11617,29 @@ export interface components {
       id: number;
       /** Label */
       label: string;
+    };
+    /** Deck */
+    Deck: {
+      /**
+       * Schema
+       * @default sanka.deck/v1
+       * @constant
+       */
+      schema: 'sanka.deck/v1';
+      page?: components['schemas']['DeckPage'];
+      theme?: components['schemas']['DeckTheme'];
+      footer?: components['schemas']['DeckFooter'];
+      /** Slides */
+      slides: components['schemas']['Slide'][];
+    };
+    /** PresentationWarning */
+    PresentationWarning: {
+      /** Code */
+      code: string;
+      /** Path */
+      path: string;
+      /** Message */
+      message: string;
     };
     /** PositionJobData */
     PositionJobData: {
@@ -11073,6 +12173,54 @@ export interface components {
       goal: components['schemas']['GoalData'];
       this_month: components['schemas']['GoalPeriodProgress'];
     };
+    /**
+     * PresentationSummaryData
+     * @description A presentation in a list: metadata only, never the deck.
+     */
+    PresentationSummaryData: {
+      /** Id */
+      id: string;
+      /** Programid */
+      programId?: string | null;
+      /**
+       * Product
+       * @enum {string}
+       */
+      product: 'sanka' | 'flow';
+      /** Title */
+      title: string;
+      /** Revision */
+      revision: number;
+      /** Slidecount */
+      slideCount: number;
+      /**
+       * Pagesize
+       * @enum {string}
+       */
+      pageSize: '16:9' | 'a4-landscape';
+      /** Themeid */
+      themeId: string;
+      /** Folderid */
+      folderId?: string | null;
+      /**
+       * Pinned
+       * @default false
+       */
+      pinned: boolean;
+      /** Archivedat */
+      archivedAt?: string | null;
+      /**
+       * Updatedvia
+       * @enum {string}
+       */
+      updatedVia: 'app' | 'api' | 'mcp' | 'system';
+      /** Createdat */
+      createdAt?: string | null;
+      /** Updatedat */
+      updatedAt?: string | null;
+      /** Apppath */
+      appPath: string;
+    };
     /** WorkflowColumn */
     WorkflowColumn: {
       /** Key */
@@ -11096,6 +12244,26 @@ export interface components {
       before?: string | number | boolean | string[] | null;
       /** After */
       after?: string | number | boolean | string[] | null;
+    };
+    /** BlockParent */
+    BlockParent: {
+      /**
+       * Columnid
+       * @description A column of a `columns` block.
+       */
+      columnId: string;
+    };
+    /** PresentationPreviewSlide */
+    PresentationPreviewSlide: {
+      /** Slideid */
+      slideId: string;
+      /**
+       * Index
+       * @description 0-based position in the deck.
+       */
+      index: number;
+      image: components['schemas']['PresentationPreviewImage'];
+      fit: components['schemas']['PresentationSlideFit'];
     };
     /** ProspectCompaniesFilters */
     ProspectCompaniesFilters: {
@@ -11280,6 +12448,96 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** DeckFooter */
+    DeckFooter: {
+      /**
+       * Pagenumbers
+       * @default true
+       */
+      pageNumbers: boolean;
+      /**
+       * Text
+       * @default
+       */
+      text: string;
+    };
+    /** DeckPage */
+    DeckPage: {
+      /**
+       * Size
+       * @default 16:9
+       * @enum {string}
+       */
+      size: '16:9' | 'a4-landscape';
+    };
+    /** DeckTheme */
+    DeckTheme: {
+      /**
+       * Id
+       * @default sanka-paper
+       * @enum {string}
+       */
+      id: 'sanka-paper' | 'ink' | 'plain';
+      /** Version */
+      version?: number | null;
+    };
+    /** Slide */
+    Slide: {
+      /** Id */
+      id?: string | null;
+      /**
+       * Layout
+       * @default none
+       * @enum {string}
+       */
+      layout: 'none' | 'accent-left' | 'accent-right' | 'accent-top' | 'accent-background';
+      /** Accent */
+      accent?: (components['schemas']['ImageAccent'] | components['schemas']['ToneAccent']) | null;
+      /**
+       * Accentsize
+       * @default m
+       * @enum {string}
+       */
+      accentSize: 's' | 'm' | 'l';
+      /**
+       * Overlay
+       * @description Shade over a background accent (accent-background only).
+       */
+      overlay?: ('dark' | 'light' | 'none') | null;
+      align?: components['schemas']['SlideAlign'];
+      /**
+       * Background
+       * @default default
+       * @enum {string}
+       */
+      background: 'default' | 'surface' | 'accent-soft' | 'inverse';
+      /** Blocks */
+      blocks?: (
+        | components['schemas']['HeadingBlock']
+        | components['schemas']['TextBlock']
+        | components['schemas']['ImageBlock']
+        | components['schemas']['TableBlock']
+        | components['schemas']['CardsBlock']
+        | components['schemas']['StatsBlock']
+        | components['schemas']['StepsBlock']
+        | components['schemas']['TimelineBlock']
+        | components['schemas']['QuoteBlock']
+        | components['schemas']['CalloutBlock']
+        | components['schemas']['DiagramBlock']
+        | components['schemas']['DividerBlock']
+        | components['schemas']['ColumnsBlock']
+      )[];
+      /**
+       * Notes
+       * @default
+       */
+      notes: string;
+      /**
+       * Hidden
+       * @default false
+       */
+      hidden: boolean;
+    };
     /** WorkflowRuntimeLockData */
     WorkflowRuntimeLockData: {
       /**
@@ -11416,6 +12674,393 @@ export interface components {
       present: boolean;
       /** Value */
       value?: string | number | boolean | string[] | null;
+    };
+    /** PresentationPreviewImage */
+    PresentationPreviewImage: {
+      /** Contenttype */
+      contentType: string;
+      /** Base64 */
+      base64: string;
+    };
+    /** PresentationSlideFit */
+    PresentationSlideFit: {
+      /**
+       * Scale
+       * @default 1
+       */
+      scale: number;
+      /** @description Set when content does not fit even at the theme's minimum. */
+      overflow?: components['schemas']['PresentationFitOverflow'] | null;
+    };
+    /** CalloutBlock */
+    CalloutBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'callout';
+      /** Id */
+      id?: string | null;
+      /**
+       * Tone
+       * @default note
+       * @enum {string}
+       */
+      tone: 'note' | 'takeaway' | 'warning';
+      /** Markdown */
+      markdown: string;
+    };
+    /** CardsBlock */
+    CardsBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'cards';
+      /** Id */
+      id?: string | null;
+      /** Items */
+      items: components['schemas']['CardItem'][];
+      /** Columns */
+      columns?: ('auto' | 2 | 3 | 4) | null;
+      /** Style */
+      style?: ('outline' | 'filled' | 'plain') | null;
+    };
+    /**
+     * ColumnsBlock
+     * @description Two or three side-by-side stacks of blocks; widths are twelfths and sum to 12.
+     */
+    ColumnsBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'columns';
+      /** Id */
+      id?: string | null;
+      /** Columns */
+      columns: components['schemas']['Column'][];
+    };
+    /** DiagramBlock */
+    DiagramBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'diagram';
+      /** Id */
+      id?: string | null;
+      /** Mermaid */
+      mermaid: string;
+      /**
+       * Alt
+       * @default
+       */
+      alt: string;
+      /** Caption */
+      caption?: string | null;
+    };
+    /** DividerBlock */
+    DividerBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'divider';
+      /** Id */
+      id?: string | null;
+    };
+    /** HeadingBlock */
+    HeadingBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'heading';
+      /** Id */
+      id?: string | null;
+      /**
+       * Level
+       * @default 1
+       * @enum {integer}
+       */
+      level: 1 | 2 | 3;
+      /** Text */
+      text: string;
+      /** Kicker */
+      kicker?: string | null;
+    };
+    /** ImageAccent */
+    ImageAccent: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'image';
+      /** Assetid */
+      assetId: string;
+      /**
+       * Fit
+       * @default cover
+       * @enum {string}
+       */
+      fit: 'cover' | 'contain';
+      focus?: components['schemas']['Focus'] | null;
+      /**
+       * Alt
+       * @default
+       */
+      alt: string;
+    };
+    /** ImageBlock */
+    ImageBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'image';
+      /** Id */
+      id?: string | null;
+      /** Assetid */
+      assetId: string;
+      /**
+       * Alt
+       * @default
+       */
+      alt: string;
+      /** Caption */
+      caption?: string | null;
+      /** Fit */
+      fit?: ('cover' | 'contain') | null;
+      focus?: components['schemas']['Focus'] | null;
+      /** Aspect */
+      aspect?: ('auto' | '16:9' | '4:3' | '1:1' | '3:4') | null;
+      /** Rounded */
+      rounded?: boolean | null;
+    };
+    /** QuoteBlock */
+    QuoteBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'quote';
+      /** Id */
+      id?: string | null;
+      /** Text */
+      text: string;
+      /** Attribution */
+      attribution?: string | null;
+    };
+    /** SlideAlign */
+    SlideAlign: {
+      /**
+       * X
+       * @default start
+       * @enum {string}
+       */
+      x: 'start' | 'center';
+      /**
+       * Y
+       * @default start
+       * @enum {string}
+       */
+      y: 'start' | 'center' | 'end';
+    };
+    /** StatsBlock */
+    StatsBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'stats';
+      /** Id */
+      id?: string | null;
+      /** Items */
+      items: components['schemas']['StatItem'][];
+    };
+    /** StepsBlock */
+    StepsBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'steps';
+      /** Id */
+      id?: string | null;
+      /** Items */
+      items: components['schemas']['StepItem'][];
+      /** Direction */
+      direction?: ('horizontal' | 'vertical') | null;
+    };
+    /** TableBlock */
+    TableBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'table';
+      /** Id */
+      id?: string | null;
+      /** Columns */
+      columns: components['schemas']['TableColumn'][];
+      /**
+       * Header
+       * @default true
+       */
+      header: boolean;
+      /** Rows */
+      rows: string[][];
+      /** Emphasizefirstcolumn */
+      emphasizeFirstColumn?: boolean | null;
+    };
+    /** TextBlock */
+    TextBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'text';
+      /** Id */
+      id?: string | null;
+      /** Markdown */
+      markdown: string;
+      /** Size */
+      size?: ('s' | 'm' | 'l') | null;
+      /** Tone */
+      tone?: ('default' | 'muted') | null;
+    };
+    /** TimelineBlock */
+    TimelineBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'timeline';
+      /** Id */
+      id?: string | null;
+      /** Items */
+      items: components['schemas']['TimelineItem'][];
+      /** Direction */
+      direction?: ('horizontal' | 'vertical') | null;
+    };
+    /** ToneAccent */
+    ToneAccent: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'tone';
+      /**
+       * Tone
+       * @enum {string}
+       */
+      tone: 'accent' | 'accent-soft' | 'inverse' | 'surface';
+    };
+    /** PresentationFitOverflow */
+    PresentationFitOverflow: {
+      /** Blockids */
+      blockIds?: string[];
+      /**
+       * Overflowpx
+       * @default 0
+       */
+      overflowPx: number;
+    };
+    /** CardItem */
+    CardItem: {
+      /** Id */
+      id?: string | null;
+      icon?: components['schemas']['IconRef'] | null;
+      /** Title */
+      title: string;
+      /** Body */
+      body?: string | null;
+      /** Emphasis */
+      emphasis?: boolean | null;
+    };
+    /** Column */
+    Column: {
+      /** Id */
+      id?: string | null;
+      /** Width */
+      width: number;
+      /** Blocks */
+      blocks?: (
+        | components['schemas']['HeadingBlock']
+        | components['schemas']['TextBlock']
+        | components['schemas']['ImageBlock']
+        | components['schemas']['TableBlock']
+        | components['schemas']['CardsBlock']
+        | components['schemas']['StatsBlock']
+        | components['schemas']['StepsBlock']
+        | components['schemas']['TimelineBlock']
+        | components['schemas']['QuoteBlock']
+        | components['schemas']['CalloutBlock']
+        | components['schemas']['DiagramBlock']
+        | components['schemas']['DividerBlock']
+      )[];
+    };
+    /** Focus */
+    Focus: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** StatItem */
+    StatItem: {
+      /** Id */
+      id?: string | null;
+      /** Value */
+      value: string;
+      /** Label */
+      label: string;
+      /** Detail */
+      detail?: string | null;
+    };
+    /** StepItem */
+    StepItem: {
+      /** Id */
+      id?: string | null;
+      /** Title */
+      title: string;
+      /** Body */
+      body?: string | null;
+    };
+    /** TableColumn */
+    TableColumn: {
+      /** Align */
+      align?: ('start' | 'center' | 'end') | null;
+      /** Width */
+      width?: number | null;
+    };
+    /** TimelineItem */
+    TimelineItem: {
+      /** Id */
+      id?: string | null;
+      /** Date */
+      date: string;
+      /** Title */
+      title: string;
+      /** Body */
+      body?: string | null;
+      /** Emphasis */
+      emphasis?: boolean | null;
+    };
+    /** IconRef */
+    IconRef: {
+      /**
+       * Set
+       * @default lucide
+       * @constant
+       */
+      set: 'lucide';
+      /**
+       * Name
+       * @description A lucide icon name from the catalog's `icons` list.
+       */
+      name: string;
     };
   };
   responses: {
@@ -15117,6 +16762,834 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DeletePublicFerryDiagramApiV2PublicFerryDiagramsDiagramIdDelete200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_presentation_catalog: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicPresentationCatalog200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_program_presentations: {
+    parameters: {
+      query?: {
+        /** @description Only presentations in this Docs folder. */
+        folder_id?: string | null;
+        /** @description `nextCursor` from the previous page. */
+        cursor?: string | null;
+        limit?: number;
+        include_archived?: boolean;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicProgramPresentations200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_program_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicProgramPresentation201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_program_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicProgramPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  replace_public_program_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationReplaceRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReplacePublicProgramPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_program_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationPatchRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicProgramPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  upload_public_program_presentation_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': components['schemas']['Body_upload_public_program_presentation_image'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UploadPublicProgramPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  import_public_program_presentation_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationImageImportRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportPublicProgramPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  preview_public_program_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewPublicProgramPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_program_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Idempotency-Key'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationExportRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicProgramPresentationExport202Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_program_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicProgramPresentationExport200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  download_public_program_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation': string;
+          'application/pdf': string;
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  cancel_public_program_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CancelPublicProgramPresentationExport200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  list_public_presentations: {
+    parameters: {
+      query?: {
+        /** @description Only presentations in this Docs folder. */
+        folder_id?: string | null;
+        /** @description `nextCursor` from the previous page. */
+        cursor?: string | null;
+        limit?: number;
+        include_archived?: boolean;
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListPublicPresentations200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicPresentation201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  replace_public_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationReplaceRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReplacePublicPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  update_public_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationPatchRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UpdatePublicPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  upload_public_presentation_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': components['schemas']['Body_upload_public_presentation_image'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UploadPublicPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  import_public_presentation_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationImageImportRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportPublicPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  preview_public_presentation: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationPreviewRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PreviewPublicPresentation200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  create_public_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'Idempotency-Key'?: string | null;
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationExportRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatePublicPresentationExport202Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  get_public_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetPublicPresentationExport200Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  download_public_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation': string;
+          'application/pdf': string;
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  cancel_public_presentation_export: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+        export_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CancelPublicPresentationExport200Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];

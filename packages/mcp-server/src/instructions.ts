@@ -20,7 +20,7 @@ const HOSTED_INTRO = [
   'Tool descriptions and input schemas are the source of truth for what each tool does. This text intentionally does not repeat the tool catalog; read the tool list from the client instead of expecting it here.',
   '',
   'Routing:',
-  '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, partners.',
+  '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, presentations, partners.',
   '- Prefer the dedicated tool that matches the live operation. Use query_records and aggregate_records for filtered or counted rows instead of paging through list_* tools.',
   '- Start from connect_sanka when protected tools report that the session is not connected, and read current_workspace before workspace-scoped mutations.',
 ];
@@ -31,7 +31,7 @@ const FULL_INTRO = [
   'Tool descriptions and input schemas are the source of truth for what each tool does. This text intentionally does not repeat the tool catalog; read the tool list from the client instead of expecting it here.',
   '',
   'Routing:',
-  '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, partners.',
+  '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, presentations, partners.',
   '- Prefer the dedicated tool that matches the live operation. Use query_records and aggregate_records for filtered or counted rows instead of paging through list_* tools.',
   '- Use search_docs to find the right Sanka SDK method or parameter shape, and execute only for SDK workflows that no dedicated tool covers.',
   '- Start from connect_sanka when protected tools report that the session is not connected, and read current_workspace before workspace-scoped mutations.',
