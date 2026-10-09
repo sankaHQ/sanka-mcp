@@ -216,6 +216,42 @@ import {
   GoalWorkspaceParams,
   Goals,
 } from './goals';
+import * as PresentationsAPI from './presentations';
+import {
+  Presentation,
+  PresentationCatalog,
+  PresentationCreateExportParams,
+  PresentationCreateParams,
+  PresentationDeck,
+  PresentationExport,
+  PresentationExportFormat,
+  PresentationExportParams,
+  PresentationExportStatus,
+  PresentationImage,
+  PresentationImportImageParams,
+  PresentationList,
+  PresentationListParams,
+  PresentationOp,
+  PresentationOpName,
+  PresentationPageSize,
+  PresentationPreview,
+  PresentationPreviewParams,
+  PresentationPreviewSlide,
+  PresentationPreviewWidth,
+  PresentationProduct,
+  PresentationReplaceParams,
+  PresentationRetrieveParams,
+  PresentationSlideFit,
+  PresentationSummary,
+  PresentationThemeChoice,
+  PresentationUpdateParams,
+  PresentationUpdatedVia,
+  PresentationUploadImageParams,
+  PresentationWarning,
+  PresentationWorkspaceParams,
+  Presentations,
+  ProgramPresentations,
+} from './presentations';
 import * as ImportsAPI from './imports';
 import {
   ImportCreateParams,
@@ -605,6 +641,10 @@ export class Public extends APIResource {
   disbursements: DisbursementsAPI.Disbursements = new DisbursementsAPI.Disbursements(this._client);
   reports: ReportsAPI.Reports = new ReportsAPI.Reports(this._client);
   goals: GoalsAPI.Goals = new GoalsAPI.Goals(this._client);
+  presentations: PresentationsAPI.Presentations = new PresentationsAPI.Presentations(this._client);
+  programPresentations: PresentationsAPI.ProgramPresentations = new PresentationsAPI.ProgramPresentations(
+    this._client,
+  );
   workflows: WorkflowsAPI.Workflows = new WorkflowsAPI.Workflows(this._client);
   calendar: CalendarAPI.Calendar = new CalendarAPI.Calendar(this._client);
   auth: AuthAPI.Auth = new AuthAPI.Auth(this._client);
@@ -644,6 +684,8 @@ Public.Bills = Bills;
 Public.Disbursements = Disbursements;
 Public.Reports = Reports;
 Public.Goals = Goals;
+Public.Presentations = Presentations;
+Public.ProgramPresentations = ProgramPresentations;
 Public.Workflows = Workflows;
 Public.Calendar = Calendar;
 Public.Auth = Auth;
@@ -1196,6 +1238,42 @@ export declare namespace Public {
     type GoalTargetCell as GoalTargetCell,
     type GoalSetTargetsParams as GoalSetTargetsParams,
     type GoalRetrieveProgressParams as GoalRetrieveProgressParams,
+  };
+
+  export {
+    Presentations as Presentations,
+    ProgramPresentations as ProgramPresentations,
+    type PresentationProduct as PresentationProduct,
+    type PresentationPageSize as PresentationPageSize,
+    type PresentationUpdatedVia as PresentationUpdatedVia,
+    type PresentationExportFormat as PresentationExportFormat,
+    type PresentationExportStatus as PresentationExportStatus,
+    type PresentationPreviewWidth as PresentationPreviewWidth,
+    type PresentationOpName as PresentationOpName,
+    type PresentationThemeChoice as PresentationThemeChoice,
+    type PresentationDeck as PresentationDeck,
+    type PresentationOp as PresentationOp,
+    type PresentationWarning as PresentationWarning,
+    type Presentation as Presentation,
+    type PresentationSummary as PresentationSummary,
+    type PresentationList as PresentationList,
+    type PresentationCatalog as PresentationCatalog,
+    type PresentationImage as PresentationImage,
+    type PresentationSlideFit as PresentationSlideFit,
+    type PresentationPreviewSlide as PresentationPreviewSlide,
+    type PresentationPreview as PresentationPreview,
+    type PresentationExport as PresentationExport,
+    type PresentationWorkspaceParams as PresentationWorkspaceParams,
+    type PresentationListParams as PresentationListParams,
+    type PresentationCreateParams as PresentationCreateParams,
+    type PresentationRetrieveParams as PresentationRetrieveParams,
+    type PresentationReplaceParams as PresentationReplaceParams,
+    type PresentationUpdateParams as PresentationUpdateParams,
+    type PresentationUploadImageParams as PresentationUploadImageParams,
+    type PresentationImportImageParams as PresentationImportImageParams,
+    type PresentationPreviewParams as PresentationPreviewParams,
+    type PresentationCreateExportParams as PresentationCreateExportParams,
+    type PresentationExportParams as PresentationExportParams,
   };
 
   export {

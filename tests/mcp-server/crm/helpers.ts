@@ -1,6 +1,6 @@
 import Sanka from 'sanka-sdk';
 import { validateToolArguments } from '../../../packages/mcp-server/src/tool-argument-validator';
-import type { McpTool } from '../../../packages/mcp-server/src/types';
+import type { McpRequestContext, McpTool } from '../../../packages/mcp-server/src/types';
 
 export const oauthContext = (overrides?: {
   authMode?: 'none' | 'oauth_bearer';
@@ -34,6 +34,8 @@ export type V2Request = {
   method: string;
   url: string;
   body?: unknown;
+  /** Multipart form fields; a file is recorded as its filename, type and base64 bytes. */
+  multipart?: Record<string, unknown>;
   headers?: Record<string, string>;
 };
 
@@ -55,12 +57,29 @@ export const envelope = (data: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-// Headers a tool sets on purpose. Transport headers (auth, user agent, retries) are not part of the row.
+// Headers a tool sets on purpose. Transport headers (auth, user agent, retries) are not part of the row;
+// x-stainless-timeout is sent only for a request that sets its own timeout.
 const isToolHeader = (name: string) =>
   name === 'accept-language' ||
   name === 'idempotency-key' ||
   name === 'x-language' ||
+  name === 'x-stainless-timeout' ||
   name.startsWith('x-sanka-');
+
+const multipartFields = async (form: FormData): Promise<Record<string, unknown>> => {
+  const fields: Record<string, unknown> = {};
+  for (const [name, value] of form.entries()) {
+    fields[name] =
+      typeof value === 'string' ? value : (
+        {
+          filename: value.name,
+          type: value.type,
+          base64: Buffer.from(await value.arrayBuffer()).toString('base64'),
+        }
+      );
+  }
+  return fields;
+};
 
 /**
  * Calls the tool handler with a real SDK client whose `fetch` records every request and answers
@@ -71,21 +90,34 @@ export const sendThroughSDK = async ({
   args,
   response,
   responses = [],
-}: Pick<V2RequestCase, 'tool' | 'args'> & { response?: unknown; responses?: Response[] }) => {
+  context = {},
+  maxRetries = 0,
+}: Pick<V2RequestCase, 'tool' | 'args'> & {
+  response?: unknown;
+  responses?: Response[];
+  /** Request context fields, such as the MCP session id or the download base URL. */
+  context?: Partial<Pick<McpRequestContext, 'mcpSessionId' | 'downloadBaseUrl'>>;
+  /** Client retries, for a tool that must turn them off. */
+  maxRetries?: number;
+}) => {
   const requests: V2Request[] = [];
   const client = new Sanka({
     apiKey: 'My API Key',
     apiVersion: 'v2',
     baseURL: 'http://localhost:5000/',
-    maxRetries: 0,
+    maxRetries,
     fetch: async (url, init) => {
+      // The SDK's multipart helper probes fetch with a data: URL before an upload.
+      if (String(url).startsWith('data:')) return new Response('');
       const headers = Object.fromEntries(
         [...new Headers(init?.headers)].filter(([name]) => isToolHeader(name)),
       );
       requests.push({
         method: String(init?.method ?? 'GET').toUpperCase(),
         url: String(url),
-        ...(init?.body ? { body: JSON.parse(String(init.body)) } : undefined),
+        ...(init?.body instanceof FormData ? { multipart: await multipartFields(init.body) }
+        : init?.body ? { body: JSON.parse(String(init.body)) }
+        : undefined),
         ...(Object.keys(headers).length > 0 ? { headers } : undefined),
       });
       const next = responses[requests.length - 1];
@@ -97,7 +129,7 @@ export const sendThroughSDK = async ({
     },
   });
   const result = await tool.handler({
-    reqContext: { client, auth: oauthContext(), toolProfile: 'full' },
+    reqContext: { client, auth: oauthContext(), toolProfile: 'full', ...context },
     args,
   });
   return { requests, result };

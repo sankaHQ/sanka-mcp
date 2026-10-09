@@ -165,23 +165,46 @@ const readContentDispositionFilename = (contentDisposition: string | null): stri
   return undefined;
 };
 
+export type BinaryDownloadOptions = {
+  inlineBase64Limit?: number | undefined;
+  sessionId?: string | undefined;
+  storeLargeDownload?: StoreBinaryDownload | undefined;
+  createDownloadUrl?: CreateBinaryDownloadUrl | undefined;
+};
+
 export async function asBinaryDownloadResult(
   response: Response,
   fallbackFilename = 'download',
-  options?: {
-    inlineBase64Limit?: number | undefined;
-    sessionId?: string | undefined;
-    storeLargeDownload?: StoreBinaryDownload | undefined;
-    createDownloadUrl?: CreateBinaryDownloadUrl | undefined;
-  },
+  options?: BinaryDownloadOptions,
 ): Promise<ToolCallResult> {
   const blob = await response.blob();
   const arrayBuffer = await blob.arrayBuffer();
-  const mimeType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
   const contentDisposition = response.headers.get('content-disposition');
-  const filename = readContentDispositionFilename(contentDisposition) ?? fallbackFilename;
-  const byteLength = arrayBuffer.byteLength;
-  const data = Buffer.from(arrayBuffer).toString('base64');
+  return binaryDownloadResult(
+    {
+      contentBase64: Buffer.from(arrayBuffer).toString('base64'),
+      contentDisposition,
+      filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
+      mimeType: blob.type || response.headers.get('content-type') || 'application/octet-stream',
+      byteLength: arrayBuffer.byteLength,
+    },
+    options,
+  );
+}
+
+/** The download result for a file already encoded as base64: inline, or kept in the download store. */
+export function binaryDownloadResult(
+  file: {
+    contentBase64: string;
+    contentDisposition: string | null;
+    filename: string;
+    mimeType: string;
+    byteLength: number;
+  },
+  options?: BinaryDownloadOptions,
+): ToolCallResult {
+  const { contentDisposition, filename, mimeType, byteLength } = file;
+  const data = file.contentBase64;
   const inlineBase64Limit = options?.inlineBase64Limit;
 
   if (options?.storeLargeDownload && inlineBase64Limit !== undefined && data.length > inlineBase64Limit) {

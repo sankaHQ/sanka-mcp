@@ -88,6 +88,8 @@ export type FinishBinaryUploadResult =
       byteLength: number;
       buffer: Buffer;
       release: () => void;
+      /** With `retain`: makes the staged upload available again, for example after a refused upload. */
+      reopen?: (() => void) | undefined;
     }
   | {
       ok: false;
@@ -279,10 +281,13 @@ export const finishBinaryUpload = ({
   uploadToken,
   sessionId,
   principalId = 'stdio',
+  retain = false,
 }: {
   uploadToken: string;
   sessionId?: string | undefined;
   principalId?: string | undefined;
+  /** Keep the staged content until release, so that reopen can make the upload available again. */
+  retain?: boolean | undefined;
 }): FinishBinaryUploadResult => {
   const now = nowMs();
   cleanupUploads(now);
@@ -333,7 +338,9 @@ export const finishBinaryUpload = ({
   }
 
   entry.finishing = true;
-  entry.content = Buffer.alloc(0);
+  if (!retain) {
+    entry.content = Buffer.alloc(0);
+  }
 
   return {
     ok: true,
@@ -345,6 +352,13 @@ export const finishBinaryUpload = ({
     release: () => {
       uploads.delete(uploadToken);
     },
+    ...(retain ?
+      {
+        reopen: () => {
+          entry.finishing = false;
+        },
+      }
+    : undefined),
   };
 };
 

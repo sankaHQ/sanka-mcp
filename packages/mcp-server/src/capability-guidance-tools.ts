@@ -1,7 +1,7 @@
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-10-08.presentations.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-10-09.presentations.v2';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -108,16 +108,28 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
       supported: true,
       recommended_tools: [
         'get_presentation_catalog',
+        'list_presentations',
         'create_presentation',
         'get_presentation',
         'update_presentation',
+        'preview_presentation',
+        'start_presentation_image_upload',
+        'import_presentation_image',
         'export_presentation',
         'get_presentation_export',
+        'download_presentation_export',
       ],
-      route:
-        "Call get_presentation_catalog once per session. Plan the outline first: one message per slide, a title that states the point, at most 6 bullets. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. create_presentation (program_id for a migration program's Docs, omitted for Sanka Flow Docs), then read it back with get_presentation. Edit with update_presentation ops at the revision you last read; on PRESENTATION_REVISION_CONFLICT re-read and re-apply only your change. Do not delete slides you did not create unless asked. For a file, export_presentation, poll get_presentation_export until completed, then give the user app_url and the download link.",
+      route: [
+        '1. Call get_presentation_catalog once per session.',
+        '2. Outline first: one message per slide, a title that states the point, at most 6 bullets of at most 80 characters (40 in Japanese). Keep supplied facts, names and numbers exact and never invent figures; write Japanese decks in です・ます.',
+        '3. Choose blocks by content shape (table for lookup, cards for parallel items, steps for a process, timeline for dates, stats for numbers), with at most one accent emphasis per slide. Use page_size a4-landscape for printed proposals and 16:9 for screens.',
+        "4. create_presentation with slides, markdown or source_doc_id (program_id for a migration program's Docs, omitted for Sanka Flow Docs), then preview_presentation in batches of six. Fix every SLIDE_OVERFLOW by shortening, splitting or changing the layout, and preview the changed slides again.",
+        '5. Images go in after the deck exists: upload the file with start_presentation_image_upload, append_presentation_image_upload_chunk and finish_presentation_image_upload, or import a public https URL with import_presentation_image, then put the asset_id with alt text in an image block or accent with update_presentation.',
+        '6. Before editing a deck people may have changed, get_presentation and use its revision; on PRESENTATION_REVISION_CONFLICT re-read and re-apply only your change. Do not delete slides you did not create unless asked.',
+        '7. export_presentation (pptx or pdf), poll get_presentation_export until completed, then give the user app_url and app_download_url, or pass the file itself through with download_presentation_export.',
+      ].join(' '),
       mutation_policy:
-        'create_presentation, update_presentation and export_presentation need expected_workspace_id from current_workspace and change nothing on WORKSPACE_CONTEXT_MISMATCH; never retry them in another workspace. update_presentation needs expected_revision. Reuse an idempotency_key only to retry the same export.',
+        'create_presentation, update_presentation, finish_presentation_image_upload, import_presentation_image and export_presentation need expected_workspace_id from current_workspace and change nothing on WORKSPACE_CONTEXT_MISMATCH; never retry them in another workspace. update_presentation needs expected_revision. Reuse an idempotency_key only to retry the same export. There is no presentation delete tool.',
       fallback_when_missing:
         'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
     };
