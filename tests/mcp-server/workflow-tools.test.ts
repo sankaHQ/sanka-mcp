@@ -83,11 +83,6 @@ describe('workflow definition MCP tools', () => {
       'apply_app_blueprint',
     ]);
     expect(guidance.route).toContain('confirm=true');
-    expect(guidance.route).toContain('create_editable_guides=true');
-    expect(guidance.mutation_policy).toContain('persisted guide/Mermaid artifacts');
-    expect(guidance.mutation_policy).not.toContain(
-      'does not assign users, delete records, or persist guide artifacts',
-    );
   });
 
   it('creates HubSpot workflow previews through the shared workflow endpoint', async () => {

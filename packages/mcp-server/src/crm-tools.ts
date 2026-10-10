@@ -4742,7 +4742,7 @@ const APP_BLUEPRINT_APPLY_INPUT_SCHEMA = {
     create_editable_guides: {
       type: 'boolean',
       description:
-        'When true, generated guide, flowchart, and ER diagram artifacts are promoted into editable Sanka guide manuals after apply.',
+        'Deprecated and ignored. Apply always saves the generated guide, flowchart, and ER diagram as editable workspace Docs (Operation > Docs).',
       default: false,
     },
     createEditableGuides: {
@@ -26557,7 +26557,7 @@ export const crmApplyAppBlueprintTool: McpTool = {
     name: 'apply_app_blueprint',
     title: 'Apply app blueprint',
     description:
-      'Apply a validator-approved Sanka workspace blueprint by mutating global side-menu modules, creating missing custom objects, creating or updating permission sets, saving generated guide/Mermaid artifacts, and optionally promoting them to editable guide manuals. Requires confirm=true after explicit user approval; generated blueprints also require allow_generated_blueprint_apply=true.',
+      'Apply a validator-approved Sanka workspace blueprint by mutating global side-menu modules, creating missing custom objects, creating or updating permission sets, and saving the generated guide, flowchart, and ER diagram as editable workspace Docs. Requires confirm=true after explicit user approval; generated blueprints also require allow_generated_blueprint_apply=true.',
     inputSchema: APP_BLUEPRINT_APPLY_INPUT_SCHEMA,
     outputSchema: APP_BLUEPRINT_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
