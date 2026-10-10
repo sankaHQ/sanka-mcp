@@ -793,6 +793,42 @@ const cases: Array<{
     structuredContent: { export_id: 'export-3', format: 'pdf', status: 'queued' },
   },
   {
+    name: 'Google Slides export returns the editable link without a binary download',
+    tool: exportPresentationTool,
+    args: {
+      presentation_id: 'deck-2',
+      format: 'google_slides',
+      idempotency_key: 'drive-new',
+      expected_workspace_id: WS,
+    },
+    responses: [
+      session(),
+      envelope({
+        id: 'export-drive',
+        documentId: 'deck-2',
+        revision: 3,
+        format: 'google_slides',
+        status: 'completed',
+        googleSlidesUrl: 'https://docs.google.com/presentation/d/new-file/edit',
+      }),
+    ],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'POST',
+        url: `${FLOW}/deck-2/exports`,
+        headers: { ...WRITE, 'idempotency-key': 'drive-new' },
+        body: { format: 'google_slides' },
+      },
+    ],
+    structuredContent: {
+      export_id: 'export-drive',
+      google_slides_url: 'https://docs.google.com/presentation/d/new-file/edit',
+      status: 'completed',
+    },
+    text: ['Open the editable presentation', 'https://docs.google.com/presentation/d/new-file/edit'],
+  },
+  {
     name: "get_presentation_export links a completed export through the Sanka app's API proxy and MCP",
     tool: getPresentationExportTool,
     args: { presentation_id: 'deck-2', export_id: 'export-2' },
@@ -962,7 +998,7 @@ describe('presentation tools', () => {
       export_presentation: {
         properties: {
           ...ID,
-          format: ['pptx', 'pdf'],
+          format: ['pptx', 'pdf', 'google_slides'],
           slide_ids: 'array',
           include_hidden: 'boolean',
           include_notes: 'boolean',

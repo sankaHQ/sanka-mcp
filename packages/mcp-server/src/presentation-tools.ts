@@ -290,9 +290,10 @@ const EXPORT_INPUT_SCHEMA = {
     ...PROGRAM_ID_PROPERTY,
     format: {
       type: 'string',
-      enum: ['pptx', 'pdf'],
+      enum: ['pptx', 'pdf', 'google_slides'],
       default: 'pptx',
-      description: 'pptx (the default): a PowerPoint file. pdf: a PDF, for print or to share as is.',
+      description:
+        'pptx (the default): a PowerPoint file. pdf: a PDF. google_slides: a new editable file in your connected personal Google Drive (pilot workspaces).',
     },
     slide_ids: {
       type: 'array',
@@ -422,6 +423,10 @@ const EXPORT_OUTPUT_SCHEMA = {
     filename: NULLABLE_STRING_SCHEMA,
     error_code: NULLABLE_STRING_SCHEMA,
     error_message: NULLABLE_STRING_SCHEMA,
+    google_slides_url: {
+      type: 'string',
+      description: 'Editable Google Slides link, present when conversion completes.',
+    },
     app_download_url: {
       type: 'string',
       description: 'Download link for a browser signed in to Sanka; set once the export is completed.',
@@ -678,6 +683,11 @@ const failureHint = ({ code, status, details: rawDetails }: Failure): string => 
     }
     case 'PRESENTATION_ASSET_NOT_FOUND':
       return ' Images must belong to this presentation: upload the file with start_presentation_image_upload or import it with import_presentation_image, then use the asset_id it returns.';
+    case 'GOOGLE_DRIVE_NOT_CONNECTED':
+    case 'GOOGLE_DRIVE_RECONNECT_REQUIRED':
+      return ` Connect or reconnect your personal Google Drive in Sanka Account settings → Integrations${
+        details['connectUrl'] ? ` (${appUrl(String(details['connectUrl']))})` : ''
+      }, then start a new export. Never use another user's connection.`;
     case 'PRESENTATION_EXPORT_NOT_FOUND':
       return ' Only a completed export can be downloaded, for 7 days: check it with get_presentation_export, or start a new export with a new idempotency_key.';
     case 'IMAGE_IMPORT_BLOCKED':
@@ -886,6 +896,7 @@ const exportSummary = (exportData: PresentationExport, args: ToolArgs): JsonReco
     error_code: exportData.errorCode,
     error_message: exportData.errorMessage,
     expires_at: exportData.expiresAt,
+    google_slides_url: exportData.status === 'completed' ? exportData.googleSlidesUrl : undefined,
     app_download_url:
       exportData.status === 'completed' ? appUrl(appDownloadPath(exportData.downloadPath)) : undefined,
   });
@@ -898,6 +909,9 @@ const exportIDs = (summary: JsonRecord): string => {
 const describeExport = (summary: JsonRecord): string => {
   const exportID = summary['export_id'];
   const status = String(summary['status']);
+  if (status === 'completed' && summary['format'] === 'google_slides') {
+    return `Export ${exportID} is completed. Open the editable presentation: ${summary['google_slides_url']}. Give the user this link and the presentation's app_url. Each new export creates a separate file in their Google Drive.`;
+  }
   if (status === 'completed') {
     const size = `${summary['size_bytes'] ?? '?'} bytes, revision ${summary['revision']}`;
     const file = `${summary['filename'] ?? 'the file'} (${size})`;
@@ -1487,7 +1501,7 @@ export const exportPresentationTool = definePresentationTool({
   name: 'export_presentation',
   title: 'Export presentation',
   description:
-    "Start a PowerPoint (pptx) or PDF export of a presentation. It renders in the background: poll get_presentation_export with the returned export_id until it is completed, then give the user the download link and the presentation's app_url. Preview the slides first and fix every SLIDE_OVERFLOW. Reuse the idempotency_key only to retry the same export. Needs expected_workspace_id from current_workspace.",
+    "Start a PowerPoint (pptx), PDF or Google Slides export of a presentation. It renders in the background: poll get_presentation_export with the returned export_id until it is completed, then give the user google_slides_url for Google Slides or the download link for files, plus the presentation's app_url. Preview the slides first and fix every SLIDE_OVERFLOW. Reuse the idempotency_key only to retry the same export. Needs expected_workspace_id from current_workspace.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: `${PRESENTATION_PATH}/exports`,
@@ -1617,6 +1631,9 @@ export const downloadPresentationExportTool = definePresentationTool({
     // The status says whether the file exists and how large it is before anything is buffered.
     const exportData = await docs.retrieveExport(presentationID, exportID, readOptions(reqContext));
     const exported = exportSummary(exportData, args);
+    if (exportData.format === 'google_slides') {
+      return { content: [{ type: 'text', text: describeExport(exported) }], structuredContent: exported };
+    }
     if (exportData.status !== 'completed') {
       return {
         content: [{ type: 'text', text: `Nothing to download yet. ${describeExport(exported)}` }],

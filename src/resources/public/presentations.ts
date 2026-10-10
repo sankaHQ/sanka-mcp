@@ -17,7 +17,7 @@ import { unwrapV2DataPromise } from '../../internal/v2';
 export type PresentationProduct = 'sanka' | 'flow';
 export type PresentationPageSize = '16:9' | 'a4-landscape';
 export type PresentationUpdatedVia = 'app' | 'api' | 'mcp' | 'system';
-export type PresentationExportFormat = 'pptx' | 'pdf';
+export type PresentationExportFormat = 'pptx' | 'pdf' | 'google_slides';
 export type PresentationExportStatus =
   | 'queued'
   | 'rendering'
@@ -183,6 +183,8 @@ export interface PresentationExport {
   errorMessage?: string | null;
   /** App-relative download route; present once the export completed. */
   downloadPath?: string | null;
+  /** Editable file in the requesting user's connected Google Drive. */
+  googleSlidesUrl?: string | null;
   createdAt?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
