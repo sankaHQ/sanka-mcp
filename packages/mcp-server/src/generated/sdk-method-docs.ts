@@ -3439,7 +3439,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'client.public.presentations.cancelExport(presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
     params: ['presentationID: string;', 'exportID: string;', 'workspace_id?: string | null;'],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.presentations.catalog',
@@ -3498,7 +3498,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
     ],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.presentations.downloadExport',
@@ -3613,7 +3613,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'client.public.presentations.retrieveExport(presentationID: string, exportID: string, params?: PresentationExportParams | null | undefined, options?: RequestOptions): APIPromise<PresentationExport>',
     params: ['presentationID: string;', 'exportID: string;', 'workspace_id?: string | null;'],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.presentations.update',
@@ -3668,7 +3668,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
     ],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.programPresentations.create',
@@ -3718,7 +3718,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
     ],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.programPresentations.downloadExport',
@@ -3849,7 +3849,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
     ],
     response:
-      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
+      '{ id: string; documentId: string; product: PresentationProduct; revision: number; format: PresentationExportFormat; status: PresentationExportStatus; progress?: number; filename?: string | null; sizeBytes?: number | null; warnings?: Array<Record<string, unknown>>; errorCode?: string | null; errorMessage?: string | null; downloadPath?: string | null; googleSlidesUrl?: string | null; createdAt?: string | null; startedAt?: string | null; finishedAt?: string | null; expiresAt?: string | null; }',
   },
   {
     qualified: 'client.public.programPresentations.update',

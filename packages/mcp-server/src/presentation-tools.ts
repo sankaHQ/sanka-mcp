@@ -1503,6 +1503,7 @@ export const exportPresentationTool = definePresentationTool({
   description:
     "Start a PowerPoint (pptx), PDF or Google Slides export of a presentation. It renders in the background: poll get_presentation_export with the returned export_id until it is completed, then give the user google_slides_url for Google Slides or the download link for files, plus the presentation's app_url. Preview the slides first and fix every SLIDE_OVERFLOW. Reuse the idempotency_key only to retry the same export. Needs expected_workspace_id from current_workspace.",
   operation: 'write',
+  openWorld: true,
   httpMethod: 'post',
   httpPath: `${PRESENTATION_PATH}/exports`,
   inputSchema: EXPORT_INPUT_SCHEMA,
