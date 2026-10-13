@@ -78,7 +78,7 @@ export class FerryDiagrams extends APIResource {
   }
 }
 
-export type FerryDiagramNodeType = 'objectTable' | 'process' | 'note';
+export type FerryDiagramNodeType = 'objectTable' | 'process' | 'note' | 'section';
 export type FerryDiagramColor = 'default' | 'brand' | 'success' | 'warning' | 'danger';
 export type FerryDiagramEdgeType = 'default' | 'smoothstep' | 'straight';
 export type FerryDiagramCardinality = 'one' | 'zero_or_one' | 'one_or_many' | 'zero_or_many';
@@ -91,7 +91,9 @@ export type MigrationDiagramShape =
   | 'triangle'
   | 'invertedTriangle'
   | 'oval'
-  | 'cylinder';
+  | 'cylinder'
+  | 'pill';
+export type MigrationDiagramStrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface FerryDiagramPosition {
   x: number;
@@ -112,6 +114,12 @@ export interface FerryDiagramNodeData {
   color?: FerryDiagramColor;
   /** Only process nodes take a shape. */
   shape?: MigrationDiagramShape | null;
+  /** Label font size in CSS pixels (8-96). */
+  fontSize?: number | null;
+  /** Custom colors as #RRGGBB; they override the color preset. */
+  fillColor?: string | null;
+  strokeColor?: string | null;
+  textColor?: string | null;
 }
 
 export interface FerryDiagramNode {
@@ -119,7 +127,7 @@ export interface FerryDiagramNode {
   type: FerryDiagramNodeType;
   position: FerryDiagramPosition;
   data: FerryDiagramNodeData;
-  /** Width and height go together, and only on a shaped process node. */
+  /** Width and height go together: optional on a shaped process node or a note, required on a section. */
   width?: number;
   height?: number;
 }
@@ -137,6 +145,12 @@ export interface FerryDiagramEdge {
   strokeWidth?: number | null;
   sourceCardinality?: FerryDiagramCardinality | null;
   targetCardinality?: FerryDiagramCardinality | null;
+  /** Line pattern; omitted means solid. */
+  strokeStyle?: MigrationDiagramStrokeStyle | null;
+  /** Custom connector and arrowhead color as #RRGGBB. */
+  strokeColor?: string | null;
+  /** Label font size in CSS pixels (8-96). */
+  fontSize?: number | null;
 }
 
 export interface FerryDiagramDocument {
@@ -203,6 +217,7 @@ export declare namespace FerryDiagrams {
     type FerryDiagramEdgeType as FerryDiagramEdgeType,
     type FerryDiagramCardinality as FerryDiagramCardinality,
     type MigrationDiagramShape as MigrationDiagramShape,
+    type MigrationDiagramStrokeStyle as MigrationDiagramStrokeStyle,
     type FerryDiagramPosition as FerryDiagramPosition,
     type FerryDiagramViewport as FerryDiagramViewport,
     type FerryDiagramNodeData as FerryDiagramNodeData,

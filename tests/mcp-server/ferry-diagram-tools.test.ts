@@ -52,11 +52,65 @@ const flowchartNodes = [
   },
 ];
 
+// A swimlane flow: a section behind a colored pill, joined by a dashed, multi-line connector.
+const laneNodes = [
+  {
+    id: 'lane',
+    type: 'section',
+    position: { x: 0, y: 0 },
+    data: { label: 'Accounting', fontSize: 30, fillColor: '#FFFFFF', strokeColor: '#DCDCD8' },
+    width: 2720,
+    height: 430,
+  },
+  {
+    id: 'start',
+    type: 'process',
+    position: { x: 40, y: 85 },
+    data: {
+      label: 'Request',
+      shape: 'pill',
+      fillColor: '#F3E8FF',
+      strokeColor: '#7C3AED',
+      textColor: '#5B21B6',
+    },
+  },
+  { id: 'done', type: 'process', position: { x: 400, y: 85 }, data: { label: 'Done' } },
+];
+const laneEdges = [
+  {
+    id: 'returned',
+    source: 'done',
+    target: 'start',
+    label: 'Return the result\n(every 15 minutes)',
+    strokeStyle: 'dashed',
+    strokeColor: '#6B6B70',
+    fontSize: 22,
+    targetArrow: true,
+  },
+];
+
 // get_ferry_diagram fills in every data field of a node, with shape null when it has none.
 const storedData = { description: '', fields: [], moduleName: null, objectKey: null, objectSlug: null };
-const storedNodes = [...diagram.nodes, ...flowchartNodes].map((node) => ({
+// Public reads return note sizes set in the editor; writing them back keeps them.
+const resizedNote = {
+  id: 'memo',
+  type: 'note',
+  position: { x: 0, y: 480 },
+  data: { label: 'Check with finance' },
+  width: 320,
+  height: 160,
+};
+const storedNodes = [...diagram.nodes, ...flowchartNodes, ...laneNodes, resizedNote].map((node) => ({
   ...node,
   data: { ...storedData, color: 'default', shape: null, ...node.data },
+}));
+// Edge fields without a value come back as defaults or null; unset styles are omitted.
+const storedEdges = laneEdges.map((edge) => ({
+  type: 'smoothstep',
+  sourceHandle: null,
+  targetHandle: null,
+  sourceArrow: false,
+  ...edge,
 }));
 
 describe('Ferry diagram MCP tools', () => {
@@ -74,10 +128,22 @@ describe('Ferry diagram MCP tools', () => {
       ],
     },
     {
-      name: 'update_ferry_diagram takes back the nodes get_ferry_diagram returned',
+      name: 'create_ferry_diagram sends sections, custom colors, font sizes and dashed connectors',
+      tool: createFerryDiagramTool,
+      args: { name: 'Billing lanes', nodes: laneNodes, edges: laneEdges },
+      expectedRequests: [
+        {
+          method: 'POST',
+          url: DIAGRAMS,
+          body: { name: 'Billing lanes', nodes: laneNodes, edges: laneEdges, viewport: diagram.viewport },
+        },
+      ],
+    },
+    {
+      name: 'update_ferry_diagram takes back the nodes and edges get_ferry_diagram returned',
       tool: updateFerryDiagramTool,
-      args: { diagram_id: 'diagram-1', revision: 4, nodes: storedNodes },
-      response: { ...diagram, nodes: storedNodes },
+      args: { diagram_id: 'diagram-1', revision: 4, nodes: storedNodes, edges: storedEdges },
+      response: { ...diagram, nodes: storedNodes, edges: storedEdges },
       expectedRequests: [
         { method: 'GET', url: `${DIAGRAMS}/diagram-1` },
         {
@@ -87,7 +153,7 @@ describe('Ferry diagram MCP tools', () => {
             name: diagram.name,
             description: diagram.description,
             nodes: storedNodes,
-            edges: [],
+            edges: storedEdges,
             viewport: diagram.viewport,
             revision: 4,
           },

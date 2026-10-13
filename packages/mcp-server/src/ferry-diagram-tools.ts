@@ -38,18 +38,28 @@ const NODE_SHAPES: MigrationDiagramShape[] = [
   'invertedTriangle',
   'oval',
   'cylinder',
+  'pill',
 ];
 
 // The editor draws a shape without width and height at these sizes (sanka-react
 // src/lib/migration/diagram-shapes.ts); the API enforces the combinations.
 const SHAPE_GUIDE =
-  'To draw a flowchart shape, set data.shape on a process node, such as diamond for a decision, oval for a start or end, or cylinder for a database; other node types take no shape. Node width and height go together, only on a shaped process node; omit both for the default width x height in px: rectangle and roundedRectangle 224x112, square and circle 160x160, diamond, triangle and invertedTriangle 176x160, oval 224x128, cylinder 192x144.';
+  'To draw a flowchart shape, set data.shape on a process node, such as diamond for a decision, pill for a start or end terminal, or cylinder for a database; other node types take no shape. Node width and height go together, on a shaped process node, a note or a section; omit both on a shape for the default width x height in px: rectangle and roundedRectangle 224x112, square and circle 160x160, diamond, triangle and invertedTriangle 176x160, oval 224x128, cylinder 192x144, pill 224x80.';
+
+// Mirrors the sanka-api diagram contract (app/model/domain/migration/diagrams.py).
+const STYLE_GUIDE =
+  'For swimlanes or columns, add section nodes (type section, data.label is the lane title, width and height required, up to 8000 px); they draw behind every node, connectors cannot attach to them, and a node belongs to the section its center lies in. Optional styles: data.fontSize (8-96 px label size), data.fillColor, data.strokeColor and data.textColor as #RRGGBB on any node (the color preset stays the default), and on edges strokeStyle (solid, dashed or dotted), strokeColor and label fontSize. Labels keep \\n line breaks.';
+
+// The API accepts null for each optional style field, meaning "not set".
+const HEX_COLOR = { type: ['string', 'null'] as any, pattern: '^#[0-9A-Fa-f]{6}$' };
+const FONT_SIZE = { type: ['number', 'null'] as any, minimum: 8, maximum: 96 };
+const HANDLE_SIDES = 'left, right, top or bottom';
 
 const NODE_SCHEMA = {
   type: 'object' as const,
   properties: {
     id: { type: 'string' },
-    type: { type: 'string', enum: ['objectTable', 'process', 'note'] },
+    type: { type: 'string', enum: ['objectTable', 'process', 'note', 'section'] },
     position: { ...POSITION_SCHEMA, description: 'Top-left corner of the node in canvas pixels.' },
     data: {
       type: 'object' as const,
@@ -70,6 +80,13 @@ const NODE_SCHEMA = {
           description:
             'Draws a process node as this shape, with the label centered inside. Only process nodes take a shape; null or omitted draws the standard process card.',
         },
+        fontSize: { ...FONT_SIZE, description: 'Label font size in CSS pixels.' },
+        fillColor: { ...HEX_COLOR, description: 'Custom fill color; overrides the color preset fill.' },
+        strokeColor: {
+          ...HEX_COLOR,
+          description: 'Custom outline color; overrides the color preset outline.',
+        },
+        textColor: { ...HEX_COLOR, description: 'Custom label color.' },
       },
       required: ['label'],
       additionalProperties: false,
@@ -77,14 +94,16 @@ const NODE_SCHEMA = {
     width: {
       type: 'number',
       minimum: 96,
-      maximum: 1600,
-      description: 'Width of a shaped process node in canvas pixels. Send it with height.',
+      maximum: 8000,
+      description:
+        'Width in canvas pixels, sent with height: up to 1600 on a shaped process node or a note, up to 8000 on a section (required there).',
     },
     height: {
       type: 'number',
       minimum: 64,
-      maximum: 1200,
-      description: 'Height of a shaped process node in canvas pixels. Send it with width.',
+      maximum: 8000,
+      description:
+        'Height in canvas pixels, sent with width: up to 1200 on a shaped process node or a note, up to 8000 on a section (required there).',
     },
   },
   required: ['id', 'type', 'position', 'data'],
@@ -99,8 +118,14 @@ const EDGE_SCHEMA = {
     target: { type: 'string' },
     label: { type: 'string' },
     type: { type: 'string', enum: ['default', 'smoothstep', 'straight'] },
-    sourceHandle: { type: ['string', 'null'] as any },
-    targetHandle: { type: ['string', 'null'] as any },
+    sourceHandle: {
+      type: ['string', 'null'] as any,
+      description: `Side of the source node the connector leaves from: ${HANDLE_SIDES}. Omit both handles to use the sides facing each other.`,
+    },
+    targetHandle: {
+      type: ['string', 'null'] as any,
+      description: `Side of the target node the connector enters: ${HANDLE_SIDES}.`,
+    },
     sourceArrow: {
       type: 'boolean',
       description: 'Render an arrowhead at the source when no source cardinality is set.',
@@ -127,6 +152,13 @@ const EDGE_SCHEMA = {
       description:
         "ER cardinality at the target endpoint: bar, circle plus bar, bar plus Crow's Foot, or circle plus Crow's Foot.",
     },
+    strokeStyle: {
+      type: ['string', 'null'] as any,
+      enum: ['solid', 'dashed', 'dotted', null],
+      description: 'Line pattern; omit or null for solid.',
+    },
+    strokeColor: { ...HEX_COLOR, description: 'Custom connector and arrowhead color.' },
+    fontSize: { ...FONT_SIZE, description: 'Label font size in CSS pixels.' },
   },
   required: ['id', 'source', 'target'],
   additionalProperties: false,
@@ -374,7 +406,7 @@ export const createFerryDiagramTool: McpTool = {
   tool: {
     name: 'create_ferry_diagram',
     title: 'Create Sanka diagram',
-    description: `Create a saved Sanka migration, object-design or flowchart diagram from nodes and edges. ${SHAPE_GUIDE}`,
+    description: `Create a saved Sanka migration, object-design or flowchart diagram from nodes and edges. ${SHAPE_GUIDE} ${STYLE_GUIDE}`,
     inputSchema: CREATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -407,7 +439,7 @@ export const updateFerryDiagramTool: McpTool = {
   tool: {
     name: 'update_ferry_diagram',
     title: 'Update Sanka diagram',
-    description: `Update selected fields of a Sanka diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected. ${SHAPE_GUIDE}`,
+    description: `Update selected fields of a Sanka diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected. ${SHAPE_GUIDE} ${STYLE_GUIDE}`,
     inputSchema: UPDATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
