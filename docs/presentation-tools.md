@@ -1,6 +1,6 @@
 # Sanka Doc presentation tools
 
-Thirteen hosted MCP tools build, preview, illustrate and export Sanka Doc presentations: slide
+Fifteen hosted MCP tools build, preview, illustrate and export Sanka Doc presentations: slide
 decks stored as Docs (`sanka.deck/v1`), in a Sanka migration program's Docs when a call passes
 `program_id`, else in Sanka Flow Docs. They call the public developer API through the client's
 `client.public.presentations` (Sanka Flow Docs) and `client.public.programPresentations`
@@ -25,6 +25,8 @@ the client and tool code use no ferry names.
 | `append_presentation_image_upload_chunk` | none                                          |                                                         |
 | `finish_presentation_image_upload`       | POST multipart (`file`, `alt`)                | `{base}/{presentation_id}/images`                       |
 | `import_presentation_image`              | POST                                          | `{base}/{presentation_id}/images/import`                |
+| `import_presentation_diagram_image`      | POST                                          | `{base}/{presentation_id}/images/diagram`               |
+| `export_ferry_diagram_image`             | GET (binary)                                  | `/api/v2/public/ferry/diagrams/{diagram_id}/image`      |
 | `export_presentation`                    | POST                                          | `{base}/{presentation_id}/exports`                      |
 | `get_presentation_export`                | GET                                           | `{base}/{presentation_id}/exports/{export_id}`          |
 | `download_presentation_export`           | GET (binary, after the export status)         | `{base}/{presentation_id}/exports/{export_id}/download` |
@@ -74,6 +76,16 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
   holds up to 9 MiB per file; the API takes images up to 10 MiB. `import_presentation_image`
   (`openWorldHint`) has Sanka fetch a public `https://` URL. Both return `asset_id`,
   `content_type`, `size_bytes`, `width`, `height` and `alt` for an image block or accent.
+- Saved Sanka diagrams: a `sankaDiagram` block (`{diagramId, alt, caption?, fit?}`, ids from
+  `list_ferry_diagrams`) always shows the diagram's latest revision, in the editor, slideshows,
+  share links and exports; `PRESENTATION_DIAGRAM_NOT_FOUND` names the path and id of a diagram
+  that is not in the workspace or that the user cannot read. `export_ferry_diagram_image`
+  (`ferry_diagrams:read`) renders a diagram to a 2x PNG as the diagram editor draws it, shows it
+  as an MCP `image` block when it is under 1 MiB, and hands it over through the session-bound
+  download store (`download_url`), with `revision`, `width` and `height` (from the PNG header).
+  `import_presentation_diagram_image` stores that image in a presentation (`{diagramId, alt?}`,
+  alt defaulting to the diagram's name) and returns `asset_id` like the other image tools; that
+  image does not follow later diagram edits.
 - `export_presentation` takes `format` `pptx` (the default) or `pdf`. Export results return
   `export_id`, `status`, `progress`, `revision`, `format`, `filename`, `size_bytes`, `warnings`,
   `error_code` and `error_message`, and `app_download_url` once completed. The completed text
@@ -102,7 +114,7 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
 - Every request carries `X-Sanka-MCP-Session-ID` when the call has an MCP session: the public
   routes resolve the workspace that session is bound to. The tools take no `workspace_id`.
 - Writes (`create_presentation`, `update_presentation`, `finish_presentation_image_upload`,
-  `import_presentation_image`, `export_presentation`) require `expected_workspace_id`, the
+  `import_presentation_image`, `import_presentation_diagram_image`, `export_presentation`) require `expected_workspace_id`, the
   `workspace_id` from `current_workspace`. Like the workflow tools, a write with an MCP session
   first reads `/api/v2/public/auth/session` and sends nothing when its workspace differs; without
   a session (stdio) the API check stands alone. The write then carries

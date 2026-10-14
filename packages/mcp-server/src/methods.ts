@@ -1360,6 +1360,12 @@ export const sdkMethods: SdkMethod[] = [
     httpPath: '/api/v2/public/documents/presentations/{presentation_id}/images/import',
   },
   {
+    clientCallName: 'client.public.presentations.importDiagramImage',
+    fullyQualifiedName: 'public.presentations.importDiagramImage',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/documents/presentations/{presentation_id}/images/diagram',
+  },
+  {
     clientCallName: 'client.public.presentations.preview',
     fullyQualifiedName: 'public.presentations.preview',
     httpMethod: 'post',
@@ -1430,6 +1436,12 @@ export const sdkMethods: SdkMethod[] = [
     fullyQualifiedName: 'public.programPresentations.importImage',
     httpMethod: 'post',
     httpPath: '/api/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/images/import',
+  },
+  {
+    clientCallName: 'client.public.programPresentations.importDiagramImage',
+    fullyQualifiedName: 'public.programPresentations.importDiagramImage',
+    httpMethod: 'post',
+    httpPath: '/api/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/images/diagram',
   },
   {
     clientCallName: 'client.public.programPresentations.preview',

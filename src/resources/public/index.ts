@@ -468,6 +468,7 @@ export {
   type PresentationReplaceParams,
   type PresentationUpdateParams,
   type PresentationUploadImageParams,
+  type PresentationImportDiagramImageParams,
   type PresentationImportImageParams,
   type PresentationPreviewParams,
   type PresentationCreateExportParams,

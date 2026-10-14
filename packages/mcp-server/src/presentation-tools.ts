@@ -8,6 +8,7 @@ import type {
   PresentationExport,
   PresentationExportFormat,
   PresentationImage,
+  PresentationImportDiagramImageParams,
   PresentationImportImageParams,
   PresentationListParams,
   PresentationOp,
@@ -32,6 +33,7 @@ type ToolArgs = Record<string, unknown> | undefined;
 type JsonRecord = Record<string, unknown>;
 
 const CATALOG_PATH = '/api/v2/public/presentations/catalog';
+const DIAGRAM_IMAGE_PATH = '/api/v2/public/ferry/diagrams/{diagram_id}/image';
 const FLOW_PATH = '/api/v2/public/documents/presentations';
 const PRESENTATION_PATH = `${FLOW_PATH}/{presentation_id}`;
 const EXPORT_PATH = `${PRESENTATION_PATH}/exports/{export_id}`;
@@ -48,6 +50,8 @@ const PREVIEW_BATCH = 6;
 const PREVIEW_TIMEOUT_MS = 90_000;
 // Downloads pass through the MCP server's memory and its download store as base64.
 const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
+// Diagram images up to this size also come back as an image the agent can look at.
+const MAX_INLINE_DIAGRAM_BYTES = 1024 * 1024;
 const EXPORTS_IN_PROGRESS = ['queued', 'rendering', 'writing', 'uploading'];
 const PAGE_SIZES = ['16:9', 'a4-landscape'];
 const PREVIEW_WIDTHS = [640, 960, 1280];
@@ -411,6 +415,53 @@ const IMAGE_OUTPUT_SCHEMA = {
   additionalProperties: true,
 };
 
+const DIAGRAM_ID_PROPERTY = {
+  diagram_id: {
+    type: 'string',
+    minLength: 1,
+    pattern: '\\S',
+    description: 'Sanka diagram id from list_ferry_diagrams or get_ferry_diagram.',
+  },
+};
+
+const DIAGRAM_IMAGE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: { ...DIAGRAM_ID_PROPERTY },
+  required: ['diagram_id'],
+  additionalProperties: false,
+};
+
+const DIAGRAM_IMAGE_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    diagram_id: { type: 'string' },
+    revision: { type: 'integer', description: 'The diagram revision the image shows.' },
+    width: { type: 'integer', description: 'Pixels (twice the diagram size in CSS px).' },
+    height: { type: 'integer' },
+    mime_type: { type: 'string' },
+    byte_length: { type: 'integer' },
+    completion_status: { type: 'string' },
+    download_url: { type: 'string' },
+    download_token: { type: 'string' },
+    content_base64: { type: 'string' },
+    next_action: { type: 'string' },
+  },
+  additionalProperties: true,
+};
+
+const IMPORT_DIAGRAM_IMAGE_INPUT_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    ...PRESENTATION_ID_PROPERTY,
+    ...PROGRAM_ID_PROPERTY,
+    ...DIAGRAM_ID_PROPERTY,
+    alt: { ...ALT_PROPERTY.alt, description: "Alt text; defaults to the diagram's name." },
+    ...EXPECTED_WORKSPACE_PROPERTY,
+  },
+  required: ['presentation_id', 'diagram_id', 'expected_workspace_id'],
+  additionalProperties: false,
+};
+
 const EXPORT_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -519,6 +570,10 @@ const presentationDocs = (reqContext: McpRequestContext, args: ToolArgs) => {
       programID ? program.uploadImage(programID, id, params, options) : flow.uploadImage(id, params, options),
     importImage: (id: string, params: PresentationImportImageParams, options: Options) =>
       programID ? program.importImage(programID, id, params, options) : flow.importImage(id, params, options),
+    importDiagramImage: (id: string, params: PresentationImportDiagramImageParams, options: Options) =>
+      programID ?
+        program.importDiagramImage(programID, id, params, options)
+      : flow.importDiagramImage(id, params, options),
     preview: (id: string, params: PresentationPreviewParams, options: Options) =>
       programID ? program.preview(programID, id, params, options) : flow.preview(id, params, options),
     createExport: (id: string, params: PresentationCreateExportParams, options: Options) =>
@@ -681,6 +736,12 @@ const failureHint = ({ code, status, details: rawDetails }: Failure): string => 
         : `slide_ids ${readArray(details['slideIds']).join(', ')}`;
       return ` ${missing}: not in the deck. Read the current ids with get_presentation.`;
     }
+    case 'PRESENTATION_DIAGRAM_NOT_FOUND':
+      return ` ${details['path'] ?? 'A sankaDiagram block'} names ${
+        details['diagramId']
+      }, which is not a Sanka diagram of this workspace that you can read. Use an id from list_ferry_diagrams.`;
+    case 'DIAGRAM_EMPTY':
+      return ' The diagram has no nodes yet: add shapes with update_ferry_diagram first.';
     case 'PRESENTATION_ASSET_NOT_FOUND':
       return ' Images must belong to this presentation: upload the file with start_presentation_image_upload or import it with import_presentation_image, then use the asset_id it returns.';
     case 'GOOGLE_DRIVE_NOT_CONNECTED':
@@ -777,6 +838,8 @@ type PresentationToolDefinition = {
   name: string;
   title: string;
   description: string;
+  /** The scope resource, when not the Docs' (`documents`). */
+  resource?: string;
   operation: 'read' | 'write';
   httpMethod: 'get' | 'post' | 'put' | 'patch';
   httpPath: string;
@@ -793,7 +856,7 @@ const definePresentationTool = (definition: PresentationToolDefinition): McpTool
   );
   return {
     metadata: {
-      resource: 'documents',
+      resource: definition.resource ?? 'documents',
       operation: definition.operation,
       tags: ['docs', 'presentations'],
       httpMethod: definition.httpMethod,
@@ -1081,7 +1144,7 @@ export const createPresentationTool = definePresentationTool({
   name: 'create_presentation',
   title: 'Create presentation',
   description:
-    "Create a presentation (slide deck) in Sanka Docs: pass program_id for a migration program's Docs, or omit it for Sanka Flow Docs. Call get_presentation_catalog first and plan the outline: one message per slide, a title that states the point, at most 6 bullets. Give the content as slides (deck JSON, for control), markdown (for speed) or source_doc_id (a Markdown Doc to convert); use page_size a4-landscape for printed proposals. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. Add images after creating, then check the slides with preview_presentation. Needs expected_workspace_id from current_workspace.",
+    "Create a presentation (slide deck) in Sanka Docs: pass program_id for a migration program's Docs, or omit it for Sanka Flow Docs. Call get_presentation_catalog first and plan the outline: one message per slide, a title that states the point, at most 6 bullets. Give the content as slides (deck JSON, for control), markdown (for speed) or source_doc_id (a Markdown Doc to convert); use page_size a4-landscape for printed proposals. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. Add images after creating; show a saved Sanka diagram with a sankaDiagram block (its diagramId from list_ferry_diagrams), which stays in sync with the diagram. Then check the slides with preview_presentation. Needs expected_workspace_id from current_workspace.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: FLOW_PATH,
@@ -1358,6 +1421,106 @@ export const importPresentationImageTool = definePresentationTool({
       writeOptions(reqContext, args),
     );
     return imageResult('Imported', image, args);
+  },
+});
+
+// Pixel size from a PNG header.
+const pngSize = (bytes: Buffer): { width: number; height: number } | undefined =>
+  bytes.length >= 24 && bytes.readUInt32BE(0) === 0x89504e47 ?
+    { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+  : undefined;
+
+const sankaDiagramBlock = (diagramID: string): string =>
+  JSON.stringify({ type: 'sankaDiagram', diagramId: diagramID, alt: 'What the diagram shows' });
+
+export const exportDiagramImageTool = definePresentationTool({
+  name: 'export_ferry_diagram_image',
+  title: 'Export Sanka diagram image',
+  description: `Render a saved Sanka diagram's latest revision as a PNG, drawn exactly as the diagram editor draws it at twice its size. The result shows the image (when it is under ${
+    MAX_INLINE_DIAGRAM_BYTES / 1024 / 1024
+  } MiB) and gives a download_url for this MCP session, or chunks to read with read_binary_download_chunk. To put the diagram on a slide, prefer a sankaDiagram block (it stays in sync with the diagram); to store the image in a presentation for an ordinary image block, use import_presentation_diagram_image.`,
+  resource: 'ferryDiagrams',
+  operation: 'read',
+  httpMethod: 'get',
+  httpPath: DIAGRAM_IMAGE_PATH,
+  inputSchema: DIAGRAM_IMAGE_INPUT_SCHEMA,
+  outputSchema: DIAGRAM_IMAGE_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const diagramID = readString(args?.['diagram_id']) ?? '';
+    const client = reqContext.client;
+    const response = await client.get<Response>(
+      client.v2Path(`/public/ferry/diagrams/${encodeURIComponent(diagramID)}/image`),
+      { ...readOptions(reqContext), __binaryResponse: true },
+    );
+    const bytes = await readExportFile(response, undefined);
+    if (!bytes) {
+      return asErrorResult(
+        `The diagram image is larger than the ${MAX_DOWNLOAD_MIB} MiB that can pass through MCP.`,
+      );
+    }
+    const revision = Number(response.headers.get('x-sanka-diagram-revision')) || undefined;
+    const downloaded = binaryDownloadResult(
+      {
+        contentBase64: bytes.toString('base64'),
+        contentDisposition: null,
+        filename: `diagram-${diagramID}${revision ? `-r${revision}` : ''}.png`,
+        mimeType: 'image/png',
+        byteLength: bytes.byteLength,
+      },
+      {
+        inlineBase64Limit: BINARY_DOWNLOAD_INLINE_BASE64_LIMIT,
+        sessionId: reqContext.mcpSessionId,
+        storeLargeDownload: storeBinaryDownload,
+        createDownloadUrl:
+          reqContext.downloadBaseUrl ?
+            (token) =>
+              new URL(`/downloads/${encodeURIComponent(token)}`, reqContext.downloadBaseUrl).toString()
+          : undefined,
+      },
+    );
+    const summary: JsonRecord = {
+      ...downloaded.structuredContent,
+      diagram_id: diagramID,
+      ...defined({ revision, ...pngSize(bytes) }),
+    };
+    const shown = bytes.byteLength <= MAX_INLINE_DIAGRAM_BYTES;
+    const text = [
+      `Sanka diagram ${diagramID}${revision ? ` at revision ${revision}` : ''}: a ${summary['width']}×${
+        summary['height']
+      } px PNG${shown ? ', shown below' : ''}.`,
+      describeDownload(summary),
+      `On a slide, a sankaDiagram block such as ${sankaDiagramBlock(
+        diagramID,
+      )} always shows the latest revision.`,
+    ].join(' ');
+    return {
+      content: [
+        { type: 'text', text },
+        ...(shown ? [{ type: 'image' as const, data: bytes.toString('base64'), mimeType: 'image/png' }] : []),
+      ],
+      structuredContent: { ...summary, next_action: text },
+    };
+  },
+});
+
+export const importPresentationDiagramImageTool = definePresentationTool({
+  name: 'import_presentation_diagram_image',
+  title: 'Import presentation diagram image',
+  description: `Store a saved Sanka diagram's latest image as an image of a presentation and return its asset_id for an image block or image accent. The stored image does not change when the diagram changes; to show the diagram and keep it in sync, use a sankaDiagram block {"type": "sankaDiagram", "diagramId": …, "alt": …} instead. The diagram must be in the same workspace. Needs expected_workspace_id from current_workspace.`,
+  operation: 'write',
+  httpMethod: 'post',
+  httpPath: `${PRESENTATION_PATH}/images/diagram`,
+  inputSchema: IMPORT_DIAGRAM_IMAGE_INPUT_SCHEMA,
+  outputSchema: IMAGE_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const alt = readString(args?.['alt']);
+    await checkWorkspace(reqContext, args);
+    const image = await presentationDocs(reqContext, args).importDiagramImage(
+      readString(args?.['presentation_id']) ?? '',
+      { diagramId: readString(args?.['diagram_id']) ?? '', ...(alt ? { alt } : undefined) },
+      writeOptions(reqContext, args),
+    );
+    return imageResult('Stored', image, args);
   },
 });
 
@@ -1691,6 +1854,8 @@ export const presentationTools: McpTool[] = [
   appendPresentationImageUploadChunkTool,
   finishPresentationImageUploadTool,
   importPresentationImageTool,
+  importPresentationDiagramImageTool,
+  exportDiagramImageTool,
   exportPresentationTool,
   getPresentationExportTool,
   downloadPresentationExportTool,
