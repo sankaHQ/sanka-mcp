@@ -433,6 +433,7 @@ import {
   FerryDiagramSummary,
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
+  MigrationDiagramShape,
 } from './ferry-diagrams';
 import * as FerryProgramsAPI from './ferry-programs';
 import {
@@ -844,6 +845,7 @@ export declare namespace Public {
     type FerryDiagramColor as FerryDiagramColor,
     type FerryDiagramEdgeType as FerryDiagramEdgeType,
     type FerryDiagramCardinality as FerryDiagramCardinality,
+    type MigrationDiagramShape as MigrationDiagramShape,
     type FerryDiagramPosition as FerryDiagramPosition,
     type FerryDiagramViewport as FerryDiagramViewport,
     type FerryDiagramNodeData as FerryDiagramNodeData,

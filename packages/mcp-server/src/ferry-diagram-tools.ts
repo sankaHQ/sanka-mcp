@@ -4,6 +4,7 @@ import type {
   FerryDiagramNode,
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
+  MigrationDiagramShape,
 } from 'sanka-sdk';
 import { asErrorResult, McpTool, ToolCallResult } from './types';
 import { requireAuthentication } from './tool-auth';
@@ -27,12 +28,29 @@ const VIEWPORT_SCHEMA = {
   required: ['x', 'y', 'zoom'],
 };
 
+const NODE_SHAPES: MigrationDiagramShape[] = [
+  'rectangle',
+  'roundedRectangle',
+  'square',
+  'circle',
+  'diamond',
+  'triangle',
+  'invertedTriangle',
+  'oval',
+  'cylinder',
+];
+
+// The editor draws a shape without width and height at these sizes (sanka-react
+// src/lib/migration/diagram-shapes.ts); the API enforces the combinations.
+const SHAPE_GUIDE =
+  'To draw a flowchart shape, set data.shape on a process node, such as diamond for a decision, oval for a start or end, or cylinder for a database; other node types take no shape. Node width and height go together, only on a shaped process node; omit both for the default width x height in px: rectangle and roundedRectangle 224x112, square and circle 160x160, diamond, triangle and invertedTriangle 176x160, oval 224x128, cylinder 192x144.';
+
 const NODE_SCHEMA = {
   type: 'object' as const,
   properties: {
     id: { type: 'string' },
     type: { type: 'string', enum: ['objectTable', 'process', 'note'] },
-    position: POSITION_SCHEMA,
+    position: { ...POSITION_SCHEMA, description: 'Top-left corner of the node in canvas pixels.' },
     data: {
       type: 'object' as const,
       properties: {
@@ -46,9 +64,27 @@ const NODE_SCHEMA = {
           type: 'string',
           enum: ['default', 'brand', 'success', 'warning', 'danger'],
         },
+        shape: {
+          type: ['string', 'null'] as any,
+          enum: [...NODE_SHAPES, null],
+          description:
+            'Draws a process node as this shape, with the label centered inside. Only process nodes take a shape; null or omitted draws the standard process card.',
+        },
       },
       required: ['label'],
       additionalProperties: false,
+    },
+    width: {
+      type: 'number',
+      minimum: 96,
+      maximum: 1600,
+      description: 'Width of a shaped process node in canvas pixels. Send it with height.',
+    },
+    height: {
+      type: 'number',
+      minimum: 64,
+      maximum: 1200,
+      description: 'Height of a shaped process node in canvas pixels. Send it with width.',
     },
   },
   required: ['id', 'type', 'position', 'data'],
@@ -338,7 +374,7 @@ export const createFerryDiagramTool: McpTool = {
   tool: {
     name: 'create_ferry_diagram',
     title: 'Create Sanka diagram',
-    description: 'Create a saved Sanka migration or object-design diagram from nodes and edges.',
+    description: `Create a saved Sanka migration, object-design or flowchart diagram from nodes and edges. ${SHAPE_GUIDE}`,
     inputSchema: CREATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -371,8 +407,7 @@ export const updateFerryDiagramTool: McpTool = {
   tool: {
     name: 'update_ferry_diagram',
     title: 'Update Sanka diagram',
-    description:
-      'Update selected fields of a Sanka diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected.',
+    description: `Update selected fields of a Sanka diagram while preserving unspecified graph fields. Pass the revision returned by get_ferry_diagram; stale revisions are rejected. ${SHAPE_GUIDE}`,
     inputSchema: UPDATE_INPUT_SCHEMA,
     outputSchema: DIAGRAM_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],

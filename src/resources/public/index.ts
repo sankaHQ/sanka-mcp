@@ -365,6 +365,7 @@ export {
   type FerryDiagramColor,
   type FerryDiagramEdgeType,
   type FerryDiagramCardinality,
+  type MigrationDiagramShape,
   type FerryDiagramPosition,
   type FerryDiagramViewport,
   type FerryDiagramNodeData,

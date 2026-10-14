@@ -82,6 +82,16 @@ export type FerryDiagramNodeType = 'objectTable' | 'process' | 'note';
 export type FerryDiagramColor = 'default' | 'brand' | 'success' | 'warning' | 'danger';
 export type FerryDiagramEdgeType = 'default' | 'smoothstep' | 'straight';
 export type FerryDiagramCardinality = 'one' | 'zero_or_one' | 'one_or_many' | 'zero_or_many';
+export type MigrationDiagramShape =
+  | 'rectangle'
+  | 'roundedRectangle'
+  | 'square'
+  | 'circle'
+  | 'diamond'
+  | 'triangle'
+  | 'invertedTriangle'
+  | 'oval'
+  | 'cylinder';
 
 export interface FerryDiagramPosition {
   x: number;
@@ -100,6 +110,8 @@ export interface FerryDiagramNodeData {
   objectKey?: string | null;
   objectSlug?: string | null;
   color?: FerryDiagramColor;
+  /** Only process nodes take a shape. */
+  shape?: MigrationDiagramShape | null;
 }
 
 export interface FerryDiagramNode {
@@ -107,6 +119,9 @@ export interface FerryDiagramNode {
   type: FerryDiagramNodeType;
   position: FerryDiagramPosition;
   data: FerryDiagramNodeData;
+  /** Width and height go together, and only on a shaped process node. */
+  width?: number;
+  height?: number;
 }
 
 export interface FerryDiagramEdge {
@@ -187,6 +202,7 @@ export declare namespace FerryDiagrams {
     type FerryDiagramColor as FerryDiagramColor,
     type FerryDiagramEdgeType as FerryDiagramEdgeType,
     type FerryDiagramCardinality as FerryDiagramCardinality,
+    type MigrationDiagramShape as MigrationDiagramShape,
     type FerryDiagramPosition as FerryDiagramPosition,
     type FerryDiagramViewport as FerryDiagramViewport,
     type FerryDiagramNodeData as FerryDiagramNodeData,

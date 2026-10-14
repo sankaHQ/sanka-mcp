@@ -6,6 +6,9 @@ import {
   listFerryDiagramsTool,
   updateFerryDiagramTool,
 } from '../../packages/mcp-server/src/ferry-diagram-tools';
+import { describeV2Requests } from './crm/helpers';
+
+const DIAGRAMS = 'http://localhost:5000/api/v2/public/ferry/diagrams';
 
 const oauthContext = () => ({
   authMode: 'oauth_bearer' as const,
@@ -36,7 +39,63 @@ const diagram = {
   revision: 4,
 };
 
+// A flowchart as an agent draws it: a decision diamond at its default size and a resized cylinder.
+const flowchartNodes = [
+  { id: 'check', type: 'process', position: { x: 0, y: 0 }, data: { label: 'Approved?', shape: 'diamond' } },
+  {
+    id: 'ledger',
+    type: 'process',
+    position: { x: 320, y: 0 },
+    data: { label: 'Ledger', shape: 'cylinder' },
+    width: 240,
+    height: 180,
+  },
+];
+
+// get_ferry_diagram fills in every data field of a node, with shape null when it has none.
+const storedData = { description: '', fields: [], moduleName: null, objectKey: null, objectSlug: null };
+const storedNodes = [...diagram.nodes, ...flowchartNodes].map((node) => ({
+  ...node,
+  data: { ...storedData, color: 'default', shape: null, ...node.data },
+}));
+
 describe('Ferry diagram MCP tools', () => {
+  describeV2Requests([
+    {
+      name: 'create_ferry_diagram sends shaped and resized process nodes',
+      tool: createFerryDiagramTool,
+      args: { name: 'Approval flow', nodes: flowchartNodes },
+      expectedRequests: [
+        {
+          method: 'POST',
+          url: DIAGRAMS,
+          body: { name: 'Approval flow', nodes: flowchartNodes, edges: [], viewport: diagram.viewport },
+        },
+      ],
+    },
+    {
+      name: 'update_ferry_diagram takes back the nodes get_ferry_diagram returned',
+      tool: updateFerryDiagramTool,
+      args: { diagram_id: 'diagram-1', revision: 4, nodes: storedNodes },
+      response: { ...diagram, nodes: storedNodes },
+      expectedRequests: [
+        { method: 'GET', url: `${DIAGRAMS}/diagram-1` },
+        {
+          method: 'PUT',
+          url: `${DIAGRAMS}/diagram-1`,
+          body: {
+            name: diagram.name,
+            description: diagram.description,
+            nodes: storedNodes,
+            edges: [],
+            viewport: diagram.viewport,
+            revision: 4,
+          },
+        },
+      ],
+    },
+  ]);
+
   it('registers all five tools in the hosted toolset', () => {
     const names = selectTools(undefined, 'hosted').map((tool) => tool.tool.name);
 
