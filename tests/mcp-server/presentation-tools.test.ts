@@ -9,7 +9,9 @@ import {
   finishPresentationImageUploadTool,
   getPresentationCatalogTool,
   getPresentationExportTool,
+  exportDiagramImageTool,
   getPresentationTool,
+  importPresentationDiagramImageTool,
   importPresentationImageTool,
   listPresentationsTool,
   presentationTools,
@@ -711,6 +713,67 @@ const cases: Array<{
     text: [`{"type":"image","assetId":"${ASSET}","alt":"Monthly records chart"}`],
   },
   {
+    name: 'import_presentation_diagram_image stores a Sanka diagram as an image of a Flow deck',
+    tool: importPresentationDiagramImageTool,
+    args: { presentation_id: 'deck-2', diagram_id: 'diagram-1', expected_workspace_id: WS },
+    responses: [session(), envelope({ ...image, alt: 'Billing flow' })],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'POST',
+        url: `${FLOW}/deck-2/images/diagram`,
+        headers: WRITE,
+        body: { diagramId: 'diagram-1' },
+      },
+    ],
+    structuredContent: { asset_id: ASSET, presentation_id: 'deck-2', alt: 'Billing flow' },
+    text: [`{"type":"image","assetId":"${ASSET}","alt":"Billing flow"}`],
+  },
+  {
+    name: 'update_presentation says which diagram id a sankaDiagram block cannot show',
+    tool: updatePresentationTool,
+    args: {
+      presentation_id: 'deck-2',
+      expected_revision: 3,
+      ops: [
+        {
+          op: 'insert_blocks',
+          slideId: 's_title0000001',
+          blocks: [{ type: 'sankaDiagram', diagramId: 'diagram-9' }],
+        },
+      ],
+      expected_workspace_id: WS,
+    },
+    responses: [
+      session(),
+      errorResponse(422, 'PRESENTATION_DIAGRAM_NOT_FOUND', 'Not a diagram of this workspace.', {
+        diagramId: 'diagram-9',
+        path: '/slides/0/blocks/1/diagramId',
+      }),
+    ],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'PATCH',
+        url: `${FLOW}/deck-2`,
+        headers: WRITE,
+        body: {
+          expectedRevision: 3,
+          ops: [
+            {
+              op: 'insert_blocks',
+              slideId: 's_title0000001',
+              blocks: [{ type: 'sankaDiagram', diagramId: 'diagram-9' }],
+            },
+          ],
+        },
+      },
+    ],
+    isError: true,
+    structuredContent: { code: 'PRESENTATION_DIAGRAM_NOT_FOUND' },
+    text: ['/slides/0/blocks/1/diagramId names diagram-9', 'list_ferry_diagrams'],
+  },
+  {
     name: 'import_presentation_image explains a blocked URL',
     tool: importPresentationImageTool,
     args: { presentation_id: 'deck-2', url: 'https://10.0.0.1/chart.png', expected_workspace_id: WS },
@@ -995,6 +1058,14 @@ describe('presentation tools', () => {
         properties: { ...ID, url: 'string', alt: 'string', ...WRITE_INPUT },
         required: ['presentation_id', 'url', 'expected_workspace_id'],
       },
+      import_presentation_diagram_image: {
+        properties: { ...ID, diagram_id: 'string', alt: 'string', ...WRITE_INPUT },
+        required: ['presentation_id', 'diagram_id', 'expected_workspace_id'],
+      },
+      export_ferry_diagram_image: {
+        properties: { diagram_id: 'string' },
+        required: ['diagram_id'],
+      },
       export_presentation: {
         properties: {
           ...ID,
@@ -1140,6 +1211,38 @@ describe('presentation tools', () => {
     });
     const closed = await call(finishPresentationImageUploadTool, unsupported, [session()]);
     expect(firstTextContent(closed.result)).toContain('Upload token was not found');
+  });
+
+  it('export_ferry_diagram_image shows the PNG and hands it over through the download store', async () => {
+    // A 2400 x 1320 PNG header and some body.
+    const png = Buffer.concat([
+      Buffer.from('89504e470d0a1a0a0000000d49484452000009600000052808060000', 'hex'),
+      Buffer.alloc(2048, 1),
+    ]);
+    const { requests, result } = await sendThroughSDK({
+      tool: exportDiagramImageTool,
+      args: { diagram_id: 'diagram-1' },
+      responses: [
+        new Response(png, { headers: { 'Content-Type': 'image/png', 'X-Sanka-Diagram-Revision': '7' } }),
+      ],
+      context: CONTEXT,
+    });
+
+    expect(requests).toEqual([
+      { method: 'GET', url: `${API}/ferry/diagrams/diagram-1/image`, headers: SESSION },
+    ]);
+    expect(result.structuredContent).toMatchObject({
+      diagram_id: 'diagram-1',
+      revision: 7,
+      width: 2400,
+      height: 1320,
+      mime_type: 'image/png',
+      byte_length: png.byteLength,
+    });
+    expect(result.content.filter((block) => block.type === 'image')).toEqual([
+      { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
+    ]);
+    expect(firstTextContent(result)).toContain('"type":"sankaDiagram","diagramId":"diagram-1"');
   });
 
   it('download_presentation_export passes the file through the session-bound download store', async () => {

@@ -3513,6 +3513,26 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     response: 'Response',
   },
   {
+    qualified: 'client.public.presentations.importDiagramImage',
+    name: 'import_diagram_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/documents/presentations/{presentationID}/images/diagram',
+    summary:
+      "Store a Sanka diagram's latest image as an image of the presentation, for ordinary image blocks and accents (a `sankaDiagram` block instead follows the diagram's edits).",
+    description:
+      "Store a Sanka diagram's latest image as an image of the presentation, for ordinary image blocks and accents (a `sankaDiagram` block instead follows the diagram's edits).",
+    signature:
+      'client.public.presentations.importDiagramImage(presentationID: string, params: PresentationImportDiagramImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'presentationID: string;',
+      'diagramId: string;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
+  },
+  {
     qualified: 'client.public.presentations.importImage',
     name: 'import_image',
     httpMethod: 'post',
@@ -3737,6 +3757,25 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'workspace_id?: string | null;',
     ],
     response: 'Response',
+  },
+  {
+    qualified: 'client.public.programPresentations.importDiagramImage',
+    name: 'import_diagram_image',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/ferry/programs/{programID}/presentations/{presentationID}/images/diagram',
+    summary: "Store a Sanka diagram's latest image as an image of a Sanka program presentation.",
+    description: "Store a Sanka diagram's latest image as an image of a Sanka program presentation.",
+    signature:
+      'client.public.programPresentations.importDiagramImage(programID: string, presentationID: string, params: PresentationImportDiagramImageParams, options?: RequestOptions): APIPromise<PresentationImage>',
+    params: [
+      'programID: string;',
+      'presentationID: string;',
+      'diagramId: string;',
+      'alt?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ assetId: string; contentType: string; sizeBytes: number; width: number; height: number; alt?: string | null; }',
   },
   {
     qualified: 'client.public.programPresentations.importImage',

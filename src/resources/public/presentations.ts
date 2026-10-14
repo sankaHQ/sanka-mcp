@@ -248,6 +248,13 @@ export interface PresentationImportImageParams extends PresentationWorkspacePara
   alt?: string | null;
 }
 
+export interface PresentationImportDiagramImageParams extends PresentationWorkspaceParams {
+  /** Body param: a Sanka diagram of the same workspace; its latest revision is stored. */
+  diagramId: string;
+  /** Body param: defaults to the diagram's name. */
+  alt?: string | null;
+}
+
 export interface PresentationPreviewParams extends PresentationWorkspaceParams {
   /** Body param: slides to preview (up to 12); omit for the first 12 visible slides. */
   slideIds?: Array<string> | null;
@@ -349,6 +356,20 @@ const presentationRequests = (client: Sanka, base: string) => {
       const { workspace_id, ...body } = params;
       return unwrapV2DataPromise(
         client.v2Post<PresentationImage>(`${item(presentationID)}/images/import`, {
+          query: compactQuery({ workspace_id }),
+          body: compactBody(body),
+          ...options,
+        }),
+      );
+    },
+    importDiagramImage: (
+      presentationID: string,
+      params: PresentationImportDiagramImageParams,
+      options?: RequestOptions,
+    ) => {
+      const { workspace_id, ...body } = params;
+      return unwrapV2DataPromise(
+        client.v2Post<PresentationImage>(`${item(presentationID)}/images/diagram`, {
           query: compactQuery({ workspace_id }),
           body: compactBody(body),
           ...options,
@@ -524,6 +545,22 @@ export class Presentations extends APIResource {
   }
 
   /**
+   * Store a Sanka diagram's latest image as an image of the presentation, for ordinary image blocks
+   * and accents (a `sankaDiagram` block instead follows the diagram's edits).
+   */
+  importDiagramImage(
+    presentationID: string,
+    params: PresentationImportDiagramImageParams,
+    options?: RequestOptions,
+  ): APIPromise<PresentationImage> {
+    return presentationRequests(this._client, FLOW_PRESENTATIONS).importDiagramImage(
+      presentationID,
+      params,
+      options,
+    );
+  }
+
+  /**
    * Render slide images (base64) with each slide's fit; an overflow means the content did not fit.
    */
   preview(
@@ -686,6 +723,18 @@ export class ProgramPresentations extends APIResource {
     options?: RequestOptions,
   ): APIPromise<PresentationImage> {
     return programRequests(this._client, programID).importImage(presentationID, params, options);
+  }
+
+  /**
+   * Store a Sanka diagram's latest image as an image of a Sanka program presentation.
+   */
+  importDiagramImage(
+    programID: string,
+    presentationID: string,
+    params: PresentationImportDiagramImageParams,
+    options?: RequestOptions,
+  ): APIPromise<PresentationImage> {
+    return programRequests(this._client, programID).importDiagramImage(presentationID, params, options);
   }
 
   /**
