@@ -13,6 +13,7 @@ export type {
   FerryDiagramUpdateParams,
   FerryDiagramViewport,
   MigrationDiagramShape,
+  MigrationDiagramStrokeStyle,
 } from './resources/public/ferry-diagrams';
 export type {
   FerryProgramDocCreateParams,
