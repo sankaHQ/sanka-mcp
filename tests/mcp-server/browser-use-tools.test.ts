@@ -159,6 +159,22 @@ describe('browser_use MCP tool', () => {
     });
   });
 
+  it.each([true, false])('blocks hosted shared-profile dispatch (dry_run=%s)', async (dryRun) => {
+    process.env['SANKA_BROWSER_USE_WORKER_URL'] = 'https://browser-worker.internal/run';
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ status: 'completed' }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const result = await browserUseTool.handler({
+      reqContext: { client: {} as any, auth: oauthContext(), toolProfile: 'hosted' },
+      args: hubSpotAvatarArgs({ dry_run: dryRun, confirm: true, workspace_id: 'other-workspace' }),
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content[0]).toMatchObject({ text: expect.stringContaining('local') });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('dispatches validated workflow payloads to the configured browser worker', async () => {
     process.env['SANKA_BROWSER_USE_WORKER_URL'] = 'https://browser-worker.internal/run';
     process.env['SANKA_BROWSER_USE_WORKER_TOKEN'] = 'worker-token';

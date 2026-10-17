@@ -241,7 +241,15 @@ const writeCachedMcpSessionToken = ({
   workspace_id?: string | undefined;
   workspace_name?: string | undefined;
 }): void => {
+  const now = Date.now();
+  for (const [key, entry] of mcpSessionTokenCache) {
+    if (entry.expiresAt <= now) mcpSessionTokenCache.delete(key);
+  }
   const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
+  if (!mcpSessionTokenCache.has(cacheKey) && mcpSessionTokenCache.size >= 1000) {
+    const oldestKey = mcpSessionTokenCache.keys().next().value;
+    if (oldestKey !== undefined) mcpSessionTokenCache.delete(oldestKey);
+  }
   mcpSessionTokenCache.set(cacheKey, {
     accessToken,
     scopes,

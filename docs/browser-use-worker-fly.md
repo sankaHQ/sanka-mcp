@@ -2,7 +2,9 @@
 
 The `browser_use` MCP tool delegates registered browser workflows to a separate worker. The MCP server owns OAuth, audit metadata, workflow allowlisting, and confirmation gates. The worker owns persistent browser profiles and third-party UI automation.
 
-## Production Shape
+Hosted HTTP MCP requests cannot dispatch to this shared-profile worker. A Sanka workspace ID supplied by a caller does not authorize access to a persistent HubSpot session. Use a trusted local (`full` profile) MCP server with an operator-owned worker; hosted dispatch requires a future server-verified workspace/profile ownership contract. An unconfigured hosted worker still returns a dry-run plan.
+
+## Worker Shape
 
 - MCP app: `sanka-mcp`
 - Worker app: `sanka-browser-use-worker`
@@ -11,7 +13,7 @@ The `browser_use` MCP tool delegates registered browser workflows to a separate 
 - Profile root: `/data/browser-use/profiles`
 - Artifact root: `/data/browser-use/artifacts`
 
-Keep the worker token shared only between `sanka-mcp` and `sanka-browser-use-worker`.
+Keep the worker token shared only between the trusted local MCP server and `sanka-browser-use-worker`. `/run` returns 503 while no token is configured; `/health` remains available.
 
 ## First Deploy
 

@@ -197,6 +197,24 @@ describe('browser_use worker', () => {
     }
   });
 
+  it('refuses browser execution when the worker secret is missing', async () => {
+    const driver = new FakeBrowserDriver();
+    const { baseUrl, server } = await listen(
+      createBrowserUseWorkerApp({ config: await testConfig(), driver }),
+    );
+    try {
+      const response = await fetch(`${baseUrl}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hubSpotAvatarPayload()),
+      });
+      expect(response.status).toBe(503);
+      expect(driver.openedURLs).toEqual([]);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('requires the configured bearer token for run requests', async () => {
     const config = await testConfig({ workerToken: 'worker-secret' });
     const { baseUrl, server } = await listen(
