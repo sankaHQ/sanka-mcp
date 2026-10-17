@@ -5,6 +5,7 @@ export const BINARY_DOWNLOAD_CHUNK_BASE64_LENGTH = 24_000;
 
 const DOWNLOAD_TTL_MS = 15 * 60 * 1000;
 const MAX_DOWNLOADS = 100;
+const MAX_DOWNLOAD_BASE64_LENGTH = 64 * 1024 * 1024;
 
 type BinaryDownloadEntry = {
   contentBase64: string;
@@ -73,6 +74,14 @@ export type ReadBinaryDownloadFileResult =
 
 const downloads = new Map<string, BinaryDownloadEntry>();
 
+const retainedSize = (
+  entry: Pick<BinaryDownloadEntry, 'contentBase64' | 'filename' | 'mimeType' | 'contentDisposition'>,
+): number =>
+  entry.contentBase64.length +
+  entry.filename.length +
+  entry.mimeType.length +
+  (entry.contentDisposition?.length ?? 0);
+
 const nowMs = (): number => Date.now();
 
 const cleanupDownloads = (now = nowMs()): void => {
@@ -80,14 +89,6 @@ const cleanupDownloads = (now = nowMs()): void => {
     if (entry.expiresAt <= now) {
       downloads.delete(downloadToken);
     }
-  }
-
-  while (downloads.size > MAX_DOWNLOADS) {
-    const oldestToken = downloads.keys().next().value as string | undefined;
-    if (!oldestToken) {
-      return;
-    }
-    downloads.delete(oldestToken);
   }
 };
 
@@ -103,6 +104,12 @@ const normalizeChunkSize = (chunkSize?: number): number => {
 export const storeBinaryDownload = (input: StoreBinaryDownloadInput): StoredBinaryDownloadReference => {
   const now = nowMs();
   cleanupDownloads(now);
+
+  // Reject admission instead of invalidating another session's active token.
+  const retainedLength = [...downloads.values()].reduce((total, entry) => total + retainedSize(entry), 0);
+  if (downloads.size >= MAX_DOWNLOADS || retainedLength + retainedSize(input) > MAX_DOWNLOAD_BASE64_LENGTH) {
+    throw new Error('Binary download capacity is full. Retry after existing downloads expire.');
+  }
 
   const downloadToken = randomUUID();
   const expiresAt = now + DOWNLOAD_TTL_MS;

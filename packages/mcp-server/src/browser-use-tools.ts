@@ -500,6 +500,14 @@ export const browserUseTool: McpTool = {
       };
     }
 
+    // HTTP always selects hosted server-side. A caller-selected workspace/profile
+    // is metadata, not proof of access to a shared worker's authenticated browser.
+    if (reqContext.toolProfile !== 'full') {
+      return errorResult(
+        'Browser worker dispatch is available only through a trusted local MCP server until shared browser profiles have server-verified ownership.',
+      );
+    }
+
     const payload: BrowserUseWorkerPayload = {
       workflow: workflowValue,
       driver: driverValue,

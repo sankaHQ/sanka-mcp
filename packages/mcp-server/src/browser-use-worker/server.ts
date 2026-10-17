@@ -243,6 +243,13 @@ export const createBrowserUseWorkerApp = ({
   });
 
   app.post('/run', async (req: express.Request, res: express.Response) => {
+    if (!resolvedConfig.workerToken) {
+      res.status(503).json({
+        error: 'worker_not_configured',
+        message: 'Configure a browser worker bearer token before running workflows.',
+      });
+      return;
+    }
     if (resolvedConfig.workerToken) {
       const token = bearerToken(req);
       if (!token || !timingSafeEqualString(token, resolvedConfig.workerToken)) {

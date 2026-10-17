@@ -177,16 +177,42 @@ export async function asBinaryDownloadResult(
   fallbackFilename = 'download',
   options?: BinaryDownloadOptions,
 ): Promise<ToolCallResult> {
-  const blob = await response.blob();
-  const arrayBuffer = await blob.arrayBuffer();
+  // Enforce the actual stream length as well as Content-Length; the API may
+  // return a chunked file or an inaccurate length. Never retain an oversized body.
+  const limit = 32 * 1024 * 1024;
+  const declaredLength = Number(response.headers.get('content-length'));
+  if (declaredLength > limit) {
+    await response.body?.cancel();
+    throw new Error('Binary download exceeds the 32 MiB transfer limit.');
+  }
+  const reader = response.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  if (reader) {
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > limit) {
+          await reader.cancel();
+          throw new Error('Binary download exceeds the 32 MiB transfer limit.');
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  const buffer = Buffer.concat(chunks, length);
   const contentDisposition = response.headers.get('content-disposition');
   return binaryDownloadResult(
     {
-      contentBase64: Buffer.from(arrayBuffer).toString('base64'),
+      contentBase64: buffer.toString('base64'),
       contentDisposition,
       filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
-      mimeType: blob.type || response.headers.get('content-type') || 'application/octet-stream',
-      byteLength: arrayBuffer.byteLength,
+      mimeType: response.headers.get('content-type') || 'application/octet-stream',
+      byteLength: length,
     },
     options,
   );
