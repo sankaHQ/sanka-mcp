@@ -1,11 +1,52 @@
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-10-18.presentations.v4';
+const CAPABILITY_GUIDANCE_VERSION = '2026-10-19.directory-accounts.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
 const PRESENTATION_INTENT_JA = ['スライド', 'プレゼン', 'パワーポイント', 'パワポ'];
+
+// Google Workspace and Microsoft 365 account steps for IT onboarding and offboarding.
+const DIRECTORY_STEP_TERMS = [
+  'offboarding',
+  'off-boarding',
+  'deprovision',
+  'user provisioning',
+  'identity provisioning',
+  'directory account',
+  'directory-account',
+  'directory-groups',
+  'directory-licenses',
+  'identity_directory',
+  'オフボーディング',
+];
+const DIRECTORY_PROVIDER_TERMS = [
+  'google workspace',
+  'g suite',
+  'microsoft 365',
+  'office 365',
+  'm365',
+  'entra id',
+  'azure ad',
+];
+const DIRECTORY_ACCOUNT_TERMS = [
+  'account',
+  'licen',
+  'group',
+  'provision',
+  'suspend',
+  'onboarding',
+  'アカウント',
+  'ライセンス',
+  'グループ',
+  '入社',
+  '退職',
+  '退社',
+];
+// Alone, onboarding can mean a customer or a new Sanka workspace, and 退職 can mean payroll.
+const EMPLOYEE_LIFECYCLE_TERMS = ['onboarding', 'オンボーディング', '入社', '退職', '退社'];
+const EMPLOYEE_ACCOUNT_TERMS = ['employee', 'staff', 'it onboarding', 'アカウント'];
 
 const WORKFLOW_HINT_MIN_LENGTH = 4;
 
@@ -58,6 +99,11 @@ const GUIDANCE_INPUT_SCHEMA = {
 const readString = (value: unknown): string => String(value ?? '').trim();
 
 const includesAny = (value: string, terms: string[]): boolean => terms.some((term) => value.includes(term));
+
+const isDirectoryAccountIntent = (value: string): boolean =>
+  includesAny(value, DIRECTORY_STEP_TERMS) ||
+  (includesAny(value, DIRECTORY_PROVIDER_TERMS) && includesAny(value, DIRECTORY_ACCOUNT_TERMS)) ||
+  (includesAny(value, EMPLOYEE_LIFECYCLE_TERMS) && includesAny(value, EMPLOYEE_ACCOUNT_TERMS));
 
 /**
  * Selects the workflow rules that mention any of the request hints. The rules used to be embedded
@@ -174,6 +220,21 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'Pin the internal workspace UUID on every call. Establish user authorization from the conversation; confirm=true is an acknowledgement, not proof of approval. Preserve exact reviewed plan/config hashes and tool-specific idempotency rules. Program POST/PATCH and code-artifact writes have no idempotency contract. Never replay an uncertain state change automatically; inspect state first. Supplied Program endpoint arrays replace that side, and read Program options and options_redacted before replacement; never discard redacted configuration. Queued status or Program completed metadata is not verified transfer evidence; inspect each verification check.',
       fallback_when_missing:
         'If a recommended tool is unavailable, refresh/reconnect the Sanka MCP/plugin. Do not invent an endpoint or substitute local scripts for hosted Sanka operations.',
+    };
+  }
+  // After the migration branch: moving accounts between tenants is a migration.
+  if (isDirectoryAccountIntent(combined)) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'directory_account_workflows',
+      supported: true,
+      recommended_tools: ['create_workflow', 'update_workflow'],
+      route:
+        "Build a Sanka workflow (provider=sanka) with an approval step first, then create-directory-account for onboarding or suspend-directory-account for offboarding; update-directory-groups and update-directory-licenses change an existing account. Node settings go in input_data.identity_directory as workflow_guidance describes. Remove licenses only after the user confirms the person's files are handed over; Sanka does not hand over Drive or OneDrive files yet. Use the provisioning connection, group and license IDs the user gives, or ask a workspace admin to pick them in the Sanka workflow builder. Runs start from the employee's record in Sanka; run_workflow cannot pass an employee.",
+      mutation_policy:
+        'Set confirmed: true on a suspend, remove_all or license removal step only after the user explicitly confirms that exact change. The steps need a user-provisioning connection, a workspace admin and a workspace in the pilot; saving does not check these, and the run fails closed. Deleting accounts is not offered.',
+      fallback_when_missing:
+        'If create_workflow or update_workflow is not visible in this client session, say the Sanka Skill or MCP tool catalog may be stale and ask the user to update/reconnect the Sanka plugin or start a fresh session.',
     };
   }
   const appBuilderProductTerms = [
