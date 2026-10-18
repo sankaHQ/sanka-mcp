@@ -1201,7 +1201,7 @@ export interface paths {
     };
     /**
      * Get Public Presentation Catalog
-     * @description Layouts, blocks with JSON Schemas and limits, themes, icons and authoring guidance.
+     * @description Layouts, blocks with JSON Schemas and limits, themes, icons, guidance and features.
      */
     get: operations['get_public_presentation_catalog'];
     put?: never;
@@ -1298,6 +1298,27 @@ export interface paths {
      * @description Fetch a public https:// image into the presentation (metadata stripped).
      */
     post: operations['import_public_program_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/ferry/programs/{program_id}/presentations/{presentation_id}/images/diagram': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Public Program Presentation Diagram Image
+     * @description Store a Sanka diagram's latest image as an image of the presentation, for an image block
+     *     or accent. It stays as it is when the diagram changes; a `sankaDiagram` block follows it.
+     */
+    post: operations['import_public_program_presentation_diagram_image'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1484,6 +1505,27 @@ export interface paths {
      * @description Fetch a public https:// image into the presentation (metadata stripped).
      */
     post: operations['import_public_presentation_image'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v2/public/documents/presentations/{presentation_id}/images/diagram': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Public Flow Presentation Diagram Image
+     * @description Store a Sanka diagram's latest image as an image of the presentation, for an image block
+     *     or accent. It stays as it is when the diagram changes; a `sankaDiagram` block follows it.
+     */
+    post: operations['import_public_presentation_diagram_image'];
     delete?: never;
     options?: never;
     head?: never;
@@ -6260,6 +6302,12 @@ export interface components {
       data: components['schemas']['PresentationExportData'];
       meta: components['schemas']['EnvelopeMeta'];
     };
+    ImportPublicPresentationDiagramImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
     GetPublicProjectApiV2PublicProjectsProjectIdGet200Envelope: {
       /** @constant */
       success: true;
@@ -6494,6 +6542,12 @@ export interface components {
       workflow_language?: string | null;
     };
     ImportPublicPresentationImage201Envelope: {
+      /** @constant */
+      success: true;
+      data: components['schemas']['PresentationImageData'];
+      meta: components['schemas']['EnvelopeMeta'];
+    };
+    ImportPublicProgramPresentationDiagramImage201Envelope: {
       /** @constant */
       success: true;
       data: components['schemas']['PresentationImageData'];
@@ -7596,13 +7650,26 @@ export interface components {
       /** Sourceref */
       sourceRef?: string | null;
     };
+    /** PresentationDiagramImageRequest */
+    PresentationDiagramImageRequest: {
+      /**
+       * Diagramid
+       * @description A Sanka diagram in the same workspace; its latest revision is stored.
+       */
+      diagramId: string;
+      /**
+       * Alt
+       * @description Defaults to the diagram's name.
+       */
+      alt?: string | null;
+    };
     /** PresentationExportRequest */
     PresentationExportRequest: {
       /**
        * Format
        * @enum {string}
        */
-      format: 'pptx' | 'pdf';
+      format: 'pptx' | 'pdf' | 'google_slides';
       /** Slideids */
       slideIds?: string[] | null;
       /**
@@ -7642,6 +7709,8 @@ export interface components {
         | components['schemas']['ReplaceBlockOp']
         | components['schemas']['DeleteBlocksOp']
         | components['schemas']['MoveBlockOp']
+        | components['schemas']['SetSlidePositioningOp']
+        | components['schemas']['SetPageSizeOp']
         | components['schemas']['SetThemeOp']
         | components['schemas']['SetTitleOp']
         | components['schemas']['SetFooterOp']
@@ -9503,7 +9572,7 @@ export interface components {
        * Format
        * @enum {string}
        */
-      format: 'pptx' | 'pdf';
+      format: 'pptx' | 'pdf' | 'google_slides';
       /**
        * Status
        * @enum {string}
@@ -9526,6 +9595,8 @@ export interface components {
       errorCode?: string | null;
       /** Errormessage */
       errorMessage?: string | null;
+      /** Googleslidesurl */
+      googleSlidesUrl?: string | null;
       /**
        * Downloadpath
        * @description App-relative download route; present once the export completed.
@@ -10392,6 +10463,11 @@ export interface components {
     PresentationCatalogData: {
       /** Schemaversions */
       schemaVersions: string[];
+      /**
+       * Features
+       * @description Optional capabilities this workspace may use, e.g. `freeform`.
+       */
+      features?: string[];
       /** Pagesizes */
       pageSizes: {
         [key: string]: unknown;
@@ -10429,6 +10505,13 @@ export interface components {
       };
       /** Example */
       example: {
+        [key: string]: unknown;
+      };
+      /**
+       * Freeform
+       * @description Free placement (`positioning: free` slides): units, safe areas, grid, minimum and default frames, text sizes, shape tones and guidance.
+       */
+      freeform?: {
         [key: string]: unknown;
       };
     };
@@ -11003,9 +11086,16 @@ export interface components {
       parent?: components['schemas']['BlockParent'] | null;
       /**
        * After
-       * @description Block to move after; null moves first; omit to move last.
+       * @description Block to move after; null moves first; omit to move last. On a free slide the order is the stacking order (bottom first).
        */
       after?: string | null;
+      /**
+       * Frame
+       * @description Where the block goes on a free target slide (required when it moves to another free slide; a line keeps its endpoints). Not allowed for a flow target.
+       */
+      frame?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** MoveSlidesOp */
     MoveSlidesOp: {
@@ -11063,6 +11153,50 @@ export interface components {
       footer: {
         [key: string]: unknown;
       };
+    };
+    /** SetPageSizeOp */
+    SetPageSizeOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'set_page_size';
+      /**
+       * Size
+       * @description Free slides scale uniformly about the stage centre to fit the new size.
+       * @enum {string}
+       */
+      size: '16:9' | 'a4-landscape';
+    };
+    /** SetSlidePositioningOp */
+    SetSlidePositioningOp: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: 'set_slide_positioning';
+      /** Slideid */
+      slideId: string;
+      /**
+       * Positioning
+       * @enum {string}
+       */
+      positioning: 'flow' | 'free';
+      /**
+       * Frames
+       * @description To free: a frame per block ID (blocks in columns become top-level boxes; sizing defaults to fixed). Omit to keep every block where the renderer draws it now.
+       */
+      frames?: {
+        [key: string]: {
+          [key: string]: unknown;
+        };
+      } | null;
+      /**
+       * Dropshapesandlines
+       * @description To flow: delete the slide's shape and line blocks, which a stack cannot hold.
+       * @default false
+       */
+      dropShapesAndLines: boolean;
     };
     /** SetThemeOp */
     SetThemeOp: {
@@ -12486,6 +12620,13 @@ export interface components {
       /** Id */
       id?: string | null;
       /**
+       * Positioning
+       * @description `flow` stacks blocks in the layout's body; `free` places every top-level block in its `frame` (array order is stacking order, bottom first).
+       * @default flow
+       * @enum {string}
+       */
+      positioning: 'flow' | 'free';
+      /**
        * Layout
        * @default none
        * @enum {string}
@@ -12524,8 +12665,11 @@ export interface components {
         | components['schemas']['QuoteBlock']
         | components['schemas']['CalloutBlock']
         | components['schemas']['DiagramBlock']
+        | components['schemas']['SankaDiagramBlock']
         | components['schemas']['DividerBlock']
         | components['schemas']['ColumnsBlock']
+        | components['schemas']['ShapeBlock']
+        | components['schemas']['LineBlock']
       )[];
       /**
        * Notes
@@ -12691,6 +12835,11 @@ export interface components {
       scale: number;
       /** @description Set when content does not fit even at the theme's minimum. */
       overflow?: components['schemas']['PresentationFitOverflow'] | null;
+      /**
+       * Frames
+       * @description Free slides: each box's own fit scale and overflow.
+       */
+      frames?: components['schemas']['PresentationFrameFit'][] | null;
     };
     /** CalloutBlock */
     CalloutBlock: {
@@ -12709,6 +12858,12 @@ export interface components {
       tone: 'note' | 'takeaway' | 'warning';
       /** Markdown */
       markdown: string;
+      /**
+       * Fontsize
+       * @description Main text size in stage px (free slides only); 1 px = 0.75 pt.
+       */
+      fontSize?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** CardsBlock */
     CardsBlock: {
@@ -12725,6 +12880,12 @@ export interface components {
       columns?: ('auto' | 2 | 3 | 4) | null;
       /** Style */
       style?: ('outline' | 'filled' | 'plain') | null;
+      /**
+       * Textscale
+       * @description Multiplier on the block's whole type scale (free slides only).
+       */
+      textScale?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /**
      * ColumnsBlock
@@ -12759,6 +12920,7 @@ export interface components {
       alt: string;
       /** Caption */
       caption?: string | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** DividerBlock */
     DividerBlock: {
@@ -12769,6 +12931,7 @@ export interface components {
       type: 'divider';
       /** Id */
       id?: string | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** HeadingBlock */
     HeadingBlock: {
@@ -12789,6 +12952,12 @@ export interface components {
       text: string;
       /** Kicker */
       kicker?: string | null;
+      /**
+       * Fontsize
+       * @description Main text size in stage px (free slides only); 1 px = 0.75 pt.
+       */
+      fontSize?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** ImageAccent */
     ImageAccent: {
@@ -12837,6 +13006,27 @@ export interface components {
       aspect?: ('auto' | '16:9' | '4:3' | '1:1' | '3:4') | null;
       /** Rounded */
       rounded?: boolean | null;
+      frame?: components['schemas']['Frame'] | null;
+    };
+    /**
+     * LineBlock
+     * @description A straight line or arrow between two stage points (free slides only).
+     */
+    LineBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'line';
+      /** Id */
+      id?: string | null;
+      from: components['schemas']['Point'];
+      to: components['schemas']['Point'];
+      stroke: components['schemas']['StrokeStyle'];
+      /** Startarrow */
+      startArrow?: boolean | null;
+      /** Endarrow */
+      endArrow?: boolean | null;
     };
     /** QuoteBlock */
     QuoteBlock: {
@@ -12851,6 +13041,84 @@ export interface components {
       text: string;
       /** Attribution */
       attribution?: string | null;
+      /**
+       * Fontsize
+       * @description Main text size in stage px (free slides only); 1 px = 0.75 pt.
+       */
+      fontSize?: number | null;
+      frame?: components['schemas']['Frame'] | null;
+    };
+    /**
+     * SankaDiagramBlock
+     * @description A saved Sanka diagram. Every view shows its latest revision as an image, so edits to
+     *     the diagram appear in the deck, its slideshow, share links and new exports.
+     */
+    SankaDiagramBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'sankaDiagram';
+      /** Id */
+      id?: string | null;
+      /**
+       * Diagramid
+       * @description ID of a Sanka diagram in the same workspace.
+       */
+      diagramId: string;
+      /**
+       * Alt
+       * @default
+       */
+      alt: string;
+      /** Caption */
+      caption?: string | null;
+      /**
+       * Fit
+       * @description How the image fills its box; `contain` (the default) or `cover`.
+       */
+      fit?: ('contain' | 'cover') | null;
+      frame?: components['schemas']['Frame'] | null;
+    };
+    /**
+     * ShapeBlock
+     * @description A filled theme-colored shape with optional text (free slides only).
+     */
+    ShapeBlock: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'shape';
+      /** Id */
+      id?: string | null;
+      /**
+       * Shape
+       * @enum {string}
+       */
+      shape: 'rect' | 'roundRect' | 'ellipse' | 'triangle' | 'rightArrow';
+      /**
+       * Fill
+       * @description Theme tone; defaults to accent-soft.
+       */
+      fill?: ('accent' | 'accent-soft' | 'surface' | 'inverse' | 'background' | 'none') | null;
+      stroke?: components['schemas']['StrokeStyle'] | null;
+      /**
+       * Text
+       * @description Slide Markdown (block subset).
+       */
+      text?: string | null;
+      /**
+       * Textalign
+       * @description Defaults to center.
+       */
+      textAlign?: ('start' | 'center' | 'end') | null;
+      /**
+       * Fontsize
+       * @description Main text size in stage px (free slides only); 1 px = 0.75 pt.
+       */
+      fontSize?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** SlideAlign */
     SlideAlign: {
@@ -12878,6 +13146,12 @@ export interface components {
       id?: string | null;
       /** Items */
       items: components['schemas']['StatItem'][];
+      /**
+       * Textscale
+       * @description Multiplier on the block's whole type scale (free slides only).
+       */
+      textScale?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** StepsBlock */
     StepsBlock: {
@@ -12892,6 +13166,12 @@ export interface components {
       items: components['schemas']['StepItem'][];
       /** Direction */
       direction?: ('horizontal' | 'vertical') | null;
+      /**
+       * Textscale
+       * @description Multiplier on the block's whole type scale (free slides only).
+       */
+      textScale?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** TableBlock */
     TableBlock: {
@@ -12913,6 +13193,12 @@ export interface components {
       rows: string[][];
       /** Emphasizefirstcolumn */
       emphasizeFirstColumn?: boolean | null;
+      /**
+       * Textscale
+       * @description Multiplier on the block's whole type scale (free slides only).
+       */
+      textScale?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** TextBlock */
     TextBlock: {
@@ -12929,6 +13215,12 @@ export interface components {
       size?: ('s' | 'm' | 'l') | null;
       /** Tone */
       tone?: ('default' | 'muted') | null;
+      /**
+       * Fontsize
+       * @description Main text size in stage px (free slides only); 1 px = 0.75 pt.
+       */
+      fontSize?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** TimelineBlock */
     TimelineBlock: {
@@ -12943,6 +13235,12 @@ export interface components {
       items: components['schemas']['TimelineItem'][];
       /** Direction */
       direction?: ('horizontal' | 'vertical') | null;
+      /**
+       * Textscale
+       * @description Multiplier on the block's whole type scale (free slides only).
+       */
+      textScale?: number | null;
+      frame?: components['schemas']['Frame'] | null;
     };
     /** ToneAccent */
     ToneAccent: {
@@ -12966,6 +13264,59 @@ export interface components {
        * @default 0
        */
       overflowPx: number;
+    };
+    /** PresentationFrameFit */
+    PresentationFrameFit: {
+      /** Blockid */
+      blockId: string;
+      /**
+       * Scale
+       * @default 1
+       */
+      scale: number;
+      /**
+       * Overflowpx
+       * @default 0
+       */
+      overflowPx: number;
+    };
+    /**
+     * Frame
+     * @description Where a block sits on a free slide, in stage px of the deck's page size.
+     */
+    Frame: {
+      /**
+       * X
+       * @description Left edge of the unrotated box.
+       */
+      x: number;
+      /**
+       * Y
+       * @description Top edge of the unrotated box.
+       */
+      y: number;
+      /** W */
+      w: number;
+      /**
+       * H
+       * @description Box height; for `sizing: auto` the last measured height.
+       */
+      h: number;
+      /**
+       * Sizing
+       * @description `fixed`: the box is `h` tall and its content shrinks to fit. `auto`: the box grows with its content (text-bearing blocks only). Defaults to auto for text-bearing blocks and fixed for the others.
+       */
+      sizing?: ('fixed' | 'auto') | null;
+      /**
+       * Anchor
+       * @description Where content sits in a fixed box; top (middle for shapes).
+       */
+      anchor?: ('top' | 'middle' | 'bottom') | null;
+      /**
+       * Rotation
+       * @description Clockwise degrees about the box centre; not on tables.
+       */
+      rotation?: number | null;
     };
     /** CardItem */
     CardItem: {
@@ -12998,6 +13349,7 @@ export interface components {
         | components['schemas']['QuoteBlock']
         | components['schemas']['CalloutBlock']
         | components['schemas']['DiagramBlock']
+        | components['schemas']['SankaDiagramBlock']
         | components['schemas']['DividerBlock']
       )[];
     };
@@ -13007,6 +13359,28 @@ export interface components {
       x: number;
       /** Y */
       y: number;
+    };
+    /** Point */
+    Point: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** StrokeStyle */
+    StrokeStyle: {
+      /**
+       * Tone
+       * @enum {string}
+       */
+      tone: 'border' | 'line' | 'accent' | 'text' | 'none';
+      /**
+       * Width
+       * @default 1
+       */
+      width: number;
+      /** Dash */
+      dash?: ('solid' | 'dash' | 'dot') | null;
     };
     /** StatItem */
     StatItem: {
@@ -16771,8 +17145,12 @@ export interface operations {
   };
   get_public_presentation_catalog: {
     parameters: {
-      query?: never;
-      header?: never;
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
       path?: never;
       cookie?: never;
     };
@@ -17027,6 +17405,41 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ImportPublicProgramPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  import_public_program_presentation_diagram_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        program_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationDiagramImageRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportPublicProgramPresentationDiagramImage201Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];
@@ -17427,6 +17840,40 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ImportPublicPresentationImage201Envelope'];
+        };
+      };
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      422: components['responses']['ErrorResponse'];
+    };
+  };
+  import_public_presentation_diagram_image: {
+    parameters: {
+      query?: {
+        workspace_id?: string | null;
+      };
+      header?: {
+        'X-Workspace-Code'?: components['parameters']['XWorkspaceCode'];
+      };
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PresentationDiagramImageRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          'x-ctx-id': components['headers']['XCtxId'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportPublicPresentationDiagramImage201Envelope'];
         };
       };
       401: components['responses']['ErrorResponse'];

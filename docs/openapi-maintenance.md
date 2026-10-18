@@ -82,3 +82,9 @@ and kept only the `/v2/public/presentations/catalog`,
 and the schemas they reference. Large generated insertions confuse git's default
 diff heuristic; review them with `git diff --minimal` (or `--histogram`), which
 shows a refresh like this one as additions only.
+The 2026-10-18 presentations refresh (free placement, `sankaDiagram` blocks in
+columns, Google Slides export and the `images/diagram` import routes) generated
+types from the contract restricted to the presentation paths and the components
+they reference, then replaced or inserted only those paths, operations and
+schemas in the snapshot; the 73 presentation schemas that had not changed came
+out byte-identical.
