@@ -49,6 +49,12 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
 - `update_presentation` takes `ops` (PATCH, with a new `title` appended as a `set_title` op) or
   `deck` (PUT, with `title`), never both; a `title` alone is one `set_title` op, and a call
   without any of them sends nothing. Every update carries `expected_revision`.
+- Free placement (workspace spec `docs/architecture/sanka-doc-presentations-freeform.md` §6) adds
+  no tool inputs: free slides (`positioning: "free"`, a `frame` per block, `shape` and `line`
+  blocks) pass through in `slides`, `deck` and `ops`. The `ops` enum gains `set_slide_positioning`
+  and `set_page_size`, without which the server's argument validation would refuse them before the
+  API saw them. Layouts stay the default: the create and update descriptions and the guidance ask
+  for a free slide only when the user asks for exact placement, overlap, shapes or arrows.
 - `list_presentations` returns metadata only (no decks): `presentation_id`, `title`, `revision`,
   `slide_count`, `page_size`, `theme_id`, `folder_id`, `updated_via`, `updated_at` and `app_url`,
   with `next_cursor` for the next page.
@@ -58,7 +64,9 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
   `next_slide_ids` is the first). The result has one text block listing the slides in image order
   with any `SLIDE_OVERFLOW`, then one MCP `image` content block per slide
   (`{type: "image", data, mimeType: "image/jpeg"}`); `structuredContent` has each slide's
-  `slide_id`, `index` and `fit` (`scale`, and `overflow` with `block_ids` and `overflow_px`),
+  `slide_id`, `index` and `fit` (`scale`, and `overflow` with `block_ids` and `overflow_px`; a free
+  slide adds `frames`, each box's `block_id`, `scale` and `overflow_px`, and its text names each
+  overflowing box and says to enlarge the box or shorten its text),
   `overflowing_slide_ids` and the render `warnings`, without the image data.
 - Images belong to one presentation and go in after it exists. `start_presentation_image_upload`,
   `append_presentation_image_upload_chunk` and `finish_presentation_image_upload` are built with
@@ -102,7 +110,12 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
 - Write and read results return `presentation_id`, `title`, `revision`, `product`, `program_id`,
   `slide_count`, `app_url` and the API's static `warnings`; `get_presentation` adds `updated_via`,
   `updated_at` and either `deck` (the default, with the slide and block ids that ops use) or
-  `outline`.
+  `outline`. The write text lists the warnings; when one is `FRAMES_OVERLAP`, `FRAME_OFF_STAGE` or
+  `FRAME_IN_FOOTER` it adds how to move or resize the boxes (`update_block` `set: {frame}`), unless
+  the user asked for that placement.
+- `get_presentation_catalog` names free-only blocks (`freeOnly`) and says whether free placement
+  is available for the workspace (`freeform.available`), with the `freeform` guidance when it is;
+  `structuredContent` keeps the whole catalog, including `features` and `freeform`.
 - `app_url` and `app_download_url` join the API's app-relative `appPath` and `downloadPath` to the
   app origin that record links use (`SANKA_V2_APP_BASE_URL`), else `https://app.sanka.com`. Public
   export responses name the developer API's download route (`/v2/public/…`); `app_download_url`
@@ -135,7 +148,10 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
   is the request's `[{loc, msg, type}]` (kept as is in `structuredContent`), lists each problem at
   the JSON Pointer of its `loc` without the leading `body` and the op name that tags an op (such as
   `/ops/0/blockId`); `PRESENTATION_OP_TARGET_NOT_FOUND`
-  names the op or slide ids; `PRESENTATION_ASSET_NOT_FOUND`, `PRESENTATION_EXPORT_NOT_FOUND`,
+  names the op or slide ids; `PRESENTATION_CLIENT_OUTDATED` (409, a whole deck or slide that
+  leaves out the `positioning` of a stored free slide) names the slides and says to re-read and
+  send them back with `positioning` and every `frame`; `PRESENTATION_FEATURE_DISABLED` (422, free
+  slides in a workspace without the pilot flag) says to use layouts; `PRESENTATION_ASSET_NOT_FOUND`, `PRESENTATION_EXPORT_NOT_FOUND`,
   `IMAGE_IMPORT_BLOCKED`, `IMAGE_IMPORT_FAILED`, `IMAGE_TOO_LARGE`, `IMAGE_UNSUPPORTED`,
   `DOCUMENT_KIND_MISMATCH`, `DOCUMENT_FOLDER_CONFLICT`, `IDEMPOTENCY_KEY_REUSED`, `RATE_LIMITED`,
   404 and 403 (presentations off, or no permission) have their own hints. Server and transport
@@ -149,8 +165,9 @@ The client also has `cancelExport` (`POST …/exports/{export_id}/cancel`), whic
   deck, PowerPoint, pptx, スライド, プレゼン and パワポ intents, before the migration family (a deck
   about a migration routes here). Its route is the spec §10.3 agent loop: the catalog once, the
   outline first, previews in batches of six fixing every `SLIDE_OVERFLOW`, A4 for printed
-  proposals, images by upload or import with alt text, revisions on edits, then export. The
-  guidance version is `2026-10-09.presentations.v2`. The initialize instructions name
+  proposals, free slides only on request (safe area, 12-column grid, `set_slide_positioning`, and
+  fixing `FRAMES_OVERLAP` and `FRAME_OFF_STAGE`), images by upload or import with alt text,
+  revisions on edits, then export. The guidance version is `2026-10-18.presentations.v4`. The initialize instructions name
   presentations among the guidance areas and stay under 8 KiB.
 - `tests/mcp-server/presentation-tools.test.ts` asserts the published tool names and input schemas
   once, and sends each tool call through the SDK client to a fake fetch, checking the requests

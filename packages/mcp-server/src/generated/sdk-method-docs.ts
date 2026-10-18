@@ -3454,7 +3454,7 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'client.public.presentations.catalog(options?: RequestOptions): APIPromise<PresentationCatalog>',
     params: [],
     response:
-      '{ schemaVersions: Array<string>; pageSizes: Array<Record<string, unknown>>; layouts: Array<Record<string, unknown>>; blocks: Array<Record<string, unknown>>; accents: Array<Record<string, unknown>>; themes: Array<Record<string, unknown>>; icons: Array<string>; limits: Record<string, number>; guidance: Array<string>; deckJsonSchema: Record<string, unknown>; example: Record<string, unknown>; }',
+      '{ schemaVersions: Array<string>; pageSizes: Array<Record<string, unknown>>; layouts: Array<Record<string, unknown>>; blocks: Array<Record<string, unknown>>; accents: Array<Record<string, unknown>>; themes: Array<Record<string, unknown>>; icons: Array<string>; limits: Record<string, number>; guidance: Array<string>; deckJsonSchema: Record<string, unknown>; example: Record<string, unknown>; features?: Array<string>; freeform?: Record<string, unknown>; }',
   },
   {
     qualified: 'client.public.presentations.create',

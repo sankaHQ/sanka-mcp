@@ -38,6 +38,8 @@ export type PresentationOpName =
   | 'replace_block'
   | 'delete_blocks'
   | 'move_block'
+  | 'set_slide_positioning'
+  | 'set_page_size'
   | 'set_theme'
   | 'set_title'
   | 'set_footer';
@@ -135,6 +137,10 @@ export interface PresentationCatalog {
   guidance: Array<string>;
   deckJsonSchema: Record<string, unknown>;
   example: Record<string, unknown>;
+  /** Optional capabilities this workspace may use, such as `freeform`. */
+  features?: Array<string>;
+  /** Free placement: availability, units, stage sizes, safe areas, grid, frames, text sizes, tones, guidance. */
+  freeform?: Record<string, unknown>;
 }
 
 /** An image stored with the presentation; use `assetId` in image blocks and accents. */
@@ -151,6 +157,8 @@ export interface PresentationSlideFit {
   scale: number;
   /** Set when the content does not fit even at the theme's minimum scale. */
   overflow?: { blockIds: Array<string>; overflowPx: number } | null;
+  /** Free slides: each box's own fit scale and overflow. */
+  frames?: Array<{ blockId: string; scale: number; overflowPx: number }> | null;
 }
 
 export interface PresentationPreviewSlide {
