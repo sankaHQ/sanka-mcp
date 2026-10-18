@@ -125,6 +125,26 @@ const streamedFile = (mebibytes: number) => {
   );
 };
 
+const catalog = (freeform: Record<string, unknown>) =>
+  envelope({
+    schemaVersions: ['sanka.deck/v1'],
+    features: freeform['available'] ? ['freeform'] : [],
+    pageSizes: [{ id: '16:9' }, { id: 'a4-landscape' }],
+    layouts: [{ id: 'none' }, { id: 'accent-left', needsAccent: true }],
+    blocks: [{ type: 'heading' }, { type: 'stats' }, { type: 'shape', freeOnly: true }],
+    themes: [{ id: 'sanka-paper', version: 1 }],
+    icons: ['chart-bar', 'users'],
+    limits: { slides: 200 },
+    guidance: ['One message per slide.'],
+    freeform: { ...freeform, guidance: ['Use layouts unless the user asks for exact placement.'] },
+  });
+const CATALOG_READ: V2Request = { method: 'GET', url: `${API}/presentations/catalog`, headers: SESSION };
+// A free slide's boxes: two text boxes on top of each other.
+const frames = {
+  b_title0000001: { x: 72, y: 56, w: 640, h: 80 },
+  b_body00000001: { x: 72, y: 96, w: 640, h: 200 },
+};
+
 // Each row: the tool call, the requests it must send, the API answers and what the tool returns.
 const cases: Array<{
   name: string;
@@ -142,28 +162,28 @@ const cases: Array<{
     name: 'get_presentation_catalog summarizes page sizes, layouts, blocks, themes, limits and guidance',
     tool: getPresentationCatalogTool,
     args: {},
-    responses: [
-      envelope({
-        schemaVersions: ['sanka.deck/v1'],
-        pageSizes: [{ id: '16:9' }, { id: 'a4-landscape' }],
-        layouts: [{ id: 'none' }, { id: 'accent-left', needsAccent: true }],
-        blocks: [{ type: 'heading' }, { type: 'stats' }],
-        themes: [{ id: 'sanka-paper', version: 1 }],
-        icons: ['chart-bar', 'users'],
-        limits: { slides: 200 },
-        guidance: ['One message per slide.'],
-      }),
-    ],
-    requests: [{ method: 'GET', url: `${API}/presentations/catalog`, headers: SESSION }],
+    responses: [catalog({ available: true })],
+    requests: [CATALOG_READ],
+    structuredContent: { features: ['freeform'], freeform: { available: true } },
     text: [
       'Page sizes: 16:9, a4-landscape.',
       'Layouts: none, accent-left (needs an accent).',
-      'Blocks: heading, stats.',
+      'Blocks: heading, stats, shape (free slides only).',
       'Themes: sanka-paper v1.',
       'Icons: 2 lucide names',
       'Limits: slides 200.',
       '- One message per slide.',
+      'Free placement (positioning free) is available',
+      '- Use layouts unless the user asks for exact placement.',
     ],
+  },
+  {
+    name: 'get_presentation_catalog says when free placement is off for the workspace',
+    tool: getPresentationCatalogTool,
+    args: {},
+    responses: [catalog({ available: false })],
+    requests: [CATALOG_READ],
+    text: ['Free placement (positioning free) is not enabled for this workspace: use layouts.'],
   },
   {
     name: "list_presentations pages through a Sanka program's presentations without decks",
@@ -382,6 +402,43 @@ const cases: Array<{
     ],
   },
   {
+    name: 'create_presentation says to use layouts when free placement is off for the workspace',
+    tool: createPresentationTool,
+    args: {
+      title: 'Kickoff',
+      slides: [{ ...slide, positioning: 'free' }],
+      expected_workspace_id: WS,
+    },
+    responses: [
+      session(),
+      errorResponse(
+        422,
+        'PRESENTATION_FEATURE_DISABLED',
+        'Free placement is not enabled for this workspace; use layouts instead.',
+        { flag: 'docs-presentations-freeform', slideIds: [] },
+      ),
+    ],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'POST',
+        url: FLOW,
+        headers: WRITE,
+        body: {
+          title: 'Kickoff',
+          pageSize: '16:9',
+          deck: { schema: 'sanka.deck/v1', slides: [{ ...slide, positioning: 'free' }] },
+        },
+      },
+    ],
+    isError: true,
+    structuredContent: { status_code: 422, code: 'PRESENTATION_FEATURE_DISABLED' },
+    text: [
+      'Nothing was changed (PRESENTATION_FEATURE_DISABLED)',
+      'Use layouts instead: leave out positioning free, frames',
+    ],
+  },
+  {
     name: 'get_presentation reads a Sanka program deck as an outline',
     tool: getPresentationTool,
     args: { presentation_id: 'deck-1', program_id: PROGRAM, include: 'outline' },
@@ -526,6 +583,94 @@ const cases: Array<{
     ],
   },
   {
+    name: 'update_presentation sends the free placement ops and says how to fix placement warnings',
+    tool: updatePresentationTool,
+    args: {
+      presentation_id: 'deck-2',
+      expected_revision: 3,
+      ops: [
+        { op: 'set_page_size', size: 'a4-landscape' },
+        { op: 'set_slide_positioning', slideId: 's_title0000001', positioning: 'free', frames },
+      ],
+      expected_workspace_id: WS,
+    },
+    responses: [
+      session(),
+      envelope(
+        flowPresentation({
+          revision: 4,
+          warnings: [
+            {
+              code: 'FRAMES_OVERLAP',
+              path: '/slides/0/blocks/1/frame',
+              message: 'This text box overlaps b_title0000001 by more than 8 px; move or resize one of them.',
+            },
+          ],
+        }),
+      ),
+    ],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'PATCH',
+        url: `${FLOW}/deck-2`,
+        headers: WRITE,
+        body: {
+          expectedRevision: 3,
+          ops: [
+            { op: 'set_page_size', size: 'a4-landscape' },
+            { op: 'set_slide_positioning', slideId: 's_title0000001', positioning: 'free', frames },
+          ],
+        },
+      },
+    ],
+    structuredContent: { revision: 4, warnings: [expect.objectContaining({ code: 'FRAMES_OVERLAP' })] },
+    text: [
+      '- /slides/0/blocks/1/frame: This text box overlaps b_title0000001 by more than 8 px; move or resize one of them. (FRAMES_OVERLAP)',
+      'move or resize those boxes with update_block set {frame}',
+    ],
+  },
+  {
+    name: 'update_presentation says to keep the positioning of free slides a whole deck leaves out',
+    tool: updatePresentationTool,
+    args: {
+      presentation_id: 'deck-2',
+      expected_revision: 4,
+      deck: { schema: 'sanka.deck/v1', slides: [{ id: 's_title0000001', ...slide }] },
+      expected_workspace_id: WS,
+    },
+    responses: [
+      session(),
+      errorResponse(
+        409,
+        'PRESENTATION_CLIENT_OUTDATED',
+        'This editor or client is older than the presentation.',
+        {
+          slideIds: ['s_title0000001'],
+        },
+      ),
+    ],
+    requests: [
+      SESSION_READ,
+      {
+        method: 'PUT',
+        url: `${FLOW}/deck-2`,
+        headers: WRITE,
+        body: {
+          expectedRevision: 4,
+          deck: { schema: 'sanka.deck/v1', slides: [{ id: 's_title0000001', ...slide }] },
+        },
+      },
+    ],
+    isError: true,
+    structuredContent: { status_code: 409, code: 'PRESENTATION_CLIENT_OUTDATED' },
+    text: [
+      'Nothing was changed (PRESENTATION_CLIENT_OUTDATED)',
+      'Slides s_title0000001 use free placement in the saved deck',
+      'send those slides back with positioning and every frame',
+    ],
+  },
+  {
     name: 'update_presentation without ops, deck or title sends nothing',
     tool: updatePresentationTool,
     args: { presentation_id: 'deck-1', expected_revision: 1, expected_workspace_id: WS },
@@ -654,6 +799,57 @@ const cases: Array<{
     ],
     structuredContent: { program_id: PROGRAM, revision: 2, width: 1280, overflowing_slide_ids: [] },
     text: ['Every previewed slide fits.'],
+    images: [jpeg(slideID(1))],
+  },
+  {
+    name: "preview_presentation passes a free slide's per-box fit through and names each overflowing box",
+    tool: previewPresentationTool,
+    args: { presentation_id: 'deck-2', slide_ids: [slideID(1)] },
+    responses: [
+      envelope({
+        revision: 4,
+        slides: [
+          previewSlide(slideID(1), {
+            scale: 0.7,
+            overflow: { blockIds: ['b_body00000001'], overflowPx: 12 },
+            frames: [
+              { blockId: 'b_title0000001', scale: 1, overflowPx: 0 },
+              { blockId: 'b_body00000001', scale: 0.7, overflowPx: 12 },
+            ],
+          }),
+        ],
+        warnings: [],
+      }),
+    ],
+    requests: [
+      {
+        method: 'POST',
+        url: `${FLOW}/deck-2/previews`,
+        headers: PREVIEW,
+        body: { slideIds: [slideID(1)], width: 960, format: 'jpeg' },
+      },
+    ],
+    structuredContent: {
+      overflowing_slide_ids: [slideID(1)],
+      slides: [
+        {
+          slide_id: slideID(1),
+          index: 0,
+          fit: {
+            scale: 0.7,
+            overflow: { block_ids: ['b_body00000001'], overflow_px: 12 },
+            frames: [
+              { block_id: 'b_title0000001', scale: 1, overflow_px: 0 },
+              { block_id: 'b_body00000001', scale: 0.7, overflow_px: 12 },
+            ],
+          },
+        },
+      ],
+    },
+    text: [
+      `- Slide 1 (${slideID(1)}): SLIDE_OVERFLOW in b_body00000001 by 12 px`,
+      'on a free slide, enlarge the box with update_block set {frame} or shorten its text',
+    ],
     images: [jpeg(slideID(1))],
   },
   {
@@ -960,6 +1156,18 @@ const cases: Array<{
     requests: [EXPORT_STATUS, EXPORT_DOWNLOAD],
     isError: true,
     text: ['larger than the 25 MiB that can pass through MCP'],
+  },
+  {
+    name: 'get_capability_guidance gives an exact-placement request the free placement route',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'スライド3のロゴを写真に重ねて右上に配置して' },
+    requests: [],
+    structuredContent: {
+      guidance: {
+        intent_family: 'sanka_doc_presentations',
+        route: expect.stringContaining('set_slide_positioning'),
+      },
+    },
   },
   {
     name: 'get_capability_guidance routes a deck about a migration to the presentation tools',

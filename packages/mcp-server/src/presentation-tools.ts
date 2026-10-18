@@ -44,6 +44,8 @@ const DECK_SCHEMA = 'sanka.deck/v1';
 const WORKSPACE_MISMATCH = 'WORKSPACE_CONTEXT_MISMATCH';
 const REVISION_CONFLICT = 'PRESENTATION_REVISION_CONFLICT';
 const OVERFLOW = 'SLIDE_OVERFLOW';
+// Static warnings about where boxes sit on a free slide.
+const PLACEMENT_WARNINGS = ['FRAMES_OVERLAP', 'FRAME_OFF_STAGE', 'FRAME_IN_FOOTER'];
 const MAX_LISTED = 10;
 const PREVIEW_BATCH = 6;
 // The API renders previews once, within 30 s plus 15 s of HTTP grace.
@@ -67,6 +69,8 @@ const OPS = [
   'replace_block',
   'delete_blocks',
   'move_block',
+  'set_slide_positioning',
+  'set_page_size',
   'set_theme',
   'set_title',
   'set_footer',
@@ -231,7 +235,7 @@ const UPDATE_INPUT_SCHEMA = {
       maxItems: 200,
       items: { type: 'object', properties: { op: { type: 'string', enum: OPS } }, required: ['op'] },
       description:
-        'Edits applied in order, all or nothing, with camelCase fields and ids from get_presentation: insert_slides {after?, slides}, replace_slide {slideId, slide}, update_slide {slideId, set}, delete_slides {slideIds}, move_slides {slideIds, after?}, insert_blocks {slideId, after?, blocks}, update_block {slideId, blockId, set}, replace_block {slideId, blockId, block}, delete_blocks {slideId, blockIds}, move_block {blockId, toSlideId, after?}, set_theme {theme}, set_title {title}, set_footer {footer}. after is the slide or block to follow: null puts it first, omitted appends.',
+        'Edits applied in order, all or nothing, with camelCase fields and ids from get_presentation: insert_slides {after?, slides}, replace_slide {slideId, slide}, update_slide {slideId, set}, delete_slides {slideIds}, move_slides {slideIds, after?}, insert_blocks {slideId, after?, blocks}, update_block {slideId, blockId, set}, replace_block {slideId, blockId, block}, delete_blocks {slideId, blockIds}, move_block {blockId, toSlideId, after?, frame?}, set_slide_positioning {slideId, positioning, frames?, dropShapesAndLines?}, set_page_size {size}, set_theme {theme}, set_title {title}, set_footer {footer}. after is the slide or block to follow: null puts it first, omitted appends. On a free slide (positioning free) every block carries a frame, update_block set {frame} moves, resizes or rotates it, and block order is the stacking order.',
     },
     deck: {
       type: 'object',
@@ -390,7 +394,8 @@ const PREVIEW_OUTPUT_SCHEMA = {
         properties: { slide_id: { type: 'string' }, index: { type: 'integer' }, fit: OBJECT_SCHEMA },
         additionalProperties: true,
       },
-      description: 'One entry per image, in the same order; fit.overflow is set when the slide overflows.',
+      description:
+        "One entry per image, in the same order; fit.overflow is set when the slide overflows, and fit.frames has each box's own fit on a free slide.",
     },
     overflowing_slide_ids: STRING_ARRAY_SCHEMA,
     warnings: ARRAY_OF_OBJECTS_SCHEMA,
@@ -516,6 +521,8 @@ const CATALOG_OUTPUT_SCHEMA = {
     guidance: STRING_ARRAY_SCHEMA,
     deckJsonSchema: OBJECT_SCHEMA,
     example: OBJECT_SCHEMA,
+    features: STRING_ARRAY_SCHEMA,
+    freeform: OBJECT_SCHEMA,
   },
   additionalProperties: true,
 };
@@ -719,6 +726,9 @@ const listRequestProblems = (problems: unknown[]): string =>
     'Paths are JSON Pointers into your request, with its camelCase field names.',
   );
 
+// The slides an error names, such as the free slides of PRESENTATION_CLIENT_OUTDATED.
+const slideIDs = (details: JsonRecord): string => readStrings(details['slideIds']).join(', ');
+
 const failureHint = ({ code, status, details: rawDetails }: Failure): string => {
   // VALIDATION_ERROR lists what the request itself got wrong.
   if (Array.isArray(rawDetails)) return listRequestProblems(rawDetails);
@@ -735,6 +745,16 @@ const failureHint = ({ code, status, details: rawDetails }: Failure): string => 
           `ops[${details['opIndex']}] names ${details['id']}`
         : `slide_ids ${readArray(details['slideIds']).join(', ')}`;
       return ` ${missing}: not in the deck. Read the current ids with get_presentation.`;
+    }
+    case 'PRESENTATION_CLIENT_OUTDATED':
+      return ` Slides ${
+        slideIDs(details) || 'in your request'
+      } use free placement in the saved deck, and your request leaves out their positioning. Call get_presentation and send those slides back with positioning and every frame, or change them with the set_slide_positioning op.`;
+    case 'PRESENTATION_FEATURE_DISABLED': {
+      const ids = slideIDs(details);
+      return ` Use layouts instead${
+        ids ? ` for slides ${ids}` : ''
+      }: leave out positioning free, frames, fontSize, textScale and shape and line blocks, and do not retry as free slides.`;
     }
     case 'PRESENTATION_DIAGRAM_NOT_FOUND':
       return ` ${details['path'] ?? 'A sankaDiagram block'} names ${
@@ -915,6 +935,7 @@ const describePresentation = (summary: JsonRecord): string[] => {
 
 const describeWarnings = (warnings: unknown): string[] => {
   const entries = readObjects(warnings);
+  const placement = entries.some((warning) => PLACEMENT_WARNINGS.includes(String(warning['code'])));
   return entries.length === 0 ?
       []
     : [
@@ -922,6 +943,11 @@ const describeWarnings = (warnings: unknown): string[] => {
         ...entries
           .slice(0, MAX_LISTED)
           .map((warning) => `- ${warning['path'] ?? '/'}: ${warning['message'] ?? ''} (${warning['code']})`),
+        ...(placement ?
+          [
+            'Unless the user asked for that placement, move or resize those boxes with update_block set {frame} (several in one update_presentation call), then preview those slides.',
+          ]
+        : []),
       ];
 };
 
@@ -1067,16 +1093,29 @@ const describeCatalog = (catalog: JsonRecord): string => {
   const versions = readArray(catalog['schemaVersions']).join(', ') || DECK_SCHEMA;
   const pageSizes = list('pageSizes', (entry) => String(entry['id']));
   const icons = readArray(catalog['icons']).length;
+  const freeform = readObject(catalog['freeform']);
+  const freeformText =
+    !freeform ? []
+    : freeform['available'] === true ?
+      [
+        'Free placement (positioning free) is available, for slides where the user asks for exact placement: structuredContent.freeform has the stage sizes, safe areas, grid, minimum and default frames, text sizes, shapes and tones.',
+        ...readArray(freeform['guidance']).map((line) => `- ${line}`),
+      ]
+    : ['Free placement (positioning free) is not enabled for this workspace: use layouts.'];
   return [
     `Presentation catalog for ${versions} decks.`,
     ...(pageSizes ? [`Page sizes: ${pageSizes}.`] : []),
     `Layouts: ${list('layouts', layout)}.`,
-    `Blocks: ${list('blocks', (block) => String(block['type']))}.`,
+    `Blocks: ${list(
+      'blocks',
+      (block) => `${block['type']}${block['freeOnly'] ? ' (free slides only)' : ''}`,
+    )}.`,
     `Themes: ${list('themes', theme)}.`,
     ...(icons > 0 ? [`Icons: ${icons} lucide names for card items, in structuredContent.icons.`] : []),
     ...(limits.length > 0 ? [`Limits: ${limits.join(', ')}.`] : []),
     'Guidance:',
     ...readArray(catalog['guidance']).map((line) => `- ${line}`),
+    ...freeformText,
     "structuredContent has each block's JSON Schema and recommended lengths, the deck JSON Schema and an example deck.",
   ].join('\n');
 };
@@ -1144,7 +1183,7 @@ export const createPresentationTool = definePresentationTool({
   name: 'create_presentation',
   title: 'Create presentation',
   description:
-    "Create a presentation (slide deck) in Sanka Docs: pass program_id for a migration program's Docs, or omit it for Sanka Flow Docs. Call get_presentation_catalog first and plan the outline: one message per slide, a title that states the point, at most 6 bullets. Give the content as slides (deck JSON, for control), markdown (for speed) or source_doc_id (a Markdown Doc to convert); use page_size a4-landscape for printed proposals. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. Add images after creating; show a saved Sanka diagram with a sankaDiagram block (its diagramId from list_ferry_diagrams), which stays in sync with the diagram. Then check the slides with preview_presentation. Needs expected_workspace_id from current_workspace.",
+    "Create a presentation (slide deck) in Sanka Docs: pass program_id for a migration program's Docs, or omit it for Sanka Flow Docs. Call get_presentation_catalog first and plan the outline: one message per slide, a title that states the point, at most 6 bullets. Give the content as slides (deck JSON, for control), markdown (for speed) or source_doc_id (a Markdown Doc to convert); use page_size a4-landscape for printed proposals. Slides use layouts by default: write a free slide (positioning free, a frame per block, sized from the catalog's freeform section) only when the user asks for exact placement, overlapping elements, shapes or arrows; markdown and source_doc_id always produce layout slides. Keep supplied facts and numbers exact and never invent figures; write Japanese decks in です・ます. Add images after creating; show a saved Sanka diagram with a sankaDiagram block (its diagramId from list_ferry_diagrams), which stays in sync with the diagram. Then check the slides with preview_presentation. Needs expected_workspace_id from current_workspace.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: FLOW_PATH,
@@ -1228,7 +1267,7 @@ export const updatePresentationTool = definePresentationTool({
   name: 'update_presentation',
   title: 'Update presentation',
   description:
-    'Edit a presentation at the revision you last read: pass ops for targeted edits (preferred) or deck to replace the whole deck, and optionally a new title. On PRESENTATION_REVISION_CONFLICT nothing changed: call get_presentation and re-apply only your intended change with the new revision. Do not delete slides you did not create unless the user asks, and preview the changed slides again. Needs expected_workspace_id from current_workspace.',
+    'Edit a presentation at the revision you last read: pass ops for targeted edits (preferred) or deck to replace the whole deck, and optionally a new title. Send slides back with their positioning and frames, and switch a slide to free placement (set_slide_positioning) only when the user asks for exact placement. On PRESENTATION_REVISION_CONFLICT nothing changed: call get_presentation and re-apply only your intended change with the new revision. Do not delete slides you did not create unless the user asks, and preview the changed slides again. Needs expected_workspace_id from current_workspace.',
   operation: 'write',
   httpMethod: 'patch',
   httpPath: PRESENTATION_PATH,
@@ -1276,28 +1315,38 @@ type PreviewedSlide = { slide_id: string; index: number; fit: JsonRecord };
 const previewedSlide = (slide: PresentationPreviewSlide): PreviewedSlide => ({
   slide_id: slide.slideId,
   index: slide.index,
-  fit: {
+  fit: defined({
     scale: slide.fit.scale,
     overflow:
       slide.fit.overflow ?
         { block_ids: slide.fit.overflow.blockIds, overflow_px: slide.fit.overflow.overflowPx }
       : null,
-  },
+    // Free slides: each box fits on its own.
+    frames: slide.fit.frames?.map((frame) => ({
+      block_id: frame.blockId,
+      scale: frame.scale,
+      overflow_px: frame.overflowPx,
+    })),
+  }),
 });
 
 const describePreviewedSlide = (slide: PreviewedSlide): string => {
   const overflow = readObject(slide.fit['overflow']);
+  const boxes = readObjects(slide.fit['frames'])
+    .filter((frame) => Number(frame['overflow_px']) > 0)
+    .map((frame) => `${frame['block_id']} by ${frame['overflow_px']} px`);
   const where =
-    overflow ?
-      `: ${OVERFLOW} by ${overflow['overflow_px']} px in ${
+    !overflow ? ''
+    : boxes.length > 0 ? `: ${OVERFLOW} in ${boxes.join(', ')}`
+    : `: ${OVERFLOW} by ${overflow['overflow_px']} px in ${
         readStrings(overflow['block_ids']).join(', ') || 'the slide'
-      }`
-    : '';
+      }`;
   return `- Slide ${slide.index + 1} (${slide.slide_id})${where}`;
 };
 
 const describePreview = (summary: JsonRecord, slides: PreviewedSlide[]): string => {
   const overflowing = readStrings(summary['overflowing_slide_ids']);
+  const freeOverflow = slides.some((slide) => slide.fit['overflow'] && slide.fit['frames']);
   const others = readObjects(summary['warnings']).filter((warning) => warning['code'] !== OVERFLOW);
   const next = readStrings(summary['next_slide_ids']);
   const later = readArray(summary['next_slide_id_batches']).length - 1;
@@ -1305,7 +1354,11 @@ const describePreview = (summary: JsonRecord, slides: PreviewedSlide[]): string 
     `Previews of presentation ${summary['presentation_id']} at revision ${summary['revision']} (${summary['width']} px), one image per slide in this order:`,
     ...slides.map(describePreviewedSlide),
     overflowing.length > 0 ?
-      `Fix every ${OVERFLOW} before exporting: shorten, split or change the layout of those blocks with update_presentation, then preview the slides again.`
+      `Fix every ${OVERFLOW} before exporting: shorten, split or change the layout of those blocks with update_presentation${
+        freeOverflow ?
+          ' (on a free slide, enlarge the box with update_block set {frame} or shorten its text)'
+        : ''
+      }, then preview the slides again.`
     : 'Every previewed slide fits.',
     ...(others.length > 0 ?
       [
