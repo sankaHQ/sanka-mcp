@@ -29,7 +29,8 @@ const WORKFLOW_MUTATION_SCHEMA = {
       type: 'string',
       enum: ['deal', 'contact', 'company', 'ticket'],
       default: 'deal',
-      description: 'CRM object type for platform workflows. HubSpot deal maps to objectTypeId 0-3.',
+      description:
+        'HubSpot object type for provider=hubspot flows; deal maps to objectTypeId 0-3. Sanka workflows (provider=sanka) ignore it, including employee workflows.',
     },
     trigger: {
       type: 'object',

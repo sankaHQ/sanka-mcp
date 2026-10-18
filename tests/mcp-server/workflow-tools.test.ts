@@ -85,6 +85,22 @@ describe('workflow definition MCP tools', () => {
     expect(guidance.route).toContain('confirm=true');
   });
 
+  it.each([
+    ['Suspend the Google Workspace account of an employee who is leaving', 'directory_account_workflows'],
+    ['退職者のMicrosoft 365アカウントを停止するワークフローを作って', 'directory_account_workflows'],
+    ['Build an employee onboarding workflow', 'directory_account_workflows'],
+    ['Migrate Google Workspace accounts to Microsoft 365', 'data_migration'],
+    ['Plan the customer onboarding for Acme', 'general_sanka_capability'],
+    ['退職した社員の給与を計算して', 'general_sanka_capability'],
+  ])('routes "%s" to %s', async (intent, intentFamily) => {
+    const result = await getCapabilityGuidanceTool.handler({
+      reqContext: { client: {} as any },
+      args: { intent },
+    });
+
+    expect((result.structuredContent?.['guidance'] as any).intent_family).toBe(intentFamily);
+  });
+
   it('creates HubSpot workflow previews through the shared workflow endpoint', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
