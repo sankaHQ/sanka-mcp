@@ -29,6 +29,9 @@ node ./packages/mcp-server/dist/index.js --transport=http --port=8080
 The local web app must serve `/oauth/mcp/connect`; the local API must serve
 `/oauth/internal/mcp-session-token` and use the same token-exchange secret.
 
+HTTP request bodies must be uncompressed. Omit `Content-Encoding` or use
+`identity`; compressed bodies receive HTTP 415 before authentication or decoding.
+
 ## MCP client examples
 
 Remote MCP config using Connect Sanka:
