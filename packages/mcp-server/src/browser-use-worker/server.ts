@@ -228,7 +228,7 @@ export const createBrowserUseWorkerApp = ({
   const resolvedConfig = config ?? buildBrowserUseWorkerConfig();
   const app = express();
 
-  app.use(express.json({ limit: '25mb' }));
+  app.use(express.json({ limit: '25mb', inflate: false }));
   app.use(expressRequestLogger());
 
   app.get('/health', (_req: express.Request, res: express.Response) => {

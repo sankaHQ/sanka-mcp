@@ -3,6 +3,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 import {
   createBrowserUseWorkerApp,
   runBrowserUseWorkerPayload,
@@ -173,6 +174,26 @@ afterEach(async () => {
 });
 
 describe('browser_use worker', () => {
+  it.each([
+    ['br', brotliCompressSync],
+    ['gzip', gzipSync],
+  ] as const)('rejects %s bodies before worker authentication', async (encoding, compress) => {
+    const { baseUrl, server } = await listen(
+      createBrowserUseWorkerApp({ config: await testConfig({ workerToken: 'worker-secret' }) }),
+    );
+    try {
+      const response = await fetch(`${baseUrl}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Encoding': encoding },
+        body: compress(Buffer.from('{}')),
+      });
+      expect(response.status).toBe(415);
+      await response.arrayBuffer();
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('serves health metadata for the registered browser workflow', async () => {
     const config = await testConfig();
     const { baseUrl, server } = await listen(

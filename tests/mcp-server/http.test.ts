@@ -1,5 +1,6 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { brotliCompressSync, deflateSync, gzipSync } from 'node:zlib';
 import {
   storeBinaryDownload,
   resetBinaryDownloadStoreForTests,
@@ -82,6 +83,33 @@ describe('streamable HTTP transport', () => {
   afterEach(() => {
     resetBinaryDownloadStoreForTests();
   });
+
+  it.each(
+    ['/', '/mcp', '/sse', '/chatgpt', '/missing'].flatMap((route) =>
+      ['application/json', 'application/x-www-form-urlencoded'].flatMap((contentType) =>
+        (
+          [
+            ['br', brotliCompressSync],
+            ['BR', brotliCompressSync],
+            ['gzip', gzipSync],
+            ['deflate', deflateSync],
+          ] as const
+        ).map(([encoding, compress]) => ({ route, contentType, encoding, compress })),
+      ),
+    ),
+  )(
+    'rejects $encoding $contentType at $route before authentication',
+    async ({ route, contentType, encoding, compress }) => {
+      const body = contentType === 'application/json' ? '{}' : 'method=initialize';
+      const response = await fetch(`${baseUrl}${route}`, {
+        method: 'POST',
+        headers: { 'Content-Type': contentType, 'Content-Encoding': encoding },
+        body: compress(Buffer.from(body)),
+      });
+      expect(response.status).toBe(415);
+      expect(await response.json()).toMatchObject({ error: 'invalid_request' });
+    },
+  );
 
   it.each([
     '/.well-known/oauth-protected-resource',
@@ -261,12 +289,13 @@ describe('streamable HTTP transport', () => {
     });
   });
 
-  it('allows unauthenticated initialize requests so clients do not prompt on startup', async () => {
+  it.each([undefined, 'identity'])('allows unauthenticated initialize with encoding %s', async (encoding) => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',
         'Content-Type': 'application/json',
+        ...(encoding ? { 'Content-Encoding': encoding } : {}),
       },
       body: JSON.stringify({
         jsonrpc: '2.0',

@@ -4,7 +4,8 @@
 # HTTP server. It includes agent-browser plus Chrome for Testing so the worker
 # can perform UI-only workflows such as HubSpot company avatar updates.
 
-FROM node:24-bookworm-slim AS builder
+FROM node:24.22.1-bookworm-slim AS builder
+RUN node -e "require('node:assert/strict').equal(process.versions.node, '24.22.1')"
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN apt-get update && \
@@ -17,7 +18,8 @@ COPY . .
 ENV CI=true
 RUN pnpm install --frozen-lockfile && pnpm build
 
-FROM node:24-bookworm-slim
+FROM node:24.22.1-bookworm-slim
+RUN node -e "require('node:assert/strict').equal(process.versions.node, '24.22.1')"
 
 ENV NODE_ENV=production
 ENV PORT=8787

@@ -22,7 +22,7 @@
 # enables interactive mode, allowing the container to communicate over stdin/stdout.
 
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:24.22.1-alpine AS builder
 
 # Enable corepack to use pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -45,11 +45,13 @@ RUN pnpm install --frozen-lockfile && \
 
 FROM denoland/deno:alpine-2.7.1
 
-# Install node and npm
-RUN apk add --no-cache nodejs npm
+# Use the patched upstream Node binary, rather than Alpine's independent package.
+RUN apk add --no-cache libstdc++
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
 
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
 ENV NODE_ENV=production
+RUN node -e "require('node:assert/strict').equal(process.versions.node, '24.22.1')"
 
 # Add non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001

@@ -749,8 +749,9 @@ export const streamableHTTPApp = ({
   const app = express();
   app.disable('x-powered-by');
   app.set('query parser', 'extended');
-  app.use(express.json({ limit: MCP_JSON_BODY_LIMIT }));
-  app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT }));
+  // Hosted clients send plain bodies; never decompress input before authentication.
+  app.use(express.json({ limit: MCP_JSON_BODY_LIMIT, inflate: false }));
+  app.use(express.urlencoded({ extended: false, limit: MCP_JSON_BODY_LIMIT, inflate: false }));
   app.use(expressRequestLogger());
 
   app.get('/health', async (req: express.Request, res: express.Response) => {
