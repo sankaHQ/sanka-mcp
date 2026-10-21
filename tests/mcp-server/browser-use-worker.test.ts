@@ -178,8 +178,9 @@ describe('browser_use worker', () => {
     ['br', brotliCompressSync],
     ['gzip', gzipSync],
   ] as const)('rejects %s bodies before worker authentication', async (encoding, compress) => {
+    const driver = new FakeBrowserDriver();
     const { baseUrl, server } = await listen(
-      createBrowserUseWorkerApp({ config: await testConfig({ workerToken: 'worker-secret' }) }),
+      createBrowserUseWorkerApp({ config: await testConfig({ workerToken: 'worker-secret' }), driver }),
     );
     try {
       const response = await fetch(`${baseUrl}/run`, {
@@ -188,6 +189,7 @@ describe('browser_use worker', () => {
         body: compress(Buffer.from('{}')),
       });
       expect(response.status).toBe(415);
+      expect(driver.openedURLs).toEqual([]);
       await response.arrayBuffer();
     } finally {
       await closeServer(server);
