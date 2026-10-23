@@ -984,8 +984,32 @@ const COMPANY_DELETE_INPUT_SCHEMA = {
   required: [],
 };
 
+// A contact's additional e-mail addresses / phone numbers; the primary ones are email and
+// phone_number. A list replaces the contact's current one.
+const contactPointListProperty = (kind: 'email' | 'phone') => ({
+  type: 'array',
+  description:
+    kind === 'email' ?
+      'Additional e-mail addresses besides email, as the full list ([] clears it). Sequences send only to email.'
+    : 'Additional phone numbers besides phone_number, as the full list ([] clears it). Call capture matches every number.',
+  items: {
+    type: 'object',
+    properties: {
+      value: { type: 'string', description: kind === 'email' ? 'E-mail address.' : 'Phone number.' },
+      label: {
+        type: 'string',
+        enum: kind === 'email' ? ['work', 'personal', 'other'] : ['mobile', 'work', 'other'],
+        description: 'Defaults to other.',
+      },
+    },
+    required: ['value'],
+  },
+});
+
 const CONTACT_MUTATION_INPUT_PROPERTIES = {
   ...RECORD_INTEGRATION_MUTATION_INPUT_PROPERTIES,
+  additional_emails: contactPointListProperty('email'),
+  additional_phone_numbers: contactPointListProperty('phone'),
   allowed_in_store: {
     type: 'boolean',
     description: 'Whether the contact is allowed in store.',
@@ -5018,6 +5042,14 @@ const COMPANY_MUTATION_OUTPUT_SCHEMA = {
   required: ['ok', 'status'],
 };
 
+const CONTACT_POINT_OUTPUT_SCHEMA = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: { value: { type: 'string' }, label: { type: 'string' } },
+  },
+};
+
 const CONTACT_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -5025,7 +5057,9 @@ const CONTACT_OUTPUT_SCHEMA = {
     contact_id: { type: 'integer' },
     name: { type: 'string' },
     email: { type: 'string' },
+    additional_emails: CONTACT_POINT_OUTPUT_SCHEMA,
     phone_number: { type: 'string' },
+    additional_phone_numbers: CONTACT_POINT_OUTPUT_SCHEMA,
     allowed_in_store: { type: 'boolean' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
@@ -11439,8 +11473,23 @@ const buildContactRetrieveParams = (args: Record<string, unknown> | undefined) =
   };
 };
 
+const contactPointList = (value: unknown) =>
+  Array.isArray(value) ?
+    value.flatMap((item) => {
+      const point = readRecord(item);
+      const pointValue = readString(point?.['value']);
+      if (!pointValue) return [];
+      const label = readString(point?.['label']);
+      return [{ value: pointValue, ...(label ? { label } : undefined) }];
+    })
+  : undefined;
+
 const buildContactMutationBody = (args: Record<string, unknown> | undefined) => {
   const body: Record<string, unknown> = {};
+  for (const key of ['additional_emails', 'additional_phone_numbers']) {
+    const points = contactPointList(args?.[key]);
+    if (points) body[key] = points;
+  }
   assignStringFields(body, args, [
     'channel_id',
     'company',

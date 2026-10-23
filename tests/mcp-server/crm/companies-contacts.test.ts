@@ -223,12 +223,19 @@ const v2Requests: V2RequestCase[] = [
       contact_id: 'contact-1',
       email: 'jane@acme.com',
       company: 'Acme',
+      additional_phone_numbers: [{ value: '+60 12-345 6789', label: 'mobile' }, { value: '' }],
     },
     expectedRequests: [
       {
         method: 'PATCH',
         url: 'http://localhost:5000/api/v2/contacts/contact-1',
-        body: { properties: { company: 'Acme', email: 'jane@acme.com' } },
+        body: {
+          properties: {
+            additional_phone_numbers: [{ value: '+60 12-345 6789', label: 'mobile' }],
+            company: 'Acme',
+            email: 'jane@acme.com',
+          },
+        },
       },
     ],
   },

@@ -369,7 +369,23 @@ export interface ContactListResponse {
   unavailable_reason?: string | null;
 }
 
+/**
+ * One of a contact's additional e-mail addresses or phone numbers.
+ */
+export interface ContactPoint {
+  value: string;
+
+  /**
+   * work, personal or other (e-mail addresses); mobile, work or other (phone numbers).
+   */
+  label?: string | null;
+}
+
 export interface ContactCreateParams {
+  additional_emails?: Array<ContactPoint> | null;
+
+  additional_phone_numbers?: Array<ContactPoint> | null;
+
   allowed_in_store?: boolean | null;
 
   channel_id?: string | null;
@@ -408,6 +424,10 @@ export interface ContactRetrieveParams {
 }
 
 export interface ContactUpdateParams {
+  additional_emails?: Array<ContactPoint> | null;
+
+  additional_phone_numbers?: Array<ContactPoint> | null;
+
   allowed_in_store?: boolean | null;
 
   channel_id?: string | null;
