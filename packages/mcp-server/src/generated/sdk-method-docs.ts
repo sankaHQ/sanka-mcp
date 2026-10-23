@@ -826,6 +826,8 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
     signature:
       'client.public.contacts.create(body: ContactCreateParams, options?: RequestOptions): APIPromise<PublicContactResponse>',
     params: [
+      'additional_emails?: Array<ContactPoint> | null;',
+      'additional_phone_numbers?: Array<ContactPoint> | null;',
       'allowed_in_store?: boolean | null;',
       'channel_id?: string | null;',
       'company?: string | null;',
@@ -918,6 +920,8 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       'client.public.contacts.update(contactID: string, body: ContactUpdateParams, options?: RequestOptions): APIPromise<PublicContactResponse>',
     params: [
       'contactID: string;',
+      'additional_emails?: Array<ContactPoint> | null;',
+      'additional_phone_numbers?: Array<ContactPoint> | null;',
       'allowed_in_store?: boolean | null;',
       'channel_id?: string | null;',
       'company?: string | null;',

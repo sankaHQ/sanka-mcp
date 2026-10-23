@@ -111,6 +111,7 @@ export {
   type ContactRetrieveResponse,
   type ContactListResponse,
   type ContactCreateParams,
+  type ContactPoint,
   type ContactRetrieveParams,
   type ContactUpdateParams,
   type ContactListParams,
