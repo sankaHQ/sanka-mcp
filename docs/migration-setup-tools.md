@@ -171,9 +171,23 @@ expire seven days after the run's UTC creation day; start a new reviewed run aft
 expiry. Use the private content mappings produced by a fresh scan. Retention runs
 in the Jobs deployment, so API and Jobs must be released together.
 
-Native final verification currently refuses count-only certification with
-`MIGRATION_WORKSPACE_FIDELITY_REVIEW_REQUIRED`. This is an explicit remaining gate;
-do not report the migration as fully verified or bypass it with generic count tools.
-Secondary/shared calendars, recurrence exceptions, extended contacts, nested/external
-groups and unsupported sharing remain blocked. Google-native exports retain Google's
-10MB export limit. Local tests establish handler/API behavior, not tenant qualification.
+Fresh native scans include owned primary/secondary/empty calendars and their user
+access, plus event privacy, availability and supported reminders. Keep the calendar
+reference/access route. Internal nested groups flatten effective membership without
+promoting nested owners; keep complete user/member/owner routes. Native contacts
+require `source_details`; original extended values are preserved in Outlook notes,
+not necessarily native fields. Drive transfers require drive/permission routes and
+private content references. Large Google-native documents use resumable download
+operations. Quota/pending responses require waiting; never drop failed fields.
+
+`verify_migration` now performs fresh source, identity, record/content and observable
+access reconciliation for the supported native copy, without destination writes.
+Changed content, aliases, provisioning, audiences or review scope blocks it and
+invalidates older evidence. `review_migration` signs the exact coverage and scope;
+retain those limits when presenting the outcome and verify its signature separately.
+
+Live meetings/RSVPs, series exceptions, contact photos, Forms/Sites, file history,
+limited-access folders, external/unresolved principals, manager/domain audience
+semantics and live delta/cutover still require another reviewed method. A successful
+copy verification does not certify those features or hidden tenant administration.
+Local tests establish handler/API behavior, not real tenant qualification.
