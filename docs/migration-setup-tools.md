@@ -191,3 +191,65 @@ limited-access folders, external/unresolved principals, manager/domain audience
 semantics and live delta/cutover still require another reviewed method. A successful
 copy verification does not certify those features or hidden tenant administration.
 Local tests establish handler/API behavior, not real tenant qualification.
+
+### Native Exchange batches for Google mail, calendars and contacts
+
+Use `plan_exchange_migration`, `get_exchange_migration` and
+`control_exchange_migration` for the provider-managed Exchange path. These use
+the new public `/migrations/{id}/exchange` subresource through the SDK's existing
+authenticated generic HTTP methods; no generated SDK resource is hand-edited.
+Codex and Claude discover the same hosted tools through the existing plugin.
+The backend feature defaults off. This path does not change the embedded demo.
+
+First connect a customer-bound Google System with delegated migration and Gmail
+settings/calendar ACL read scopes, and a certificate-authenticated Microsoft
+System with Exchange migration RBAC. Target mailboxes must be preprovisioned,
+licensed, private UserMailboxes; even default calendar availability grants are
+refused. Target forwarding, Send on Behalf and active inbox routing/deletion rules
+also block the path. Credentials belong in authenticated settings. Bulk execution requires
+an existing unlimited Sanka Pro/Enterprise entitlement; finite credits are not
+supported. Use a separate reviewed record-copy migration for Drive.
+
+Example prompt for preparing the review:
+
+```text
+In workspace <internal UUID>, use Google System <source ID> and Microsoft System
+<target ID>. Create a dedicated Google Workspace→Microsoft 365 migration with
+source.options.mailbox_method=exchange_online, inspect its binding, then plan the
+Exchange batch for <source primary email> → <target primary email>, using accepted
+delivery domain <domain>. Show its source permissions, limitations, plan hash and
+revision. Prepare the review only; do not start or complete the batch.
+```
+
+After explicit authorization, `control_exchange_migration` takes `action=start`,
+the exact `expected_plan_hash`, current `expected_revision`, a fresh UUID
+`request_id` and `confirm=true`. It creates a scoped endpoint/batch with automatic
+completion, rules, delegates and provisioning disabled. `get_exchange_migration`
+reads the saved state; `action=recover` refreshes provider reports without provider
+writes. Read the current revision after every action/failure. Reuse the identical
+request ID/payload after a lost HTTP response; never blindly create a new batch.
+Uncertain endpoint/batch creation requires administrator reconciliation because
+Microsoft reports do not independently expose the submitted source CSV.
+
+`pause` stops processing without undoing data; `resume` rechecks scope/access.
+Ordinary record apply/verify cannot operate this batch. A plan, started batch or
+synced status is not a completed/verified migration.
+
+Completion is a separate user decision:
+
+```text
+Read the reviewed Exchange batch <migration ID> in workspace <internal UUID>.
+Show the latest per-mailbox synchronization/skipped-item reports and explain the
+forwarding changes and remaining omissions. Do not complete it until I explicitly
+authorize cutover and confirm the source freeze.
+```
+
+Only after that authorization pass `action=complete`,
+`allow_mail_routing_changes=true` and `source_frozen=true` with the current hash,
+revision and a fresh request ID. Every mailbox must have clean Synced reports.
+`action=verify` subsequently checks completed zero-skip Microsoft reports without
+provider writes. Its result explicitly states that independent content parity and
+source-CSV readback are not verified. Source delegates/calendar audiences are
+reviewed but not copied; shared calendars, some contact fields, rules and full
+meeting/RSVP fidelity are not guaranteed. Local tests do not replace a sandbox
+tenant pilot. Production execution and DNS changes need separate authorization.
