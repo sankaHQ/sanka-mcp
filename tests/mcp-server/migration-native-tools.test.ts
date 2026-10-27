@@ -9,6 +9,12 @@ const idempotency_key = 'native-request-123';
 const cases = [
   ['get_migration_native_review', 'GET', 'native-review', {}],
   [
+    'get_migration_native_applications',
+    'GET',
+    'native-applications',
+    { source_catalog_site_id: 'source.sharepoint.com,site,web', catalog_scope: 'sitecollection' },
+  ],
+  [
     'save_migration_native_review',
     'PUT',
     'native-review',
@@ -18,7 +24,27 @@ const cases = [
       idempotency_key,
       resources: [
         {
+          workload: 'sharepoint',
+          source_id: 'source.sharepoint.com,site,web',
+          destination_site_id: 'target.sharepoint.com,site,web',
+          include_site_pages: true,
+          applications: [
+            {
+              source_catalog_site_id: 'source.sharepoint.com,site,web',
+              source_app_id: workspace,
+              expected_product_id: workspace,
+              expected_version: '1.0.0.0',
+              expected_package_etag: '"reviewed-package"',
+              source_catalog_scope: 'sitecollection',
+              package_name: 'example.sppkg',
+              evidence: 'Reviewed package',
+            },
+          ],
+          evidence: 'Reviewed pages and executable app package',
+        },
+        {
           workload: 'chats',
+          meeting_chat_mode: 'group_copy',
           source_id: '19:thread@thread.v2',
           evidence: 'reviewed',
           owner_source_id: workspace,
@@ -84,6 +110,10 @@ function arrange(status = 200) {
       key: new Headers(init?.headers).get('Idempotency-Key'),
     });
     expect(url.searchParams.get('workspace_id')).toBe(workspace);
+    if (url.pathname.endsWith('/native-applications')) {
+      expect(url.searchParams.get('source_catalog_site_id')).toBe('source.sharepoint.com,site,web');
+      expect(url.searchParams.get('catalog_scope')).toBe('sitecollection');
+    }
     return new Response(
       JSON.stringify({
         success: true,
@@ -136,7 +166,7 @@ it.each(cases)('%s preserves the actual pinned HTTP contract', async (name, meth
   });
 });
 
-it.each(cases.slice(1))(
+it.each(cases.filter((entry) => entry[1] !== 'GET'))(
   '%s never retries an ambiguous provider-facing operation',
   async (name, _method, _path, body) => {
     const { reqContext, calls } = arrange(503);
