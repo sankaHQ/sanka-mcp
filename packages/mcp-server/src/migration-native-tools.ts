@@ -46,7 +46,7 @@ export const migrationNativeTools = [
     method: 'PUT',
     idempotencyHeader: true,
     description:
-      'Save an explicit revision-bound native Microsoft scope. Copying retains source data. Existing destination document libraries must be empty and preserve version retention/schema and inherited access. Record exclusions with reasons; unsupported fidelity is blocked. Use only identities returned by the pinned native review. This does not write destination content.',
+      'Save an explicit revision-bound native Microsoft scope. Copying retains source data. Online Archive requires mailbox_scope=online_archive and the online_archive_graph_beta_preview limitation acknowledgement; it is a default-off local preview and requires an existing empty destination archive. Primary and archive may be separate resources for the same user. Existing destination document libraries must be empty and preserve version retention/schema and inherited access. Record exclusions with reasons; unsupported fidelity is blocked. Use only identities returned by the pinned native review. This does not write destination content.',
     parameters: {
       ...common,
       expected_revision: { type: 'integer', minimum: 0 },
@@ -64,6 +64,7 @@ export const migrationNativeTools = [
             destination_site_id: id,
             libraries: { type: 'object', maxProperties: 1000, additionalProperties: id },
             meeting_chat_mode: { type: 'string', enum: ['group_copy'] },
+            mailbox_scope: { type: 'string', enum: ['primary', 'online_archive'] },
             include_site_pages: { type: 'boolean' },
             applications: {
               type: 'array',

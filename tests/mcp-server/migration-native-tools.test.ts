@@ -24,6 +24,12 @@ const cases = [
       idempotency_key,
       resources: [
         {
+          workload: 'mailboxes',
+          source_id: workspace,
+          mailbox_scope: 'online_archive',
+          evidence: 'Reviewed source-preserving local Graph beta preview',
+        },
+        {
           workload: 'sharepoint',
           source_id: 'source.sharepoint.com,site,web',
           destination_site_id: 'target.sharepoint.com,site,web',
