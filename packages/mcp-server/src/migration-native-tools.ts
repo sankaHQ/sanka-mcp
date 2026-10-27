@@ -19,6 +19,19 @@ const common = {
 
 export const migrationNativeTools = [
   migrationTool({
+    name: 'get_migration_native_applications',
+    title: 'Inspect source SharePoint applications',
+    path: '/migrations/{migration_id}/native-applications',
+    description:
+      'Read package candidates from a source catalog site in this run’s immutable SharePoint snapshot. Returns package filenames, immutable app/product IDs, versions and declared permissions; no package bodies or destination writes. Review the exact package and application execution impact before adding applications to native review.',
+    parameters: {
+      migration_id: id,
+      source_catalog_site_id: id,
+      catalog_scope: { type: 'string', enum: ['tenant', 'sitecollection'] },
+    },
+    required: ['source_catalog_site_id'],
+  }),
+  migrationTool({
     name: 'get_migration_native_review',
     title: 'Inspect native Microsoft migration review',
     path: '/migrations/{migration_id}/native-review',
@@ -50,6 +63,35 @@ export const migrationNativeTools = [
             destination_id: id,
             destination_site_id: id,
             libraries: { type: 'object', maxProperties: 1000, additionalProperties: id },
+            meeting_chat_mode: { type: 'string', enum: ['group_copy'] },
+            include_site_pages: { type: 'boolean' },
+            applications: {
+              type: 'array',
+              maxItems: 100,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  source_catalog_site_id: id,
+                  source_catalog_scope: { type: 'string', enum: ['tenant', 'sitecollection'] },
+                  source_app_id: uuid,
+                  expected_product_id: uuid,
+                  expected_version: { type: 'string', pattern: '^[0-9]+([.][0-9]+){3}$' },
+                  expected_package_etag: { type: 'string', minLength: 1, maxLength: 512 },
+                  package_name: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}[.]sppkg$' },
+                  evidence,
+                },
+                required: [
+                  'source_catalog_site_id',
+                  'source_app_id',
+                  'expected_product_id',
+                  'expected_version',
+                  'expected_package_etag',
+                  'package_name',
+                  'evidence',
+                ],
+              },
+            },
             owner_source_id: uuid,
             evidence,
           },
