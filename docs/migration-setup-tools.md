@@ -11,15 +11,15 @@ are required.
 Every call requires `workspace_id`, the pinned internal workspace UUID. Every
 POST also requires explicit `confirm: true` for that operation and payload.
 
-| Tool | Method and path, relative to `/api/v2/migrate` | Idempotency |
-| --- | --- | --- |
-| `create_migration` | POST `/migrations` | Optional `idempotency_key` |
-| `create_program_migration` | POST `/programs/{program_id}/migrations` | Unsupported |
-| `create_ingestion_source` | POST `/ingestion-sources` | Unsupported |
-| `get_ingestion_source` | GET `/ingestion-sources/{source_id}` | Read only |
-| `activate_ingestion_source` | POST `/ingestion-sources/{source_id}/activate` | Unsupported |
-| `pause_ingestion_source` | POST `/ingestion-sources/{source_id}/pause` | Unsupported |
-| `stage_ingestion_batch` | POST `/ingestion-sources/{source_id}/batches` | Required `idempotency_key` |
+| Tool                        | Method and path, relative to `/api/v2/migrate` | Idempotency                |
+| --------------------------- | ---------------------------------------------- | -------------------------- |
+| `create_migration`          | POST `/migrations`                             | Optional `idempotency_key` |
+| `create_program_migration`  | POST `/programs/{program_id}/migrations`       | Unsupported                |
+| `create_ingestion_source`   | POST `/ingestion-sources`                      | Unsupported                |
+| `get_ingestion_source`      | GET `/ingestion-sources/{source_id}`           | Read only                  |
+| `activate_ingestion_source` | POST `/ingestion-sources/{source_id}/activate` | Unsupported                |
+| `pause_ingestion_source`    | POST `/ingestion-sources/{source_id}/pause`    | Unsupported                |
+| `stage_ingestion_batch`     | POST `/ingestion-sources/{source_id}/batches`  | Required `idempotency_key` |
 
 These operations register configuration and records, change intake state, and
 create migration runs. They do not start scans/planning or apply destination
@@ -138,3 +138,42 @@ Focused tests use mocked transports and cover schema/registration, workspace
 mismatches, confirmation, exact body/header forwarding, real SDK retry suppression,
 hash/idempotency errors, secret rejection, number precision and safe response
 summaries. No production data or migration runs are created by these tests.
+
+## Google Workspace to Microsoft 365
+
+Codex and Claude use the same reviewed migration tools. Connect source and destination
+Systems in the authenticated Sanka UI first; service-account JSON and application
+secrets must never appear in a prompt or migration spec. `list_migration_connections`
+and `get_migration_connection` discover the existing credential-backed Systems.
+The OAuth-only create-connection tool cannot onboard these credential types.
+
+Use explicit workspace and System IDs, or read an existing Program and select its
+source/destination endpoint IDs. Inspect all workloads and mapping, run full Safety
+Check, review the returned plan hash, and obtain the user's confirmation before apply.
+A pair's availability does not qualify a real tenant: this pair remains design partner.
+
+For the native Google path, a cold copy requires the user to confirm the source freeze
+window before setting `source.options.source_frozen: true`. Resume is not delta sync.
+Do not set the option on the user's behalf without that confirmation. Native meetings
+need a separately reviewed import method; `target.options.calendar_mode: appointments`
+only copies appointments with participant metadata and sends no invitations. Explain
+that difference and obtain approval before selecting it. Unsupported recurrence or
+sharing audiences block the Safety Check. Never bypass those failures by dropping fields.
+
+Use a bounded pilot in isolated test tenants, inspect mailbox/attachment content and
+file permissions, then review completion evidence. A count-only verified result is not
+proof of content parity or permission equivalence. Production migration and DNS cutover
+require separate customer authorization; cancel/pause does not roll back written data.
+
+Native credential onboarding verifies the delegated Google customer/domain and read
+scopes; legacy unverified Systems require reconnect. Native source content references
+expire seven days after the run's UTC creation day; start a new reviewed run after
+expiry. Use the private content mappings produced by a fresh scan. Retention runs
+in the Jobs deployment, so API and Jobs must be released together.
+
+Native final verification currently refuses count-only certification with
+`MIGRATION_WORKSPACE_FIDELITY_REVIEW_REQUIRED`. This is an explicit remaining gate;
+do not report the migration as fully verified or bypass it with generic count tools.
+Secondary/shared calendars, recurrence exceptions, extended contacts, nested/external
+groups and unsupported sharing remain blocked. Google-native exports retain Google's
+10MB export limit. Local tests establish handler/API behavior, not tenant qualification.
