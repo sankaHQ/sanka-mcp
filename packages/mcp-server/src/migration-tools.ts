@@ -214,7 +214,8 @@ export const migrationReadTools: McpTool[] = [
     name: 'list_migration_connections',
     title: 'List migration connections',
     path: '/connections',
-    description: 'List configured migration source and destination connections.',
+    description:
+      'List configured source and destination Systems, including Google Workspace service-account and Microsoft 365 application credentials. Secrets stay in authenticated Sanka setup; never request them in chat.',
     parameters: pagination,
   },
   {
