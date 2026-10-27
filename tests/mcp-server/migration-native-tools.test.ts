@@ -27,6 +27,7 @@ const cases = [
           workload: 'mailboxes',
           source_id: workspace,
           mailbox_scope: 'online_archive',
+          include_hidden_archive_folders: true,
           evidence: 'Reviewed source-preserving local Graph beta preview',
         },
         {
@@ -34,6 +35,7 @@ const cases = [
           source_id: 'source.sharepoint.com,site,web',
           destination_site_id: 'target.sharepoint.com,site,web',
           include_site_pages: true,
+          include_classic_webparts: true,
           applications: [
             {
               source_catalog_site_id: 'source.sharepoint.com,site,web',
