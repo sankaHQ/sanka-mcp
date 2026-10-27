@@ -31,6 +31,8 @@ type MigrationToolDefinition = {
   method?: 'GET' | 'POST' | 'PUT';
   required?: string[];
   executionAction?: 'apply' | 'pause' | 'resume' | 'cancel' | 'verify' | 'review' | 'repair';
+  forwardConfirmation?: boolean;
+  destructiveHint?: boolean;
 };
 
 export function migrationTool(definition: MigrationToolDefinition): McpTool {
@@ -61,7 +63,8 @@ export function migrationTool(definition: MigrationToolDefinition): McpTool {
       annotations: {
         readOnlyHint: readOnly,
         destructiveHint: Boolean(
-          method === 'PUT' ||
+          definition.destructiveHint ||
+            method === 'PUT' ||
             (definition.executionAction &&
               ['apply', 'resume', 'cancel', 'repair'].includes(definition.executionAction)),
         ),
@@ -106,7 +109,12 @@ export function migrationTool(definition: MigrationToolDefinition): McpTool {
                 : {
                     body: Object.fromEntries(
                       Object.entries(query).filter(
-                        ([key]) => !['workspace_id', 'confirm', 'idempotency_key'].includes(key),
+                        ([key]) =>
+                          ![
+                            'workspace_id',
+                            'idempotency_key',
+                            ...(definition.forwardConfirmation ? [] : ['confirm']),
+                          ].includes(key),
                       ),
                     ),
                   }),

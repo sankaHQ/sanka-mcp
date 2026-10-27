@@ -1,4 +1,5 @@
 import { migrationReviewTools } from './migration-tools';
+import { exchangeMigrationTools } from './exchange-migration-tools';
 import { migrationInspectionTools } from './migration-inspection-tools';
 import { developerCloudTools } from './developer-cloud-tools';
 import { codeMigrationTools } from './code-migration-tools';
@@ -1338,6 +1339,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     ...migrationSetupTools,
     ...migrationInspectionTools,
     ...migrationReviewTools,
+    ...exchangeMigrationTools,
     startMigrationPlanTool,
     ...migrationExecutionTools,
     verifyMigrationTool,
