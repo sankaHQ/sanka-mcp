@@ -47,8 +47,8 @@ export const exchangeMigrationTools = [
     title: 'Control reviewed native Exchange migration',
     path: '/migrations/{migration_id}/exchange/actions',
     method: 'POST',
-    forwardConfirmation: true,
-    destructiveHint: true,
+    bodyConfirm: true,
+    destructive: true,
     description:
       'Run an explicitly authorized native Exchange batch action against the exact reviewed plan_hash and current revision. start creates its scoped Gmail endpoint/batch and starts it; pause stops future processing without rolling back imported data; resume restarts a stopped batch. recover observes provider state without provider mutations, reconciles acknowledged identities and holds uncertain outcomes for manual review rather than creating duplicates. verify checks completed zero-skip Microsoft mailbox reports and declares that independent item parity is not verified. complete is a separate cutover action: it can change forwarding and requires explicit user authorization, allow_mail_routing_changes=true and confirmed source_frozen=true. Never infer cutover permission from start. Use a fresh UUID request_id per intended action and reuse the identical payload after an uncertain HTTP response; POST retries are disabled. Read pending/status before further actions. Do not hide omitted calendars/contact fields or claim production qualification from local tests.',
     required: ['action', 'request_id', 'expected_plan_hash', 'expected_revision', 'confirm'],

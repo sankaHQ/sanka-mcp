@@ -30,9 +30,10 @@ type MigrationToolDefinition = {
   parameters?: Record<string, object>;
   method?: 'GET' | 'POST' | 'PUT';
   required?: string[];
+  bodyConfirm?: boolean;
+  idempotencyHeader?: boolean;
+  destructive?: boolean;
   executionAction?: 'apply' | 'pause' | 'resume' | 'cancel' | 'verify' | 'review' | 'repair';
-  forwardConfirmation?: boolean;
-  destructiveHint?: boolean;
 };
 
 export function migrationTool(definition: MigrationToolDefinition): McpTool {
@@ -63,7 +64,7 @@ export function migrationTool(definition: MigrationToolDefinition): McpTool {
       annotations: {
         readOnlyHint: readOnly,
         destructiveHint: Boolean(
-          definition.destructiveHint ||
+          definition.destructive ||
             method === 'PUT' ||
             (definition.executionAction &&
               ['apply', 'resume', 'cancel', 'repair'].includes(definition.executionAction)),
@@ -113,14 +114,15 @@ export function migrationTool(definition: MigrationToolDefinition): McpTool {
                           ![
                             'workspace_id',
                             'idempotency_key',
-                            ...(definition.forwardConfirmation ? [] : ['confirm']),
+                            ...(definition.bodyConfirm ? [] : ['confirm']),
                           ].includes(key),
                       ),
                     ),
                   }),
                 ...((
-                  definition.executionAction &&
-                  ['apply', 'verify', 'review', 'repair'].includes(definition.executionAction) &&
+                  (definition.idempotencyHeader ||
+                    (definition.executionAction &&
+                      ['apply', 'verify', 'review', 'repair'].includes(definition.executionAction))) &&
                   values['idempotency_key']
                 ) ?
                   { headers: { 'Idempotency-Key': values['idempotency_key'] as string } }
