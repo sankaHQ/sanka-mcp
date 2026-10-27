@@ -205,7 +205,8 @@ First connect a customer-bound Google System with delegated migration and Gmail
 settings/calendar ACL read scopes, and a certificate-authenticated Microsoft
 System with Exchange migration RBAC. Target mailboxes must be preprovisioned,
 licensed, private UserMailboxes; even default calendar availability grants are
-refused. Credentials belong in authenticated settings. Bulk execution requires
+refused. Target forwarding, Send on Behalf and active inbox routing/deletion rules
+also block the path. Credentials belong in authenticated settings. Bulk execution requires
 an existing unlimited Sanka Pro/Enterprise entitlement; finite credits are not
 supported. Use a separate reviewed record-copy migration for Drive.
 
