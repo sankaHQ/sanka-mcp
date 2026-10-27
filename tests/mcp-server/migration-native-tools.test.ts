@@ -75,7 +75,7 @@ const cases = [
 
 function arrange(status = 200) {
   const calls: { method: string; path: string; body: unknown; key: string | null }[] = [];
-  const fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetch = jest.fn(async (input: Parameters<typeof globalThis.fetch>[0], init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     calls.push({
       method: init?.method ?? 'GET',
