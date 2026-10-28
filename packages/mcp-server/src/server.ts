@@ -367,6 +367,7 @@ import {
   retryImportJobTool,
   uploadImportFileTool,
 } from './transfer-tools';
+import { getMeetingTool } from './meeting-tools';
 import {
   getWorkflowRunTool,
   previewWorkflowTool,
@@ -1078,6 +1079,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     previewWorkflowTool,
     startWorkflowTool,
     getWorkflowRunTool,
+    getMeetingTool,
     previewBuyRequestTool,
     listBuyRequestsTool,
     createBuyRequestTool,
