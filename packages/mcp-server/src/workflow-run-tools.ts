@@ -70,6 +70,40 @@ const DIRECT_CRM_INVOICE_WORKFLOW_TYPE = 'deal_to_invoice';
 const DIRECT_CRM_INVOICE_LOCK_MESSAGE =
   'Direct CRM deal_to_invoice is disabled. Tell the user Sanka must first create or reuse a Sanka Order so billing can be generated correctly, ask for confirmation, then use workflow_type=deal_to_order before creating invoices or subscriptions from the Order.';
 const V2_WORKFLOW_RUN_PREVIEW_PATH = '/api/v2/public/workflow-runs/preview';
+const DEAL_ORIGIN_WORKFLOW_TYPES = new Set([
+  'deal_to_estimate',
+  'deal_to_order',
+  'deal_to_subscription',
+  'deal_to_order_handoff',
+]);
+
+const isHubSpotUrl = (value: string): boolean => {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === 'hubspot.com' || host.endsWith('.hubspot.com');
+  } catch {
+    return false;
+  }
+};
+
+// A deal workflow reads its deal from a HubSpot Deal URL or a record id. Any other URL (a
+// meeting recording, a web page) would reach the API as a deal without an id; stop it here
+// with what to do instead.
+const unsupportedDealSourceUrl = (
+  workflowType: string,
+  sourceRecord: Record<string, unknown>,
+): ToolCallResult | undefined => {
+  const url = readString(sourceRecord['url']);
+  const hasID = ['record_id', 'id', 'external_id'].some((key) => readString(sourceRecord[key]));
+  if (!DEAL_ORIGIN_WORKFLOW_TYPES.has(workflowType) || !url || hasID || isHubSpotUrl(url)) {
+    return undefined;
+  }
+  return asErrorResult(
+    `source_record.url is not a HubSpot Deal URL, so ${workflowType} cannot use it. No workflow request was sent. ` +
+      'Deal workflows start from a HubSpot Deal URL or a Sanka, HubSpot or Salesforce deal id. ' +
+      'For a meeting recording link such as tl;dv, call get_meeting and work from its notes; to make an estimate from it, confirm the customer and line items with the user and call create_estimate.',
+  );
+};
 const V2_WORKFLOW_RUN_START_PATH = '/api/v2/public/workflow-runs/start';
 
 const WORKFLOW_LANGUAGE_SCHEMA = {
@@ -810,6 +844,10 @@ export const previewWorkflowTool: McpTool = {
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
     }
+    const urlError = unsupportedDealSourceUrl(workflowType, sourceRecord);
+    if (urlError) {
+      return urlError;
+    }
     const options = readObject(args?.['options']) ?? {};
     const language = readWorkflowLanguage(args, options);
     if (isSalesforceQuoteReadinessPreview(workflowType)) {
@@ -886,6 +924,10 @@ export const startWorkflowTool: McpTool = {
     }
     if (!sourceRecord) {
       return asErrorResult('`source_record` is required.');
+    }
+    const urlError = unsupportedDealSourceUrl(workflowType, sourceRecord);
+    if (urlError) {
+      return urlError;
     }
     const options = readObject(args?.['options']) ?? {};
     const language = readWorkflowLanguage(args, options);
