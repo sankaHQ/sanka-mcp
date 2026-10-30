@@ -1,7 +1,7 @@
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-10-19.directory-accounts.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-10-30.signal-booking.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -353,6 +353,24 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'If the recommended tool is not visible in this client session, do not answer that Sanka cannot do it from preview_workflow/start_workflow alone. Tell the user the Sanka Skill or MCP tool catalog may be stale and ask them to update/reconnect the Sanka plugin or start a fresh session.',
       stale_skill_guardrail:
         'Do not use preview_workflow/start_workflow as evidence that provider-native workflow automation is unavailable.',
+    };
+  }
+
+  if (
+    includesAny(combined, ['signal']) &&
+    includesAny(combined, ['booking', 'booked', 'book link', 'meeting', '予約', '商談'])
+  ) {
+    return {
+      capability_version: CAPABILITY_GUIDANCE_VERSION,
+      intent_family: 'signal_booking',
+      supported: true,
+      recommended_tools: ['list_signal_bookings', 'get_signal_booking'],
+      route:
+        'Use list_signal_bookings to find meetings Sanka Signal leads booked on sanka.com/book links (filter by rep, territory, status, variant or text), then get_signal_booking for its routing reason, assignment trace and timeline. Both are Sanka Admin only.',
+      mutation_policy:
+        'These tools are read-only. Reassigning, rescheduling, cancelling, marking no-shows and rep or routing settings stay in /manage/signal/booking.',
+      fallback_when_missing:
+        'If these tools are not visible, update or reconnect the Sanka MCP/plugin. Do not use calendar attendance tools for Signal bookings.',
     };
   }
 

@@ -198,6 +198,8 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `create_calendar_attendance`: book a calendar attendance
 - `cancel_calendar_attendance`: cancel a calendar attendance
 - `reschedule_calendar_attendance`: reschedule a calendar attendance
+- `list_signal_bookings`: Sanka Admins only, read-only list of meetings booked from Sanka Signal outreach links
+- `get_signal_booking`: Sanka Admins only, read one Signal booking with its routing, assignment trace and timeline
 - `browser_use`: run a governed, allowlisted browser workflow through a configured worker
 
 Local stdio development keeps the broader `full` profile available, including:
