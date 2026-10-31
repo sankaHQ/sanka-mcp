@@ -1,3 +1,4 @@
+import { getCapabilityGuidanceTool } from '../../packages/mcp-server/src/capability-guidance-tools';
 import {
   deskCreateTicketTool,
   deskGetTicketStatusTool,
@@ -71,6 +72,11 @@ const filing: V2Request[] = [
     headers: { 'x-sanka-mcp': 'true', 'x-sanka-expected-workspace-id': 'ws-1' },
   },
 ];
+const probe: V2Request = {
+  method: 'GET',
+  url: `${MY_TICKETS}?state=open&limit=1`,
+  headers: { 'x-stainless-timeout': '5' },
+};
 
 const session = () => envelope({ current_workspace: { id: 'ws-1', code: '10101010', name: 'Acme' } });
 const deskError = (status: number, code: string, message: string) =>
@@ -224,6 +230,38 @@ const cases: Array<{
     requests: [{ method: 'GET', url: MY_TICKETS }],
     isError: true,
     text: ['Could not read Desk requests (DESK_NOT_ENABLED): Sanka Desk is not enabled for this workspace.'],
+  },
+  {
+    name: 'get_capability_guidance sends IT requests to the Desk tools where Desk is on',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'I cannot log in to Slack and need IT support' },
+    responses: [envelope({ items: [], state: 'open', limit: 1, total: 0 })],
+    requests: [probe],
+    structuredContent: {
+      guidance: {
+        intent_family: 'sanka_desk_it_requests',
+        sanka_desk: 'enabled',
+        recommended_tools: ['desk_create_ticket', 'desk_get_ticket_status', 'desk_list_my_tickets'],
+      },
+    },
+  },
+  {
+    name: 'get_capability_guidance keeps the guidance of a workspace without Desk',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'Create a Google Workspace account for the new hire' },
+    responses: [deskError(403, 'DESK_NOT_ENABLED', 'Sanka Desk is not enabled for this workspace.')],
+    requests: [probe],
+    structuredContent: {
+      guidance: { intent_family: 'directory_account_workflows', sanka_desk: 'not_enabled' },
+    },
+  },
+  {
+    name: 'get_capability_guidance leaves a Flow ticket about a login problem to the ticket tools',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'Create a ticket: a customer cannot log in to our portal', object_type: 'ticket' },
+    responses: [],
+    requests: [],
+    structuredContent: { guidance: { intent_family: 'general_sanka_capability' } },
   },
 ];
 
