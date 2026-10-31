@@ -99,6 +99,7 @@ const CREATE_OUTPUT_SCHEMA = {
   properties: {
     ...DETAIL_PROPERTIES,
     client_key: { type: 'string', description: 'The idempotency key sent; reuse it to retry this request.' },
+    text: { type: 'string', description: 'The request text Desk recorded.' },
     workspace_id: { type: 'string' },
     workspace_code: { type: 'string' },
     workspace_name: { type: 'string' },
@@ -322,7 +323,7 @@ export const deskCreateTicketTool = defineDeskTool({
   operation: 'write',
   httpMethod: 'post',
   httpPath: MY_TICKETS_PATH,
-  operationId: 'desk.my_tickets.create',
+  operationId: 'create_my_desk_ticket_api_v2_desk_my_tickets_post',
   inputSchema: {
     type: 'object',
     additionalProperties: false,
@@ -337,6 +338,7 @@ export const deskCreateTicketTool = defineDeskTool({
       subject_email: {
         type: 'string',
         format: 'email',
+        maxLength: 320,
         description: 'E-mail of the person the request is about, when it is not the requester.',
       },
       client_key: {
@@ -374,6 +376,10 @@ export const deskCreateTicketTool = defineDeskTool({
     });
     const ticket = envelopeData(response);
     const reference = readString(ticket['reference']) ?? readString(ticket['id']) ?? '?';
+    // The first inbound message is the request as Desk recorded it.
+    const recordedText = (Array.isArray(ticket['messages']) ? ticket['messages'] : [])
+      .map(readRecord)
+      .find((message) => message?.['direction'] === 'inbound')?.['body'];
     const receivedAt = Date.parse(readString(ticket['received_at']) ?? '');
     const desk = `the IT service desk of ${workspace.name ?? workspace.code ?? workspace.id}`;
     const lead =
@@ -393,6 +399,7 @@ export const deskCreateTicketTool = defineDeskTool({
         ok: true,
         status: 'filed',
         client_key: clientKey,
+        ...(typeof recordedText === 'string' ? { text: recordedText } : undefined),
         workspace_id: workspace.id,
         ...(workspace.code ? { workspace_code: workspace.code } : undefined),
         ...(workspace.name ? { workspace_name: workspace.name } : undefined),
@@ -409,7 +416,7 @@ export const deskGetTicketStatusTool = defineDeskTool({
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${MY_TICKETS_PATH}/{ticket}`,
-  operationId: 'desk.my_tickets.get',
+  operationId: 'get_my_desk_ticket_api_v2_desk_my_tickets__ticket_ref__get',
   inputSchema: {
     type: 'object',
     additionalProperties: false,
@@ -444,7 +451,7 @@ export const deskListMyTicketsTool = defineDeskTool({
   operation: 'read',
   httpMethod: 'get',
   httpPath: MY_TICKETS_PATH,
-  operationId: 'desk.my_tickets.list',
+  operationId: 'list_my_desk_tickets_api_v2_desk_my_tickets_get',
   inputSchema: {
     type: 'object',
     additionalProperties: false,

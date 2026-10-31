@@ -175,6 +175,7 @@ const cases: Array<{
       ok: true,
       status: 'filed',
       client_key: 'retry-key-0001',
+      text: 'I cannot log in to Slack',
       workspace_id: 'ws-1',
       id: TICKET_ID,
     },
@@ -335,7 +336,7 @@ describe('Sanka Desk tools', () => {
           required: ['text'],
           properties: {
             text: { type: 'string', minLength: 1, maxLength: 4000 },
-            subject_email: { type: 'string', format: 'email' },
+            subject_email: { type: 'string', format: 'email', maxLength: 320 },
             client_key: { type: 'string', minLength: 8, maxLength: 100 },
           },
         },
