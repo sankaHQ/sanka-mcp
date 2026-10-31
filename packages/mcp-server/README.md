@@ -181,6 +181,7 @@ The hosted endpoint on `/mcp` exposes the packaged AI-client tool surface:
 - `delete_ticket`: delete a ticket
 - `list_ticket_pipelines`: inspect ticket pipelines and stages
 - `update_ticket_status`: update only a ticket stage or status
+- Sanka Desk (the managed IT service desk; workspaces without it answer `DESK_NOT_ENABLED`) — `desk_create_ticket`, `desk_get_ticket_status`, `desk_list_my_tickets`: the connected user files an IT request (access, accounts, login, joiners and leavers, app settings) and follows their own requests by UUID or `#123`. The create sends the session's workspace as `X-Sanka-Expected-Workspace-ID` and an idempotency `client_key` (derived from the text within the hour when omitted). There is no approve tool; replies, confirmations and approvals happen on the Desk page or where the request came from. These are not the Flow ticket tools above.
 - `list_expenses`: read-only expense review
 - `get_expense`: load a single expense
 - `upload_expense_attachment`: upload a receipt or invoice and return a file id

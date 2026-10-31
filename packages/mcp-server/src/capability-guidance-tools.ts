@@ -1,11 +1,115 @@
+import { DESK_TOOL_NAMES, DeskAvailability, readDeskAvailability } from './desk-tools';
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-10-30.signal-booking.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-10-31.sanka-desk.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
 const PRESENTATION_INTENT_JA = ['スライド', 'プレゼン', 'パワーポイント', 'パワポ'];
+const MIGRATION_INTENT = /\bmigrat(?:e|es|ing|ion|ions)\b/;
+
+// IT requests an employee sends to their company's IT service desk (Sanka Desk).
+const DESK_SERVICE_TERMS = [
+  'sanka desk',
+  'service desk',
+  'help desk',
+  'helpdesk',
+  'desk_',
+  'it_request',
+  'ヘルプデスク',
+  'サービスデスク',
+  '情シス',
+  '情報システム',
+];
+// "IT" in the user's own casing followed by who handles it; a lowercase "it support" is a pronoun.
+const IT_SERVICE_INTENT =
+  /\bIT[ -]?(?:[Hh]elp|[Ss]upport|[Rr]equest|[Tt]icket|[Tt]eam|[Dd]esk|[Aa]dmin|[Dd]epartment|部門|担当|サポート|チーム)/;
+const DESK_REQUEST_TERMS = [
+  'log in',
+  'login',
+  'log-in',
+  'sign in',
+  'sign-in',
+  'signin',
+  'locked out',
+  'password',
+  'two-factor',
+  '2fa',
+  'mfa',
+  'access to',
+  'need access',
+  'request access',
+  'access request',
+  'grant access',
+  'lost access',
+  "can't access",
+  'cannot access',
+  'access right',
+  'my account',
+  'user account',
+  'account locked',
+  'account is locked',
+  'license',
+  'licence',
+  'new hire',
+  'joiner',
+  'leaver',
+  'app setting',
+  'ログイン',
+  'サインイン',
+  'パスワード',
+  '二段階認証',
+  'アクセス権',
+  'アクセスでき',
+  '権限',
+  'アカウント',
+  'ライセンス',
+  'アプリの設定',
+];
+// Automations, permission sets and asset records are admin work, not requests to the IT desk; so
+// is building an app (isAppBuilderIntent).
+const DESK_EXCLUDED_TERMS = [
+  'workflow',
+  'automation',
+  'automate',
+  'permission set',
+  'asset',
+  'ワークフロー',
+  '自動化',
+  '権限セット',
+  '資産',
+];
+const TICKET_TERMS = ['ticket', 'チケット'];
+
+// Building with the app builder: a product term plus a build term.
+const APP_BUILDER_PRODUCT_TERMS = [
+  'app builder',
+  'blueprint',
+  'erp',
+  'crm',
+  'module',
+  'side menu',
+  'permission set',
+  'governance',
+  'モジュール',
+  'サイドメニュー',
+  '権限',
+  'ガバナンス',
+];
+const APP_BUILDER_BUILD_TERMS = [
+  'build',
+  'configure',
+  'setup',
+  'set up',
+  'implement',
+  'schema',
+  '構築',
+  '設定',
+  'セットアップ',
+  '実装',
+  'スキーマ',
+];
 
 // Google Workspace and Microsoft 365 account steps for IT onboarding and offboarding.
 const DIRECTORY_STEP_TERMS = [
@@ -105,6 +209,69 @@ const isDirectoryAccountIntent = (value: string): boolean =>
   (includesAny(value, DIRECTORY_PROVIDER_TERMS) && includesAny(value, DIRECTORY_ACCOUNT_TERMS)) ||
   (includesAny(value, EMPLOYEE_LIFECYCLE_TERMS) && includesAny(value, EMPLOYEE_ACCOUNT_TERMS));
 
+const isPresentationIntent = (value: string): boolean =>
+  PRESENTATION_INTENT.test(value) || includesAny(value, PRESENTATION_INTENT_JA);
+
+const isAppBuilderIntent = (value: string): boolean =>
+  includesAny(value, ['app builder', 'blueprint']) ||
+  (includesAny(value, APP_BUILDER_PRODUCT_TERMS) && includesAny(value, APP_BUILDER_BUILD_TERMS));
+
+// The request text: `raw` keeps the user's casing, `combined` is every hint lowercased.
+const requestHints = (args: Record<string, unknown> | undefined): { raw: string; combined: string } => {
+  const raw = ['intent', 'provider', 'object_type', 'operation']
+    .map((key) => readString(args?.[key]))
+    .join(' ');
+  return { raw, combined: raw.toLowerCase() };
+};
+
+// A request for the company IT desk. Without an IT or Desk mention, a ticket is a Flow ticket
+// record, and Flow ticket CRUD keeps its own tools.
+const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean => {
+  const { raw, combined } = requestHints(args);
+  if (
+    isPresentationIntent(combined) ||
+    MIGRATION_INTENT.test(combined) ||
+    isAppBuilderIntent(combined) ||
+    includesAny(combined, DESK_EXCLUDED_TERMS)
+  ) {
+    return false;
+  }
+  if (includesAny(combined, DESK_SERVICE_TERMS) || IT_SERVICE_INTENT.test(raw)) return true;
+  return (
+    !includesAny(combined, TICKET_TERMS) &&
+    (includesAny(combined, DESK_REQUEST_TERMS) || isDirectoryAccountIntent(combined))
+  );
+};
+
+const deskGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'sanka_desk_it_requests',
+  supported: true,
+  sanka_desk: 'enabled',
+  recommended_tools: [...DESK_TOOL_NAMES],
+  route:
+    "This workspace takes IT requests through Sanka Desk, the company's IT service desk. When the user wants their IT team to handle something (access, an account, a login problem, a joiner or leaver, an app setting or an IT question), file it in the user's words with desk_create_ticket, with subject_email when it is about someone else, such as a new hire. Desk may answer, ask questions or need approvals. Read progress with desk_get_ticket_status and the user's requests with desk_list_my_tickets; the user answers, confirms or reopens on the Desk page (console_url) or where the request came from.",
+  mutation_policy:
+    "desk_create_ticket files only the connected user's own request in the current workspace; retry it with the same client_key. No tool approves, rejects, answers or closes a Desk request. Never use create_ticket, update_ticket or update_ticket_status for Desk requests: those stay for Flow ticket records.",
+  fallback_when_missing:
+    'If the desk_* tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
+// Added to the guidance of an IT request where Desk is off or could not be checked, which is
+// otherwise unchanged.
+const DESK_NOTES: Record<Exclude<DeskAvailability, 'enabled'>, Record<string, string>> = {
+  not_enabled: {
+    sanka_desk: 'not_enabled',
+    sanka_desk_note:
+      'Sanka Desk is not enabled for this workspace, so the desk_* tools cannot take this request. Handle it without Desk; the Flow ticket tools stay for Flow ticket records.',
+  },
+  unknown: {
+    sanka_desk: 'unknown',
+    sanka_desk_note:
+      'Whether Sanka Desk is enabled for this workspace could not be checked. If desk_list_my_tickets answers, IT requests go to the desk_* tools; DESK_NOT_ENABLED means they do not. Never file them with the Flow ticket tools.',
+  },
+};
+
 /**
  * Selects the workflow rules that mention any of the request hints. The rules used to be embedded
  * in the initialize instructions of every session; they are now served here on demand so that
@@ -140,14 +307,13 @@ export const selectWorkflowGuidance = (
     : { workflow_guidance: [...SHARED_WORKFLOW_GUIDANCE], workflow_guidance_scope: 'all' };
 };
 
-const buildGuidance = (args: Record<string, unknown> | undefined): Record<string, unknown> => {
-  const intent = readString(args?.['intent']).toLowerCase();
-  const provider = readString(args?.['provider']).toLowerCase();
-  const objectType = readString(args?.['object_type']).toLowerCase();
-  const operation = readString(args?.['operation']).toLowerCase();
-  const combined = [intent, provider, objectType, operation].join(' ');
+const buildGuidance = (
+  args: Record<string, unknown> | undefined,
+  desk?: DeskAvailability,
+): Record<string, unknown> => {
+  const { combined } = requestHints(args);
   // Before the migration branch: a deck about a migration is still a deck.
-  if (PRESENTATION_INTENT.test(combined) || includesAny(combined, PRESENTATION_INTENT_JA)) {
+  if (isPresentationIntent(combined)) {
     return {
       capability_version: CAPABILITY_GUIDANCE_VERSION,
       intent_family: 'sanka_doc_presentations',
@@ -184,7 +350,7 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
     };
   }
-  if (/\bmigrat(?:e|es|ing|ion|ions)\b/.test(combined)) {
+  if (MIGRATION_INTENT.test(combined)) {
     const codeMigration = includesAny(combined, ['code migration', 'drf', 'django', 'fastapi', 'repository']);
     return {
       capability_version: CAPABILITY_GUIDANCE_VERSION,
@@ -225,6 +391,11 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'If a recommended tool is unavailable, refresh/reconnect the Sanka MCP/plugin. Do not invent an endpoint or substitute local scripts for hosted Sanka operations.',
     };
   }
+  // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
+  // leavers included; elsewhere the guidance stays as it was.
+  if (desk === 'enabled') {
+    return deskGuidance();
+  }
   // After the migration branch: moving accounts between tenants is a migration.
   if (isDirectoryAccountIntent(combined)) {
     return {
@@ -240,38 +411,7 @@ const buildGuidance = (args: Record<string, unknown> | undefined): Record<string
         'If create_workflow or update_workflow is not visible in this client session, say the Sanka Skill or MCP tool catalog may be stale and ask the user to update/reconnect the Sanka plugin or start a fresh session.',
     };
   }
-  const appBuilderProductTerms = [
-    'app builder',
-    'blueprint',
-    'erp',
-    'crm',
-    'module',
-    'side menu',
-    'permission set',
-    'governance',
-    'モジュール',
-    'サイドメニュー',
-    '権限',
-    'ガバナンス',
-  ];
-  const appBuilderBuildTerms = [
-    'build',
-    'configure',
-    'setup',
-    'set up',
-    'implement',
-    'schema',
-    '構築',
-    '設定',
-    'セットアップ',
-    '実装',
-    'スキーマ',
-  ];
-
-  if (
-    includesAny(combined, ['app builder', 'blueprint']) ||
-    (includesAny(combined, appBuilderProductTerms) && includesAny(combined, appBuilderBuildTerms))
-  ) {
+  if (isAppBuilderIntent(combined)) {
     return {
       capability_version: CAPABILITY_GUIDANCE_VERSION,
       intent_family: 'sanka_app_builder',
@@ -440,8 +580,13 @@ export const getCapabilityGuidanceTool: McpTool = {
       openWorldHint: false,
     },
   },
-  handler: async ({ args }): Promise<ToolCallResult> => {
-    const guidance = { ...buildGuidance(args), ...selectWorkflowGuidance(args) };
+  handler: async ({ reqContext, args }): Promise<ToolCallResult> => {
+    const desk = isDeskRequestIntent(args) ? await readDeskAvailability(reqContext) : undefined;
+    const guidance = {
+      ...buildGuidance(args, desk),
+      ...(desk && desk !== 'enabled' ? DESK_NOTES[desk] : undefined),
+      ...selectWorkflowGuidance(args),
+    };
     return {
       content: [
         {
