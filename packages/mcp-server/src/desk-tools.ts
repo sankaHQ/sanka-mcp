@@ -214,6 +214,9 @@ const describeTicket = (ticket: JsonRecord): string[] => {
     (action): action is string => typeof action === 'string',
   );
   const consoleUrl = readString(ticket['console_url']);
+  // "reply", "reply or withdraw", "reply, withdraw or escalate".
+  const actionList =
+    actions.length > 1 ? `${actions.slice(0, -1).join(', ')} or ${actions[actions.length - 1]}` : actions[0];
   return [
     `${readString(ticket['reference']) ?? '?'} "${readString(ticket['title']) ?? ''}": ${stateLabel(
       ticket,
@@ -225,12 +228,8 @@ const describeTicket = (ticket: JsonRecord): string[] => {
     ...(ticket['waiting_on'] === 'approval' ?
       ['It waits for an approver; these tools cannot approve anything.']
     : []),
-    ...(actions.length > 0 ?
-      [
-        `The requester can ${actions.join(
-          ', ',
-        )} on the Desk page or where the request came from; these tools cannot.`,
-      ]
+    ...(actionList ?
+      [`The requester can ${actionList} on the Desk page or where the request came from; these tools cannot.`]
     : []),
     ...(consoleUrl ? [`Desk page: ${consoleUrl}`] : []),
   ];

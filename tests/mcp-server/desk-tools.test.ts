@@ -135,7 +135,7 @@ const cases: Array<{
     structuredContent: detail,
     text: [
       '#12 "Cannot log in to Slack": waiting for the requester to answer.\nDesk asks: Which Slack workspace is it?',
-      'The requester can reply, withdraw on the Desk page or where the request came from; these tools cannot.',
+      'The requester can reply or withdraw on the Desk page or where the request came from; these tools cannot.',
       `Desk page: ${detail.console_url}`,
     ],
   },
