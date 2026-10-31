@@ -68,6 +68,7 @@ const v2Requests: V2RequestCase[] = [
       external_id: 'DEAL-1',
       name: 'Acme renewal',
       case_status: 'opportunities',
+      closed_at: '2026-11-30',
       company_id: 'company-1',
       line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
       workspace_id: 'workspace-1',
@@ -80,6 +81,7 @@ const v2Requests: V2RequestCase[] = [
           properties: {
             name: 'Acme renewal',
             case_status: 'opportunities',
+            closed_at: '2026-11-30',
             company_id: 'company-1',
             external_id: 'DEAL-1',
             line_items: [{ item_name: 'Implementation', quantity: 2, unit_price: 150 }],
@@ -137,6 +139,21 @@ const v2Requests: V2RequestCase[] = [
       },
     ],
   },
+  ...[
+    { change: 'sets', closed_at: '2026-11-30' },
+    { change: 'clears', closed_at: null },
+  ].map(({ change, closed_at }) => ({
+    name: `${change} a Sanka deal's close date through the public deals route`,
+    tool: crmUpdateDealTool,
+    args: { case_id: 'deal-1', closed_at, workspace_id: 'workspace-1' },
+    expectedRequests: [
+      {
+        method: 'PUT',
+        url: 'http://localhost:5000/api/v2/public/deals/deal-1?workspace_id=workspace-1',
+        body: { properties: { closed_at } },
+      },
+    ],
+  })),
   {
     name: 'deletes a deal',
     tool: crmDeleteDealTool,

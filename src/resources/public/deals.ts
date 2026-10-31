@@ -616,6 +616,11 @@ export interface DealCreateParams {
 
   channel_id?: string | null;
 
+  /**
+   * Close date (YYYY-MM-DD); null clears a Sanka deal's close date
+   */
+  closed_at?: string | null;
+
   companyExternalId?: string | null;
 
   companyId?: string | null;
@@ -689,6 +694,11 @@ export interface DealUpdateParams {
    * Body param
    */
   case_status?: string | null;
+
+  /**
+   * Body param: close date (YYYY-MM-DD); null clears a Sanka deal's close date
+   */
+  closed_at?: string | null;
 
   /**
    * Body param
