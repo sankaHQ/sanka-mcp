@@ -3253,6 +3253,11 @@ const DEAL_MUTATION_INPUT_PROPERTIES = {
     type: 'string',
     description: 'Deal stage/status key.',
   },
+  closed_at: {
+    type: ['string', 'null'] as any,
+    description:
+      "Deal close date in YYYY-MM-DD format; connected CRMs receive it as their close date. Pass null to clear a Sanka deal's close date.",
+  },
   company_external_id: {
     type: 'string',
     description: 'External company reference to associate to the deal.',
@@ -12870,6 +12875,16 @@ const buildDealMutationBody = (args: Record<string, unknown> | undefined) => {
     // Sanka deals accept case_status (stored as the stage), not caseStatus; integration
     // targets map either spelling to the provider stage.
     body['case_status'] = caseStatus;
+  }
+  if (Object.prototype.hasOwnProperty.call(args ?? {}, 'closed_at')) {
+    if (args?.['closed_at'] === null) {
+      body['closed_at'] = null;
+    } else {
+      const closedAt = readString(args?.['closed_at']);
+      if (closedAt) {
+        body['closed_at'] = closedAt;
+      }
+    }
   }
   if (companyExternalID) {
     body['companyExternalId'] = companyExternalID;
