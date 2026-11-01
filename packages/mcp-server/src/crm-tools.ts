@@ -4663,7 +4663,7 @@ const APP_BLUEPRINT_INPUT_SCHEMA = {
     template_slug: {
       type: 'string',
       description:
-        'Supported blueprint template slug. Current values include crm, erp, expense-management, inventory-management, procurement-management, billing-collections, hr-management, it-asset-management, project-management, and support-desk.',
+        'Supported blueprint template slug. Current values include crm, erp, expense-management, inventory-management, procurement-management, billing-collections, hr-management, project-management, and support-desk.',
     },
     templateSlug: {
       type: 'string',
@@ -26134,7 +26134,8 @@ export const crmCreateTicketTool: McpTool = {
   tool: {
     name: 'create_ticket',
     title: 'Create ticket',
-    description: 'Create a ticket in Sanka for support or service workflows.',
+    description:
+      "Create a customer support ticket in Sanka Flow. An employee's IT request goes to desk_create_ticket where Sanka Desk is enabled.",
     inputSchema: TICKET_CREATE_INPUT_SCHEMA,
     outputSchema: TICKET_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
