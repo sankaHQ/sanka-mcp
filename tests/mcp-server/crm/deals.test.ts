@@ -10,6 +10,7 @@ import {
   crmListDealPipelinesTool,
   crmListDealsTool,
   crmListPipelineSnapshotBatchesTool,
+  crmQueryRecordsTool,
   crmSyncPipelineSnapshotHubSpotPropertiesTool,
   crmUpdateDealPipelineTool,
   crmUpdateDealTool,
@@ -25,6 +26,30 @@ import {
 } from './helpers';
 
 const v2Requests: V2RequestCase[] = [
+  ...[
+    { tool: crmQueryRecordsTool, args: { object_type: 'deals', select: ['id'], limit: 10 } },
+    { tool: crmQueryRecordsTool, args: { object_type: 'deal', scope: 'sanka', select: ['id'], limit: 10 } },
+    { tool: crmListDealsTool, args: { select: ['id'], limit: 10 } },
+  ].map(({ tool, args }) => ({
+    name: `${tool.tool.name} reads Sanka ${
+      args.object_type ?? 'deals'
+    } from the route that returns amount and activity fields`,
+    tool,
+    args,
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: 'http://localhost:5000/api/v2/records/query',
+        body: {
+          object_type: args.object_type ?? 'deals',
+          ...(args.scope ? { scope: args.scope } : undefined),
+          select: ['id'],
+          page: 1,
+          limit: 10,
+        },
+      },
+    ],
+  })),
   {
     name: 'gets one deal when authentication is present',
     tool: crmGetDealTool,

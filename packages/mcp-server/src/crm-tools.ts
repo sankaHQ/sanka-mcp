@@ -10822,7 +10822,21 @@ const buildRecordMergeBody = (args: Record<string, unknown> | undefined) => {
 
 const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
 
-const recordQueryPathForBody = (_body: Record<string, unknown>): string => '/api/v2/public/records/query';
+// The internal route also returns a Sanka deal's amount, stage outcome, activity and risk fields,
+// which the frozen public alias leaves null. Other queries stay on the alias: its filters differ
+// for bills and association properties, and no other object gains a field.
+const isSankaDealRecordQuery = (body: Record<string, unknown>): boolean => {
+  const objectType = readLowerString(body['object_type']);
+  return (
+    (objectType === 'deal' || objectType === 'deals') &&
+    readLowerString(body['scope']) !== 'integration' &&
+    !body['provider'] &&
+    !body['channel_id']
+  );
+};
+
+const recordQueryPathForBody = (body: Record<string, unknown>): string =>
+  isSankaDealRecordQuery(body) ? '/api/v2/records/query' : '/api/v2/public/records/query';
 
 const recordAggregatePathForBody = (_body: Record<string, unknown>): string =>
   '/api/v2/public/records/aggregate';
