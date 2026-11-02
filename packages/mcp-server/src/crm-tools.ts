@@ -3770,7 +3770,8 @@ const PROPERTY_MUTATION_INPUT_PROPERTIES = {
   },
   choice_values: {
     ...PROPERTY_CHOICE_VALUES_SCHEMA,
-    description: 'Optional allowed choices as either a string map or a string array.',
+    description:
+      'Optional allowed choices as either a string map or a string array. On an update this replaces every existing choice; use add_choice_values to keep them.',
   },
   conditional_choice_mapping: {
     type: 'object',
@@ -4263,6 +4264,11 @@ const PROPERTY_UPDATE_INPUT_SCHEMA = {
       description: 'Property identifier or reference to update.',
     },
     ...PROPERTY_MUTATION_INPUT_PROPERTIES,
+    add_choice_values: {
+      ...PROPERTY_CHOICE_VALUES_SCHEMA,
+      description:
+        'Choices to add to a Sanka choice or tag property, as a string array or a value-to-label map. Existing choices are kept and a value that already exists is skipped. Do not combine with choice_values.',
+    },
   },
   required: ['object_name', 'property_ref'],
 };
@@ -5138,6 +5144,18 @@ const PROPERTY_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
     id: { type: 'string' },
+    choices: {
+      type: ['array', 'null'],
+      description: "A custom choice or tag property's current options; null for other properties.",
+      items: {
+        type: 'object',
+        properties: {
+          value: { type: 'string' },
+          label: { type: 'string' },
+          color: { type: ['string', 'null'] },
+        },
+      },
+    },
     immutable: { type: 'boolean' },
     is_custom: { type: 'boolean' },
     object: { type: 'string' },
@@ -14386,6 +14404,7 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
   assignIntegerFields(body, args, ['order']);
 
   const choiceValues = args?.['choice_values'];
+  const addChoiceValues = args?.['add_choice_values'];
   const conditionalChoiceMapping = readRecord(args?.['conditional_choice_mapping']);
   const tagValues = args?.['tag_values'];
   const options = args?.['options'];
@@ -14410,6 +14429,15 @@ const buildPropertyMutationBody = (args: Record<string, unknown> | undefined) =>
     const choiceValueRecord = readRecord(choiceValues);
     if (choiceValueRecord) {
       body['choice_values'] = choiceValueRecord;
+    }
+  }
+
+  if (Array.isArray(addChoiceValues)) {
+    body['add_choice_values'] = readStringArray(addChoiceValues);
+  } else {
+    const addChoiceValueRecord = readRecord(addChoiceValues);
+    if (addChoiceValueRecord) {
+      body['add_choice_values'] = addChoiceValueRecord;
     }
   }
 
@@ -27126,7 +27154,7 @@ export const crmUpdatePropertyTool: McpTool = {
     name: 'update_property',
     title: 'Update property',
     description:
-      'Update an existing custom property in Sanka or a connected CRM. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
+      'Update an existing custom property in Sanka or a connected CRM. For a Sanka property, fields you leave out keep their current values, and get_property returns the current choices. Use add_choice_values to add a choice and choice_values to replace them all. When provider is supplied, the MCP never performs a Sanka-only mutation; omit provider for Sanka properties.',
     inputSchema: PROPERTY_UPDATE_INPUT_SCHEMA,
     outputSchema: PROPERTY_MUTATION_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
