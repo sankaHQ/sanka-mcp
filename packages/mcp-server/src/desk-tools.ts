@@ -36,6 +36,7 @@ const STATE_LABELS: Record<string, string> = {
   received: 'received, waiting for Desk to pick it up',
   awaiting_requester: 'waiting for the requester to answer',
   awaiting_approval: 'waiting for approval',
+  scheduled: 'approved, waiting for the date it runs',
   executing: 'being carried out',
   with_specialist: 'with an IT specialist',
   resolved_provisional: 'resolved, waiting for the requester to confirm or reopen',
