@@ -213,7 +213,7 @@ const RECORD_FILTER_SCHEMA = {
     field: {
       type: 'string',
       description:
-        'Built-in field to filter, for example address, name, email, status, created_at, or updated_at.',
+        "Built-in field to filter, for example address, name, email, status, created_at, or updated_at. Companies, contacts and deals also take owner_id, and deals take stage and stage_outcome (open, won or lost). These compare ids and keys, not display names: owner_id is a workspace member id (the id of a list_employees row) and stage is a stage's internal_value from list_deal_pipelines, so a name or label returns no rows.",
     },
     operator: {
       type: 'string',
