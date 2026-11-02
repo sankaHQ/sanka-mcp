@@ -423,6 +423,18 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
+    name: 'adds choices to a property without replacing the existing ones',
+    tool: crmUpdatePropertyTool,
+    args: { object_name: 'companies', property_ref: 'prop-1', add_choice_values: { partner: 'Partner' } },
+    expectedRequests: [
+      {
+        method: 'PUT',
+        url: 'http://localhost:5000/api/v2/properties/companies/prop-1',
+        body: { add_choice_values: { partner: 'Partner' } },
+      },
+    ],
+  },
+  {
     name: 'deletes a property',
     tool: crmDeletePropertyTool,
     args: {
