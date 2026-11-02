@@ -4973,6 +4973,15 @@ const CURRENT_WORKSPACE_OUTPUT_SCHEMA = {
       description: 'Short numeric workspace code used in Sanka URLs. Do not pass this as workspace_id.',
     },
     workspace_name: { type: 'string' },
+    member_id: {
+      type: 'string',
+      description:
+        "The signed-in person's workspace member id in this workspace, the id of their list_employees row. owner_id filters for their own records compare against this id. It differs per workspace.",
+    },
+    member_name: {
+      type: 'string',
+      description: "The signed-in person's name. For display only: filters do not match names.",
+    },
     message: { type: 'string' },
   },
   required: ['connected', 'auth_mode', 'message'],
@@ -10237,6 +10246,11 @@ type WorkspaceIdentity = {
   workspace_name?: string;
 };
 
+type MemberIdentity = {
+  member_id?: string;
+  member_name?: string;
+};
+
 type PublicAuthWorkspaceOption = {
   id?: string;
   name?: string | null;
@@ -10271,6 +10285,13 @@ const workspaceIdentityFromSessionRecord = (
   return workspaceIdentityFromRecord(
     readRecord(record?.['current_workspace']) ?? readRecord(record?.['workspace']) ?? record,
   );
+};
+
+// workspace_user_id is the per-workspace id owner_id holds; the session's user.id is a different id.
+const memberIdentityFromSessionRecord = (record: Record<string, unknown> | undefined): MemberIdentity => {
+  const memberID = readString(readRecord(record?.['current_workspace'])?.['workspace_user_id']);
+  const memberName = readString(readRecord(record?.['user'])?.['name']);
+  return memberID ? { member_id: memberID, ...(memberName ? { member_name: memberName } : undefined) } : {};
 };
 
 const workspaceIdentityFromOauth = (reqContext: McpRequestContext): WorkspaceIdentity =>
@@ -10319,17 +10340,20 @@ const verifyExpectedWorkspaceForMutation = async ({
 const buildCurrentWorkspaceStructuredContent = ({
   authMode,
   connected,
+  member,
   message,
   workspace,
 }: {
   authMode: string;
   connected: boolean;
+  member: MemberIdentity;
   message: string;
   workspace: WorkspaceIdentity;
 }): Record<string, unknown> => ({
   connected,
   auth_mode: authMode,
   ...workspace,
+  ...member,
   message,
 });
 
@@ -16430,7 +16454,7 @@ export const crmCurrentWorkspaceTool: McpTool = {
     name: 'current_workspace',
     title: 'Get current Sanka workspace',
     description:
-      'Return the Sanka workspace currently bound to this MCP session, including workspace_name, workspace_code, and internal workspace_id. Use this to verify workspace context before live Sanka operations.',
+      'Return the Sanka workspace currently bound to this MCP session, including workspace_name, workspace_code, and internal workspace_id, and the signed-in member as member_id and member_name. Use this to verify workspace context before live Sanka operations. To read the person\'s own records ("my deals"), filter on owner_id equals member_id and report what comes back, even when it is nothing. member_id differs per workspace, so read it again after switch_workspace.',
     inputSchema: { type: 'object', properties: {} },
     outputSchema: CURRENT_WORKSPACE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
@@ -16470,6 +16494,7 @@ export const crmCurrentWorkspaceTool: McpTool = {
       structuredContent: buildCurrentWorkspaceStructuredContent({
         authMode,
         connected: true,
+        member: memberIdentityFromSessionRecord(data),
         message,
         workspace,
       }),
