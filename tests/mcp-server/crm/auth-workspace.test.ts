@@ -173,6 +173,26 @@ describe('CRM auth and workspace tools', () => {
     });
   });
 
+  it('names the signed-in member by the id owner filters compare, not the user id', async () => {
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        auth_mode: 'oauth_app',
+        user: { id: 7, username: 'haruka', email: 'haruka@example.com', name: 'Haruka' },
+        current_workspace: { id: 'workspace-uuid-1', workspace_user_id: '2546' },
+      },
+      success: true,
+    });
+
+    const result = await crmCurrentWorkspaceTool.handler({
+      reqContext: { client: { get } as any, auth: oauthContext(), toolProfile: 'hosted' },
+      args: {},
+    });
+
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({ member_id: '2546', member_name: 'Haruka' }),
+    );
+  });
+
   it('lists available workspaces for the current OAuth session', async () => {
     const get = jest.fn().mockResolvedValue({
       data: {
