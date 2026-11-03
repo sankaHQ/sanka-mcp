@@ -1,4 +1,5 @@
 import {
+  crmAggregateRecordsTool,
   crmCapturePipelineSnapshotTool,
   crmComparePipelineSnapshotsTool,
   crmCreateDealPipelineTool,
@@ -26,6 +27,23 @@ import {
 } from './helpers';
 
 const v2Requests: V2RequestCase[] = [
+  {
+    name: 'aggregate_records counts Sanka deals on the route that refuses a display value in a filter',
+    tool: crmAggregateRecordsTool,
+    args: { object_type: 'deals', filters: [{ field: 'stage', operator: 'equals', value: 'deals' }] },
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: 'http://localhost:5000/api/v2/records/aggregate',
+        body: {
+          object_type: 'deals',
+          metrics: ['count'],
+          filters: [{ field: 'stage', operator: 'equals', value: 'deals' }],
+          limit: 25,
+        },
+      },
+    ],
+  },
   ...[
     { tool: crmQueryRecordsTool, args: { object_type: 'deals', select: ['id'], limit: 10 } },
     { tool: crmQueryRecordsTool, args: { object_type: 'deal', scope: 'sanka', select: ['id'], limit: 10 } },
