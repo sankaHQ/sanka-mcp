@@ -213,7 +213,7 @@ const RECORD_FILTER_SCHEMA = {
     field: {
       type: 'string',
       description:
-        "Built-in field to filter, for example address, name, email, status, created_at, or updated_at. Companies, contacts and deals also take owner_id, and deals take stage and stage_outcome (open, won or lost). These compare ids and keys, not display names: owner_id is a workspace member id (the id of a list_employees row) and stage is a stage's internal_value from list_deal_pipelines, so a name or label is refused with an error listing the right values on deals, and returns no rows on other objects.",
+        "Built-in field to filter, for example address, name, email, status, created_at, or updated_at. Companies, contacts and deals also take owner_id, and deals take stage and stage_outcome (open, won or lost). These compare ids and keys, not display names: owner_id is a workspace member id (the id of a list_employees row) and stage is a stage's internal_value from list_deal_pipelines, so a name or label is refused with an error listing the right values. A custom property is custom_property:<id>, and a choice property compares the option's value, not its label.",
     },
     operator: {
       type: 'string',
@@ -10864,25 +10864,18 @@ const buildRecordMergeBody = (args: Record<string, unknown> | undefined) => {
 
 const readLowerString = (value: unknown): string | undefined => readString(value)?.toLowerCase();
 
-// The internal route also returns a Sanka deal's amount, stage outcome, activity and risk fields,
-// which the frozen public alias leaves null, and refuses a name or label in an id or key filter,
-// which the alias answers with no rows. Other queries stay on the alias: its filters differ for
-// bills and association properties, and no other object gains a field.
-const isSankaDealRecordQuery = (body: Record<string, unknown>): boolean => {
-  const objectType = readLowerString(body['object_type']);
-  return (
-    (objectType === 'deal' || objectType === 'deals') &&
-    readLowerString(body['scope']) !== 'integration' &&
-    !body['provider'] &&
-    !body['channel_id']
-  );
-};
+// The internal route refuses a name or label in an id or key filter, which the frozen public alias
+// answers with no rows or, for not_equals, with every row. It also returns a Sanka deal's amount,
+// stage outcome, activity and risk fields, which the alias leaves null. Live integration reads stay
+// on the alias.
+const isSankaRecordQuery = (body: Record<string, unknown>): boolean =>
+  readLowerString(body['scope']) !== 'integration' && !body['provider'] && !body['channel_id'];
 
 const recordQueryPathForBody = (body: Record<string, unknown>): string =>
-  isSankaDealRecordQuery(body) ? '/api/v2/records/query' : '/api/v2/public/records/query';
+  isSankaRecordQuery(body) ? '/api/v2/records/query' : '/api/v2/public/records/query';
 
 const recordAggregatePathForBody = (body: Record<string, unknown>): string =>
-  isSankaDealRecordQuery(body) ? '/api/v2/records/aggregate' : '/api/v2/public/records/aggregate';
+  isSankaRecordQuery(body) ? '/api/v2/records/aggregate' : '/api/v2/public/records/aggregate';
 
 const normalizeRecordMergePayload = (payload: Record<string, unknown>): Record<string, unknown> => {
   const envelope = unwrapV2EnvelopeRecord(payload);

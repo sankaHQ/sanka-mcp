@@ -21,7 +21,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'companies',
         filters: [{ field: 'address', operator: 'is_empty' }],
@@ -108,7 +108,7 @@ describe('record query tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         select: ['id', 'name', 'address'],
