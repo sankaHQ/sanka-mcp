@@ -170,7 +170,7 @@ describe('CRM record query, merge, and association tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'companies',
         mode: 'dedupe_candidates',
@@ -354,7 +354,7 @@ describe('CRM record query, merge, and association tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/records/query', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
@@ -443,7 +443,7 @@ describe('CRM record query, merge, and association tools', () => {
       },
     });
 
-    expect(post).toHaveBeenCalledWith('/api/v2/public/records/aggregate', {
+    expect(post).toHaveBeenCalledWith('/api/v2/records/aggregate', {
       body: {
         object_type: 'custom_objects',
         external_object_type: 'activity',
