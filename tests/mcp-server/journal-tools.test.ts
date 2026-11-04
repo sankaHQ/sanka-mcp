@@ -34,7 +34,7 @@ describe('journal tools', () => {
         view_id: 'view-1',
         page: 1,
         page_size: 10,
-        'Accept-Language': 'en',
+        language: 'en',
       },
     });
     expect(result.structuredContent).toMatchObject({
@@ -83,7 +83,7 @@ describe('journal tools', () => {
         limit: 20,
       },
       query: {
-        'Accept-Language': 'ja',
+        language: 'ja',
       },
     });
     expect(result.content[0]).toMatchObject({

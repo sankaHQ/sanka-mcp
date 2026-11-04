@@ -32,6 +32,9 @@ import { asBinaryDownloadResult, asErrorResult, McpRequestContext, McpTool, Tool
 import { requireAuthentication, resolveMissingScopes } from './tool-auth';
 import { DEFAULT_CONNECT_SANKA_SCOPES } from './tool-scope-requirements';
 
+const LABEL_LANGUAGE_DESCRIPTION = 'Optional language for the labels in the result, for example ja or en.';
+// For the routes that return no translated text, or accept a language and discard it.
+const UNUSED_LANGUAGE_DESCRIPTION = 'Has no effect on this tool: its result is the same in every language.';
 const WORKSPACE_ID_DESCRIPTION =
   'Internal workspace UUID. This is not a workspace switcher; do not pass short workspace codes such as 48803074. Usually omit it so Sanka uses the authenticated workspace.';
 
@@ -1138,7 +1141,7 @@ const EXPENSE_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['expense_id'],
@@ -1797,7 +1800,7 @@ const INCENTIVE_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -1811,7 +1814,7 @@ const INCENTIVE_PLAN_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -1836,7 +1839,7 @@ const INCENTIVE_COMPANY_OPTIONS_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -3139,7 +3142,7 @@ const DEAL_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['case_id'],
@@ -3915,7 +3918,7 @@ const PROPERTY_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object_name'],
@@ -4234,7 +4237,7 @@ const PROPERTY_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object_name', 'property_ref'],
@@ -5668,7 +5671,7 @@ const TASK_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['task_id'],
@@ -5873,7 +5876,7 @@ const PURCHASE_ORDER_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['purchase_order_id'],
@@ -6104,7 +6107,7 @@ const ESTIMATE_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['estimate_id'],
@@ -6396,7 +6399,7 @@ const INVOICE_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['invoice_id'],
@@ -6626,7 +6629,7 @@ const INVOICE_OVERDUE_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -6670,7 +6673,7 @@ const JOURNAL_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -6727,7 +6730,7 @@ const JOURNAL_STATEMENT_VIEW_CREATE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
 };
@@ -6766,8 +6769,6 @@ const VIEW_FILTER_INPUT_SCHEMA = {
   required: ['field'],
 };
 
-const VIEW_LANGUAGE_DESCRIPTION = 'Optional language for the labels in the result, for example ja or en.';
-
 const VIEW_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -6786,7 +6787,7 @@ const VIEW_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: VIEW_LANGUAGE_DESCRIPTION,
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object'],
@@ -6805,7 +6806,7 @@ const VIEW_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: VIEW_LANGUAGE_DESCRIPTION,
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['view_id'],
@@ -6870,7 +6871,7 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: VIEW_LANGUAGE_DESCRIPTION,
+      description: LABEL_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object'],
@@ -7166,7 +7167,7 @@ const SLIP_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['slip_id'],
@@ -7347,7 +7348,7 @@ const BILL_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['bill_id'],
@@ -7488,7 +7489,7 @@ const DISBURSEMENT_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['disbursement_id'],
@@ -7589,7 +7590,7 @@ const DISBURSEMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['disbursement_id'],
@@ -7942,7 +7943,7 @@ const TICKET_STATUS_UPDATE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['ticket_id'],
@@ -8913,7 +8914,7 @@ const PAYMENT_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['payment_id'],
@@ -8986,7 +8987,7 @@ const PAYMENT_ALLOCATIONS_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['payment_id'],
@@ -9005,7 +9006,7 @@ const PAYMENT_ALLOCATIONS_UPDATE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
     allocations: {
       type: 'array',
@@ -9685,7 +9686,7 @@ const INVENTORY_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['inventory_id'],
@@ -9806,7 +9807,7 @@ const INVENTORY_TRANSACTION_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: UNUSED_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['transaction_id'],
@@ -12176,7 +12177,6 @@ const buildRecordMutationSummary = ({
 
 const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
   const rawLimit = readNumber(args?.['limit'], 25);
   const rawPage = readNumber(args?.['page'], 1);
   const limit = Math.max(1, Math.min(100, rawLimit));
@@ -12197,31 +12197,24 @@ const buildIncentiveListParams = (args: Record<string, unknown> | undefined) => 
   if (workspaceID) {
     params['workspace_id'] = workspaceID;
   }
-  if (language) {
-    params['Accept-Language'] = language;
-  }
   return { limit, page, params };
 };
 
 const buildIncentivePlanListParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
   return {
     ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
 
 const buildIncentiveCompanyOptionsParams = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
-  const language = readString(args?.['language']);
   const q = readString(args?.['q']);
   const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 30)));
   return {
     limit,
     ...(q ? { q } : undefined),
     ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(language ? { 'Accept-Language': language } : undefined),
   };
 };
 
@@ -13536,7 +13529,7 @@ const buildDisbursementAllocationQueryParams = (args: Record<string, unknown> | 
     allocationID,
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -13666,7 +13659,7 @@ const buildJournalListParams = (args: Record<string, unknown> | undefined) => {
       page,
       page_size: limit,
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -13698,7 +13691,7 @@ const buildJournalStatementViewCreateBody = (args: Record<string, unknown> | und
     body,
     query: {
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -14021,11 +14014,13 @@ const buildInvoiceRetrieveParams = (args: Record<string, unknown> | undefined) =
   const invoiceID = readString(args?.['invoice_id']);
   const externalID = readString(args?.['external_id']);
   const language = readString(args?.['language']);
+  const query = externalID ? { external_id: externalID } : {};
 
   return {
     invoiceID,
+    query,
     params: {
-      ...(externalID ? { external_id: externalID } : undefined),
+      ...query,
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
@@ -14413,7 +14408,7 @@ const buildPropertyListParams = (args: Record<string, unknown> | undefined) => {
       limit: clampListLimit(args?.['limit'], 25),
       page: Math.max(1, Math.trunc(readNumber(args?.['page'], 1))),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -14447,7 +14442,7 @@ const buildPropertyRetrieveParams = (args: Record<string, unknown> | undefined) 
       ...(channelID ? { channel_id: channelID } : undefined),
       ...(externalObjectType ? { external_object_type: externalObjectType } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -15855,7 +15850,7 @@ const buildPaymentAllocationsParams = (args: Record<string, unknown> | undefined
     paymentID,
     params: {
       ...(externalID ? { external_id: externalID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -20089,7 +20084,6 @@ export const crmGenerateIncentivePaymentNoticeTool: McpTool = {
           page: 1,
           ...(status ? { status } : undefined),
           ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-          ...(language ? { 'Accept-Language': language } : undefined),
         },
       })) as Record<string, unknown>;
       const incentives = readDataArray(payload);
@@ -24887,7 +24881,7 @@ export const crmActivateInvoiceTool: McpTool = {
       return authError;
     }
 
-    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    const { invoiceID, params, query } = buildInvoiceRetrieveParams(args);
     if (!invoiceID) {
       return asErrorResult('`invoice_id` is required.');
     }
@@ -24895,7 +24889,7 @@ export const crmActivateInvoiceTool: McpTool = {
     const response = normalizeV2MutationEnvelopePayload(
       (await reqContext.client.v2Post<Record<string, unknown>>(
         `/invoices/${encodeURIComponent(invoiceID)}/activate`,
-        { query: params },
+        { query },
       )) as unknown as Record<string, unknown>,
     );
     const responseMeta = readRecord(response['meta']);
@@ -25034,7 +25028,7 @@ export const crmPermanentDeleteInvoiceTool: McpTool = {
       return authError;
     }
 
-    const { invoiceID, params } = buildInvoiceRetrieveParams(args);
+    const { invoiceID, params, query } = buildInvoiceRetrieveParams(args);
     if (!invoiceID) {
       return asErrorResult('`invoice_id` is required.');
     }
@@ -25044,7 +25038,7 @@ export const crmPermanentDeleteInvoiceTool: McpTool = {
 
     const response = (await reqContext.client.delete(
       `/api/v2/public/invoices/${encodeURIComponent(invoiceID)}/permanent-delete`,
-      { query: { ...params, confirm: true } },
+      { query: { ...query, confirm: true } },
     )) as Record<string, unknown>;
     const verification = await buildPermanentDeleteVerification({
       entity: 'invoice',
@@ -27288,7 +27282,7 @@ export const crmGetPropertyTool: McpTool = {
 
     const property = (await reqContext.client.public.properties.retrieve(
       propertyRef,
-      params as { object_name: string; workspace_id?: string; 'Accept-Language'?: string },
+      params as { object_name: string; workspace_id?: string; language?: string },
       undefined,
     )) as unknown as Record<string, unknown>;
 
