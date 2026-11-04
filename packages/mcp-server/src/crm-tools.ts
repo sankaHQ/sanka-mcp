@@ -6766,6 +6766,8 @@ const VIEW_FILTER_INPUT_SCHEMA = {
   required: ['field'],
 };
 
+const VIEW_LANGUAGE_DESCRIPTION = 'Optional language for the labels in the result, for example ja or en.';
+
 const VIEW_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
@@ -6784,7 +6786,7 @@ const VIEW_LIST_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: VIEW_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object'],
@@ -6803,7 +6805,7 @@ const VIEW_RETRIEVE_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: VIEW_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['view_id'],
@@ -6868,7 +6870,7 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
     },
     language: {
       type: 'string',
-      description: 'Optional language override sent as Accept-Language.',
+      description: VIEW_LANGUAGE_DESCRIPTION,
     },
   },
   required: ['object'],
@@ -13713,7 +13715,7 @@ const buildViewListParams = (args: Record<string, unknown> | undefined) => {
       ...(object ? { object_type: object } : undefined),
       ...(customObjectID ? { custom_object_id: customObjectID } : undefined),
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -13726,7 +13728,7 @@ const buildViewRetrieveParams = (args: Record<string, unknown> | undefined) => {
     viewID,
     params: {
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -13768,7 +13770,7 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
     body,
     query: {
       ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-      ...(language ? { 'Accept-Language': language } : undefined),
+      ...(language ? { language } : undefined),
     },
   };
 };
@@ -13799,6 +13801,24 @@ const viewRecordPreview = (view: Record<string, unknown>): Record<string, unknow
     pagination: filter['page_size'],
   };
 };
+
+const readSavedViewColumns = (response: unknown): string[] =>
+  (readRecordList(normalizeViewDetailPayload(response as Record<string, unknown>)['columns']) ?? []).flatMap(
+    (column) => readString(column['field_id']) ?? [],
+  );
+
+// The columns route saves a field id's canonical form (`name` as `standard:name`),
+// so a saved column can read differently from the request; a different count
+// means one was dropped.
+const droppedViewColumns = (requested: string[], saved: string[]): string[] =>
+  saved.length === requested.length ?
+    []
+  : requested.filter((column) => !saved.some((field) => field === column || field.endsWith(`:${column}`)));
+
+const describeDroppedViewColumns = (dropped: string[], saved: string[]): string =>
+  `these columns were NOT saved: ${dropped.join(', ')}. It now shows ${
+    saved.join(', ') || 'its default columns'
+  }`;
 
 const describeSavedViewFilter = (filter: Record<string, unknown>): string => {
   const savedCount = Array.isArray(filter['expressions']) ? filter['expressions'].length : 0;
@@ -23875,7 +23895,8 @@ export const crmCreateViewTool: McpTool = {
   tool: {
     name: 'create_view',
     title: 'Create saved view',
-    description: 'Create a saved Sanka view for any supported object.',
+    description:
+      'Create a saved Sanka view for any supported object. The call fails when a requested column was not saved; the view still exists, so correct it with update_view and its view_id instead of creating it again.',
     inputSchema: VIEW_MUTATION_INPUT_SCHEMA,
     outputSchema: { type: 'object' as const },
     securitySchemes: [{ type: 'oauth2' }],
@@ -23908,23 +23929,73 @@ export const crmCreateViewTool: McpTool = {
     );
     const data = readRecord(payload['data']) ?? {};
     const viewID = readString(data['view_id']);
-    if (filterUpdate) {
-      return viewID ?
-          saveViewFilter({
-            reqContext,
-            viewID,
-            query,
-            update: filterUpdate,
-            view: payload,
-            action: 'Created',
-          })
-        : asErrorResult(
-            'Created a saved view, but the API returned no view_id, so its filters were NOT saved.',
-          );
+    if (filterUpdate && !viewID) {
+      return asErrorResult(
+        'Created a saved view, but the API returned no view_id, so its filters were NOT saved.',
+      );
+    }
+    const result: ToolCallResult =
+      filterUpdate && viewID ?
+        await saveViewFilter({
+          reqContext,
+          viewID,
+          query,
+          update: filterUpdate,
+          view: payload,
+          action: 'Created',
+        })
+      : {
+          content: [{ type: 'text', text: `Created saved view${viewID ? ` ${viewID}` : ''}.` }],
+          structuredContent: payload,
+        };
+    const requestedColumns = readStringArray(args?.['columns'] ?? args?.['column_field_ids']);
+    if (!viewID || requestedColumns.length === 0) {
+      return result;
+    }
+    const view = { ...(result.structuredContent ?? payload), view_id: viewID };
+    // Read from the columns route, because the created view cannot answer this:
+    // its detail lists the object's default columns when none of the requested
+    // ones were kept, and a kanban view never keeps them.
+    let savedColumns: string[];
+    try {
+      savedColumns = readSavedViewColumns(
+        await reqContext.client.get(`/api/v2/views/${encodeURIComponent(viewID)}/columns`, { query }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        content: [
+          ...result.content,
+          {
+            type: 'text',
+            text: `Saved view ${viewID} exists, but its columns could not be read back: ${message} Check them with get_view_columns and view_id ${viewID} instead of creating the view again.`,
+          },
+        ],
+        isError: true,
+        structuredContent: { ...view, columns_error: message },
+      };
+    }
+    const droppedColumns = droppedViewColumns(requestedColumns, savedColumns);
+    if (droppedColumns.length === 0) {
+      return result;
     }
     return {
-      content: [{ type: 'text', text: `Created saved view${viewID ? ` ${viewID}` : ''}.` }],
-      structuredContent: payload,
+      content: [
+        ...result.content,
+        {
+          type: 'text',
+          text: `Saved view ${viewID} was only partly created: ${describeDroppedViewColumns(
+            droppedColumns,
+            savedColumns,
+          )}. The view exists; retry with update_view and view_id ${viewID}, using field ids this object can show, instead of creating the view again.`,
+        },
+      ],
+      isError: true,
+      structuredContent: {
+        ...view,
+        record_preview: { ...viewRecordPreview(view), columns: savedColumns },
+        not_saved: { columns: droppedColumns },
+      },
     };
   },
 };
@@ -24016,14 +24087,11 @@ export const crmUpdateViewTool: McpTool = {
         saved.push('name, view type or visibility');
       }
       if (columns.length > 0) {
-        const response = normalizeViewDetailPayload(
-          (await reqContext.client.put(`${path}/columns`, {
+        savedColumns = readSavedViewColumns(
+          await reqContext.client.put(`${path}/columns`, {
             body: { column_field_ids: columns },
             query,
-          })) as Record<string, unknown>,
-        );
-        savedColumns = (readRecordList(response['columns']) ?? []).flatMap(
-          (column) => readString(column['field_id']) ?? [],
+          }),
         );
         saved.push('columns');
       }
@@ -24068,15 +24136,7 @@ export const crmUpdateViewTool: McpTool = {
         ...(columns.length > 0 ? { columns: savedColumns } : undefined),
       },
     };
-    // The columns route saves a field id's canonical form (`name` as
-    // `standard:name`), so a saved column can read differently from the request;
-    // a different count means one was dropped.
-    const droppedColumns =
-      savedColumns.length === columns.length ?
-        []
-      : columns.filter(
-          (column) => !savedColumns.some((saved) => saved === column || saved.endsWith(`:${column}`)),
-        );
+    const droppedColumns = droppedViewColumns(columns, savedColumns);
     const savedVisibility = readString(readRecord(view['data'])?.['visibility']);
     const keptVisibility =
       metadata['visibility'] !== undefined && savedVisibility !== metadata['visibility'] ?
@@ -24084,13 +24144,7 @@ export const crmUpdateViewTool: McpTool = {
       : undefined;
     if (droppedColumns.length > 0 || keptVisibility) {
       const problems = [
-        ...(droppedColumns.length > 0 ?
-          [
-            `these columns were NOT saved: ${droppedColumns.join(', ')}. It now shows ${
-              savedColumns.join(', ') || 'its default columns'
-            }`,
-          ]
-        : []),
+        ...(droppedColumns.length > 0 ? [describeDroppedViewColumns(droppedColumns, savedColumns)] : []),
         ...(keptVisibility ?
           [
             `its visibility was NOT changed: it stays ${keptVisibility}, because this account may not create workspace views`,
