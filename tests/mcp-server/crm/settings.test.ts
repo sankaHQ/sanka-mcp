@@ -106,11 +106,12 @@ const v2Requests: V2RequestCase[] = [
       requested_action: 'approve_estimate',
       idempotency_key: 'approval-estimate-1',
       workspace_id: 'workspace-1',
+      language: 'ja',
     },
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/approval-requests?workspace_id=workspace-1',
+        url: 'http://localhost:5000/api/v2/public/approval-requests?workspace_id=workspace-1',
         body: {
           object: 'estimates',
           record_id: 'estimate-1',
@@ -125,8 +126,61 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
-    name: 'approves a record approval by history id',
+    name: 'lists the approval requests on a record, pinning the workspace in the header its route reads',
+    tool: crmListRecordApprovalsTool,
+    args: {
+      object: 'estimates',
+      record_id: 'estimate-1',
+      workspace_id: 'workspace-1',
+      language: 'ja',
+    },
+    response: {
+      approvalRequests: [
+        {
+          requestId: 'request-1',
+          historyId: 'history-1',
+          title: 'Manual estimate approval',
+          source: 'manual',
+          status: 'pending',
+        },
+      ],
+      rules: [],
+      hasBlockingPending: false,
+      message: 'OK',
+    },
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: 'http://localhost:5000/api/v2/public/approval-requests?object=estimates&record_id=estimate-1',
+        headers: { 'x-workspace-code': 'workspace-1' },
+      },
+    ],
+    expectedResult: {
+      count: 1,
+      results: [{ historyId: 'history-1', source: 'manual', status: 'pending' }],
+    },
+  },
+  {
+    name: 'lists approval requests with the code of the workspace the session is bound to',
+    tool: crmListRecordApprovalsTool,
+    auth: oauthContext({ workspace: { id: 'workspace-1', code: '10101010' } }),
+    args: {
+      object: 'estimates',
+      record_id: 'estimate-1',
+      workspace_id: '10101010',
+    },
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: 'http://localhost:5000/api/v2/public/approval-requests?object=estimates&record_id=estimate-1',
+        headers: { 'x-workspace-code': '10101010' },
+      },
+    ],
+  },
+  {
+    name: 'approves a record approval by history id in the workspace the session is bound to',
     tool: crmApproveRecordApprovalTool,
+    auth: oauthContext({ workspace: { id: 'workspace-1' } }),
     args: {
       history_id: 'history-1',
       workspace_id: 'workspace-1',
@@ -134,7 +188,8 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/approval-requests/history-1/approve?workspace_id=workspace-1',
+        url: 'http://localhost:5000/api/v2/public/approval-requests/history-1/approve',
+        headers: { 'x-workspace-code': 'workspace-1' },
       },
     ],
   },
@@ -145,7 +200,7 @@ const v2Requests: V2RequestCase[] = [
       history_id: 'history-2',
     },
     expectedRequests: [
-      { method: 'POST', url: 'http://localhost:5000/api/v2/approval-requests/history-2/reject' },
+      { method: 'POST', url: 'http://localhost:5000/api/v2/public/approval-requests/history-2/reject' },
     ],
   },
   {
@@ -819,52 +874,24 @@ describe('CRM settings, governance, and saved view tools', () => {
     });
   });
 
-  it('lists record approval requests for a record', async () => {
-    const get = jest.fn().mockResolvedValue({
-      approvalRequests: [
-        {
-          requestId: 'request-1',
-          historyId: 'history-1',
-          title: 'Manual estimate approval',
-          source: 'manual',
-          status: 'pending',
-        },
-      ],
-      rules: [],
-      hasBlockingPending: false,
-      message: 'OK',
+  // The session routes behind these tools would run in the pinned workspace, not refuse it.
+  it.each([
+    {
+      tool: crmListRecordApprovalsTool,
+      args: { object: 'estimates', record_id: 'estimate-1', workspace_id: 'workspace-2' },
+    },
+    { tool: crmApproveRecordApprovalTool, args: { history_id: 'history-1', workspace_id: 'workspace-2' } },
+    { tool: crmRejectRecordApprovalTool, args: { history_id: 'history-1', workspace_id: 'workspace-2' } },
+  ])('$tool.tool.name refuses a workspace the session is not bound to', async ({ tool, args }) => {
+    const { requests, result } = await sendThroughSDK({
+      tool,
+      args,
+      context: { auth: oauthContext({ workspace: { id: 'workspace-1', code: '10101010' } }) },
     });
 
-    const result = await crmListRecordApprovalsTool.handler({
-      reqContext: {
-        client: { get } as any,
-        auth: oauthContext(),
-        toolProfile: 'full',
-      },
-      args: {
-        object: 'estimate',
-        record_id: 'estimate-1',
-        workspace_id: 'workspace-1',
-      },
-    });
-
-    expect(get).toHaveBeenCalledWith('/api/v2/approval-requests', {
-      query: {
-        object: 'estimate',
-        workspace_id: 'workspace-1',
-        record_id: 'estimate-1',
-      },
-    });
-    expect(result.structuredContent).toMatchObject({
-      count: 1,
-      results: [
-        {
-          historyId: 'history-1',
-          source: 'manual',
-          status: 'pending',
-        },
-      ],
-    });
+    expect(requests).toEqual([]);
+    expect(result.isError).toBe(true);
+    expect(firstTextContent(result)).toContain('differs from the authenticated workspace');
   });
 
   // Each row: a line-item property call the tool must refuse, the requests it sends before refusing,

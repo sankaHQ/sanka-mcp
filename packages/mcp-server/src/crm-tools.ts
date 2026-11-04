@@ -4023,10 +4023,31 @@ const APPROVAL_RULE_UPSERT_INPUT_SCHEMA = {
   required: ['object', 'name'],
 };
 
+// The approval request routes accept fewer objects than the rule routes, purchase-orders is not one
+// of their spellings, and they read no language.
+const APPROVAL_REQUEST_OBJECT_PROPERTY = {
+  type: 'string',
+  description:
+    'Sanka object family of the record: deals, estimates, orders, invoices, purchase_orders, bills, or expenses.',
+};
+
+const APPROVAL_REQUEST_COMMON_INPUT_PROPERTIES = {
+  ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+  object: APPROVAL_REQUEST_OBJECT_PROPERTY,
+  object_name: {
+    ...APPROVAL_REQUEST_OBJECT_PROPERTY,
+    description: 'Alias for object. Prefer object.',
+  },
+  language: {
+    type: 'string',
+    description: UNUSED_LANGUAGE_DESCRIPTION,
+  },
+};
+
 const APPROVAL_REQUEST_CREATE_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    ...APPROVAL_REQUEST_COMMON_INPUT_PROPERTIES,
     record_id: {
       type: 'string',
       description: 'Sanka record UUID to request approval for.',
@@ -4065,7 +4086,7 @@ const APPROVAL_REQUEST_CREATE_INPUT_SCHEMA = {
 const RECORD_APPROVAL_LIST_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    ...RULE_SETTINGS_COMMON_INPUT_PROPERTIES,
+    ...APPROVAL_REQUEST_COMMON_INPUT_PROPERTIES,
     record_id: {
       type: 'string',
       description: 'Sanka record UUID whose approval requests should be listed.',
@@ -14764,7 +14785,7 @@ const buildApprovalRequestBody = (args: Record<string, unknown> | undefined) => 
   if (recordID) {
     body['record_id'] = recordID;
   }
-  assignStringFields(body, args, ['title', 'description', 'requested_action', 'idempotency_key', 'language']);
+  assignStringFields(body, args, ['title', 'description', 'requested_action', 'idempotency_key']);
   const approverUserIDs = readStringArray(args?.['approver_user_ids']);
   if (approverUserIDs.length > 0) {
     body['approver_user_ids'] = approverUserIDs;
@@ -14776,19 +14797,41 @@ const buildApprovalRequestBody = (args: Record<string, unknown> | undefined) => 
   return { objectName, recordID, body };
 };
 
-const buildRecordApprovalsQuery = (args: Record<string, unknown> | undefined) => {
-  const { objectName, params } = buildRuleSettingsQuery(args);
-  const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
-  if (recordID) {
-    params['record_id'] = recordID;
-  }
-  return { objectName, recordID, params };
-};
-
-const buildApprovalMutationQuery = (args: Record<string, unknown> | undefined) => {
+const buildApprovalCreateQuery = (args: Record<string, unknown> | undefined) => {
   const params: Record<string, unknown> = {};
   assignStringFields(params, args, ['workspace_id']);
   return params;
+};
+
+// The list, approve and reject routes read X-Workspace-Code and no workspace_id param, and there a
+// bearer token can act in any workspace its user belongs to. The create route refuses a workspace
+// other than the token's, so these refuse it here and send the pin where their route reads it.
+const resolveApprovalWorkspacePin = ({
+  reqContext,
+  args,
+}: {
+  reqContext: McpRequestContext;
+  args: Record<string, unknown> | undefined;
+}):
+  | { error: ToolCallResult; headers?: undefined }
+  | { error?: undefined; headers?: Record<string, string> } => {
+  const workspaceID = readString(args?.['workspace_id']);
+  if (!workspaceID) {
+    return {};
+  }
+  const session = reqContext.auth?.oauth;
+  if (
+    session?.workspace_id &&
+    workspaceID !== session.workspace_id &&
+    workspaceID !== session.workspace_code
+  ) {
+    return {
+      error: asErrorResult(
+        'The requested workspace differs from the authenticated workspace. Connect to the intended workspace and use its pinned UUID.',
+      ),
+    };
+  }
+  return { headers: { 'X-Workspace-Code': workspaceID } };
 };
 
 const buildLockRuleBody = (args: Record<string, unknown> | undefined) => {
@@ -27592,7 +27635,7 @@ export const crmDeletePropertyTool: McpTool = {
   },
 };
 
-const APPROVAL_REQUEST_PATH = '/api/v2/approval-requests';
+const APPROVAL_REQUEST_PATH = '/api/v2/public/approval-requests';
 
 export const crmCreateApprovalRequestTool: McpTool = {
   metadata: {
@@ -27633,7 +27676,7 @@ export const crmCreateApprovalRequestTool: McpTool = {
     if (readStringArray(args?.['approver_user_ids']).length === 0) {
       return asErrorResult('`approver_user_ids` is required.');
     }
-    const query = buildApprovalMutationQuery(args);
+    const query = buildApprovalCreateQuery(args);
     const response = (await reqContext.client.post(APPROVAL_REQUEST_PATH, {
       body,
       ...(Object.keys(query).length > 0 ? { query } : undefined),
@@ -27671,18 +27714,23 @@ export const crmListRecordApprovalsTool: McpTool = {
     if (authError) {
       return authError;
     }
-    const { objectName, recordID, params } = buildRecordApprovalsQuery(args);
+    const objectName = readRuleObjectName(args);
+    const recordID = readString(args?.['record_id'] ?? args?.['recordId']);
     if (!objectName) {
       return asErrorResult('`object` is required.');
     }
     if (!recordID) {
       return asErrorResult('`record_id` is required.');
     }
+    const { error, headers } = resolveApprovalWorkspacePin({ reqContext, args });
+    if (error) {
+      return error;
+    }
     const limit = Math.max(1, Math.min(100, readNumber(args?.['limit'], 25)));
-    const payload = (await reqContext.client.get(APPROVAL_REQUEST_PATH, { query: params })) as Record<
-      string,
-      unknown
-    >;
+    const payload = (await reqContext.client.get(APPROVAL_REQUEST_PATH, {
+      query: { object: objectName, record_id: recordID },
+      ...(headers ? { headers } : undefined),
+    })) as Record<string, unknown>;
     return buildRecordApprovalsListResult(payload, limit);
   },
 };
@@ -27727,10 +27775,13 @@ const createRecordApprovalDecisionTool = ({
     if (!historyID) {
       return asErrorResult('`history_id` is required.');
     }
-    const query = buildApprovalMutationQuery(args);
+    const { error, headers } = resolveApprovalWorkspacePin({ reqContext, args });
+    if (error) {
+      return error;
+    }
     const response = (await reqContext.client.post(
       `${APPROVAL_REQUEST_PATH}/${encodeURIComponent(historyID)}/${decision}`,
-      Object.keys(query).length > 0 ? { query } : {},
+      headers ? { headers } : {},
     )) as Record<string, unknown>;
     return buildApprovalRequestMutationResult(decision === 'approve' ? 'approved' : 'rejected', response);
   },

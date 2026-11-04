@@ -50,6 +50,8 @@ export type V2RequestCase = {
   responses?: unknown[];
   /** Fields the tool's structuredContent must then contain. */
   expectedResult?: Record<string, unknown>;
+  /** The session the tool runs in, when it must be bound to a workspace. */
+  auth?: McpRequestContext['auth'];
 };
 
 export const envelope = (data: unknown) =>
@@ -64,6 +66,7 @@ const isToolHeader = (name: string) =>
   name === 'idempotency-key' ||
   name === 'x-language' ||
   name === 'x-stainless-timeout' ||
+  name === 'x-workspace-code' ||
   name.startsWith('x-sanka-');
 
 const multipartFields = async (form: FormData): Promise<Record<string, unknown>> => {
@@ -96,7 +99,7 @@ export const sendThroughSDK = async ({
   response?: unknown;
   responses?: Response[];
   /** Request context fields, such as the MCP session id or the download base URL. */
-  context?: Partial<Pick<McpRequestContext, 'mcpSessionId' | 'downloadBaseUrl'>>;
+  context?: Partial<Pick<McpRequestContext, 'auth' | 'mcpSessionId' | 'downloadBaseUrl'>>;
   /** Client retries, for a tool that must turn them off. */
   maxRetries?: number;
 }) => {
@@ -149,6 +152,7 @@ export const describeV2Requests = (cases: V2RequestCase[]) =>
         args: scenario.args,
         response: scenario.response,
         responses: scenario.responses?.map(envelope) ?? [],
+        ...(scenario.auth ? { context: { auth: scenario.auth } } : undefined),
       });
 
       expect(result.isError).toBeFalsy();
