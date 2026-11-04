@@ -6833,7 +6833,8 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
     },
     columns: {
       type: 'array',
-      description: 'Column keys to show in the saved view.',
+      description:
+        'Field ids to show as columns, in this order, for example `standard:name` or `custom_property:<uuid>`.',
       items: { type: 'string' },
     },
     pagination: {
@@ -6861,11 +6862,6 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
       description: "Optional saved view filters. When given, they replace the view's saved filters.",
       items: VIEW_FILTER_INPUT_SCHEMA,
     },
-    form_data: {
-      type: 'object',
-      description:
-        'Advanced escape hatch for existing view-settings form fields. Prefer the structured fields above.',
-    },
     workspace_id: {
       type: 'string',
       description: WORKSPACE_ID_DESCRIPTION,
@@ -6878,6 +6874,7 @@ const VIEW_MUTATION_INPUT_SCHEMA = {
   required: ['object'],
 };
 
+// An update changes only the fields it is given, so nothing here has a default.
 const VIEW_UPDATE_INPUT_SCHEMA = {
   ...VIEW_MUTATION_INPUT_SCHEMA,
   properties: {
@@ -6885,6 +6882,22 @@ const VIEW_UPDATE_INPUT_SCHEMA = {
     view_id: {
       type: 'string',
       description: 'Saved view UUID to update.',
+    },
+    view_type: {
+      type: 'string',
+      description:
+        'New view type, for example list, table, kanban, profit_and_loss, balance_sheet, or cash_flow. Leave it out to keep the current type.',
+    },
+    columns: {
+      type: 'array',
+      description:
+        "Field ids to show as columns, in this order, for example `standard:name` or `custom_property:<uuid>`. Replaces the view's columns, so to add one, read get_view_columns and pass the whole list. Leave it out to keep the current columns.",
+      items: { type: 'string' },
+    },
+    is_private: {
+      type: 'boolean',
+      description:
+        'Make the view private to the authenticated user (true) or visible to the workspace (false). Leave it out to keep the current visibility.',
     },
   },
   required: ['view_id', 'object'],
@@ -13727,8 +13740,7 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
   const workspaceID = readString(args?.['workspace_id']);
   const language = readString(args?.['language']);
   const isPrivate = readBoolean(args?.['is_private'] ?? args?.['isPrivate'] ?? args?.['private']);
-  const columns = readStringArray(args?.['columns']);
-  const formData = readRecord(args?.['form_data'] ?? args?.['formData']);
+  const columns = readStringArray(args?.['columns'] ?? args?.['column_field_ids']);
 
   if (object) {
     body['object'] = object;
@@ -13751,7 +13763,6 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
     body['is_private'] = isPrivate;
     body['visibility'] = isPrivate ? 'private' : 'workspace';
   }
-  if (formData) body['form_data'] = formData;
 
   return {
     body,
@@ -13760,6 +13771,40 @@ const buildViewMutationBody = (args: Record<string, unknown> | undefined) => {
       ...(language ? { 'Accept-Language': language } : undefined),
     },
   };
+};
+
+// The only body fields PATCH /api/v2/views/{view_id} reads. It ignores every
+// other field, columns included, and refuses a body without one of these.
+const VIEW_METADATA_FIELDS = ['name', 'title', 'view_type', 'mode', 'is_private', 'visibility'];
+
+const VIEW_FORM_DATA_ERROR =
+  '`form_data` is not supported: no saved view route reads it, so nothing was saved. Use name, view_type, is_private, columns, filters, sort_order_by, sort_order_method or pagination instead.';
+
+const hasViewFormData = (args: Record<string, unknown> | undefined): boolean =>
+  args?.['form_data'] !== undefined || args?.['formData'] !== undefined;
+
+// The saved view under this tool's own argument names, so the tool's
+// confirmation can set each requested field beside what the view now holds.
+const viewRecordPreview = (view: Record<string, unknown>): Record<string, unknown> => {
+  const data = readRecord(view['data']) ?? {};
+  const filter = readRecord(view['filter']) ?? {};
+  return {
+    name: data['title'],
+    view_type: data['mode'],
+    is_private: data['visibility'] === 'private',
+    columns: data['column_field_ids'],
+    filters: filter['expressions'],
+    sort_order_by: filter['sort_field_id'],
+    sort_order_method: filter['sort_direction'],
+    pagination: filter['page_size'],
+  };
+};
+
+const describeSavedViewFilter = (filter: Record<string, unknown>): string => {
+  const savedCount = Array.isArray(filter['expressions']) ? filter['expressions'].length : 0;
+  const sortField = readString(filter['sort_field_id']);
+  const sortText = sortField ? `${sortField} ${readString(filter['sort_direction']) ?? ''}`.trim() : 'none';
+  return `Saved filters: ${savedCount}; sort: ${sortText}.`;
 };
 
 // Filters, sort and page size live on the view's filter record. The view
@@ -13833,15 +13878,11 @@ const saveViewFilter = async ({
       })) as Record<string, unknown>,
     );
     const savedFilter = readRecord(saved['filter']) ?? {};
-    const savedCount = Array.isArray(savedFilter['expressions']) ? savedFilter['expressions'].length : 0;
-    const sortField = readString(savedFilter['sort_field_id']);
-    const sortText =
-      sortField ? `${sortField} ${readString(savedFilter['sort_direction']) ?? ''}`.trim() : 'none';
     return {
       content: [
         {
           type: 'text',
-          text: `${action} saved view ${viewID}. Saved filters: ${savedCount}; sort: ${sortText}.`,
+          text: `${action} saved view ${viewID}. ${describeSavedViewFilter(savedFilter)}`,
         },
       ],
       structuredContent: { ...(view ?? { view_id: viewID, ctx_id: saved['ctx_id'] }), filter: savedFilter },
@@ -23853,6 +23894,9 @@ export const crmCreateViewTool: McpTool = {
     if (authError) {
       return authError;
     }
+    if (hasViewFormData(args)) {
+      return asErrorResult(VIEW_FORM_DATA_ERROR);
+    }
 
     const { body, query } = buildViewMutationBody(args);
     const filterUpdate = buildViewFilterUpdate(args);
@@ -23897,7 +23941,8 @@ export const crmUpdateViewTool: McpTool = {
   tool: {
     name: 'update_view',
     title: 'Update saved view',
-    description: 'Update a saved Sanka view for any supported object.',
+    description:
+      'Update a saved Sanka view for any supported object: its name, type, visibility, columns, filters, sort or page size. Only the fields you pass change. The result comes from reading the view back, and the call fails when a requested column or visibility was not saved.',
     inputSchema: VIEW_UPDATE_INPUT_SCHEMA,
     outputSchema: { type: 'object' as const },
     securitySchemes: [{ type: 'oauth2' }],
@@ -23921,39 +23966,163 @@ export const crmUpdateViewTool: McpTool = {
     if (!viewID) {
       return asErrorResult('`view_id` is required.');
     }
-    const { body, query } = buildViewMutationBody(args);
-    const filterUpdate = buildViewFilterUpdate(args);
-    // The view route updates only title, mode and visibility, and rejects a
-    // request with none of them, so a filter-only update skips it.
-    if (filterUpdate && !['title', 'mode', 'visibility'].some((key) => key in body)) {
-      return saveViewFilter({
-        reqContext,
-        viewID,
-        query,
-        update: filterUpdate,
-        view: undefined,
-        action: 'Updated',
-      });
+    if (hasViewFormData(args)) {
+      return asErrorResult(VIEW_FORM_DATA_ERROR);
     }
-    const payload = normalizeViewDetailPayload(
-      (await reqContext.client.patch(`/api/v2/views/${encodeURIComponent(viewID)}`, {
-        body,
-        query,
-      })) as Record<string, unknown>,
-    );
-    if (filterUpdate) {
-      return saveViewFilter({
-        reqContext,
-        viewID,
-        query,
-        update: filterUpdate,
-        view: payload,
-        action: 'Updated',
-      });
+    const requestedColumns = args?.['columns'] ?? args?.['column_field_ids'];
+    const columns = readStringArray(requestedColumns);
+    if (requestedColumns !== undefined && columns.length === 0) {
+      return asErrorResult(
+        '`columns` is empty, so nothing was saved. Pass the field ids to show, or leave `columns` out to keep the current columns.',
+      );
+    }
+    const blankField = ['name', 'view_type'].find((key) => {
+      const value = args?.[key];
+      return typeof value === 'string' && !value.trim();
+    });
+    if (blankField) {
+      return asErrorResult(`\`${blankField}\` is blank, so nothing was saved. Pass a value or leave it out.`);
+    }
+    const { body, query } = buildViewMutationBody(args);
+    const metadata = pickDefinedFields(body, VIEW_METADATA_FIELDS);
+    const filterUpdate = buildViewFilterUpdate(args);
+    if (Object.keys(metadata).length === 0 && columns.length === 0 && !filterUpdate) {
+      return asErrorResult(
+        'Nothing to update, so nothing was saved. Pass at least one of name, view_type, is_private, columns, filters, sort_order_by, sort_order_method or pagination.',
+      );
+    }
+
+    // Each part has its own route and saves on its own, so a later failure
+    // leaves the earlier parts saved and the result has to say which ones.
+    const path = `/api/v2/views/${encodeURIComponent(viewID)}`;
+    // PATCH clears a view's group field whenever it is sent a mode, even the
+    // current one, and this tool cannot send the field back.
+    if (metadata['mode'] !== undefined) {
+      const current = normalizeViewDetailPayload(
+        (await reqContext.client.get(path, { query })) as Record<string, unknown>,
+      );
+      if (readRecord(current['data'])?.['mode'] === metadata['mode']) {
+        delete metadata['mode'];
+        delete metadata['view_type'];
+      }
+    }
+    const saved: string[] = [];
+    let savedColumns: string[] = [];
+    let view: Record<string, unknown>;
+    try {
+      // Before the columns, because the view type decides which columns are valid.
+      if (Object.keys(metadata).length > 0) {
+        await reqContext.client.patch(path, { body: metadata, query });
+        saved.push('name, view type or visibility');
+      }
+      if (columns.length > 0) {
+        const response = normalizeViewDetailPayload(
+          (await reqContext.client.put(`${path}/columns`, {
+            body: { column_field_ids: columns },
+            query,
+          })) as Record<string, unknown>,
+        );
+        savedColumns = (readRecordList(response['columns']) ?? []).flatMap(
+          (column) => readString(column['field_id']) ?? [],
+        );
+        saved.push('columns');
+      }
+      if (filterUpdate) {
+        await saveViewFilter({
+          reqContext,
+          viewID,
+          query,
+          update: filterUpdate,
+          view: undefined,
+          action: 'Updated',
+        });
+        saved.push('filters, sort or page size');
+      }
+      view = normalizeViewDetailPayload(
+        (await reqContext.client.get(path, { query })) as Record<string, unknown>,
+      );
+    } catch (error) {
+      if (saved.length === 0) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Saved view ${viewID} was only partly updated. Saved: ${saved.join(
+              '; ',
+            )}. Then this failed: ${message} Read the view with get_view before retrying.`,
+          },
+        ],
+        isError: true,
+        structuredContent: { view_id: viewID, saved, error: message },
+      };
+    }
+
+    const structuredContent = {
+      ...view,
+      view_id: viewID,
+      record_preview: {
+        ...viewRecordPreview(view),
+        ...(columns.length > 0 ? { columns: savedColumns } : undefined),
+      },
+    };
+    // The columns route saves a field id's canonical form (`name` as
+    // `standard:name`), so a saved column can read differently from the request;
+    // a different count means one was dropped.
+    const droppedColumns =
+      savedColumns.length === columns.length ?
+        []
+      : columns.filter(
+          (column) => !savedColumns.some((saved) => saved === column || saved.endsWith(`:${column}`)),
+        );
+    const savedVisibility = readString(readRecord(view['data'])?.['visibility']);
+    const keptVisibility =
+      metadata['visibility'] !== undefined && savedVisibility !== metadata['visibility'] ?
+        savedVisibility
+      : undefined;
+    if (droppedColumns.length > 0 || keptVisibility) {
+      const problems = [
+        ...(droppedColumns.length > 0 ?
+          [
+            `these columns were NOT saved: ${droppedColumns.join(', ')}. It now shows ${
+              savedColumns.join(', ') || 'its default columns'
+            }`,
+          ]
+        : []),
+        ...(keptVisibility ?
+          [
+            `its visibility was NOT changed: it stays ${keptVisibility}, because this account may not create workspace views`,
+          ]
+        : []),
+      ];
+      return {
+        content: [
+          { type: 'text', text: `Saved view ${viewID} was only partly updated: ${problems.join('; ')}.` },
+        ],
+        isError: true,
+        structuredContent: {
+          ...structuredContent,
+          not_saved: {
+            ...(droppedColumns.length > 0 ? { columns: droppedColumns } : undefined),
+            ...(keptVisibility ? { visibility: metadata['visibility'] } : undefined),
+          },
+        },
+      };
     }
     return {
-      content: [{ type: 'text', text: `Updated saved view ${viewID}.` }],
-      structuredContent: payload,
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Updated saved view ${viewID}.`,
+            ...(columns.length > 0 ? [`Saved columns: ${savedColumns.length}.`] : []),
+            ...(filterUpdate ? [describeSavedViewFilter(readRecord(view['filter']) ?? {})] : []),
+          ].join(' '),
+        },
+      ],
+      structuredContent,
     };
   },
 };
