@@ -30,6 +30,11 @@ const makeTool = (overrides: Partial<McpTool> = {}): McpTool =>
     ...overrides,
   }) as McpTool;
 
+const toolAt = (name: string, httpPath: string): McpTool => {
+  const base = makeTool();
+  return makeTool({ metadata: { ...base.metadata, httpPath }, tool: { ...base.tool, name } });
+};
+
 describe('normalizeToolCallResult', () => {
   const now = new Date('2026-05-22T02:00:00.000Z');
 
@@ -139,6 +144,162 @@ describe('normalizeToolCallResult', () => {
       required_next_action: undefined,
     });
   });
+
+  const DEAL_PATH = '/api/v2/public/deals/{case_id}';
+  const VIEW_PATH = '/api/v2/views/{view_id}';
+
+  it.each([
+    {
+      name: 'a field that did not come back',
+      tool: toolAt('update_deal', DEAL_PATH),
+      args: { name: 'Renewal', currency: 'JPY' },
+      response: { status: 'updated', record_preview: { currency: 'JPY' } },
+      requested: ['name', 'currency'],
+      returned: { currency: 'JPY' },
+      verificationNeeded: true,
+    },
+    {
+      name: 'selectors echoed while the field was dropped',
+      tool: toolAt('update_view', VIEW_PATH),
+      args: { view_id: 'view-1', object: 'deals', workspace_id: 'ws-1', columns: ['standard:name'] },
+      response: { view_id: 'view-1', object: 'deals', workspace_id: 'ws-1' },
+      requested: ['columns'],
+      returned: {},
+      verificationNeeded: true,
+    },
+    {
+      name: 'a call that only selects a record',
+      tool: toolAt('delete_view', VIEW_PATH),
+      args: { view_id: 'view-1', object: 'deals', workspace_id: 'ws-1' },
+      response: { ok: true, status: 'deleted' },
+      requested: [],
+      returned: {},
+      verificationNeeded: false,
+    },
+    {
+      name: 'every field back, with selectors and preconditions not echoed',
+      tool: toolAt('update_deal', DEAL_PATH),
+      args: { workspace_id: 'ws-1', expected_version: 3, idempotency_key: 'key-1', currency: 'JPY' },
+      response: { status: 'updated', record_preview: { currency: 'JPY' } },
+      requested: ['currency'],
+      returned: { currency: 'JPY' },
+      verificationNeeded: false,
+    },
+    {
+      name: 'a selector passed under its camelCase alias',
+      tool: toolAt('update_permission_set', '/api/v2/permission-sets/{permission_set_id}'),
+      args: { permissionSetId: 'set-1', customObjectId: 'object-1', name: 'Sales' },
+      response: { name: 'Sales' },
+      requested: ['name'],
+      returned: { name: 'Sales' },
+      verificationNeeded: false,
+    },
+    {
+      name: 'the call outcome read as the requested status',
+      tool: toolAt('update_estimate', '/api/v2/public/estimates/{estimate_id}'),
+      args: { status: 'sent' },
+      response: { ok: true, status: 'updated' },
+      requested: ['status'],
+      returned: {},
+      verificationNeeded: true,
+    },
+    {
+      name: 'the record status beside the call outcome',
+      tool: toolAt('update_estimate', '/api/v2/public/estimates/{estimate_id}'),
+      args: { status: 'sent' },
+      response: { status: 'updated', record_preview: { status: 'sent' } },
+      requested: ['status'],
+      returned: { status: 'sent' },
+      verificationNeeded: false,
+    },
+    {
+      name: 'a top-level status that is the requested one',
+      tool: toolAt('update_watchtower_finding', '/api/v2/watchtower/findings/{finding_id}'),
+      args: { status: 'confirmed' },
+      response: { status: 'confirmed' },
+      requested: ['status'],
+      returned: { status: 'confirmed' },
+      verificationNeeded: false,
+    },
+    {
+      name: 'the response envelope read as the requested data',
+      tool: toolAt('create_custom_object_record', '/api/v2/public/records/custom-objects/records'),
+      args: { data: { subject: 'Kickoff' } },
+      response: { data: { id: 'record-1' } },
+      requested: ['data'],
+      returned: {},
+      verificationNeeded: true,
+    },
+    {
+      name: 'a normalised value, which is not compared',
+      tool: toolAt('update_view', VIEW_PATH),
+      args: { columns: ['name'] },
+      response: { record_preview: { columns: ['standard:name'] } },
+      requested: ['columns'],
+      returned: { columns: ['standard:name'] },
+      verificationNeeded: false,
+    },
+    {
+      name: 'an empty list back for a list that had rows',
+      tool: toolAt('create_subscription', '/api/v2/subscriptions'),
+      args: { items: [{ item_name: 'Plan' }] },
+      response: { items: [] },
+      requested: ['items'],
+      returned: {},
+      verificationNeeded: true,
+    },
+    {
+      name: 'null back for a value',
+      tool: toolAt('update_deal', DEAL_PATH),
+      args: { currency: 'JPY' },
+      response: { record_preview: { currency: null } },
+      requested: ['currency'],
+      returned: {},
+      verificationNeeded: true,
+    },
+    {
+      name: 'null back for a cleared field',
+      tool: toolAt('update_deal', DEAL_PATH),
+      args: { due_date: null },
+      response: { record_preview: { due_date: null } },
+      requested: ['due_date'],
+      returned: { due_date: null },
+      verificationNeeded: false,
+    },
+    {
+      name: 'an instruction tool that echoes one argument',
+      tool: toolAt('send_invoice_email', '/api/v2/invoices/{invoice_id}/send'),
+      args: { to: 'a@example.com', subject: 'Invoice' },
+      response: { to: 'a@example.com' },
+      requested: ['to', 'subject'],
+      returned: { to: 'a@example.com' },
+      verificationNeeded: false,
+    },
+    {
+      name: 'an instruction tool that echoes nothing',
+      tool: toolAt('send_invoice_email', '/api/v2/invoices/{invoice_id}/send'),
+      args: { to: 'a@example.com' },
+      response: { ok: true },
+      requested: ['to'],
+      returned: {},
+      verificationNeeded: true,
+    },
+  ])(
+    'confirms requested fields: $name',
+    ({ tool, args, response, requested, returned, verificationNeeded }) => {
+      const result = normalizeToolCallResult({
+        mcpTool: tool,
+        args,
+        now,
+        result: { content: [], structuredContent: response },
+      });
+
+      const confirmation = result.structuredContent?.['confirmation'] as Record<string, unknown>;
+      expect(Object.keys(confirmation['requested_fields'] as object)).toEqual(requested);
+      expect(confirmation['returned_fields']).toEqual(returned);
+      expect(confirmation['verification_needed']).toBe(verificationNeeded);
+    },
+  );
 
   it('does not add mutation success prose to read-only tools', () => {
     const result = normalizeToolCallResult({
