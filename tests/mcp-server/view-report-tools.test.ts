@@ -41,6 +41,34 @@ const stageFilter = viewFilter({
   sort_direction: 'desc',
   page_size: 25,
 });
+const viewURL = 'http://localhost:5000/api/v2/views/view-1';
+const columnsURL = `${viewURL}/columns`;
+const nameID = 'standard:name';
+const emailID = 'standard:email';
+// GET /api/v2/views/{view_id}, which the update reads back.
+const savedView = (view: Record<string, unknown> = {}, filter: Record<string, unknown> = {}) =>
+  envelope({
+    view: {
+      view_id: 'view-1',
+      title: 'Open deals',
+      mode: 'table',
+      visibility: 'workspace',
+      column_field_ids: [nameID, emailID],
+      ...view,
+    },
+    filter: viewFilter(filter),
+  });
+const savedColumns = (fieldIDs: string[]) =>
+  envelope({
+    view_id: 'view-1',
+    object_type: 'company',
+    columns: fieldIDs.map((field_id, order) => ({ field_id, order })),
+  });
+const putColumns = (fieldIDs: string[]) => ({
+  method: 'PUT',
+  url: columnsURL,
+  body: { column_field_ids: fieldIDs },
+});
 
 const viewCases: Array<{
   name: string;
@@ -104,6 +132,7 @@ const viewCases: Array<{
         filter: viewFilter({ sort_field_id: 'standard:amount', sort_direction: 'desc', page_size: 25 }),
       }),
       envelope({ filter: stageFilter }),
+      savedView({}, stageFilter),
     ],
     expectedRequests: [
       { method: 'GET', url: filterURL },
@@ -118,8 +147,99 @@ const viewCases: Array<{
           page_size: 25,
         },
       },
+      { method: 'GET', url: viewURL },
     ],
     expectedResult: { filter: stageFilter },
+  },
+  {
+    name: 'update_view saves columns on the columns route, which the view route ignores',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', view_type: 'table', columns: [nameID, emailID] },
+    responses: [savedView(), savedColumns([nameID, emailID]), savedView()],
+    expectedRequests: [
+      { method: 'GET', url: viewURL },
+      putColumns([nameID, emailID]),
+      { method: 'GET', url: viewURL },
+    ],
+    expectedResult: {
+      view_id: 'view-1',
+      record_preview: { columns: [nameID, emailID], view_type: 'table' },
+    },
+  },
+  {
+    name: 'update_view sends a view type that differs from the saved one',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'deals', view_type: 'kanban' },
+    responses: [savedView(), savedView({ mode: 'kanban' }), savedView({ mode: 'kanban' })],
+    expectedRequests: [
+      { method: 'GET', url: viewURL },
+      { method: 'PATCH', url: viewURL, body: { view_type: 'kanban', mode: 'kanban' } },
+      { method: 'GET', url: viewURL },
+    ],
+    expectedResult: { record_preview: { view_type: 'kanban' } },
+  },
+  {
+    name: 'update_view saves columns alone, without a view route request',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', column_field_ids: [nameID, emailID] },
+    responses: [savedColumns([nameID, emailID]), savedView()],
+    expectedRequests: [putColumns([nameID, emailID]), { method: 'GET', url: viewURL }],
+    expectedResult: { record_preview: { columns: [nameID, emailID] } },
+  },
+  {
+    name: 'update_view accepts a column the API saves under its canonical id',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', columns: ['name', emailID] },
+    responses: [savedColumns([nameID, emailID]), savedView()],
+    expectedRequests: [putColumns(['name', emailID]), { method: 'GET', url: viewURL }],
+    expectedResult: { record_preview: { columns: [nameID, emailID] } },
+  },
+  {
+    name: 'update_view fails when the API did not keep a requested column',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', columns: ['record_id', 'name'] },
+    responses: [savedColumns([nameID]), savedView({ column_field_ids: [nameID] })],
+    expectedRequests: [putColumns(['record_id', 'name']), { method: 'GET', url: viewURL }],
+    expectedResult: { not_saved: { columns: ['record_id'] }, record_preview: { columns: [nameID] } },
+    isError: true,
+  },
+  {
+    name: 'update_view fails when the API kept the view private',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', is_private: false },
+    responses: [savedView({ visibility: 'private' }), savedView({ visibility: 'private' })],
+    expectedRequests: [
+      { method: 'PATCH', url: viewURL, body: { is_private: false, visibility: 'workspace' } },
+      { method: 'GET', url: viewURL },
+    ],
+    expectedResult: { not_saved: { visibility: 'workspace' }, record_preview: { is_private: true } },
+    isError: true,
+  },
+  {
+    name: 'update_view names what it saved when the columns are then rejected',
+    tool: crmUpdateViewTool,
+    args: { view_id: 'view-1', object: 'companies', name: 'Renamed', columns: ['standard:missing'] },
+    responses: [
+      savedView({ title: 'Renamed' }),
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Column field not found for view target',
+            details: { field_ids: ['standard:missing'] },
+          },
+          meta: {},
+        }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } },
+      ),
+    ],
+    expectedRequests: [
+      { method: 'PATCH', url: viewURL, body: { name: 'Renamed', title: 'Renamed' } },
+      putColumns(['standard:missing']),
+    ],
+    expectedResult: { view_id: 'view-1', saved: ['name, view type or visibility'] },
+    isError: true,
   },
   {
     name: 'create_view reports the created view when its filters are rejected',
@@ -164,6 +284,21 @@ describe('saved view and report tools', () => {
       expect(result.structuredContent).toMatchObject(expectedResult);
     },
   );
+
+  it.each([
+    { name: 'empty columns', args: { columns: [] } },
+    { name: 'form_data, which no route reads', args: { name: 'Renamed', form_data: { columns: [nameID] } } },
+    { name: 'nothing to update', args: {} },
+    { name: 'a blank name beside a real change', args: { name: '  ', columns: [nameID] } },
+  ])('update_view fails without a request for $name', async ({ args }) => {
+    const { requests, result } = await sendThroughSDK({
+      tool: crmUpdateViewTool,
+      args: { view_id: 'view-1', object: 'companies', ...args },
+    });
+
+    expect(requests).toEqual([]);
+    expect(result.isError).toBe(true);
+  });
 
   it('create_report posts a report metadata payload to the public reports endpoint', async () => {
     const create = jest.fn().mockResolvedValue({

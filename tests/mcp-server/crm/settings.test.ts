@@ -25,7 +25,6 @@ import {
   crmRejectRecordApprovalTool,
   crmUpdatePermissionSetTool,
   crmUpdatePropertyTool,
-  crmUpdateViewTool,
   crmUpsertApprovalRuleTool,
 } from '../../../packages/mcp-server/src/crm-tools';
 import {
@@ -689,15 +688,14 @@ const v2Requests: V2RequestCase[] = [
 ];
 
 describe('CRM settings, governance, and saved view tools', () => {
-  it('gets, updates, deletes, and resolves columns for a saved view', async () => {
+  it('gets, deletes, and resolves columns for a saved view', async () => {
     const get = jest
       .fn()
       .mockResolvedValueOnce({ view: { id: 'view-1', label: 'Open orders' } })
       .mockResolvedValueOnce({ columns: [{ id: 'status', label: 'Status' }] });
-    const patch = jest.fn().mockResolvedValue({ data: { id: 'view-1', label: 'Priority orders' } });
     const del = jest.fn().mockResolvedValue({ status: 'deleted', view_id: 'view-1' });
     const reqContext = {
-      client: { get, patch, delete: del } as any,
+      client: { get, delete: del } as any,
       auth: oauthContext(),
       toolProfile: 'full' as const,
     };
@@ -724,39 +722,6 @@ describe('CRM settings, governance, and saved view tools', () => {
     expect(firstTextContent(columnsResult)).toBe('Loaded 1 columns for saved view view-1.');
     expect(columnsResult.structuredContent).toEqual({
       columns: [{ id: 'status', label: 'Status' }],
-    });
-
-    const updateResult = await crmUpdateViewTool.handler({
-      reqContext,
-      args: {
-        view_id: 'view-1',
-        object: 'orders',
-        name: 'Priority orders',
-        view_type: 'list',
-        columns: ['status', 'company'],
-        is_private: true,
-        workspace_id: 'workspace-1',
-        language: 'en',
-      },
-    });
-    expect(patch).toHaveBeenCalledWith('/api/v2/views/view-1', {
-      body: {
-        object: 'orders',
-        object_type: 'orders',
-        name: 'Priority orders',
-        title: 'Priority orders',
-        view_type: 'list',
-        mode: 'table',
-        columns: ['status', 'company'],
-        column_field_ids: ['status', 'company'],
-        is_private: true,
-        visibility: 'private',
-      },
-      query: { workspace_id: 'workspace-1', 'Accept-Language': 'en' },
-    });
-    expect(firstTextContent(updateResult)).toBe('Updated saved view view-1.');
-    expect(updateResult.structuredContent).toEqual({
-      data: { id: 'view-1', label: 'Priority orders' },
     });
 
     const deleteResult = await crmDeleteViewTool.handler({
