@@ -34,7 +34,34 @@ const CONTROL_ARGUMENT_KEYS = new Set([
   'operation',
   'dry_run',
   'confirm',
+  'workspace_id',
+  'view_id',
+  'form_view_id',
+  'form_set_id',
+  'property_set_id',
+  'object',
+  'object_type',
+  'object_name',
+  'custom_object',
+  'custom_object_id',
+  'custom_object_slug',
+  'doc_id',
+  'idempotency_key',
+  'content_base64',
 ]);
+
+// Preconditions on a call, such as expected_version or confirm_send. The
+// suffixes matter: expected_amount on an invoice request is a saved field.
+const PRECONDITION_ARGUMENT_PATTERN = /^confirm_|^expected_\w*(id|hash|version|revision|email)$/;
+
+// Top-level keys that describe the call rather than the record: `status` reads
+// "updated" whatever status was requested, and `data` is the response envelope.
+const ENVELOPE_KEYS = new Set(['status', 'data']);
+
+// Tool name verbs whose arguments are saved on a record, so each should come
+// back. The other write tools take instructions, such as a chunk offset or an
+// email body, that no response repeats.
+const FIELD_SAVING_VERBS = new Set(['create', 'update', 'upsert', 'save', 'set']);
 
 const LARGE_STRING_PLACEHOLDER_THRESHOLD = 2000;
 
@@ -175,25 +202,53 @@ const summarizeCompactValue = (value: unknown): unknown => {
 const buildSafeResult = (payload: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, summarizeCompactValue(value)]));
 
-const buildRequestedFields = (args: Record<string, unknown> | undefined): Record<string, unknown> => {
+const toSnakeCase = (key: string): string => key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+
+// Arguments that say which record to act on, or guard the call, are not fields:
+// nothing is saved under them, so whether they come back says nothing.
+const isFieldArgument = (key: string, httpPath: string | undefined): boolean => {
+  const name = toSnakeCase(key);
+  return (
+    !CONTROL_ARGUMENT_KEYS.has(name) &&
+    !PRECONDITION_ARGUMENT_PATTERN.test(name) &&
+    !httpPath?.includes(`{${name}}`)
+  );
+};
+
+const buildRequestedFields = (
+  args: Record<string, unknown> | undefined,
+  httpPath: string | undefined,
+): Record<string, unknown> => {
   if (!args) {
     return {};
   }
   return Object.fromEntries(
     Object.entries(args)
-      .filter(([key, value]) => value !== undefined && !CONTROL_ARGUMENT_KEYS.has(key))
-      .filter(([key]) => key !== 'content_base64')
+      .filter(([key, value]) => value !== undefined && isFieldArgument(key, httpPath))
       .map(([key, value]) => [key, summarizeValue(value)]),
   );
 };
 
-const findReturnedValue = (payload: Record<string, unknown>, key: string): unknown => {
-  if (payload[key] !== undefined) {
-    return payload[key];
+const isBlank = (value: unknown): boolean =>
+  value === null ||
+  value === undefined ||
+  (typeof value === 'string' && !value.trim()) ||
+  (Array.isArray(value) && value.length === 0) ||
+  (isRecord(value) && Object.keys(value).length === 0);
+
+// A returned value is not compared with the requested one, because routes hand
+// back a normalised form: a trimmed string, `name` as `standard:name`, a list
+// with ids added. No route normalises a value into nothing, so a blank value
+// only confirms a blank request.
+const findReturnedValue = (payload: Record<string, unknown>, key: string, requested: unknown): unknown => {
+  const confirmsRequest = (value: unknown) => value !== undefined && (!isBlank(value) || isBlank(requested));
+  const topLevel = payload[key];
+  if (confirmsRequest(topLevel) && (!ENVELOPE_KEYS.has(key) || topLevel === requested)) {
+    return topLevel;
   }
   for (const containerKey of ['record_preview', 'record', 'data']) {
     const container = payload[containerKey];
-    if (isRecord(container) && container[key] !== undefined) {
+    if (isRecord(container) && confirmsRequest(container[key])) {
       return container[key];
     }
   }
@@ -205,8 +260,8 @@ const buildReturnedFields = (
   requestedFields: Record<string, unknown>,
 ): Record<string, unknown> =>
   Object.fromEntries(
-    Object.keys(requestedFields)
-      .map((key) => [key, summarizeValue(findReturnedValue(payload, key))] as const)
+    Object.entries(requestedFields)
+      .map(([key, requested]) => [key, summarizeValue(findReturnedValue(payload, key, requested))] as const)
       .filter(([, value]) => value !== undefined),
   );
 
@@ -311,14 +366,16 @@ export const normalizeToolCallResult = ({
     readNumber(payload['status_code']) ??
     readNumber(payload['statusCode']);
   const isError = result.isError === true || (httpStatus !== undefined && httpStatus >= 400);
-  const requestedFields = buildRequestedFields(args);
+  const requestedFields = buildRequestedFields(args, mcpTool.metadata.httpPath);
   const returnedFields = buildReturnedFields(payload, requestedFields);
-  const hasRequestedFields = Object.keys(requestedFields).length > 0;
+  const requestedCount = Object.keys(requestedFields).length;
+  const returnedCount = Object.keys(returnedFields).length;
   const verificationNeeded =
     !isError &&
     mcpTool.metadata.operation !== 'read' &&
-    hasRequestedFields &&
-    Object.keys(returnedFields).length === 0;
+    (FIELD_SAVING_VERBS.has(mcpTool.tool.name.split('_')[0] ?? '') ?
+      returnedCount < requestedCount
+    : requestedCount > 0 && returnedCount === 0);
   const needsConfirmation = advisoryRequiresConfirmation(payload);
   const meta = {
     ok: readBoolean(payload['ok']),
