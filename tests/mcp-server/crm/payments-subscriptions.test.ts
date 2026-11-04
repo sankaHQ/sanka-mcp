@@ -370,7 +370,7 @@ describe('CRM payment and subscription tools', () => {
     expect(get).toHaveBeenCalledWith('/api/v2/public/payments/301/allocations', {
       query: {
         external_id: 'PAY-301',
-        'Accept-Language': 'ja',
+        language: 'ja',
       },
     });
     expect(result.structuredContent).toEqual({
@@ -430,7 +430,7 @@ describe('CRM payment and subscription tools', () => {
     expect(put).toHaveBeenCalledWith('/api/v2/public/payments/301/allocations', {
       query: {
         external_id: 'PAY-301',
-        'Accept-Language': 'ja',
+        language: 'ja',
       },
       body: {
         allocations: [

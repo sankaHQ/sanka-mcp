@@ -180,8 +180,7 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/properties/orders/prop-1?workspace_id=workspace-1',
-        headers: { 'accept-language': 'en' },
+        url: 'http://localhost:5000/api/v2/properties/orders/prop-1?workspace_id=workspace-1&language=en',
       },
     ],
   },
@@ -230,8 +229,7 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/properties/custom_objects?custom_only=true&custom_object_slug=mgs_owned_machine&limit=2&page=2&workspace_id=workspace-1',
-        headers: { 'accept-language': 'en' },
+        url: 'http://localhost:5000/api/v2/properties/custom_objects?custom_only=true&custom_object_slug=mgs_owned_machine&limit=2&page=2&workspace_id=workspace-1&language=en',
       },
     ],
     expectedResult: {

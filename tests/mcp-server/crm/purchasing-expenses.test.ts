@@ -521,7 +521,7 @@ describe('CRM purchasing and expense tools', () => {
     expect(get).toHaveBeenCalledWith('/api/v2/public/disbursements/disbursement-1/allocations', {
       query: {
         external_id: 'DSB-1',
-        'Accept-Language': 'en',
+        language: 'en',
       },
     });
     expect(listResult.structuredContent).toEqual({
