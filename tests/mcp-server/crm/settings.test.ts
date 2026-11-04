@@ -705,7 +705,7 @@ describe('CRM settings, governance, and saved view tools', () => {
       args: { view_id: 'view-1', workspace_id: 'workspace-1', language: 'ja' },
     });
     expect(get).toHaveBeenNthCalledWith(1, '/api/v2/views/view-1', {
-      query: { workspace_id: 'workspace-1', 'Accept-Language': 'ja' },
+      query: { workspace_id: 'workspace-1', language: 'ja' },
     });
     expect(firstTextContent(getResult)).toBe('Loaded saved view Open orders.');
     expect(getResult.structuredContent).toEqual({

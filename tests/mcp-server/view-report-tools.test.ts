@@ -1,6 +1,7 @@
 import {
   crmCreateReportTool,
   crmCreateViewTool,
+  crmGetViewTool,
   crmListReportsTool,
   crmListViewsTool,
   crmUpdateReportTool,
@@ -19,13 +20,30 @@ const viewFilter = (filter: Record<string, unknown>) => ({
   page_size: 50,
   ...filter,
 });
-const createdView = () =>
-  envelope({ view: { view_id: 'view-1', title: 'Open deals', object_type: 'deal' }, filter: viewFilter({}) });
+const createdView = (columns?: string[]) =>
+  envelope({
+    view: {
+      view_id: 'view-1',
+      title: 'Open deals',
+      object_type: 'deal',
+      ...(columns ? { column_field_ids: columns } : undefined),
+    },
+    filter: viewFilter({}),
+  });
 const createRequest = {
   method: 'POST',
   url: 'http://localhost:5000/api/v2/views',
   body: { object: 'deals', object_type: 'deals', name: 'Open deals', title: 'Open deals' },
 };
+const createRequestWithColumns = (columns: string[]) => ({
+  ...createRequest,
+  body: { ...createRequest.body, columns, column_field_ids: columns },
+});
+const rejected = () =>
+  new Response(
+    JSON.stringify({ success: false, error: { code: 'VALIDATION_ERROR', message: 'invalid' }, meta: {} }),
+    { status: 422, headers: { 'Content-Type': 'application/json' } },
+  );
 const filterURL = 'http://localhost:5000/api/v2/views/view-1/filter';
 const stageIn = { field: { field_id: 'standard:stage' }, operator: 'in', value: ['open', 'won'] };
 const amountID = 'custom_property:0b6c9d2e-5a4f-4c1e-9f3a-2d7e8b1c4a60';
@@ -77,6 +95,7 @@ const viewCases: Array<{
   responses: Response[];
   expectedRequests: V2Request[];
   expectedResult: Record<string, unknown>;
+  expectedText?: string;
   isError?: boolean;
 }> = [
   {
@@ -88,6 +107,146 @@ const viewCases: Array<{
       { method: 'GET', url: 'http://localhost:5000/api/v2/views?object_type=deals&workspace_id=workspace-1' },
     ],
     expectedResult: { results: [{ view_id: 'view-1', label: 'Open deals' }] },
+  },
+  {
+    name: 'list_views sends language on the query param the route reads',
+    tool: crmListViewsTool,
+    args: { object: 'deals', language: 'ja' },
+    responses: [envelope([{ view_id: 'view-1', label: 'デフォルト' }])],
+    expectedRequests: [
+      { method: 'GET', url: 'http://localhost:5000/api/v2/views?object_type=deals&language=ja' },
+    ],
+    expectedResult: { results: [{ view_id: 'view-1', label: 'デフォルト' }] },
+  },
+  {
+    name: 'get_view sends language on the query param the route reads',
+    tool: crmGetViewTool,
+    args: { view_id: 'view-1', language: 'ja' },
+    responses: [savedView()],
+    expectedRequests: [{ method: 'GET', url: `${viewURL}?language=ja` }],
+    expectedResult: { data: { view_id: 'view-1' } },
+  },
+  {
+    name: 'create_view sends language on the query param the route reads',
+    tool: crmCreateViewTool,
+    args: { object: 'deals', name: 'Open deals', language: 'ja' },
+    responses: [createdView()],
+    expectedRequests: [{ ...createRequest, url: `${createRequest.url}?language=ja` }],
+    expectedResult: { data: { view_id: 'view-1' } },
+  },
+  {
+    name: 'create_view reads the columns back and accepts one saved under its canonical id',
+    tool: crmCreateViewTool,
+    args: { object: 'deals', name: 'Open deals', columns: ['name', emailID] },
+    responses: [createdView([nameID, emailID]), savedColumns([nameID, emailID])],
+    expectedRequests: [createRequestWithColumns(['name', emailID]), { method: 'GET', url: columnsURL }],
+    expectedResult: { data: { view_id: 'view-1' } },
+  },
+  {
+    name: 'create_view fails and names a column the API did not keep',
+    tool: crmCreateViewTool,
+    args: { object: 'deals', name: 'Open deals', columns: ['record_id', 'name'] },
+    responses: [createdView([nameID]), savedColumns([nameID])],
+    expectedRequests: [createRequestWithColumns(['record_id', 'name']), { method: 'GET', url: columnsURL }],
+    expectedResult: {
+      view_id: 'view-1',
+      not_saved: { columns: ['record_id'] },
+      record_preview: { columns: [nameID] },
+    },
+    expectedText: 'update_view and view_id view-1',
+    isError: true,
+  },
+  {
+    // A kanban view keeps no requested column, and its detail then lists the
+    // object's defaults, here as many as were requested.
+    name: 'create_view fails when the view lists as many default columns as were requested',
+    tool: crmCreateViewTool,
+    args: { object: 'deals', name: 'Open deals', view_type: 'kanban', columns: ['standard:a', 'standard:b'] },
+    responses: [createdView([nameID, emailID]), savedColumns([])],
+    expectedRequests: [
+      {
+        ...createRequest,
+        body: {
+          ...createRequestWithColumns(['standard:a', 'standard:b']).body,
+          view_type: 'kanban',
+          mode: 'kanban',
+        },
+      },
+      { method: 'GET', url: columnsURL },
+    ],
+    expectedResult: { not_saved: { columns: ['standard:a', 'standard:b'] }, record_preview: { columns: [] } },
+    isError: true,
+  },
+  {
+    name: 'create_view names the view it created when its columns cannot be read back',
+    tool: crmCreateViewTool,
+    args: { object: 'deals', name: 'Open deals', columns: [nameID] },
+    responses: [createdView([nameID]), rejected()],
+    expectedRequests: [createRequestWithColumns([nameID]), { method: 'GET', url: columnsURL }],
+    expectedResult: { view_id: 'view-1', columns_error: expect.any(String) },
+    expectedText: 'get_view_columns and view_id view-1',
+    isError: true,
+  },
+  {
+    name: 'create_view fails for a dropped column even when its filters were saved',
+    tool: crmCreateViewTool,
+    args: {
+      object: 'deals',
+      name: 'Open deals',
+      columns: ['record_id', 'name'],
+      filters: [{ field: 'standard:stage', operator: 'in', value: ['open', 'won'] }],
+    },
+    responses: [createdView([nameID]), envelope({ filter: stageFilter }), savedColumns([nameID])],
+    expectedRequests: [
+      createRequestWithColumns(['record_id', 'name']),
+      {
+        method: 'PUT',
+        url: filterURL,
+        body: {
+          expressions: [stageIn],
+          sort_field_id: null,
+          sort_direction: null,
+          archive_mode: 'active',
+          page_size: 50,
+        },
+      },
+      { method: 'GET', url: columnsURL },
+    ],
+    expectedResult: {
+      view_id: 'view-1',
+      filter: stageFilter,
+      not_saved: { columns: ['record_id'] },
+      record_preview: { columns: [nameID] },
+    },
+    isError: true,
+  },
+  {
+    name: 'create_view reports a dropped column beside rejected filters',
+    tool: crmCreateViewTool,
+    args: {
+      object: 'deals',
+      name: 'Open deals',
+      columns: ['record_id', 'name'],
+      filters: [{ field: 'standard:missing', value: 'x' }],
+    },
+    responses: [createdView([nameID]), rejected(), savedColumns([nameID])],
+    expectedRequests: [
+      createRequestWithColumns(['record_id', 'name']),
+      {
+        method: 'PUT',
+        url: filterURL,
+        body: {
+          expressions: [{ field: { field_id: 'standard:missing' }, operator: 'equals', value: 'x' }],
+          sort_field_id: null,
+          sort_direction: null,
+          archive_mode: 'active',
+          page_size: 50,
+        },
+      },
+      { method: 'GET', url: columnsURL },
+    ],
+    expectedResult: { filter_saved: false, not_saved: { columns: ['record_id'] } },
+    isError: true,
   },
   {
     name: 'create_view saves filters and sort through the view filter route',
@@ -245,13 +404,7 @@ const viewCases: Array<{
     name: 'create_view reports the created view when its filters are rejected',
     tool: crmCreateViewTool,
     args: { object: 'deals', name: 'Open deals', filters: [{ field: 'standard:missing', value: 'x' }] },
-    responses: [
-      createdView(),
-      new Response(
-        JSON.stringify({ success: false, error: { code: 'VALIDATION_ERROR', message: 'invalid' }, meta: {} }),
-        { status: 422, headers: { 'Content-Type': 'application/json' } },
-      ),
-    ],
+    responses: [createdView(), rejected()],
     expectedRequests: [
       createRequest,
       {
@@ -274,7 +427,7 @@ const viewCases: Array<{
 describe('saved view and report tools', () => {
   it.each(viewCases)(
     '$name',
-    async ({ tool, args, responses, expectedRequests, expectedResult, isError }) => {
+    async ({ tool, args, responses, expectedRequests, expectedResult, expectedText, isError }) => {
       expect(validateToolArguments({ mcpTool: tool, args })).toBeUndefined();
 
       const { requests, result } = await sendThroughSDK({ tool, args, responses });
@@ -282,6 +435,9 @@ describe('saved view and report tools', () => {
       expect(requests).toEqual(expectedRequests);
       expect(result.isError ?? false).toBe(isError ?? false);
       expect(result.structuredContent).toMatchObject(expectedResult);
+      if (expectedText) {
+        expect(JSON.stringify(result.content)).toContain(expectedText);
+      }
     },
   );
 
