@@ -114,6 +114,33 @@ describe('Flow Action tools', () => {
     expect(result.structuredContent).toMatchObject({ run_id: RUN_ID });
   });
 
+  // The bug: a session that switched workspace spends credit in the wrong one.
+  it('names the session workspace, and stops when it is not the expected one', async () => {
+    const session = envelope({ current_workspace: { id: 'ws-1', code: '10101010' } });
+    const { requests } = await sendThroughSDK({
+      tool: runFlowActionTool,
+      args: { ...searchArgs, confirmed_company_count: 2, expected_workspace_id: 'ws-1' },
+      responses: [session, preview(), started()],
+      context: { auth, mcpSessionId: 'mcp-1' },
+    });
+    const bound = {
+      'x-sanka-expected-workspace-id': 'ws-1',
+      'x-sanka-mcp': 'true',
+      'x-sanka-mcp-session-id': 'mcp-1',
+    };
+    expect(requests[1]?.headers).toEqual(bound);
+    expect(requests[2]?.headers).toEqual(bound);
+
+    const { requests: stopped, result } = await sendThroughSDK({
+      tool: runFlowActionTool,
+      args: { ...searchArgs, confirmed_company_count: 2, expected_workspace_id: 'ws-2' },
+      responses: [envelope({ current_workspace: { id: 'ws-1', code: '10101010' } })],
+      context: { auth, mcpSessionId: 'mcp-1' },
+    });
+    expect(result.isError).toBe(true);
+    expect(stopped).toHaveLength(1);
+  });
+
   // The bug: a repeated tool call bills the same companies twice.
   it('the same request is one run, and a different one is not', async () => {
     const keyOf = async (args: Record<string, unknown>) => {

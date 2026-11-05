@@ -4,7 +4,7 @@
 // FLOW_ACTIONS can run here: each company costs Sanka credit, so a new one is a decision.
 import { createHash } from 'node:crypto';
 
-import { sessionWorkspace } from './desk-tools';
+import { envelopeData, readApiFailure, sessionWorkspace } from './desk-tools';
 import { actionHistoryAppUrl } from './record-url-enrichment';
 import { readRecord, readString, readStringArray } from './tool-factories';
 import { requireAuthentication } from './tool-auth';
@@ -129,33 +129,10 @@ const RESULT_OUTPUT_SCHEMA = {
   },
 };
 
-const envelopeData = (response: unknown): JsonRecord => readRecord(readRecord(response)?.['data']) ?? {};
-
 const toolResult = (message: string, structuredContent: JsonRecord): ToolCallResult => ({
   content: [{ type: 'text', text: message }],
   structuredContent: { ...structuredContent, message },
 });
-
-type ApiFailure = { code: string; message: string; details: unknown; status?: number; ctxID?: string };
-
-// An SDK APIError carries the V2 envelope as `error`, and the envelope its `error` body.
-const readApiFailure = (error: unknown): ApiFailure | undefined => {
-  const layers: JsonRecord[] = [];
-  for (let layer = readRecord(error); layer && layers.length < 3; layer = readRecord(layer['error'])) {
-    layers.push(layer);
-  }
-  const body = layers.find((layer) => readString(layer['code']) && readString(layer['message']));
-  if (!body) return undefined;
-  const status = layers.map((layer) => layer['status']).find((value) => typeof value === 'number');
-  const ctxID = layers.map((layer) => readString(readRecord(layer['meta'])?.['ctx_id'])).find(Boolean);
-  return {
-    code: readString(body['code']) ?? '',
-    message: readString(body['message']) ?? '',
-    details: body['details'] ?? {},
-    ...(typeof status === 'number' ? { status } : undefined),
-    ...(ctxID ? { ctxID } : undefined),
-  };
-};
 
 const LIMIT_HINT =
   'Tell the person. Do not repeat the call, split the selection into several runs or look for another way around the limit.';
