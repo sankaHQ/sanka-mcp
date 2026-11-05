@@ -698,15 +698,9 @@ export const listCompanyListsTool: McpTool = {
         owner: readString(readRecord(list['owner'])?.['name']),
         company_count: list['member_count'],
       }));
-      const views =
-        mine ?
-          []
-        : await reqContext.client
-            .get(VIEWS_PATH, { query: { object_type: 'companies' } })
-            .then((response) => {
-              const rows = readRecord(response)?.['data'];
-              return readRows(rows);
-            });
+      const viewsResponse =
+        mine ? undefined : await reqContext.client.get(VIEWS_PATH, { query: { object_type: 'companies' } });
+      const views: JsonRecord[] = readRows(readRecord(viewsResponse)?.['data']);
       const wanted = search?.toLowerCase();
       const viewItems = views
         .map((view) => ({
