@@ -370,6 +370,7 @@ import {
 import { getMeetingTool } from './meeting-tools';
 import { getSignalBookingTool, listSignalBookingsTool } from './signal-booking-tools';
 import { deskTools } from './desk-tools';
+import { flowActionTools } from './flow-action-tools';
 import {
   getWorkflowRunTool,
   previewWorkflowTool,
@@ -1085,6 +1086,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     listSignalBookingsTool,
     getSignalBookingTool,
     ...deskTools,
+    ...flowActionTools,
     previewBuyRequestTool,
     listBuyRequestsTool,
     createBuyRequestTool,

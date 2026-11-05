@@ -256,7 +256,7 @@ const derivedClientKey = (text: string, subjectEmail: string | undefined, now: n
 type SessionWorkspace = { id?: string; code?: string; name?: string };
 
 // The workspace this connection resolves to, read the way the Desk routes resolve it.
-const sessionWorkspace = async (reqContext: McpRequestContext): Promise<SessionWorkspace> => {
+export const sessionWorkspace = async (reqContext: McpRequestContext): Promise<SessionWorkspace> => {
   const data = envelopeData(await reqContext.client.get(SESSION_PATH));
   const workspace = readRecord(data['current_workspace']) ?? readRecord(data['workspace']);
   const id = readString(workspace?.['id']);

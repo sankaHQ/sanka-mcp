@@ -402,7 +402,7 @@ export const normalizeToolCallResult = ({
     needs_confirmation: needsConfirmation,
   };
   const isInvalidArguments = readString(payload['error_type']) === INVALID_TOOL_ARGUMENTS_ERROR_TYPE;
-  const canRetry = isError && isRetryableFailure(httpStatus, payload);
+  const canRetry = isError && payload['retryable'] !== false && isRetryableFailure(httpStatus, payload);
   const remediation = {
     safe_to_continue: !isError && !needsConfirmation,
     can_retry: canRetry,

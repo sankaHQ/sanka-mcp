@@ -2,7 +2,7 @@ import { DESK_TOOL_NAMES, DeskAvailability, readDeskAvailability } from './desk-
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-10-31.sanka-desk.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-11-06.flow-actions.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -152,6 +152,67 @@ const DIRECTORY_ACCOUNT_TERMS = [
 const EMPLOYEE_LIFECYCLE_TERMS = ['onboarding', 'オンボーディング', '入社', '退職', '退社'];
 const EMPLOYEE_ACCOUNT_TERMS = ['employee', 'staff', 'it onboarding', 'アカウント'];
 
+// Finding people for companies a person already has, or filling in a company's main line: Flow
+// Actions. Only with a word for what to search, so "add a contact to Acme" stays create_contact.
+const FLOW_ACTION_SEARCH_TERMS = [
+  'enrich',
+  'find',
+  'look up',
+  'lookup',
+  'search for',
+  'source',
+  'discover',
+  'エンリッチ',
+  '探',
+  '調べ',
+  '見つけ',
+];
+const FLOW_ACTION_PEOPLE_TERMS = [
+  'contact',
+  'people',
+  'person',
+  'email',
+  'e-mail',
+  'decision maker',
+  'decision-maker',
+  '連絡先',
+  '担当者',
+  'キーパーソン',
+  '決裁者',
+  'メール',
+];
+const FLOW_ACTION_DETAIL_TERMS = [
+  'phone',
+  'address',
+  'company details',
+  'main line',
+  '電話',
+  '住所',
+  '企業情報',
+];
+const FLOW_ACTION_TARGET_TERMS = [
+  'compan',
+  'lead',
+  'account',
+  'prospect',
+  'list',
+  '企業',
+  '会社',
+  'リード',
+  'リスト',
+  '取引先',
+];
+// A named provider, or building an automation, is that tool's work.
+const FLOW_ACTION_EXCLUDED_TERMS = [
+  'hubspot',
+  'salesforce',
+  'workflow',
+  'automation',
+  'automate',
+  'ワークフロー',
+  '自動化',
+];
+
 const WORKFLOW_HINT_MIN_LENGTH = 4;
 
 const WORKFLOW_HINT_STOPWORDS = new Set([
@@ -216,6 +277,13 @@ const isAppBuilderIntent = (value: string): boolean =>
   includesAny(value, ['app builder', 'blueprint']) ||
   (includesAny(value, APP_BUILDER_PRODUCT_TERMS) && includesAny(value, APP_BUILDER_BUILD_TERMS));
 
+const isFlowActionIntent = (value: string): boolean =>
+  !includesAny(value, FLOW_ACTION_EXCLUDED_TERMS) &&
+  includesAny(value, FLOW_ACTION_TARGET_TERMS) &&
+  ((includesAny(value, FLOW_ACTION_SEARCH_TERMS) && includesAny(value, FLOW_ACTION_PEOPLE_TERMS)) ||
+    (includesAny(value, [...FLOW_ACTION_SEARCH_TERMS, 'fill', '埋め']) &&
+      includesAny(value, FLOW_ACTION_DETAIL_TERMS)));
+
 // The request text: `raw` keeps the user's casing, `combined` is every hint lowercased.
 const requestHints = (args: Record<string, unknown> | undefined): { raw: string; combined: string } => {
   const raw = ['intent', 'provider', 'object_type', 'operation']
@@ -232,6 +300,7 @@ const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean
     isPresentationIntent(combined) ||
     MIGRATION_INTENT.test(combined) ||
     isAppBuilderIntent(combined) ||
+    isFlowActionIntent(combined) ||
     includesAny(combined, DESK_EXCLUDED_TERMS)
   ) {
     return false;
@@ -242,6 +311,25 @@ const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean
     (includesAny(combined, DESK_REQUEST_TERMS) || isDirectoryAccountIntent(combined))
   );
 };
+
+const flowActionGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'sanka_flow_actions',
+  supported: true,
+  recommended_tools: [
+    'list_company_lists',
+    'query_records',
+    'preview_flow_action',
+    'run_flow_action',
+    'get_flow_action_run',
+  ],
+  route:
+    'Finding or enriching people, contacts or work e-mails for companies on the person\'s list, or filling company phone numbers and addresses, is a Flow Action. A rep\'s "leads" usually means companies on their list. Find the list with list_company_lists, or the companies with query_records, then call preview_flow_action (ai_contact_search for people, find_company_details for phone and address). Tell the person the company count and that each company uses Sanka credit, and call run_flow_action only after they say yes. Read it with get_flow_action_run. Do not use deals or HubSpot tools unless the person named HubSpot, and do not file a Desk ticket: Desk ticket routing is not the path for this. To read contacts already in Sanka, use list_contacts.',
+  mutation_policy:
+    'ai_contact_search creates no contacts: the person picks people in Action history, so give them action_history_url. It looks up no phone numbers. find_company_details writes empty fields only, without review. Refusals for the ceiling, the daily limit or a workspace without the Action are final for now: tell the person, and never split a selection or repeat calls to get around them.',
+  fallback_when_missing:
+    'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
 
 const deskGuidance = (): Record<string, unknown> => ({
   capability_version: CAPABILITY_GUIDANCE_VERSION,
@@ -390,6 +478,9 @@ const buildGuidance = (
       fallback_when_missing:
         'If a recommended tool is unavailable, refresh/reconnect the Sanka MCP/plugin. Do not invent an endpoint or substitute local scripts for hosted Sanka operations.',
     };
+  }
+  if (isFlowActionIntent(combined)) {
+    return flowActionGuidance();
   }
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.
