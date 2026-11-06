@@ -122,10 +122,10 @@ const LIST_OUTPUT_SCHEMA = {
   },
 };
 
-type DeskFailure = { code: string; message: string; details: unknown; status?: number; ctxID?: string };
+type ApiFailure = { code: string; message: string; details: unknown; status?: number; ctxID?: string };
 
 // An SDK APIError carries the V2 envelope as `error`, and the envelope its `error` body.
-const readDeskFailure = (error: unknown): DeskFailure | undefined => {
+export const readApiFailure = (error: unknown): ApiFailure | undefined => {
   const layers: JsonRecord[] = [];
   for (let layer = readRecord(error); layer && layers.length < 3; layer = readRecord(layer['error'])) {
     layers.push(layer);
@@ -159,7 +159,7 @@ const DESK_ERROR_HINTS: Record<string, string> = {
 
 // A 4xx answer with a code changes nothing; anything else is left to the server's error handling.
 const deskErrorResult = (error: unknown, write: boolean): ToolCallResult | undefined => {
-  const failure = readDeskFailure(error);
+  const failure = readApiFailure(error);
   if (!failure || (failure.status !== undefined && failure.status >= 500)) return undefined;
   const hint = DESK_ERROR_HINTS[failure.code];
   return {
@@ -185,7 +185,8 @@ const deskErrorResult = (error: unknown, write: boolean): ToolCallResult | undef
 };
 
 // The V2 envelope's data.
-const envelopeData = (response: unknown): JsonRecord => readRecord(readRecord(response)?.['data']) ?? {};
+export const envelopeData = (response: unknown): JsonRecord =>
+  readRecord(readRecord(response)?.['data']) ?? {};
 
 const stateLabel = (ticket: JsonRecord): string => {
   const state = readString(ticket['state']) ?? '';
@@ -256,7 +257,7 @@ const derivedClientKey = (text: string, subjectEmail: string | undefined, now: n
 type SessionWorkspace = { id?: string; code?: string; name?: string };
 
 // The workspace this connection resolves to, read the way the Desk routes resolve it.
-const sessionWorkspace = async (reqContext: McpRequestContext): Promise<SessionWorkspace> => {
+export const sessionWorkspace = async (reqContext: McpRequestContext): Promise<SessionWorkspace> => {
   const data = envelopeData(await reqContext.client.get(SESSION_PATH));
   const workspace = readRecord(data['current_workspace']) ?? readRecord(data['workspace']);
   const id = readString(workspace?.['id']);
@@ -508,7 +509,7 @@ export const readDeskAvailability = async (reqContext: McpRequestContext): Promi
     });
     return 'enabled';
   } catch (error) {
-    return readDeskFailure(error)?.code === 'DESK_NOT_ENABLED' ? 'not_enabled' : 'unknown';
+    return readApiFailure(error)?.code === 'DESK_NOT_ENABLED' ? 'not_enabled' : 'unknown';
   }
 };
 

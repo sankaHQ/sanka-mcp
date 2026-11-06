@@ -318,6 +318,16 @@ function readWorkspaceCode(reqContext: McpRequestContext): string | undefined {
   return readString(reqContext.auth?.oauth?.workspace_code);
 }
 
+/** A record list's Action history, where a run on a selection keeps its result. */
+export function actionHistoryAppUrl(resource: string, workspaceCode: string): string | undefined {
+  const route = RESOURCE_TO_APP_ROUTE[resource];
+  if (!route) {
+    return undefined;
+  }
+  const path = [workspaceCode, route.moduleSlug, route.objectSlug, 'actions'].map(encodePathSegment);
+  return `${[readAppBaseUrl(), ...path].join('/')}?action_tab=history`;
+}
+
 /** The Sanka app origin configured for links (`SANKA_V2_APP_BASE_URL`), if any. */
 export function configuredAppBaseUrl(): string | undefined {
   return readString(readString(process.env['SANKA_V2_APP_BASE_URL'])?.replace(/\/+$/, ''));
