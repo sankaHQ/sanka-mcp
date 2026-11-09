@@ -1,3 +1,5 @@
+import { configureLogger } from '../../packages/mcp-server/src/logger';
+import { initMcpServer } from '../../packages/mcp-server/src/server';
 import {
   calculateConvoyCommissionsTool,
   convoyTools,
@@ -27,23 +29,23 @@ const requestContext = (client: Record<string, jest.Mock>) => ({
 describe('Convoy MCP tools', () => {
   it('registers the complete Convoy partner, billing, and commission surface', () => {
     expect(convoyTools.map((tool) => tool.tool.name)).toEqual([
-      'list_convoy_partners',
-      'get_convoy_partner',
-      'create_convoy_partner',
-      'update_convoy_partner',
-      'archive_convoy_partner',
-      'list_convoy_partner_members',
-      'invite_convoy_partner_member',
-      'resend_convoy_partner_invite',
-      'revoke_convoy_partner_member',
-      'list_convoy_invoice_requests',
-      'get_convoy_invoice_request',
-      'create_convoy_invoice_request',
-      'review_convoy_invoice_request',
-      'list_convoy_commissions',
-      'get_convoy_commission',
-      'calculate_convoy_commissions',
-      'review_convoy_commission',
+      'list_partners',
+      'get_partner',
+      'create_partner',
+      'update_partner',
+      'archive_partner',
+      'list_partner_members',
+      'invite_partner_member',
+      'resend_partner_invite',
+      'revoke_partner_member',
+      'list_partner_invoice_requests',
+      'get_partner_invoice_request',
+      'create_partner_invoice_request',
+      'review_partner_invoice_request',
+      'list_partner_commissions',
+      'get_partner_commission',
+      'calculate_partner_commissions',
+      'review_partner_commission',
     ]);
   });
 
@@ -193,5 +195,56 @@ describe('Convoy MCP tools', () => {
     });
     expect(blocked.isError).toBe(true);
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+// 2026-11-10: the Convoy tools were renamed to Sanka Partner names. Clients that cached the
+// catalog, and saved prompts or skills, still call list_convoy_partners and the other old names.
+describe('pre-rename Convoy tool names', () => {
+  const startServer = async () => {
+    const handlers = new Map<string, (request: unknown) => Promise<unknown>>();
+    const fakeServer = {
+      setRequestHandler: (schema: unknown, handler: (request: unknown) => Promise<unknown>) => {
+        const method = (schema as { shape?: { method?: { value?: unknown } } }).shape?.method?.value;
+        if (typeof method === 'string') handlers.set(method, handler);
+      },
+      sendLoggingMessage: jest.fn().mockResolvedValue(undefined),
+    };
+    const requests: string[] = [];
+    const fetchImpl = jest.fn(async (input: unknown): Promise<Response> => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.includes('/api/v2/mcp/tool-call-log')) requests.push(url);
+      return new Response(JSON.stringify({ success: true, data: { items: [], total: 0 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    await initMcpServer({
+      server: fakeServer as never,
+      clientOptions: { apiKey: 'soat_partner_aliases', fetch: fetchImpl as never },
+      mcpSessionId: 'session-partner-aliases',
+      toolProfile: 'hosted',
+      auth: oauthContext(),
+    });
+    return { handlers, requests };
+  };
+
+  beforeAll(() => {
+    configureLogger({ level: 'error', pretty: false });
+  });
+
+  it('are still callable but no longer listed', async () => {
+    const { handlers, requests } = await startServer();
+
+    const listed = (await handlers.get('tools/list')!({})) as { tools: Array<{ name: string }> };
+    const names = listed.tools.map((tool) => tool.name);
+    expect(names).toContain('list_partners');
+    expect(names).not.toContain('list_convoy_partners');
+
+    const result = (await handlers.get('tools/call')!({
+      params: { name: 'list_convoy_partners', arguments: { q: 'Harbor' } },
+    })) as { isError?: boolean };
+    expect(result.isError).toBeFalsy();
+    expect(requests).toEqual([expect.stringContaining('/api/v2/convoy/partners?')]);
   });
 });

@@ -103,10 +103,10 @@ export const listConvoyPartnersTool: McpTool = {
     operationId: 'convoy.partners.list',
   },
   tool: {
-    name: 'list_convoy_partners',
-    title: 'List Convoy partners',
+    name: 'list_partners',
+    title: 'List partners',
     description:
-      'List partner organizations managed in Convoy, including company, status, tier, type, and member count.',
+      'List partner organizations in Sanka Partner, the partner program in Sanka Flow (not accounting partners), including company, status, tier, type, and member count.',
     inputSchema: listInputSchema({
       q: { type: 'string', description: 'Optional partner or company name search.' },
       status: {
@@ -117,19 +117,19 @@ export const listConvoyPartnersTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Convoy partners',
+      title: 'List partners',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'List Convoy partners');
+    const authError = requireConvoyAuth(reqContext, 'List partners');
     if (authError) return authError;
     const payload = await reqContext.client.get(`${CONVOY_BASE_PATH}/partners`, {
       query: listQuery(args, ['q', 'status']),
     });
-    return convoyResult(payload, 'Loaded Convoy partners.');
+    return convoyResult(payload, 'Loaded partners.');
   },
 };
 
@@ -143,9 +143,9 @@ export const getConvoyPartnerTool: McpTool = {
     operationId: 'convoy.partners.retrieve',
   },
   tool: {
-    name: 'get_convoy_partner',
-    title: 'Get Convoy partner',
-    description: 'Load one Convoy partner organization by UUID.',
+    name: 'get_partner',
+    title: 'Get partner',
+    description: 'Load one partner organization by UUID.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -155,21 +155,21 @@ export const getConvoyPartnerTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Convoy partner',
+      title: 'Get partner',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Get Convoy partner');
+    const authError = requireConvoyAuth(reqContext, 'Get partner');
     if (authError) return authError;
     const partnerID = readString(args?.['partner_id']);
     if (!partnerID) return asErrorResult('`partner_id` is required.');
     const payload = await reqContext.client.get(
       `${CONVOY_BASE_PATH}/partners/${encodeURIComponent(partnerID)}`,
     );
-    return convoyResult(payload, `Loaded Convoy partner ${partnerID}.`);
+    return convoyResult(payload, `Loaded partner ${partnerID}.`);
   },
 };
 
@@ -183,10 +183,10 @@ export const createConvoyPartnerTool: McpTool = {
     operationId: 'convoy.partners.create',
   },
   tool: {
-    name: 'create_convoy_partner',
-    title: 'Create Convoy partner',
+    name: 'create_partner',
+    title: 'Create partner',
     description:
-      'Create a Convoy partner linked to an existing Sanka company or create and link a new company. This does not send an invitation; use invite_convoy_partner_member separately.',
+      'Create a partner linked to an existing Sanka company or create and link a new company. This does not send an invitation; use invite_partner_member separately.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -219,14 +219,14 @@ export const createConvoyPartnerTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Convoy partner',
+      title: 'Create partner',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Create Convoy partner');
+    const authError = requireConvoyAuth(reqContext, 'Create partner');
     if (authError) return authError;
     const companyID = readString(args?.['company_id']);
     const company = readRecord(args?.['company']);
@@ -248,7 +248,7 @@ export const createConvoyPartnerTool: McpTool = {
       ]),
     };
     const payload = await reqContext.client.post(`${CONVOY_BASE_PATH}/partners`, { body });
-    return convoyResult(payload, 'Created Convoy partner.');
+    return convoyResult(payload, 'Created partner.');
   },
 };
 
@@ -262,9 +262,9 @@ export const updateConvoyPartnerTool: McpTool = {
     operationId: 'convoy.partners.update',
   },
   tool: {
-    name: 'update_convoy_partner',
-    title: 'Update Convoy partner',
-    description: 'Update selected Convoy partner profile and lifecycle fields.',
+    name: 'update_partner',
+    title: 'Update partner',
+    description: 'Update selected partner profile and lifecycle fields.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -285,14 +285,14 @@ export const updateConvoyPartnerTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Update Convoy partner',
+      title: 'Update partner',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Update Convoy partner');
+    const authError = requireConvoyAuth(reqContext, 'Update partner');
     if (authError) return authError;
     const partnerID = readString(args?.['partner_id']);
     if (!partnerID) return asErrorResult('`partner_id` is required.');
@@ -312,7 +312,7 @@ export const updateConvoyPartnerTool: McpTool = {
       `${CONVOY_BASE_PATH}/partners/${encodeURIComponent(partnerID)}`,
       { body },
     );
-    return convoyResult(payload, `Updated Convoy partner ${partnerID}.`);
+    return convoyResult(payload, `Updated partner ${partnerID}.`);
   },
 };
 
@@ -326,10 +326,10 @@ export const archiveConvoyPartnerTool: McpTool = {
     operationId: 'convoy.partners.archive',
   },
   tool: {
-    name: 'archive_convoy_partner',
-    title: 'Archive Convoy partner',
+    name: 'archive_partner',
+    title: 'Archive partner',
     description:
-      'Archive a Convoy partner after explicit approval. This preserves history and does not delete the linked Sanka company.',
+      'Archive a partner after explicit approval. This preserves history and does not delete the linked Sanka company.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -339,14 +339,14 @@ export const archiveConvoyPartnerTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Archive Convoy partner',
+      title: 'Archive partner',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Archive Convoy partner');
+    const authError = requireConvoyAuth(reqContext, 'Archive partner');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args);
     if (confirmationError) return confirmationError;
@@ -356,7 +356,7 @@ export const archiveConvoyPartnerTool: McpTool = {
       `${CONVOY_BASE_PATH}/partners/${encodeURIComponent(partnerID)}/archive`,
       { body: {} },
     );
-    return convoyResult(payload, `Archived Convoy partner ${partnerID}.`);
+    return convoyResult(payload, `Archived partner ${partnerID}.`);
   },
 };
 
@@ -370,9 +370,9 @@ export const listConvoyPartnerMembersTool: McpTool = {
     operationId: 'convoy.partnerMembers.list',
   },
   tool: {
-    name: 'list_convoy_partner_members',
-    title: 'List Convoy partner members',
-    description: 'List portal members and invitation status for one Convoy partner.',
+    name: 'list_partner_members',
+    title: 'List partner members',
+    description: 'List portal members and invitation status for one partner.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -382,21 +382,21 @@ export const listConvoyPartnerMembersTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Convoy partner members',
+      title: 'List partner members',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'List Convoy partner members');
+    const authError = requireConvoyAuth(reqContext, 'List partner members');
     if (authError) return authError;
     const partnerID = readString(args?.['partner_id']);
     if (!partnerID) return asErrorResult('`partner_id` is required.');
     const payload = await reqContext.client.get(
       `${CONVOY_BASE_PATH}/partners/${encodeURIComponent(partnerID)}/members`,
     );
-    return convoyResult(payload, `Loaded members for Convoy partner ${partnerID}.`);
+    return convoyResult(payload, `Loaded members for partner ${partnerID}.`);
   },
 };
 
@@ -410,10 +410,10 @@ export const inviteConvoyPartnerMemberTool: McpTool = {
     operationId: 'convoy.partnerMembers.invite',
   },
   tool: {
-    name: 'invite_convoy_partner_member',
-    title: 'Invite Convoy partner member',
+    name: 'invite_partner_member',
+    title: 'Invite partner member',
     description:
-      'Invite a partner member to the Convoy portal. This sends email and requires explicit user approval with confirm_send=true.',
+      'Invite a partner member to the partner portal. This sends email and requires explicit user approval with confirm_send=true.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -434,14 +434,14 @@ export const inviteConvoyPartnerMemberTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Invite Convoy partner member',
+      title: 'Invite partner member',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: true,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Invite Convoy partner member');
+    const authError = requireConvoyAuth(reqContext, 'Invite partner member');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args, 'confirm_send');
     if (confirmationError) return confirmationError;
@@ -465,7 +465,7 @@ export const inviteConvoyPartnerMemberTool: McpTool = {
       `${CONVOY_BASE_PATH}/partners/${encodeURIComponent(partnerID)}/members`,
       { body },
     );
-    return convoyResult(payload, `Invited a member to Convoy partner ${partnerID}.`);
+    return convoyResult(payload, `Invited a member to partner ${partnerID}.`);
   },
 };
 
@@ -479,10 +479,10 @@ export const resendConvoyPartnerInviteTool: McpTool = {
     operationId: 'convoy.partnerMembers.resendInvite',
   },
   tool: {
-    name: 'resend_convoy_partner_invite',
-    title: 'Resend Convoy partner invitation',
+    name: 'resend_partner_invite',
+    title: 'Resend partner invitation',
     description:
-      'Resend a Convoy portal invitation email. Requires explicit user approval with confirm_send=true.',
+      'Resend a partner portal invitation email. Requires explicit user approval with confirm_send=true.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -499,14 +499,14 @@ export const resendConvoyPartnerInviteTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Resend Convoy partner invitation',
+      title: 'Resend partner invitation',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: true,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Resend Convoy partner invitation');
+    const authError = requireConvoyAuth(reqContext, 'Resend partner invitation');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args, 'confirm_send');
     if (confirmationError) return confirmationError;
@@ -516,7 +516,7 @@ export const resendConvoyPartnerInviteTool: McpTool = {
       `${CONVOY_BASE_PATH}/members/${encodeURIComponent(memberID)}/resend-invite`,
       { query: { language: readString(args?.['language']) ?? 'en' } },
     );
-    return convoyResult(payload, `Resent Convoy invitation for member ${memberID}.`);
+    return convoyResult(payload, `Resent partner invitation for member ${memberID}.`);
   },
 };
 
@@ -530,8 +530,8 @@ export const revokeConvoyPartnerMemberTool: McpTool = {
     operationId: 'convoy.partnerMembers.revoke',
   },
   tool: {
-    name: 'revoke_convoy_partner_member',
-    title: 'Revoke Convoy partner member',
+    name: 'revoke_partner_member',
+    title: 'Revoke partner member',
     description: 'Revoke a partner member invitation and portal access after explicit approval.',
     inputSchema: {
       type: 'object',
@@ -542,14 +542,14 @@ export const revokeConvoyPartnerMemberTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Revoke Convoy partner member',
+      title: 'Revoke partner member',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Revoke Convoy partner member');
+    const authError = requireConvoyAuth(reqContext, 'Revoke partner member');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args);
     if (confirmationError) return confirmationError;
@@ -559,7 +559,7 @@ export const revokeConvoyPartnerMemberTool: McpTool = {
       `${CONVOY_BASE_PATH}/members/${encodeURIComponent(memberID)}/revoke`,
       { body: {} },
     );
-    return convoyResult(payload, `Revoked Convoy member ${memberID}.`);
+    return convoyResult(payload, `Revoked partner member ${memberID}.`);
   },
 };
 
@@ -573,8 +573,8 @@ export const listConvoyInvoiceRequestsTool: McpTool = {
     operationId: 'convoy.invoiceRequests.list',
   },
   tool: {
-    name: 'list_convoy_invoice_requests',
-    title: 'List Convoy invoice requests',
+    name: 'list_partner_invoice_requests',
+    title: 'List partner invoice requests',
     description: 'List partner invoice requests and their submission, review, and payment status.',
     inputSchema: listInputSchema({
       partner_id: { type: 'string' },
@@ -587,19 +587,19 @@ export const listConvoyInvoiceRequestsTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Convoy invoice requests',
+      title: 'List partner invoice requests',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'List Convoy invoice requests');
+    const authError = requireConvoyAuth(reqContext, 'List partner invoice requests');
     if (authError) return authError;
     const payload = await reqContext.client.get(`${CONVOY_BASE_PATH}/invoice-requests`, {
       query: listQuery(args, ['partner_id', 'period', 'status']),
     });
-    return convoyResult(payload, 'Loaded Convoy invoice requests.');
+    return convoyResult(payload, 'Loaded partner invoice requests.');
   },
 };
 
@@ -613,9 +613,9 @@ export const getConvoyInvoiceRequestTool: McpTool = {
     operationId: 'convoy.invoiceRequests.retrieve',
   },
   tool: {
-    name: 'get_convoy_invoice_request',
-    title: 'Get Convoy invoice request',
-    description: 'Load one Convoy invoice request with submission, review, and payment evidence.',
+    name: 'get_partner_invoice_request',
+    title: 'Get partner invoice request',
+    description: 'Load one partner invoice request with submission, review, and payment evidence.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -625,21 +625,21 @@ export const getConvoyInvoiceRequestTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Convoy invoice request',
+      title: 'Get partner invoice request',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Get Convoy invoice request');
+    const authError = requireConvoyAuth(reqContext, 'Get partner invoice request');
     if (authError) return authError;
     const requestID = readString(args?.['invoice_request_id']);
     if (!requestID) return asErrorResult('`invoice_request_id` is required.');
     const payload = await reqContext.client.get(
       `${CONVOY_BASE_PATH}/invoice-requests/${encodeURIComponent(requestID)}`,
     );
-    return convoyResult(payload, `Loaded Convoy invoice request ${requestID}.`);
+    return convoyResult(payload, `Loaded partner invoice request ${requestID}.`);
   },
 };
 
@@ -653,8 +653,8 @@ export const createConvoyInvoiceRequestTool: McpTool = {
     operationId: 'convoy.invoiceRequests.create',
   },
   tool: {
-    name: 'create_convoy_invoice_request',
-    title: 'Create Convoy invoice request',
+    name: 'create_partner_invoice_request',
+    title: 'Create partner invoice request',
     description:
       'Create one monthly invoice request for a partner. Active partner members may receive an email, so explicit approval with confirm_send=true is required.',
     inputSchema: {
@@ -678,14 +678,14 @@ export const createConvoyInvoiceRequestTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Create Convoy invoice request',
+      title: 'Create partner invoice request',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: true,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Create Convoy invoice request');
+    const authError = requireConvoyAuth(reqContext, 'Create partner invoice request');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args, 'confirm_send');
     if (confirmationError) return confirmationError;
@@ -707,7 +707,7 @@ export const createConvoyInvoiceRequestTool: McpTool = {
       ...(Object.prototype.hasOwnProperty.call(args ?? {}, 'notes') ? { notes: args?.['notes'] } : undefined),
     };
     const payload = await reqContext.client.post(`${CONVOY_BASE_PATH}/invoice-requests`, { body });
-    return convoyResult(payload, `Created Convoy invoice request for ${period}.`);
+    return convoyResult(payload, `Created partner invoice request for ${period}.`);
   },
 };
 
@@ -721,10 +721,10 @@ export const reviewConvoyInvoiceRequestTool: McpTool = {
     operationId: 'convoy.invoiceRequests.review',
   },
   tool: {
-    name: 'review_convoy_invoice_request',
-    title: 'Review Convoy invoice request',
+    name: 'review_partner_invoice_request',
+    title: 'Review partner invoice request',
     description:
-      'Approve, reject, cancel, or mark a Convoy invoice request paid. Requires explicit approval with confirm=true. Marking paid records evidence only; it does not execute a bank transfer.',
+      'Approve, reject, cancel, or mark a partner invoice request paid. Requires explicit approval with confirm=true. Marking paid records evidence only; it does not execute a bank transfer.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -744,14 +744,14 @@ export const reviewConvoyInvoiceRequestTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Review Convoy invoice request',
+      title: 'Review partner invoice request',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Review Convoy invoice request');
+    const authError = requireConvoyAuth(reqContext, 'Review partner invoice request');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args);
     if (confirmationError) return confirmationError;
@@ -782,7 +782,7 @@ export const reviewConvoyInvoiceRequestTool: McpTool = {
       `${CONVOY_BASE_PATH}/invoice-requests/${encodeURIComponent(requestID)}/${pathAction}`,
       { body },
     );
-    return convoyResult(payload, `Applied ${action} to Convoy invoice request ${requestID}.`);
+    return convoyResult(payload, `Applied ${action} to partner invoice request ${requestID}.`);
   },
 };
 
@@ -796,9 +796,9 @@ export const listConvoyCommissionsTool: McpTool = {
     operationId: 'convoy.commissions.list',
   },
   tool: {
-    name: 'list_convoy_commissions',
-    title: 'List Convoy commissions',
-    description: 'List Convoy commission calculations and approval or payment status.',
+    name: 'list_partner_commissions',
+    title: 'List partner commissions',
+    description: 'List partner commission calculations and approval or payment status.',
     inputSchema: listInputSchema({
       partner_id: { type: 'string' },
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
@@ -807,19 +807,19 @@ export const listConvoyCommissionsTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'List Convoy commissions',
+      title: 'List partner commissions',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'List Convoy commissions');
+    const authError = requireConvoyAuth(reqContext, 'List partner commissions');
     if (authError) return authError;
     const payload = await reqContext.client.get(`${CONVOY_BASE_PATH}/commissions`, {
       query: listQuery(args, ['partner_id', 'period', 'status']),
     });
-    return convoyResult(payload, 'Loaded Convoy commissions.');
+    return convoyResult(payload, 'Loaded partner commissions.');
   },
 };
 
@@ -833,9 +833,9 @@ export const getConvoyCommissionTool: McpTool = {
     operationId: 'convoy.commissions.retrieve',
   },
   tool: {
-    name: 'get_convoy_commission',
-    title: 'Get Convoy commission',
-    description: 'Load one Convoy commission with calculation and lifecycle details.',
+    name: 'get_partner_commission',
+    title: 'Get partner commission',
+    description: 'Load one partner commission with calculation and lifecycle details.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -845,21 +845,21 @@ export const getConvoyCommissionTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Get Convoy commission',
+      title: 'Get partner commission',
       readOnlyHint: true,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Get Convoy commission');
+    const authError = requireConvoyAuth(reqContext, 'Get partner commission');
     if (authError) return authError;
     const commissionID = readString(args?.['commission_id']);
     if (!commissionID) return asErrorResult('`commission_id` is required.');
     const payload = await reqContext.client.get(
       `${CONVOY_BASE_PATH}/commissions/${encodeURIComponent(commissionID)}`,
     );
-    return convoyResult(payload, `Loaded Convoy commission ${commissionID}.`);
+    return convoyResult(payload, `Loaded partner commission ${commissionID}.`);
   },
 };
 
@@ -873,10 +873,10 @@ export const calculateConvoyCommissionsTool: McpTool = {
     operationId: 'convoy.commissions.calculate',
   },
   tool: {
-    name: 'calculate_convoy_commissions',
-    title: 'Calculate Convoy commissions',
+    name: 'calculate_partner_commissions',
+    title: 'Calculate partner commissions',
     description:
-      'Preview monthly Convoy commissions by default. Set dry_run=false only after explicit approval to store draft commissions.',
+      'Preview monthly partner commissions by default. Set dry_run=false only after explicit approval to store draft commissions.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -893,14 +893,14 @@ export const calculateConvoyCommissionsTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Calculate Convoy commissions',
+      title: 'Calculate partner commissions',
       readOnlyHint: false,
       destructiveHint: false,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Calculate Convoy commissions');
+    const authError = requireConvoyAuth(reqContext, 'Calculate partner commissions');
     if (authError) return authError;
     const period = readString(args?.['period']);
     if (!period) return asErrorResult('`period` is required.');
@@ -915,8 +915,8 @@ export const calculateConvoyCommissionsTool: McpTool = {
     return convoyResult(
       payload,
       dryRun ?
-        `Previewed Convoy commissions for ${period}.`
-      : `Stored draft Convoy commissions for ${period}.`,
+        `Previewed partner commissions for ${period}.`
+      : `Stored draft partner commissions for ${period}.`,
     );
   },
 };
@@ -931,10 +931,10 @@ export const reviewConvoyCommissionTool: McpTool = {
     operationId: 'convoy.commissions.review',
   },
   tool: {
-    name: 'review_convoy_commission',
-    title: 'Review Convoy commission',
+    name: 'review_partner_commission',
+    title: 'Review partner commission',
     description:
-      'Approve or mark one Convoy commission paid after explicit approval. Marking paid records status only and does not execute a bank transfer.',
+      'Approve or mark one partner commission paid after explicit approval. Marking paid records status only and does not execute a bank transfer.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -948,14 +948,14 @@ export const reviewConvoyCommissionTool: McpTool = {
     outputSchema: OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
-      title: 'Review Convoy commission',
+      title: 'Review partner commission',
       readOnlyHint: false,
       destructiveHint: true,
       openWorldHint: false,
     },
   },
   handler: async ({ reqContext, args }) => {
-    const authError = requireConvoyAuth(reqContext, 'Review Convoy commission');
+    const authError = requireConvoyAuth(reqContext, 'Review partner commission');
     if (authError) return authError;
     const confirmationError = requireConfirmation(args);
     if (confirmationError) return confirmationError;
@@ -970,7 +970,7 @@ export const reviewConvoyCommissionTool: McpTool = {
       `${CONVOY_BASE_PATH}/commissions/${encodeURIComponent(commissionID)}/${pathAction}`,
       { body: {} },
     );
-    return convoyResult(payload, `Applied ${action} to Convoy commission ${commissionID}.`);
+    return convoyResult(payload, `Applied ${action} to partner commission ${commissionID}.`);
   },
 };
 
@@ -993,3 +993,28 @@ export const convoyTools: McpTool[] = [
   calculateConvoyCommissionsTool,
   reviewConvoyCommissionTool,
 ];
+
+/**
+ * Earlier names of these tools. Sanka Partner was called Convoy (its internal code name) until
+ * 2026-11-10. tools/list advertises only the new names; tools/call still accepts the old ones so
+ * saved prompts, skills and clients that cached the catalog keep working.
+ */
+export const LEGACY_CONVOY_TOOL_NAMES: Readonly<Record<string, string>> = {
+  list_convoy_partners: 'list_partners',
+  get_convoy_partner: 'get_partner',
+  create_convoy_partner: 'create_partner',
+  update_convoy_partner: 'update_partner',
+  archive_convoy_partner: 'archive_partner',
+  list_convoy_partner_members: 'list_partner_members',
+  invite_convoy_partner_member: 'invite_partner_member',
+  resend_convoy_partner_invite: 'resend_partner_invite',
+  revoke_convoy_partner_member: 'revoke_partner_member',
+  list_convoy_invoice_requests: 'list_partner_invoice_requests',
+  get_convoy_invoice_request: 'get_partner_invoice_request',
+  create_convoy_invoice_request: 'create_partner_invoice_request',
+  review_convoy_invoice_request: 'review_partner_invoice_request',
+  list_convoy_commissions: 'list_partner_commissions',
+  get_convoy_commission: 'get_partner_commission',
+  calculate_convoy_commissions: 'calculate_partner_commissions',
+  review_convoy_commission: 'review_partner_commission',
+};
