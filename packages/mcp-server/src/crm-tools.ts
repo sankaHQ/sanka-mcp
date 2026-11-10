@@ -216,7 +216,7 @@ const RECORD_FILTER_SCHEMA = {
     field: {
       type: 'string',
       description:
-        "Built-in field to filter, for example address, name, email, status, created_at, or updated_at. Companies, contacts and deals also take owner_id, and deals take stage and stage_outcome (open, won or lost). These compare ids and keys, not display names: owner_id is a workspace member id (the id of a list_employees row) and stage is a stage's internal_value from list_deal_pipelines, so a name or label is refused with an error listing the right values. A custom property is custom_property:<id>, and a choice property compares the option's value, not its label.",
+        "Built-in field to filter, for example address, name, email, status, created_at, or updated_at. Companies, contacts and deals also take owner_id, and deals take stage and stage_outcome (open, won or lost). These compare ids and keys, not display names: owner_id is a workspace member id (the id of a list_employees row) and stage is a stage's internal_value from list_deal_pipelines, so a name or label is refused with an error listing the right values. A custom property is custom_property:<id>, and a choice property compares the option's value, not its label. Companies and contacts also take lists, the record lists they are on: the value is a list id from list_record_lists (equals, not_equals, in, not_in), or no value with is_empty / is_not_empty; a list name matches nothing.",
     },
     operator: {
       type: 'string',
@@ -402,18 +402,6 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
       description: 'Aggregate metrics to compute. Currently supports count.',
       items: { type: 'string', enum: ['count'] },
       default: ['count'],
-    },
-    group_by: {
-      type: 'array',
-      description: 'Optional single built-in field to group by.',
-      items: { type: 'string' },
-    },
-    limit: {
-      type: 'integer',
-      description: 'Maximum number of groups to return when group_by is used.',
-      minimum: 1,
-      maximum: 100,
-      default: 25,
     },
   },
   required: ['object_type'],
@@ -17053,7 +17041,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Compute counts and grouped counts for Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results.',
+      'Count Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results. It returns one count per call, not counts per owner or per value: call it once per value with a filter, and read a list\'s member count from list_record_lists.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
