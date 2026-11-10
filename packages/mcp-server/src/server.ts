@@ -383,7 +383,7 @@ import {
   listWatchtowerFindingsTool,
   updateWatchtowerFindingTool,
 } from './watchtower-tools';
-import { convoyTools } from './convoy-tools';
+import { convoyTools, LEGACY_CONVOY_TOOL_NAMES } from './convoy-tools';
 import { goalsTools } from './goals-tools';
 import { presentationTools } from './presentation-tools';
 import { talentTools } from './talent-tools';
@@ -710,6 +710,9 @@ export function selectPreparedTools(options?: McpOptions, profile: ToolProfile =
 export const clientForTool = (client: Sanka, mcpTool: Pick<McpTool, 'metadata'>): Sanka =>
   mcpTool.metadata.operation === 'read' ? client : client.withOptions({ maxRetries: 0 });
 
+// Renamed tools that tools/call still accepts under their earlier names (not listed).
+const LEGACY_TOOL_NAMES: Readonly<Record<string, string>> = { ...LEGACY_CONVOY_TOOL_NAMES };
+
 const publicToolDescriptor = (mcpTool: McpTool, nativeOAuth = false): McpTool['tool'] => {
   if (nativeOAuth) {
     const securitySchemes = [{ type: 'oauth2' as const, scopes: ['mcp:access'] }];
@@ -832,7 +835,7 @@ export async function initMcpServer(params: {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    const mcpTool = toolMap[name];
+    const mcpTool = toolMap[name] ?? toolMap[LEGACY_TOOL_NAMES[name] ?? ''];
     if (!mcpTool) {
       throw new Error(`Unknown tool: ${name}`);
     }
