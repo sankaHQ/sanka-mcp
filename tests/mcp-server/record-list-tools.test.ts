@@ -7,6 +7,7 @@ import {
   NOTE_RECORDS_PER_CALL,
   removeListMembersTool,
 } from '../../packages/mcp-server/src/record-list-tools';
+import { crmAggregateRecordsTool } from '../../packages/mcp-server/src/crm-tools';
 import { envelope, sendThroughSDK } from './crm/helpers';
 
 const API = 'http://localhost:5000/api/v2';
@@ -134,5 +135,36 @@ describe('record list and note tools', () => {
     expect(requests.map((request) => request.url)).toEqual([
       `${API}/activities?object_type=company&record_id=co-1&type=note&page=1&page_size=50`,
     ]);
+  });
+});
+
+// The bug (rep request 2026-11-10): grouped counts reached only structuredContent, so a client
+// that reads the tool's text saw one total and no groups.
+it('aggregate_records sends group_by and lists the groups in its text', async () => {
+  const { requests, result } = await sendThroughSDK({
+    tool: crmAggregateRecordsTool,
+    args: { object_type: 'contacts', group_by: ['lists'], limit: 2 },
+    responses: [
+      envelope({
+        metrics: { count: 301 },
+        group_by: 'lists',
+        group_count: 3,
+        groups: [
+          { value: LIST, label: 'Own leads – Rep', count: 301 },
+          { value: 'l-2', label: 'Reserve', count: 4 },
+        ],
+        object_type: 'contacts',
+        scope: 'sanka',
+      }),
+    ],
+  });
+
+  expect(requests[0]).toMatchObject({
+    method: 'POST',
+    url: `${API}/records/aggregate`,
+    body: { group_by: ['lists'], limit: 2, metrics: ['count'], object_type: 'contacts' },
+  });
+  expect(result.content[0]).toMatchObject({
+    text: 'aggregate_records count for contacts: 301\nBy lists (3 groups, top 2 shown):\n- Own leads – Rep: 301\n- Reserve: 4',
   });
 });

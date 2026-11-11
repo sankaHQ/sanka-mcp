@@ -403,6 +403,21 @@ const RECORD_AGGREGATE_INPUT_SCHEMA = {
       items: { type: 'string', enum: ['count'] },
       default: ['count'],
     },
+    group_by: {
+      type: 'array',
+      maxItems: 1,
+      description:
+        'Sanka companies and contacts only: one field to count by, returned as groups of {value, label, count}, largest first. owner_id (label is the owner\'s name), status, record_source, lists (one group per list the records are on, labelled with the list name; a record on two lists counts under each) or custom_property:<id> (a choice property groups by the option\'s value). Combine with filters, not search. Not for deals, custom objects or scope="integration".',
+      items: { type: 'string' },
+    },
+    limit: {
+      type: 'integer',
+      description:
+        'Maximum number of groups to return when group_by is used; group_count says how many there are.',
+      minimum: 1,
+      maximum: 100,
+      default: 25,
+    },
   },
   required: ['object_type'],
 };
@@ -11198,12 +11213,33 @@ const buildRecordAggregateResult = (payload: Record<string, unknown>): ToolCallR
       `aggregate_records found ${candidateCount} duplicate candidate groups for ${objectType}.`
     : typeof count === 'number' ? `aggregate_records count for ${objectType}: ${count}`
     : `aggregate_records completed for ${objectType}.`;
+  // Grouped counts (Sanka companies and contacts) are listed in the text too, so a client that
+  // reads only the text sees them.
+  const groupBy = readString(payload['group_by']);
+  const groups = Array.isArray(payload['groups']) ? payload['groups'].map(readRecord) : [];
+  const groupLines =
+    groupBy ?
+      groups.map(
+        (group) =>
+          `- ${readString(group?.['label']) ?? readString(group?.['value']) ?? '(empty)'}: ${readNumber(
+            group?.['count'],
+            0,
+          )}`,
+      )
+    : [];
+  const groupCount = readNumber(payload['group_count'], groups.length);
+  const groupText =
+    groupBy ?
+      `\nBy ${groupBy} (${groupCount} group${groupCount === 1 ? '' : 's'}${
+        groupCount > groups.length ? `, top ${groups.length} shown` : ''
+      }):\n${groupLines.join('\n')}`
+    : '';
 
   return {
     content: [
       {
         type: 'text',
-        text: summary,
+        text: `${summary}${groupText}`,
       },
     ],
     structuredContent: payload,
@@ -17041,7 +17077,7 @@ export const crmAggregateRecordsTool: McpTool = {
     name: 'aggregate_records',
     title: 'Aggregate records',
     description:
-      'Count Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results. It returns one count per call, not counts per owner or per value: call it once per value with a filter, and read a list\'s member count from list_record_lists.',
+      'Count Sanka or live integration records with server-side filters. Use scope="integration" with provider="hubspot" or provider="salesforce" for provider-side counts. For “how many”, totals, or empty-field count questions, use this tool instead of paging through list_* results. For Sanka companies and contacts, group_by counts per owner, status, record source, list or custom property in one call; for other objects, call it once per value with a filter. A list\'s member count is also in list_record_lists.',
     inputSchema: RECORD_AGGREGATE_INPUT_SCHEMA,
     outputSchema: RECORD_AGGREGATE_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
