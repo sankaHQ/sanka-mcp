@@ -155,6 +155,36 @@ describe('record query tools', () => {
     });
   });
 
+  it("query_records asks for each row's linked companies and returns them", async () => {
+    const post = jest.fn().mockResolvedValue({
+      success: true,
+      data: [
+        {
+          record_id: 'contact-1',
+          label: 'Su Ra',
+          values: { 'standard:company_id': 'company-1' },
+          associations: { company: { count: 1, records: [{ record_id: 'company-1', label: 'Acme' }] } },
+        },
+      ],
+      meta: { pagination: { page: 1, page_size: 25, total: 1 } },
+    });
+    const reqContext = {
+      client: { post },
+    } as unknown as McpRequestContext;
+
+    const result = await crmQueryRecordsTool.handler({
+      reqContext,
+      args: { object_type: 'contacts', associations: ['company'] },
+    });
+
+    expect(post).toHaveBeenCalledWith('/api/v2/records/query', {
+      body: { object_type: 'contacts', associations: ['company'], page: 1, limit: 25 },
+    });
+    expect(result.structuredContent).toMatchObject({
+      results: [{ associations: { company: { records: [{ label: 'Acme', record_id: 'company-1' }] } } }],
+    });
+  });
+
   it('query_records forwards integration routing arguments', async () => {
     const post = jest.fn().mockResolvedValue({
       object_type: 'companies',

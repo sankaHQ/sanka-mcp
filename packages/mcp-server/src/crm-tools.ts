@@ -263,6 +263,13 @@ const RECORD_QUERY_INPUT_SCHEMA = {
       description: 'Server-side filters. Use these instead of fetching all rows and counting client-side.',
       items: RECORD_FILTER_SCHEMA,
     },
+    associations: {
+      type: 'array',
+      description:
+        'Sanka records only: linked records to return on each row, by object type, for example ["company"] on contacts or ["contact"] on companies. Each row then has associations.<type> with count and up to five {record_id, label}, read in this one call instead of list_associations per record. A contact row\'s standard:company_id and meta.company_name already hold its first company. An object with no default link to object_type is refused.',
+      items: { type: 'string' },
+      maxItems: 3,
+    },
     mode: {
       type: 'string',
       description:
@@ -10781,6 +10788,10 @@ const buildRecordQueryBody = (args: Record<string, unknown> | undefined) => {
   }
   if (filters.length) {
     body['filters'] = filters;
+  }
+  const associations = readStringArray(args?.['associations']);
+  if (associations.length) {
+    body['associations'] = associations.slice(0, 3);
   }
   if (mode) {
     body['mode'] = mode;
