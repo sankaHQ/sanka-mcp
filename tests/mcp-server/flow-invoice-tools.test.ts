@@ -30,7 +30,7 @@ describe('Flow invoice tools', () => {
         },
       });
       const result = await tool.handler({
-        reqContext: { client, mcpSessionId: 'test-session' },
+        reqContext: { client },
         args: {
           expected_workspace_id: 'workspace-a',
           order_id: 'order-1',
@@ -92,7 +92,7 @@ describe('Flow invoice tools', () => {
     const tool = flowInvoiceTools.find((item) => item.tool.name === 'start_flow_invoice')!;
     await expect(
       tool.handler({
-        reqContext: { client, mcpSessionId: 'test-session' },
+        reqContext: { client },
         args: { expected_workspace_id: 'workspace-a', order_id: 'order-1', review_token: 'a'.repeat(64) },
       }),
     ).rejects.toThrow();

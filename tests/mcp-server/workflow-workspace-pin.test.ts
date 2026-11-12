@@ -30,7 +30,7 @@ describe('workflow workspace pinned by an app', () => {
         },
       });
       const result = await tool.handler({
-        reqContext: { client, mcpSessionId: 'session-1' },
+        reqContext: { client },
         args: {
           expected_workspace_id: 'workspace-a',
           run_id: 'run-1',
@@ -60,7 +60,7 @@ describe('workflow workspace pinned by an app', () => {
       },
     });
     const result = await tool.handler({
-      reqContext: { client, mcpSessionId: 'session-1' },
+      reqContext: { client },
       args: {
         expected_workspace_id: 'workspace-a',
         run_id: 'run-1',
@@ -73,25 +73,5 @@ describe('workflow workspace pinned by an app', () => {
     expect(requests[1]?.headers.get('X-Sanka-Expected-Workspace-ID')).toBe('workspace-a');
     expect(requests[1]?.body ?? '').not.toContain('expected_workspace_id');
     expect(result.structuredContent?.['data']).toEqual({ status: 'previewed' });
-  });
-
-  it('refuses a pinned request without an MCP session', async () => {
-    const result = await previewWorkflowTool.handler({
-      reqContext: {
-        client: new Sanka({
-          apiKey: 'test-only',
-          maxRetries: 0,
-          fetch: async () => {
-            throw new Error('Unexpected HTTP request');
-          },
-        }),
-      },
-      args: {
-        expected_workspace_id: 'workspace-a',
-        workflow_type: 'order_to_invoice',
-        source_record: { record_id: 'order-1' },
-      },
-    });
-    expect(result.structuredContent?.['error']).toBe('WORKSPACE_CONTEXT_MISMATCH');
   });
 });

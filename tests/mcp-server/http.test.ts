@@ -13,76 +13,131 @@ import {
 import { configureLogger } from '../../packages/mcp-server/src/logger';
 
 const HTTP_INTEGRATION_TEST_TIMEOUT_MS = 15_000;
-const RECONNECT_INSTRUCTIONS =
-  'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.';
+const ISSUER = 'https://api.example.test/oauth/mcp';
+const AUTHORIZATION_SERVER_METADATA = { issuer: ISSUER, token_endpoint: `${ISSUER}/token` };
+// The exchange cache is keyed by token, so each test uses its own MCP OAuth token.
+const token = (name: string) => `smat_${name.padEnd(24, '0')}`;
 
-const connectSankaRequiredBody = (baseUrl: string, toolName: string) => ({
-  asymmetricMatch: (body: Record<string, unknown>) =>
-    body?.['error'] === 'authentication_required' &&
-    typeof body['error_description'] === 'string' &&
-    body['error_description'].includes(`Authentication required to use ${toolName}.`) &&
-    body['error_description'].includes('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=') &&
-    body['error_description'].includes('Required user-facing reply: Sanka MCP authentication is required.') &&
-    typeof body['connect_url'] === 'string' &&
-    body['connect_url'].startsWith('https://app.sanka.com/oauth/mcp/connect?token=') &&
-    typeof body['connect_url_markdown'] === 'string' &&
-    body['connect_url_markdown'] === `[${body['connect_url']}](${body['connect_url']})` &&
-    typeof body['required_user_facing_reply'] === 'string' &&
-    body['required_user_facing_reply'].includes(`[${body['connect_url']}](${body['connect_url']})`) &&
-    body['resource_url'] === `${baseUrl}/mcp` &&
-    body['reconnect_instructions'] === RECONNECT_INSTRUCTIONS &&
-    body['reconnect_mode'] === 'connect_sanka' &&
-    body['authorization_server_url'] === undefined &&
-    body['authorization_url'] === undefined &&
-    body['resource_metadata_url'] === undefined &&
-    body['reconnect_rpc_method'] === undefined,
-  toString: () => 'Connect Sanka required body',
-});
+const listen = (server: http.Server) =>
+  new Promise<string>((resolve) => {
+    server.listen(0, '127.0.0.1', () =>
+      resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`),
+    );
+  });
 
 describe('streamable HTTP transport', () => {
   let server: http.Server;
+  let api: http.Server;
   let baseUrl: string;
+  let exchanges: { secret: unknown; body: { access_token: string; resource: string } }[] = [];
+  let apiRequests: { url: string; authorization: unknown; sessionHeader: unknown }[] = [];
+  let currentWorkspace = 'ws-1';
 
   beforeAll(async () => {
     configureLogger({ level: 'error', pretty: false });
-
-    const app = streamableHTTPApp({
-      mcpOptions: {
-        authorizationServerUrl: 'https://app.sanka.com/',
-        streamableAuthFallback: 'tool_result',
-        tokenExchangeSharedSecret: 'test-secret',
-      },
-    });
-
-    await new Promise<void>((resolve) => {
-      server = app.listen(0, () => {
-        const address = server.address() as AddressInfo;
-        baseUrl = `http://127.0.0.1:${address.port}`;
-        resolve();
+    // Stands in for sanka-api: the internal token exchange, its metadata and two business routes.
+    api = http.createServer((req, res) => {
+      let raw = '';
+      req.on('data', (chunk) => (raw += String(chunk)));
+      req.on('end', () => {
+        const send = (status: number, body: unknown) => {
+          res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
+        };
+        if (req.url === '/oauth/internal/mcp-oauth-token') {
+          const body = JSON.parse(raw);
+          exchanges.push({ secret: req.headers['x-sanka-mcp-resource-secret'], body });
+          const name = String(body.access_token).slice(5);
+          if (name.startsWith('unreachable')) return req.socket.destroy();
+          if (name.startsWith('revoked')) return send(401, { error: 'invalid_token' });
+          if (name.startsWith('outage')) return send(503, { error: 'unavailable' });
+          return send(200, {
+            access_token: `soat_${name}`,
+            expires_in: 300,
+            scope: name.startsWith('noscope') ? 'other:scope' : 'mcp:access',
+            client_name: 'Claude',
+            workspace_id: 'ws-1',
+          });
+        }
+        if (req.url === '/.well-known/oauth-authorization-server/oauth/mcp') {
+          return send(200, AUTHORIZATION_SERVER_METADATA);
+        }
+        // The tool-call audit log is posted after the result and owned by server-tool-log.test.
+        if (req.url === '/api/v2/mcp/tool-call-log') return send(200, {});
+        apiRequests.push({
+          url: String(req.url),
+          authorization: req.headers.authorization,
+          sessionHeader: req.headers['x-sanka-mcp-session-id'],
+        });
+        if (req.url === '/api/v2/workspaces/switch') currentWorkspace = JSON.parse(raw).target_workspace_id;
+        return send(200, {
+          success: true,
+          data: {
+            current_workspace: { id: currentWorkspace, code: '10101010', name: 'Test' },
+            workspaces: [{ id: currentWorkspace, code: '10101010', name: 'Test' }],
+          },
+        });
       });
     });
+    const apiBase = await listen(api);
+    server = http.createServer(
+      streamableHTTPApp({
+        clientOptions: { baseURL: apiBase, maxRetries: 0 },
+        mcpOptions: {
+          oauthIssuer: ISSUER,
+          internalAuthorizationServerUrl: apiBase,
+          oauthResourceServerSecret: 'resource-secret',
+        },
+      }),
+    );
+    baseUrl = await listen(server);
   });
 
   afterAll(async () => {
-    if (!server) {
-      return;
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-      server.closeAllConnections();
-    });
+    await Promise.all(
+      [server, api].map(
+        (item) =>
+          new Promise<void>((resolve) => {
+            item.close(() => resolve());
+            item.closeAllConnections();
+          }),
+      ),
+    );
   }, HTTP_INTEGRATION_TEST_TIMEOUT_MS);
+
+  beforeEach(() => {
+    exchanges = [];
+    apiRequests = [];
+    currentWorkspace = 'ws-1';
+  });
 
   afterEach(() => {
     resetBinaryDownloadStoreForTests();
   });
+
+  const rpc = async (
+    path: string,
+    { headers = {}, method = 'tools/list', params = {} }: Record<string, any> = {},
+  ) => {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    const text = await response.text();
+    const event = text.split('\n').find((line) => line.startsWith('data: '));
+    return { response, message: event ? JSON.parse(event.slice(6)) : undefined };
+  };
+  const bearer = (name: string) => ({ Authorization: `Bearer ${token(name)}` });
+  const callTool = (path: string, tokenName: string, name: string, args = {}, headers = {}) =>
+    rpc(path, {
+      headers: { ...bearer(tokenName), ...headers },
+      method: 'tools/call',
+      params: { name, arguments: args },
+    });
 
   it.each(
     ['/', '/mcp', '/sse', '/chatgpt', '/missing'].flatMap((route) =>
@@ -111,20 +166,136 @@ describe('streamable HTTP transport', () => {
     },
   );
 
+  // MCP authorization (2026-07-28): a client follows the challenge to the resource metadata,
+  // signs in with the authorization server it names, then retries with its token.
   it.each([
-    '/.well-known/oauth-protected-resource',
-    '/.well-known/oauth-protected-resource/mcp',
-    '/mcp/.well-known/oauth-protected-resource',
-    '/.well-known/oauth-authorization-server',
-    '/.well-known/oauth-authorization-server/mcp',
-    '/mcp/.well-known/oauth-authorization-server',
-    '/.well-known/openid-configuration',
-    '/.well-known/openid-configuration/mcp',
-    '/mcp/.well-known/openid-configuration',
-  ])('does not advertise retired native OAuth metadata at %s', async (path) => {
-    const response = await fetch(`${baseUrl}${path}`);
+    ['/', ''],
+    ['/mcp', '/mcp'],
+    ['/sse', '/sse'],
+  ])('runs the OAuth discovery flow at %s, as its own resource', async (path, suffix) => {
+    const unauthenticated = await rpc(path, {
+      method: 'tools/call',
+      // Receipt-sized: the body is read before the challenge, not refused for its size.
+      params: {
+        name: 'append_expense_attachment_upload_chunk',
+        arguments: { content_base64: 'A'.repeat(150_000) },
+      },
+    });
+    const metadataUrl = `${baseUrl}/.well-known/oauth-protected-resource${suffix}`;
+    expect(unauthenticated.response.status).toBe(401);
+    expect(unauthenticated.response.headers.get('www-authenticate')).toBe(
+      `Bearer scope="mcp:access", resource_metadata="${metadataUrl}"`,
+    );
 
-    expect(response.status).toBe(404);
+    const metadata = await fetch(metadataUrl);
+    expect(await metadata.json()).toMatchObject({
+      resource: `${baseUrl}${suffix}`,
+      authorization_servers: [ISSUER],
+      scopes_supported: ['mcp:access'],
+      bearer_methods_supported: ['header'],
+    });
+
+    const tokenName = `flow${suffix.replace('/', '_')}`;
+    const { response } = await callTool(path, tokenName, 'current_workspace');
+    expect(response.status).toBe(200);
+    expect(exchanges).toEqual([
+      {
+        secret: 'resource-secret',
+        body: { access_token: token(tokenName), resource: `${baseUrl}${suffix}` },
+      },
+    ]);
+    // Sanka's API sees only the API token minted for this server, never the client's token.
+    expect(apiRequests[0]).toMatchObject({
+      url: '/api/v2/auth/session',
+      authorization: `Bearer soat_${token(tokenName).slice(5)}`,
+    });
+  });
+
+  it('mirrors the authorization server metadata for clients that look on this origin', async () => {
+    const response = await fetch(`${baseUrl}/.well-known/oauth-authorization-server`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(AUTHORIZATION_SERVER_METADATA);
+  });
+
+  it.each([
+    ['an expired or revoked token', bearer('revoked'), 401, 'invalid_token'],
+    [
+      'a token not issued for MCP',
+      { Authorization: 'Bearer soat_aaaaaaaaaaaaaaaaaaaaaaaa' },
+      401,
+      'invalid_token',
+    ],
+    ['a developer API key', { 'X-Sanka-API-Key': 'sk_live_example' }, 401, 'invalid_request'],
+    ['an exchange outage', bearer('outage'), 503, undefined],
+    ['an unreachable exchange', bearer('unreachable'), 503, undefined],
+  ])('refuses %s before any tool runs', async (_name, headers, status, oauthError) => {
+    const { response } = await rpc('/mcp', { headers });
+
+    expect(response.status).toBe(status);
+    const challenge = response.headers.get('www-authenticate');
+    if (oauthError) {
+      expect(challenge).toContain(`error="${oauthError}"`);
+    } else {
+      expect(challenge).toBeNull();
+    }
+    expect(apiRequests).toEqual([]);
+  });
+
+  it('answers a token without the scope a tool needs with an insufficient_scope challenge', async () => {
+    const { response } = await callTool('/mcp', 'noscope', 'list_deals');
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get('www-authenticate')).toContain('error="insufficient_scope"');
+    expect(apiRequests).toEqual([]);
+  });
+
+  // The bug: each request re-checks the token with Sanka, or a switch_workspace is lost on the next
+  // request because the cached exchange still names the old workspace.
+  it('reuses one exchange per token and keeps a workspace switch for the next request', async () => {
+    // A client-sent session id carries no identity and is never forwarded to Sanka.
+    const legacySession = { 'mcp-session-id': 'client-chosen-session' };
+    const switched = await callTool(
+      '/mcp',
+      'switch',
+      'switch_workspace',
+      { workspace_id: 'ws-2' },
+      legacySession,
+    );
+    expect(switched.message.result.isError).toBeFalsy();
+
+    const status = await callTool('/mcp', 'switch', 'auth_status', {}, legacySession);
+    expect(status.message.result.structuredContent).toMatchObject({
+      workspace_id: 'ws-2',
+      // Clients on older protocol versions are named by the grant the user approved.
+      client_name: 'Claude',
+    });
+    expect(exchanges).toHaveLength(1);
+    expect(apiRequests.filter((request) => request.sessionHeader !== undefined)).toEqual([]);
+  });
+
+  it('serves stateless requests without issuing a session and declines the standalone GET stream', async () => {
+    const initialize = await rpc('/mcp', {
+      headers: bearer('stateless'),
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 'ChatGPT', version: '1' },
+      },
+    });
+    expect(initialize.response.status).toBe(200);
+    expect(initialize.response.headers.get('mcp-session-id')).toBeNull();
+
+    const list = await rpc('/mcp', {
+      headers: { ...bearer('stateless'), 'mcp-protocol-version': '2025-11-25' },
+    });
+    expect(list.response.status).toBe(200);
+
+    const stream = await fetch(`${baseUrl}/mcp`, { headers: { Accept: 'text/event-stream' } });
+    // An idle stream here is reset by the edge, and clients re-initialize after repeated resets.
+    expect(stream.status).toBe(405);
+    await stream.body?.cancel();
   });
 
   it('returns a generic JSON response for malformed JSON without framework headers', async () => {
@@ -232,206 +403,6 @@ describe('streamable HTTP transport', () => {
     });
   });
 
-  it('rejects direct bearer authentication without advertising an OAuth challenge', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer a.b.c',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'tools/list',
-        params: {},
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual({
-      error: 'authentication_failed',
-      error_description:
-        'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
-    });
-  });
-
-  it('rejects direct bearer authentication on initialize without advertising metadata', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer a.b.c',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: {
-            name: 'ChatGPT',
-            version: '1.0.0',
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual({
-      error: 'authentication_failed',
-      error_description:
-        'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
-    });
-  });
-
-  it.each([undefined, 'identity'])('allows unauthenticated initialize with encoding %s', async (encoding) => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        ...(encoding ? { 'Content-Encoding': encoding } : {}),
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: {
-            name: 'ChatGPT',
-            version: '1.0.0',
-          },
-        },
-      }),
-    });
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toContain('"protocolVersion"');
-    expect(body).toContain('"serverInfo"');
-  });
-
-  it('allows Claude initialize without forcing native OAuth', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: {
-            name: 'Claude Desktop',
-            version: '1.0.0',
-          },
-        },
-      }),
-    });
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('mcp-session-id')).toBeTruthy();
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toContain('"protocolVersion"');
-    expect(body).toContain('"serverInfo"');
-  });
-
-  it('allows Claude tools/list without forcing native OAuth', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'X-Anthropic-Client': 'Claude Desktop',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-        params: {},
-      }),
-    });
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toContain('"tools"');
-    expect(body).toContain('"connect_sanka"');
-  });
-
-  it('supports stateless follow-up requests and declines the standalone GET stream', async () => {
-    const initializeResponse = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: {
-            name: 'ChatGPT',
-            version: '1.0.0',
-          },
-        },
-      }),
-    });
-
-    expect(initializeResponse.status).toBe(200);
-    const sessionId = initializeResponse.headers.get('mcp-session-id');
-    expect(sessionId).toBeTruthy();
-    await initializeResponse.text();
-
-    const listResponse = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'mcp-protocol-version': '2025-11-25',
-        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-        params: {},
-      }),
-    });
-
-    expect(listResponse.status).toBe(200);
-    await listResponse.text();
-
-    const streamResponse = await fetch(`${baseUrl}/mcp`, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/event-stream',
-        'mcp-protocol-version': '2025-11-25',
-        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
-      },
-    });
-
-    // An idle stream here is reset by the edge, and clients re-initialize with a new session.
-    expect(streamResponse.status).toBe(405);
-    await streamResponse.body?.cancel();
-  });
-
   it('returns the unified toolset for stateless tools/list requests', async () => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
@@ -440,6 +411,7 @@ describe('streamable HTTP transport', () => {
         'Content-Type': 'application/json',
         'MCP-Protocol-Version': '2025-11-25',
         'User-Agent': 'openai-mcp/1.0.0 (ChatGPT)',
+        Authorization: `Bearer ${token('toolset')}`,
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -453,7 +425,15 @@ describe('streamable HTTP transport', () => {
     const text = await response.text();
     expect(text).toContain('"name":"connect_sanka"');
     expect(text).toContain('"name":"auth_status"');
-    expect(text).not.toContain('"type":"oauth2"');
+    const tools = JSON.parse(
+      text
+        .split('\n')
+        .find((line) => line.startsWith('data: '))!
+        .slice(6),
+    ).result.tools as { securitySchemes?: unknown }[];
+    for (const tool of tools) {
+      expect(tool.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['mcp:access'] }]);
+    }
     expect(text).toContain('"name":"list_private_messages"');
     expect(text).toContain('"name":"sync_private_messages"');
     expect(text).toContain('"name":"get_private_message_thread"');
@@ -605,6 +585,7 @@ describe('streamable HTTP transport', () => {
             Accept: 'application/json, text/event-stream',
             'Content-Type': 'application/json',
             'MCP-Protocol-Version': '2025-11-25',
+            Authorization: `Bearer ${token('docs')}`,
           },
           body: JSON.stringify({
             jsonrpc: '2.0',
@@ -632,6 +613,7 @@ describe('streamable HTTP transport', () => {
           'Content-Type': 'application/json',
           'MCP-Protocol-Version': '2025-11-25',
           'x-sanka-mcp-client-permissions': permissions,
+          Authorization: `Bearer ${token('permissions')}`,
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
@@ -663,369 +645,5 @@ describe('streamable HTTP transport', () => {
       expect(text).not.toContain('"name":"execute"');
       expect(text).not.toContain('"name":"search_docs"');
     }
-  });
-
-  it.each([
-    'list_companies',
-    'reply_private_message_thread',
-    'list_expenses',
-    'create_expense',
-    'create_company',
-    'get_company_price_table',
-    'create_ticket',
-    'create_calendar_attendance',
-    'create_order',
-    'create_estimate',
-    'create_invoice',
-    'create_payment',
-    'score_record',
-  ])('returns Connect Sanka details for %s when authentication is missing', async (toolName) => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'tools/call',
-        params: { name: toolName, arguments: {} },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, toolName));
-  });
-
-  it('accepts receipt-sized JSON-RPC payloads before authentication preflight', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 18,
-        method: 'tools/call',
-        params: {
-          name: 'append_expense_attachment_upload_chunk',
-          arguments: {
-            upload_token: 'upload-token',
-            offset: 0,
-            content_base64: 'A'.repeat(150_000),
-          },
-        },
-      }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(body).toEqual(connectSankaRequiredBody(baseUrl, 'append_expense_attachment_upload_chunk'));
-  });
-
-  it('returns the auth_status fallback payload when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 7,
-        method: 'tools/call',
-        params: {
-          name: 'auth_status',
-          arguments: {},
-        },
-      }),
-    });
-    const text = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(response.headers.get('mcp-session-id')).toBeTruthy();
-    expect(text).toContain('"connected":false');
-    expect(text).toContain('"auth_mode":"none"');
-    expect(text).toContain('"tool_profile":"hosted"');
-    expect(text).toContain(
-      'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-    );
-    expect(text).not.toContain('"mcp/www_authenticate"');
-    expect(text).not.toContain('"authorization_server_url"');
-    expect(text).not.toContain('"authorization_url"');
-    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).not.toContain('"resource_metadata_url"');
-    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"reconnect_mode":"connect_sanka"');
-    expect(text).not.toContain('"reconnect_rpc_method"');
-    expect(text).not.toContain('"reconnect_server_name"');
-    expect(text).toContain('The assistant must include required_user_facing_reply');
-  });
-
-  it('replaces caller-chosen session ids with a server-issued resource capability', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'mcp-session-id': 'attacker-fixed-session',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 70,
-        method: 'tools/call',
-        params: {
-          name: 'auth_status',
-          arguments: {},
-        },
-      }),
-    });
-    const text = await response.text();
-    const issuedSessionId = response.headers.get('mcp-session-id');
-    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
-    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
-    const token = new URL(connectUrl).searchParams.get('token');
-    const payloadPart = String(token).split('.', 1)[0]!;
-    const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as {
-      aud?: string;
-      res?: string;
-      sid?: string;
-    };
-
-    expect(response.status).toBe(200);
-    expect(issuedSessionId).toBeTruthy();
-    expect(issuedSessionId).not.toBe('attacker-fixed-session');
-    expect(payload).toMatchObject({
-      aud: 'sanka-mcp',
-      res: `${baseUrl}/mcp`,
-      sid: issuedSessionId,
-    });
-  });
-
-  it('keeps auth_status reconnect tokens scoped to MCP access', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 17,
-        method: 'tools/call',
-        params: {
-          name: 'auth_status',
-          arguments: {
-            required_scopes: ['expenses:write'],
-          },
-        },
-      }),
-    });
-    const text = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(text).toContain('"required_scopes":["expenses:write"]');
-
-    const connectUrlMatch = text.match(/"connect_url":"([^"]+)"/);
-    expect(connectUrlMatch?.[1]).toBeTruthy();
-    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
-    const token = new URL(connectUrl).searchParams.get('token');
-    expect(token).toBeTruthy();
-    const payload = String(token).split('.', 1)[0]!;
-    expect(JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))).toMatchObject({
-      scp: ['mcp:access'],
-    });
-  });
-
-  it('returns the connect_sanka fallback payload when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 18,
-        method: 'tools/call',
-        params: {
-          name: 'connect_sanka',
-          arguments: {},
-        },
-      }),
-    });
-    const text = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(response.headers.get('mcp-session-id')).toBeTruthy();
-    expect(text).toContain('"connected":false');
-    expect(text).toContain('"auth_mode":"none"');
-    expect(text).toContain('"tool_profile":"hosted"');
-    expect(text).toContain(
-      'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-    );
-    expect(text).not.toContain('"mcp/www_authenticate"');
-    expect(text).not.toContain('"authorization_server_url"');
-    expect(text).not.toContain('"authorization_url"');
-    expect(text).toContain('"connect_url":"https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain('"connect_url_markdown":"[https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).not.toContain('"resource_metadata_url"');
-    expect(text).toContain(`"resource_url":"${baseUrl}/mcp"`);
-    expect(text).toContain('"reconnect_mode":"connect_sanka"');
-    expect(text).not.toContain('"reconnect_rpc_method"');
-    expect(text).not.toContain('"reconnect_server_name"');
-    expect(text).toContain('The assistant must include required_user_facing_reply');
-  });
-
-  it('keeps the HTTP 401 response for streamable tool calls unless tool-result fallback is enabled', async () => {
-    const defaultApp = streamableHTTPApp({
-      mcpOptions: {
-        authorizationServerUrl: 'https://app.sanka.com',
-        tokenExchangeSharedSecret: 'test-secret',
-      },
-    });
-    let defaultServer: http.Server | undefined;
-    let defaultBaseUrl = '';
-
-    await new Promise<void>((resolve) => {
-      defaultServer = defaultApp.listen(0, () => {
-        const address = defaultServer?.address() as AddressInfo;
-        defaultBaseUrl = `http://127.0.0.1:${address.port}`;
-        resolve();
-      });
-    });
-
-    try {
-      const response = await fetch(`${defaultBaseUrl}/mcp`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json, text/event-stream',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 8,
-          method: 'tools/call',
-          params: {
-            name: 'list_expenses',
-            arguments: {},
-          },
-        }),
-      });
-      const body = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(response.headers.get('www-authenticate')).toBeNull();
-      expect(body).toEqual(connectSankaRequiredBody(defaultBaseUrl, 'list_expenses'));
-    } finally {
-      await new Promise<void>((resolve, reject) => {
-        defaultServer?.close((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve();
-        });
-      });
-    }
-  });
-
-  it('returns visible reconnect details for streamable tool calls when authentication is missing', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'list_expenses',
-          arguments: {},
-        },
-      }),
-    });
-    const text = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('text/event-stream');
-    expect(text).toContain('Authentication required to use List expenses.');
-    expect(text).toContain('Connect Sanka: [https://app.sanka.com/oauth/mcp/connect?token=');
-    expect(text).toContain('Required user-facing reply: Sanka MCP authentication is required.');
-    expect(text).toContain('"required_user_facing_reply":"Sanka MCP authentication is required.');
-    expect(text).toContain('"reconnect_mode":"connect_sanka"');
-    expect(text).not.toContain('mcpServer/oauth/login');
-    expect(text).not.toContain('"mcp/www_authenticate"');
-  });
-
-  it('returns Connect Sanka details for Codex streamable tool calls', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Codex Desktop/0.128.0',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'list_expenses',
-          arguments: {},
-        },
-      }),
-    });
-    const body = await response.text();
-
-    const connectUrlMatch = body.match(/"connect_url":"([^"]+)"/);
-    const connectUrl = JSON.parse(`"${connectUrlMatch?.[1]}"`);
-    const token = new URL(connectUrl).searchParams.get('token')!;
-    const payload = JSON.parse(Buffer.from(token.split('.')[0]!, 'base64url').toString('utf8'));
-    expect(payload.client_name).toBe('Codex');
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toContain('/oauth/mcp/connect');
-    expect(body).toContain('required_user_facing_reply');
-    expect(body).not.toContain('mcpServer/oauth/login');
-  });
-
-  it('returns Connect Sanka details for Claude streamable tool calls', async () => {
-    const response = await fetch(`${baseUrl}/mcp`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Claude-User',
-        'X-Anthropic-Client': 'ClaudeCode',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'tools/call',
-        params: {
-          name: 'list_expenses',
-          arguments: {},
-        },
-      }),
-    });
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('www-authenticate')).toBeNull();
-    expect(body).toContain('/oauth/mcp/connect');
-    expect(body).toContain('required_user_facing_reply');
-    expect(body).not.toContain('mcpServer/oauth/login');
   });
 });

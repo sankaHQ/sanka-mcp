@@ -6,26 +6,19 @@ import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
 import {
   AuthenticationError,
+  MCP_OAUTH_SCOPE,
   extractMcpSessionId,
-  generateMcpSessionId,
-  isServerIssuedMcpSessionId,
   resolveClientAuth,
+  resolveOAuthIssuer,
 } from './auth';
 import { getLogger } from './logger';
-import {
-  buildMcpConnectMarkdownLink,
-  buildMcpConnectStructuredReply,
-  buildMcpConnectUserFacingReply,
-  normalizeMcpConnectScopes,
-} from './mcp-connect';
 import { McpClientInfo, valueLooksLikeClaude, valueLooksLikeCodex } from './mcp-client-info';
 import { McpOptions } from './options';
 import { ToolProfile } from './profile';
 import { expressErrorLogger, expressRequestLogger } from './http-logging';
-import { executeHandler, initMcpServer, newMcpServer } from './server';
+import { initMcpServer, newMcpServer } from './server';
 import { resolveMissingScopes } from './tool-auth';
 import { buildToolAccessRequirements } from './tool-scope-requirements';
-import { crmAuthStatusTool, crmConnectSankaTool } from './crm-tools';
 import { readBinaryDownloadFile } from './binary-download-store';
 import type { McpRequestContext } from './types';
 
@@ -36,45 +29,26 @@ const BINARY_DOWNLOAD_PATHS = [
   '/downloads/:downloadToken',
   `${DEFAULT_STREAMABLE_PATH}/downloads/:downloadToken`,
 ];
-const INLINE_TOOL_HANDLERS = {
-  auth_status: crmAuthStatusTool,
-  connect_sanka: crmConnectSankaTool,
-} as const;
 const MCP_JSON_BODY_LIMIT = '16mb';
-const RECONNECT_INSTRUCTIONS =
-  'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.';
-const MCP_CLIENT_INFO_CACHE_MAX = 1000;
-
-const mcpClientInfoBySessionId = new Map<string, McpClientInfo>();
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const toolCallName = (body: unknown): string | undefined => {
-  if (!isObjectRecord(body) || body['method'] !== 'tools/call' || !isObjectRecord(body['params'])) {
-    return undefined;
-  }
-  const name = body['params']['name'];
-  return typeof name === 'string' ? name : undefined;
-};
-
-const appendReconnectInstructions = ({
-  connectUrl,
-  message,
+/** RFC 6750 / RFC 9728 challenge: where the client discovers how to get a token. */
+const bearerChallenge = ({
+  error,
+  resourceMetadataUrl,
 }: {
-  connectUrl?: string | undefined;
-  message: string;
+  error?: string | undefined;
+  resourceMetadataUrl: string;
 }): string =>
   [
-    message,
-    connectUrl ? `Connect Sanka: ${buildMcpConnectMarkdownLink(connectUrl)}` : undefined,
-    connectUrl ?
-      `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl).replace(/\s+/g, ' ')}`
-    : undefined,
-    connectUrl ? RECONNECT_INSTRUCTIONS : undefined,
+    ...(error ? [`error="${error}"`] : []),
+    `scope="${MCP_OAUTH_SCOPE}"`,
+    `resource_metadata="${resourceMetadataUrl}"`,
   ]
-    .filter(Boolean)
-    .join(' ');
+    .join(', ')
+    .replace(/^/, 'Bearer ');
 
 const createRequestTransport = async ({
   clientOptions,
@@ -90,9 +64,8 @@ const createRequestTransport = async ({
   toolProfile: ToolProfile;
 }): Promise<{
   auth: Awaited<ReturnType<typeof resolveClientAuth>>;
-  generatedSessionId?: string | undefined;
   mcpClientInfo?: McpClientInfo | undefined;
-  mcpSessionId: string;
+  mcpSessionId: undefined;
   server: McpServer;
   transport: StreamableHTTPServerTransport;
   toolAccessRequirements: Record<
@@ -104,31 +77,12 @@ const createRequestTransport = async ({
   >;
 } | null> => {
   const { resourceUrl, resourceMetadataUrl } = requestResourceUrls(req, mcpOptions);
-  const requestedSessionId = extractMcpSessionId(req.headers);
-  const incomingSessionId =
-    (
-      requestedSessionId &&
-      isServerIssuedMcpSessionId({
-        resourceUrl,
-        sessionId: requestedSessionId,
-        sharedSecret: mcpOptions.tokenExchangeSharedSecret,
-      })
-    ) ?
-      requestedSessionId
-    : undefined;
-  const mcpSessionId =
-    incomingSessionId ||
-    generateMcpSessionId({
-      resourceUrl,
-      sharedSecret: mcpOptions.tokenExchangeSharedSecret,
-    });
+  // Identity comes only from the OAuth bearer token. This server keeps no MCP session
+  // and never forwards a client-sent mcp-session-id to Sanka.
+  const mcpSessionId = undefined;
   const requestMcpClientInfo = extractRequestMcpClientInfo(req) ?? inferRequestMcpClientInfo(req);
   const requestMcpProtocolVersion = extractRequestMcpProtocolVersion(req);
   const requestMcpEnvironment = extractRequestMcpEnvironment(req);
-  if (requestMcpClientInfo) {
-    rememberMcpClientInfo(mcpSessionId, requestMcpClientInfo);
-  }
-  const mcpClientInfo = requestMcpClientInfo ?? mcpClientInfoBySessionId.get(mcpSessionId);
   const customInstructionsPath = mcpOptions.customInstructionsPath;
   const server = await newMcpServer({ customInstructionsPath, toolProfile });
 
@@ -159,13 +113,9 @@ const createRequestTransport = async ({
     }
   }
 
-  const requestedToolName = toolCallName(req.body);
   let resolvedAuth: Awaited<ReturnType<typeof resolveClientAuth>>;
   try {
     resolvedAuth = await resolveClientAuth({
-      mcpClientName: mcpClientInfo?.name,
-      mcpSessionId,
-      mcpSessionIdForExchange: requestedToolName ? incomingSessionId : undefined,
       mcpOptions: effectiveMcpOptions,
       req,
       resourceMetadataUrl,
@@ -173,23 +123,41 @@ const createRequestTransport = async ({
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      if (mcpOptions.nativeOAuth && error.statusCode === 401) {
-        res.setHeader(
-          'WWW-Authenticate',
-          `Bearer resource_metadata="${resourceMetadataUrl}", scope="mcp:access"`,
-        );
-      }
-      if (!incomingSessionId) {
-        res.setHeader('mcp-session-id', mcpSessionId);
+      if (error.statusCode === 401) {
+        res.setHeader('WWW-Authenticate', bearerChallenge({ error: error.oauthError, resourceMetadataUrl }));
       }
       res.status(error.statusCode).json({
-        error: 'authentication_failed',
+        error: error.oauthError ?? (error.statusCode >= 500 ? 'temporarily_unavailable' : 'invalid_token'),
         error_description: error.message,
       });
       return null;
     }
     throw error;
   }
+  if (resolvedAuth.authMode === 'none') {
+    // Every MCP request needs a token: the client discovers Sanka's authorization
+    // server from the resource metadata named in the challenge, then retries.
+    res.setHeader('WWW-Authenticate', bearerChallenge({ resourceMetadataUrl }));
+    res.status(401).json({
+      error: 'authentication_required',
+      error_description: 'Sign in to Sanka from your AI client to use this MCP server.',
+    });
+    return null;
+  }
+  if (!resolvedAuth.oauth.scopes.includes(MCP_OAUTH_SCOPE)) {
+    // A valid token without Sanka MCP access: ask the client to step up (RFC 6750 403).
+    res.setHeader('WWW-Authenticate', bearerChallenge({ error: 'insufficient_scope', resourceMetadataUrl }));
+    res.status(403).json({
+      error: 'insufficient_scope',
+      error_description: `This MCP server requires the ${MCP_OAUTH_SCOPE} scope.`,
+    });
+    return null;
+  }
+  // Clients on older protocol versions name themselves only in initialize; the
+  // authorization server knows the client the user approved.
+  const mcpClientInfo =
+    requestMcpClientInfo ??
+    (resolvedAuth.oauth.client_name ? { name: resolvedAuth.oauth.client_name, version: '' } : undefined);
 
   const transport = new StreamableHTTPServerTransport();
 
@@ -227,7 +195,6 @@ const createRequestTransport = async ({
     server,
     transport,
     auth: resolvedAuth,
-    generatedSessionId: incomingSessionId ? undefined : mcpSessionId,
     mcpClientInfo,
     mcpSessionId,
     toolAccessRequirements: buildToolAccessRequirements({
@@ -237,7 +204,8 @@ const createRequestTransport = async ({
   };
 };
 
-const getRequestAuthPreflight = ({
+/** A valid token without a scope the tool needs: 403 with an insufficient_scope challenge. */
+const getRequestScopePreflight = ({
   auth,
   body,
   toolAccessRequirements,
@@ -251,95 +219,26 @@ const getRequestAuthPreflight = ({
       requiredScopes: string[];
     }
   >;
-}):
-  | {
-      error: string;
-      errorDescription: string;
-      reconnectMetadata?: {
-        connect_url?: string | undefined;
-        connect_scopes?: string[] | undefined;
-        connect_url_markdown?: string | undefined;
-        required_user_facing_reply?: string | undefined;
-        resource_url: string;
-        reconnect_instructions: string;
-        reconnect_mode: 'connect_sanka';
-      };
-      statusCode: number;
-    }
-  | undefined => {
+}): { errorDescription: string; missingScopes: string[] } | undefined => {
   const messages = Array.isArray(body) ? body : [body];
+  const grantedScopes = new Set(auth.oauth.scopes);
 
   for (const message of messages) {
-    if (!message || typeof message !== 'object') {
+    if (!isObjectRecord(message) || message['method'] !== 'tools/call') {
       continue;
     }
-
-    const method = (message as { method?: unknown }).method;
-
-    if (method !== 'tools/call') {
-      continue;
-    }
-
-    const params = (message as { params?: { name?: unknown } }).params;
-    const toolName = typeof params?.name === 'string' ? params.name : undefined;
-    if (!toolName) {
-      continue;
-    }
-
-    const accessRequirements = toolAccessRequirements[toolName];
-    if (!accessRequirements?.authenticationRequired) {
-      continue;
-    }
-
-    if (auth.authMode === 'none') {
-      const authRequiredDescription = `Authentication required to use ${toolName}.`;
-      const connectUrl = auth.oauth.connectUrlForScopes?.(accessRequirements.requiredScopes);
-      const connectScopes = normalizeMcpConnectScopes(accessRequirements.requiredScopes);
-      const description = appendReconnectInstructions({
-        connectUrl,
-        message: authRequiredDescription,
-      });
+    const params = isObjectRecord(message['params']) ? message['params'] : undefined;
+    const toolName = typeof params?.['name'] === 'string' ? params['name'] : undefined;
+    const requiredScopes = toolName ? toolAccessRequirements[toolName]?.requiredScopes ?? [] : [];
+    const missingScopes = resolveMissingScopes({ grantedScopes, requiredScopes });
+    if (missingScopes.length > 0) {
       return {
-        error: 'authentication_required',
-        errorDescription: description,
-        reconnectMetadata: {
-          ...(connectUrl ?
-            {
-              connect_url: connectUrl,
-              connect_scopes: connectScopes,
-              ...buildMcpConnectStructuredReply(connectUrl),
-            }
-          : undefined),
-          resource_url: auth.oauth.resourceUrl,
-          reconnect_instructions: RECONNECT_INSTRUCTIONS,
-          reconnect_mode: 'connect_sanka',
-        },
-        statusCode: 401,
+        errorDescription: `${toolName} requires the following Sanka access scopes: ${missingScopes.join(
+          ', ',
+        )}.`,
+        missingScopes,
       };
     }
-
-    const requiredScopes = accessRequirements.requiredScopes;
-    if (requiredScopes.length === 0) {
-      continue;
-    }
-
-    const grantedScopes = new Set(auth.oauth.scopes);
-    const missingScopes = resolveMissingScopes({
-      grantedScopes,
-      requiredScopes,
-    });
-    if (missingScopes.length === 0) {
-      continue;
-    }
-
-    const description = `${toolName} requires the following Sanka access scopes: ${missingScopes.join(
-      ', ',
-    )}.`;
-    return {
-      error: 'insufficient_scope',
-      errorDescription: description,
-      statusCode: 403,
-    };
   }
 
   return undefined;
@@ -559,19 +458,6 @@ export const __testing = {
   inferRequestMcpClientInfo,
 };
 
-const rememberMcpClientInfo = (sessionId: string, clientInfo: McpClientInfo): void => {
-  if (
-    !mcpClientInfoBySessionId.has(sessionId) &&
-    mcpClientInfoBySessionId.size >= MCP_CLIENT_INFO_CACHE_MAX
-  ) {
-    const oldestSessionId = mcpClientInfoBySessionId.keys().next().value;
-    if (oldestSessionId) {
-      mcpClientInfoBySessionId.delete(oldestSessionId);
-    }
-  }
-  mcpClientInfoBySessionId.set(sessionId, clientInfo);
-};
-
 const requestOrigin = (req: express.Request): string => {
   const protocol = req.protocol || 'http';
   const host = req.get('host');
@@ -579,6 +465,22 @@ const requestOrigin = (req: express.Request): string => {
     return 'http://127.0.0.1';
   }
   return `${protocol}://${host}`;
+};
+
+/** Public origin of this server, from the configured /mcp URL or the request. */
+const publicOrigin = (req: express.Request, mcpOptions: McpOptions): string =>
+  new URL(mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString()).origin;
+
+/**
+ * Each endpoint is its own OAuth protected resource (RFC 8707), named by the exact URL
+ * clients connect to, with its metadata at the RFC 9728 path-inserted well-known URL.
+ */
+export const protectedResourceForPath = (origin: string, path: string) => {
+  const suffix = path === '/' ? '' : path.replace(/\/+$/, '');
+  return {
+    resourceUrl: `${origin}${suffix}`,
+    resourceMetadataUrl: `${origin}${DEFAULT_METADATA_PATH}${suffix}`,
+  };
 };
 
 const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
@@ -589,13 +491,7 @@ const requestResourceUrls = (req: express.Request, mcpOptions: McpOptions) => {
       resourceMetadataUrl: new URL('/.well-known/oauth-protected-resource/chatgpt', resourceUrl).href,
     };
   }
-  const resourceUrl =
-    mcpOptions.resourceUrl || new URL(DEFAULT_STREAMABLE_PATH, requestOrigin(req)).toString();
-  const metadataOrigin = new URL(resourceUrl).origin;
-  return {
-    resourceUrl,
-    resourceMetadataUrl: new URL(DEFAULT_METADATA_PATH, metadataOrigin).toString(),
-  };
+  return protectedResourceForPath(publicOrigin(req, mcpOptions), req.path);
 };
 
 const downloadBaseUrlFromResourceUrl = (resourceUrl: string): string => new URL('/', resourceUrl).origin;
@@ -614,69 +510,6 @@ const attachmentDispositionForFilename = (filename: string): string => {
 
 const requestProfile = (_req: express.Request): ToolProfile => 'hosted';
 
-const shouldReturnToolResultAuthFallback = ({
-  mcpOptions,
-  req,
-  toolProfile,
-}: {
-  mcpOptions: McpOptions;
-  req: express.Request;
-  toolProfile: ToolProfile;
-}): boolean =>
-  mcpOptions.streamableAuthFallback === 'tool_result' && toolProfile === 'hosted' && acceptsEventStream(req);
-
-const maybeHandleInlineToolCall = async ({
-  req,
-  res,
-  toolProfile,
-  transportContext,
-}: {
-  req: express.Request;
-  res: express.Response;
-  toolProfile: ToolProfile;
-  transportContext: Exclude<Awaited<ReturnType<typeof createRequestTransport>>, null>;
-}): Promise<boolean> => {
-  if (
-    !isObjectRecord(req.body) ||
-    req.body['method'] !== 'tools/call' ||
-    !isObjectRecord(req.body['params']) ||
-    typeof req.body['params']['name'] !== 'string'
-  ) {
-    return false;
-  }
-
-  const toolName = req.body['params']['name'];
-  const inlineTool = INLINE_TOOL_HANDLERS[toolName as keyof typeof INLINE_TOOL_HANDLERS];
-  if (!inlineTool) {
-    return false;
-  }
-
-  const result = await executeHandler({
-    mcpTool: inlineTool,
-    reqContext: {
-      client: undefined as any,
-      mcpSessionId: transportContext.mcpSessionId,
-      mcpClientInfo: transportContext.mcpClientInfo,
-      toolProfile,
-      auth: transportContext.auth,
-    },
-    args: isObjectRecord(req.body['params']['arguments']) ? req.body['params']['arguments'] : {},
-  });
-
-  res.status(200);
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.send(
-    `event: message\ndata: ${JSON.stringify({
-      jsonrpc: '2.0',
-      id: req.body['id'] ?? null,
-      result,
-    })}\n\n`,
-  );
-  return true;
-};
-
 const handleStreamableRequest =
   (options: { clientOptions: ClientOptions; mcpOptions: McpOptions }) =>
   async (req: express.Request, res: express.Response) => {
@@ -686,39 +519,22 @@ const handleStreamableRequest =
       return;
     }
 
-    if (transportContext.generatedSessionId) {
-      res.setHeader('mcp-session-id', transportContext.generatedSessionId);
-    }
-
-    if (
-      !options.mcpOptions.nativeOAuth &&
-      (await maybeHandleInlineToolCall({ req, res, toolProfile, transportContext }))
-    ) {
-      return;
-    }
-
-    const authPreflight = getRequestAuthPreflight({
+    const scopePreflight = getRequestScopePreflight({
       auth: transportContext.auth,
       body: req.body,
       toolAccessRequirements: transportContext.toolAccessRequirements,
     });
-    if (authPreflight) {
-      if (
-        authPreflight.error === 'authentication_required' &&
-        transportContext.auth.authMode === 'none' &&
-        shouldReturnToolResultAuthFallback({
-          mcpOptions: options.mcpOptions,
-          req,
-          toolProfile,
-        })
-      ) {
-        await transportContext.transport.handleRequest(req, res, req.body);
-        return;
-      }
-      res.status(authPreflight.statusCode).json({
-        error: authPreflight.error,
-        error_description: authPreflight.errorDescription,
-        ...authPreflight.reconnectMetadata,
+    if (scopePreflight) {
+      res.setHeader(
+        'WWW-Authenticate',
+        bearerChallenge({
+          error: 'insufficient_scope',
+          resourceMetadataUrl: transportContext.auth.oauth.resourceMetadataUrl,
+        }),
+      );
+      res.status(403).json({
+        error: 'insufficient_scope',
+        error_description: scopePreflight.errorDescription,
       });
       return;
     }
@@ -726,10 +542,60 @@ const handleStreamableRequest =
     await transportContext.transport.handleRequest(req, res, req.body);
   };
 
+/** RFC 9728 protected resource metadata for one endpoint. */
+const protectedResourceMetadata =
+  (mcpOptions: McpOptions, path: string) => (req: express.Request, res: express.Response) => {
+    const { resourceUrl } = protectedResourceForPath(publicOrigin(req, mcpOptions), path);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.json({
+      resource: resourceUrl,
+      authorization_servers: [resolveOAuthIssuer(mcpOptions)],
+      scopes_supported: [MCP_OAUTH_SCOPE],
+      bearer_methods_supported: ['header'],
+      resource_name: 'Sanka',
+      resource_documentation: 'https://sanka.com/docs/',
+    });
+  };
+
+const AUTHORIZATION_SERVER_METADATA_TTL_MS = 5 * 60 * 1000;
+let authorizationServerMetadataCache: { body: unknown; expiresAt: number } | undefined;
+
+/**
+ * Clients built for the 2025-03-26 protocol look for authorization server metadata on
+ * the MCP server's own origin. Mirror Sanka's document (its issuer is unchanged).
+ */
+const authorizationServerMetadataMirror =
+  (mcpOptions: McpOptions) => async (_req: express.Request, res: express.Response) => {
+    const now = Date.now();
+    if (!authorizationServerMetadataCache || authorizationServerMetadataCache.expiresAt <= now) {
+      const issuer = new URL(resolveOAuthIssuer(mcpOptions));
+      const origin = mcpOptions.internalAuthorizationServerUrl?.replace(/\/+$/, '') || issuer.origin;
+      try {
+        const response = await fetch(
+          `${origin}/.well-known/oauth-authorization-server${issuer.pathname.replace(/\/+$/, '')}`,
+          { signal: AbortSignal.timeout(5_000), redirect: 'error' },
+        );
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        authorizationServerMetadataCache = {
+          body: await response.json(),
+          expiresAt: now + AUTHORIZATION_SERVER_METADATA_TTL_MS,
+        };
+      } catch (error) {
+        getLogger().warn(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Authorization server metadata could not be read',
+        );
+        res.status(503).json({ error: 'temporarily_unavailable' });
+        return;
+      }
+    }
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.json(authorizationServerMetadataCache.body);
+  };
+
 // Every request gets a fresh stateless transport, so a standalone GET stream could never
-// carry a server message. The edge resets such idle streams after ~125 s, and Claude Code
-// re-initializes after three resets, which mints a new MCP session id and drops the
-// Connect Sanka approval bound to the old one. The spec allows declining with 405.
+// carry a server message. The edge resets such idle streams after ~125 s, and clients
+// re-initialize after repeated resets. The spec allows declining with 405.
 const declineStandaloneSseStream = (_req: express.Request, res: express.Response) => {
   res.setHeader('Allow', 'POST, DELETE');
   res.status(405).json({
@@ -829,6 +695,13 @@ export const streamableHTTPApp = ({
     app.post('/chatgpt', nativeHandler);
     app.delete('/chatgpt', nativeHandler);
   }
+  for (const routePath of STREAMABLE_HTTP_PATHS) {
+    app.get(
+      `${DEFAULT_METADATA_PATH}${routePath === '/' ? '' : routePath}`,
+      protectedResourceMetadata(mcpOptions, routePath),
+    );
+  }
+  app.get('/.well-known/oauth-authorization-server', authorizationServerMetadataMirror(mcpOptions));
   for (const routePath of STREAMABLE_HTTP_PATHS) {
     app.get(routePath, declineStandaloneSseStream);
     app.post(routePath, streamableHandler);

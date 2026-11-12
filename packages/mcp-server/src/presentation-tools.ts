@@ -598,7 +598,7 @@ const presentationDocs = (reqContext: McpRequestContext, args: ToolArgs) => {
   };
 };
 
-// Public routes resolve the workspace this MCP session is bound to.
+// Public routes resolve the workspace the caller's token (or legacy MCP session) is bound to.
 const sessionHeaders = (reqContext: McpRequestContext): Record<string, string> => {
   const sessionID = reqContext.mcpSessionId?.trim();
   return sessionID ? { [MCP_SESSION_HEADER]: sessionID } : {};
@@ -636,12 +636,12 @@ const workspaceMismatch = (details: JsonRecord): Error => {
   return Object.assign(new Error(message), { error: { code: WORKSPACE_MISMATCH, message, details } });
 };
 
-// Like the workflow tools, a write first reads the workspace its MCP session is bound to, the one the
-// public routes use, and sends nothing when it is not the expected one. Without an MCP session
-// (stdio) the API's check of X-Sanka-Expected-Workspace-ID stands alone.
+// Like the workflow tools, a write first reads the workspace its connection is bound to, the one the
+// public routes use, and sends nothing when it is not the expected one. With neither an OAuth
+// connection nor an MCP session (stdio) the API's check of X-Sanka-Expected-Workspace-ID stands alone.
 const checkWorkspace = async (reqContext: McpRequestContext, args: ToolArgs): Promise<void> => {
   const headers = sessionHeaders(reqContext);
-  if (!headers[MCP_SESSION_HEADER]) return;
+  if (!headers[MCP_SESSION_HEADER] && reqContext.auth?.authMode !== 'oauth_bearer') return;
   const expected = readString(args?.['expected_workspace_id']) ?? '';
   const current = readObject(
     unwrap(await reqContext.client.get(SESSION_PATH, { headers }))['current_workspace'],

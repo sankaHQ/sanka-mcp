@@ -1,5 +1,5 @@
 import { configureLogger } from '../../packages/mcp-server/src/logger';
-import { recordMcpToolCall, selectTools } from '../../packages/mcp-server/src/server';
+import { selectTools } from '../../packages/mcp-server/src/server';
 import {
   DEFAULT_INSTRUCTIONS_MAX_BYTES,
   getInstructions,
@@ -10,41 +10,6 @@ import { applyRequiredScopesToSecuritySchemes } from '../../packages/mcp-server/
 describe('profile-aware tool selection', () => {
   beforeAll(() => {
     configureLogger({ level: 'error', pretty: false });
-  });
-
-  it('records MCP tool calls through the V2 audit route', async () => {
-    const post = jest.fn().mockResolvedValue({});
-    const logger = { warn: jest.fn() };
-
-    await recordMcpToolCall({
-      client: { post } as never,
-      logger,
-      mcpTool: {
-        tool: { name: 'list_deals', title: 'List deals' },
-        metadata: { resource: 'deals', operation: 'list' },
-      } as never,
-      reqContext: {
-        mcpSessionId: 'mcp-session-1',
-        auth: { authMode: 'oauth_bearer' },
-        mcpClientInfo: { name: 'Claude', version: '1.0.0' },
-      } as never,
-      result: { content: [], isError: false },
-      startedAt: Date.now() - 12,
-    });
-
-    expect(post).toHaveBeenCalledWith('/api/v2/mcp/tool-call-log', {
-      body: expect.objectContaining({
-        tool_name: 'list_deals',
-        tool_title: 'List deals',
-        resource: 'deals',
-        operation: 'list',
-        success: true,
-        client_name: 'Claude',
-        client_version: '1.0.0',
-      }),
-      headers: { 'X-Sanka-MCP-Session-ID': 'mcp-session-1' },
-    });
-    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it('does not register duplicate tool names', () => {
@@ -115,7 +80,6 @@ describe('profile-aware tool selection', () => {
       'For Sanka company cycles',
       'billing_cycle and payment_cycle are standard company fields',
       'Do not say a Sanka tool or API call failed unless',
-      'structuredContent.required_user_facing_reply',
       'prefer the plugin-attached namespace',
       'mcp__sakura_plugin__*',
       'installed Sanka plugin chip',
@@ -142,7 +106,6 @@ describe('profile-aware tool selection', () => {
       'workflow_type=bill_export',
       'QuickBooks BillPayment is a separate workflow',
       'action="draft"',
-      'structuredContent.required_user_facing_reply',
       'prefer the plugin-attached namespace',
       'mcp__sakura_plugin__*',
       'installed Sanka plugin chip',

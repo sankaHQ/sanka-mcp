@@ -65,21 +65,6 @@ describe('browser_use MCP tool', () => {
     expect(toolNames).toContain('browser_use');
   });
 
-  it('returns a reauth challenge when called without authentication', async () => {
-    const result = await browserUseTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: hubSpotAvatarArgs(),
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-  });
-
   it('returns a dry-run plan when the browser worker is not configured', async () => {
     const result = await browserUseTool.handler({
       reqContext: {

@@ -293,22 +293,4 @@ describe('WatchTower MCP tools', () => {
       ctx_id: 'ctx-summary',
     });
   });
-
-  it('returns an OAuth challenge before calling protected WatchTower tools without auth', async () => {
-    const get = jest.fn();
-
-    const result = await listWatchtowerFindingsTool.handler({
-      reqContext: {
-        client: { get } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'hosted',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(get).not.toHaveBeenCalled();
-  });
 });

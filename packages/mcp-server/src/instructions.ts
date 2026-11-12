@@ -22,7 +22,7 @@ const HOSTED_INTRO = [
   'Routing:',
   '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, presentations, partners.',
   '- Prefer the dedicated tool that matches the live operation. Use query_records and aggregate_records for filtered or counted rows instead of paging through list_* tools.',
-  '- Start from connect_sanka when protected tools report that the session is not connected, and read current_workspace before workspace-scoped mutations.',
+  '- Read current_workspace before workspace-scoped mutations. If Sanka is not connected, tell the user to reconnect Sanka in their AI client.',
 ];
 
 const FULL_INTRO = [
@@ -34,7 +34,7 @@ const FULL_INTRO = [
   '- Call get_capability_guidance with a short summary of the user request plus optional provider, object_type, and operation hints before ambiguous or multi-step Sanka work, and before refusing a capability. It returns the workflow rules for the matching area: records and CRM, messaging, sales and billing, procurement and Sanka Buy, workflows and automation, people, migration and Developer Cloud, presentations, partners.',
   '- Prefer the dedicated tool that matches the live operation. Use query_records and aggregate_records for filtered or counted rows instead of paging through list_* tools.',
   '- Use search_docs to find the right Sanka SDK method or parameter shape, and execute only for SDK workflows that no dedicated tool covers.',
-  '- Start from connect_sanka when protected tools report that the session is not connected, and read current_workspace before workspace-scoped mutations.',
+  '- Read current_workspace before workspace-scoped mutations. If Sanka is not connected, tell the user to reconnect Sanka in their AI client.',
 ];
 
 const SHARED_GUARDRAILS = [
@@ -44,7 +44,7 @@ const SHARED_GUARDRAILS = [
   '- Use private message tools only when the user explicitly asks for the authenticated user private/personal/account-level inbox or their own personal connected Gmail.',
   '- For workspace messages, private inbox messages, associations, companies, contacts, deals, workflow runs, Buy requests, WatchTower findings, items, orders, purchase orders, tasks, task projects, job postings, applicants, interviews, organization positions, contracts, contract templates, estimates, invoices, overdue invoices, subscriptions, payments, slips, bills, disbursements, tickets, locations, inventories, inventory transactions, custom object records, expenses, employees, absences, attendance records, payroll profiles, payroll runs, incentives, properties, company pricing, calendar workflows, prospecting, scoring, imports, or exports, call the matching protected tool directly without first calling auth_status or connect_sanka.',
   '- IT requests (access, accounts, login, joiners and leavers, app settings) go to the company IT service desk through the desk_* tools when Sanka Desk is enabled; get_capability_guidance says whether it is. Never file them with the Flow ticket tools, which stay for Flow ticket records.',
-  '- All hosted clients, including Codex and Claude, connect through the Connect Sanka URL returned by connect_sanka or protected tool results. Direct bearer authentication and native MCP OAuth discovery are not supported.',
+  '- Sanka uses standard MCP OAuth: the AI client signs the user in on Sanka and sends its own bearer token. There is no Connect Sanka link; never ask the user for a token, password or URL to paste.',
   '- Do not route plugin-scoped Sanka requests through stale global aliases such as `mcp__sanka_key__*`, `mcp__sanka__*`, or other duplicate global namespaces. Those can bypass the plugin attachment and surface raw auth errors.',
   '- The workspace_id parameter on data tools is not a workspace switcher. It expects the authenticated workspace internal UUID, not the short numeric workspace code shown in Sanka URLs. Usually omit workspace_id; use current_workspace, list_workspaces, and switch_workspace for workspace context or switching.',
   '- Immediately before inviting or canceling a workspace invitation, call current_workspace and pass its exact internal workspace_id as expected_workspace_id. Never rely on an earlier switch_workspace result alone. Use list_workspace_invitations first when the invitation id or current invitation state is ambiguous.',
@@ -177,8 +177,7 @@ export const SHARED_WORKFLOW_GUIDANCE = [
   '- Use upload_import_file before import_records when the user starts from a local CSV or spreadsheet export. For HubSpot Deal to Sanka Order imports, use import_records with object_type=order, source_kind=integration, provider=hubspot, and record_ids.',
   '- Use retry_import_job or retry_export_job when the user wants to retry a failed or canceled public transfer job.',
   '- Use list_integration_channels before export_records when the user does not already know the destination channel_id.',
-  '- Use connect_sanka when the user explicitly asks to connect or reconnect Sanka without retrying a protected action first.',
-  '- If a protected tool reports missing authentication and structuredContent.required_user_facing_reply is present, include that field verbatim in the next visible response before stopping; it contains the exact full Connect Sanka URL. Do not omit the URL, hide it behind a short label like "Connect Sanka", abbreviate the token, replace it with "...", or only tell the user to reconnect. If the field is missing, call auth_status so the tool result can surface reconnect metadata. Do not fabricate login URLs. Then tell the user to retry after reconnecting.',
+  "- Use connect_sanka or auth_status only when the user asks how Sanka is connected or how to reconnect or switch accounts. Reconnecting happens in the AI client's MCP settings; do not fabricate login URLs.",
   '- Individual HTTP requests to the API have a 30-second timeout. If a request times out, try a smaller query or add filters.',
 ];
 

@@ -945,25 +945,4 @@ describe('Sanka Buy MCP tools', () => {
     expect(result.isError).toBe(true);
     expect(post).not.toHaveBeenCalled();
   });
-
-  it('returns an OAuth challenge before calling protected Buy tools without auth', async () => {
-    const post = jest.fn();
-
-    const result = await createBuyRequestTool.handler({
-      reqContext: {
-        client: { post } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'hosted',
-      },
-      args: {
-        title: 'Laptop refresh',
-        lines: [{ description: 'Laptop', quantity: 1 }],
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(post).not.toHaveBeenCalled();
-  });
 });

@@ -696,15 +696,11 @@ export const workflowWorkspaceHeaders = async (
       structuredContent: { error: 'WORKSPACE_CONTEXT_MISMATCH' },
     },
   });
+  // The OAuth connection's API token carries its current workspace (switch_workspace
+  // moves it), so the session read needs no MCP session header.
   const mcpSessionID = reqContext.mcpSessionId?.trim();
-  if (!mcpSessionID) {
-    return expectedWorkspaceID ? mismatch() : {};
-  }
-
   const sessionResponse = (await reqContext.client.get('/api/v2/public/auth/session', {
-    headers: {
-      'X-Sanka-MCP-Session-ID': mcpSessionID,
-    },
+    ...(mcpSessionID ? { headers: { 'X-Sanka-MCP-Session-ID': mcpSessionID } } : {}),
   })) as Record<string, unknown>;
   const sessionData = readObject(sessionResponse['data']);
   const currentWorkspace =
@@ -728,7 +724,7 @@ export const workflowWorkspaceHeaders = async (
     headers: {
       'X-Sanka-Expected-Workspace-ID': workspaceID,
       'X-Sanka-MCP': 'true',
-      'X-Sanka-MCP-Session-ID': mcpSessionID,
+      ...(mcpSessionID ? { 'X-Sanka-MCP-Session-ID': mcpSessionID } : {}),
     },
   };
 };
