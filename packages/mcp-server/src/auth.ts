@@ -1,27 +1,42 @@
-// File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { IncomingHttpHeaders, IncomingMessage } from 'node:http';
 import { ClientOptions } from 'sanka-sdk';
 import { getLogger } from './logger';
-import { buildMcpConnectUrl } from './mcp-connect';
 import { McpOptions } from './options';
 
-const DEFAULT_AUTHORIZATION_SERVER_URL = 'https://app.sanka.com';
-// MCP session token exchange must never hang a request; individual Sanka API
-// requests use a 30s budget, so a stricter 10s cap on this small internal auth
-// round-trip is comfortably within it.
+export const DEFAULT_OAUTH_ISSUER = 'https://api-v2.sanka.com/oauth/mcp';
+export const MCP_OAUTH_SCOPE = 'mcp:access';
+// The token exchange must never hang a request; individual Sanka API requests use a
+// 30s budget, so a stricter 10s cap on this small internal round-trip fits within it.
 const UPSTREAM_AUTH_REQUEST_TIMEOUT_MS = 10_000;
-const OAUTH_ACCESS_TOKEN_PREFIX = 'soat_';
-const MCP_SESSION_ID_PREFIX = 'ms1_';
+const API_ACCESS_TOKEN_PREFIX = 'soat_';
+const MCP_OAUTH_ACCESS_TOKEN = /^Bearer\s+(smat_[A-Za-z0-9_-]{20,128})$/i;
+const EXCHANGE_CACHE_MAX = 2000;
+// A disconnected client's cached API token is refused by Sanka at once; re-checking
+// the client's token every minute lets it see the 401 challenge and sign in again.
+const EXCHANGE_CACHE_TTL_MS = 60_000;
 
+/**
+ * A request the MCP server must refuse before running any tool. ``oauthError`` is the
+ * RFC 6750 error for the WWW-Authenticate challenge; absent for a missing token.
+ */
 export class AuthenticationError extends Error {
   readonly statusCode: number;
+  readonly oauthError: 'invalid_request' | 'invalid_token' | undefined;
 
-  constructor({ message, statusCode = 401 }: { message: string; statusCode?: number }) {
+  constructor({
+    message,
+    statusCode = 401,
+    oauthError,
+  }: {
+    message: string;
+    statusCode?: number;
+    oauthError?: 'invalid_request' | 'invalid_token' | undefined;
+  }) {
     super(message);
     this.name = 'AuthenticationError';
     this.statusCode = statusCode;
+    this.oauthError = oauthError;
   }
 }
 
@@ -36,8 +51,8 @@ export type ResolvedClientAuth = {
     resourceUrl: string;
     scopes: string[];
     nativeOAuth?: boolean | undefined;
-    connectUrl?: string | undefined;
-    connectUrlForScopes?: ((scopes?: string[] | undefined) => string | undefined) | undefined;
+    client_id?: string | undefined;
+    client_name?: string | undefined;
     workspace_id?: string | undefined;
     workspace_code?: string | undefined;
     workspace_name?: string | undefined;
@@ -51,376 +66,224 @@ export type ResolvedWorkspaceIdentity = {
   workspace_name?: string | undefined;
 };
 
-type McpSessionTokenEnvelope = {
+type ResourceExchangeEnvelope = {
   access_token?: string;
   error?: string;
   expires_in?: number;
-  message?: string;
   scope?: string;
-  token_type?: string;
+  client_id?: string | null;
+  client_name?: string | null;
   workspace_id?: string | null;
   workspace_code?: string | null;
   workspace_name?: string | null;
   workspace_access?: 'invoice_pilot' | 'full_workspace';
 };
 
-const mcpSessionTokenCache = new Map<
-  string,
-  {
-    accessToken: string;
-    expiresAt: number;
-    scopes: string[];
-    workspace_id?: string | undefined;
-    workspace_code?: string | undefined;
-    workspace_name?: string | undefined;
-  }
->();
+type CachedExchange = {
+  apiToken: string;
+  expiresAt: number;
+  scopes: string[];
+  client_id?: string | undefined;
+  client_name?: string | undefined;
+} & ResolvedWorkspaceIdentity;
+
+// Keyed by a digest of (resource, bearer token): the client's token is never stored.
+const exchangeCache = new Map<string, CachedExchange>();
 
 const singleHeader = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
 const stripTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
-const normalizeScopeClaim = (value: unknown): string[] => {
-  if (typeof value !== 'string') {
-    return [];
-  }
-
-  return value
-    .split(/\s+/)
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
+const optionalTrimmed = (value: unknown): string | undefined => {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized || undefined;
 };
 
-const isSankaOAuthAccessToken = (value: string): boolean => value.startsWith(OAUTH_ACCESS_TOKEN_PREFIX);
+const normalizeScopeClaim = (value: unknown): string[] =>
+  typeof value === 'string' ? value.split(/\s+/).filter((scope) => scope.length > 0) : [];
 
-const resolveAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
-  stripTrailingSlash(mcpOptions.authorizationServerUrl || DEFAULT_AUTHORIZATION_SERVER_URL);
+export const resolveOAuthIssuer = (mcpOptions: McpOptions): string =>
+  stripTrailingSlash(mcpOptions.oauthIssuer || DEFAULT_OAUTH_ISSUER);
 
-const resolveInternalAuthorizationServerUrl = (mcpOptions: McpOptions): string =>
+const resolveInternalApiOrigin = (mcpOptions: McpOptions): string =>
   stripTrailingSlash(
-    mcpOptions.internalAuthorizationServerUrl ||
-      mcpOptions.authorizationServerUrl ||
-      DEFAULT_AUTHORIZATION_SERVER_URL,
+    mcpOptions.internalAuthorizationServerUrl || new URL(resolveOAuthIssuer(mcpOptions)).origin,
   );
 
-const resolveMcpSessionTokenUrl = (authorizationServerUrl: string): string =>
-  `${authorizationServerUrl}/oauth/internal/mcp-session-token`;
-
+/** Legacy Connect Sanka clients still send this header; it carries no identity now. */
 export const extractMcpSessionId = (headers: IncomingHttpHeaders): string | undefined => {
   const sessionId = singleHeader(headers['mcp-session-id'])?.trim();
   return sessionId ? sessionId : undefined;
 };
 
-const mcpSessionSignature = ({
-  nonce,
-  resourceUrl,
-  sharedSecret,
-}: {
-  nonce: string;
-  resourceUrl: string;
-  sharedSecret: string;
-}): Buffer =>
-  createHmac('sha256', sharedSecret).update(`sanka-mcp-session:v1:${resourceUrl}:${nonce}`).digest();
+const exchangeCacheKey = (resourceUrl: string, token: string): string =>
+  createHash('sha256').update(`${resourceUrl}\u0000${token}`).digest('base64url');
 
-export const generateMcpSessionId = ({
-  resourceUrl,
-  sharedSecret,
-}: {
-  resourceUrl: string;
-  sharedSecret?: string | undefined;
-}): string => {
-  const nonce = randomUUID();
-  const normalizedSecret = sharedSecret?.trim();
-  if (!normalizedSecret) {
-    return nonce;
+const readCachedExchange = (key: string): CachedExchange | undefined => {
+  const cached = exchangeCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached;
   }
-  const signature = mcpSessionSignature({
-    nonce,
-    resourceUrl,
-    sharedSecret: normalizedSecret,
-  }).toString('base64url');
-  return `${MCP_SESSION_ID_PREFIX}${nonce}.${signature}`;
+  exchangeCache.delete(key);
+  return undefined;
 };
 
-export const isServerIssuedMcpSessionId = ({
-  resourceUrl,
-  sessionId,
-  sharedSecret,
-}: {
-  resourceUrl: string;
-  sessionId: string;
-  sharedSecret?: string | undefined;
-}): boolean => {
-  const normalizedSecret = sharedSecret?.trim();
-  if (!normalizedSecret) {
-    return Boolean(sessionId.trim());
-  }
-
-  const normalizedSessionId = sessionId.trim();
-  if (!normalizedSessionId.startsWith(MCP_SESSION_ID_PREFIX)) {
-    return false;
-  }
-  const [noncePart, signaturePart, ...extraParts] = normalizedSessionId.split('.');
-  const nonce = noncePart?.slice(MCP_SESSION_ID_PREFIX.length) ?? '';
-  if (!nonce || !signaturePart || extraParts.length > 0) {
-    return false;
-  }
-
-  let providedSignature: Buffer;
-  try {
-    providedSignature = Buffer.from(signaturePart, 'base64url');
-  } catch {
-    return false;
-  }
-  if (providedSignature.toString('base64url') !== signaturePart) {
-    return false;
-  }
-  const expectedSignature = mcpSessionSignature({
-    nonce,
-    resourceUrl,
-    sharedSecret: normalizedSecret,
-  });
-  return (
-    providedSignature.length === expectedSignature.length &&
-    timingSafeEqual(providedSignature, expectedSignature)
-  );
-};
-
-const readCachedMcpSessionToken = ({
-  authorizationServerUrl,
-  resourceUrl,
-  sessionId,
-}: {
-  authorizationServerUrl: string;
-  resourceUrl: string;
-  sessionId: string;
-}): {
-  accessToken: string;
-  scopes: string[];
-  workspace_id?: string | undefined;
-  workspace_code?: string | undefined;
-  workspace_name?: string | undefined;
-} | null => {
-  const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
-  const cached = mcpSessionTokenCache.get(cacheKey);
-  if (!cached) {
-    return null;
-  }
-  if (cached.expiresAt <= Date.now()) {
-    mcpSessionTokenCache.delete(cacheKey);
-    return null;
-  }
-  return {
-    accessToken: cached.accessToken,
-    scopes: cached.scopes,
-    ...(cached.workspace_id ? { workspace_id: cached.workspace_id } : undefined),
-    ...(cached.workspace_code ? { workspace_code: cached.workspace_code } : undefined),
-    ...(cached.workspace_name ? { workspace_name: cached.workspace_name } : undefined),
-  };
-};
-
-const writeCachedMcpSessionToken = ({
-  accessToken,
-  authorizationServerUrl,
-  expiresInSeconds,
-  resourceUrl,
-  scopes,
-  sessionId,
-  workspace_code,
-  workspace_id,
-  workspace_name,
-}: {
-  accessToken: string;
-  authorizationServerUrl: string;
-  expiresInSeconds: number;
-  resourceUrl: string;
-  scopes: string[];
-  sessionId: string;
-  workspace_code?: string | undefined;
-  workspace_id?: string | undefined;
-  workspace_name?: string | undefined;
-}): void => {
+const writeCachedExchange = (key: string, entry: CachedExchange): void => {
   const now = Date.now();
-  for (const [key, entry] of mcpSessionTokenCache) {
-    if (entry.expiresAt <= now) mcpSessionTokenCache.delete(key);
+  for (const [cachedKey, cached] of exchangeCache) {
+    if (cached.expiresAt <= now) exchangeCache.delete(cachedKey);
   }
-  const cacheKey = `${authorizationServerUrl}:${resourceUrl}:${sessionId}`;
-  if (!mcpSessionTokenCache.has(cacheKey) && mcpSessionTokenCache.size >= 1000) {
-    const oldestKey = mcpSessionTokenCache.keys().next().value;
-    if (oldestKey !== undefined) mcpSessionTokenCache.delete(oldestKey);
+  if (!exchangeCache.has(key) && exchangeCache.size >= EXCHANGE_CACHE_MAX) {
+    const oldest = exchangeCache.keys().next().value;
+    if (oldest !== undefined) exchangeCache.delete(oldest);
   }
-  mcpSessionTokenCache.set(cacheKey, {
-    accessToken,
-    scopes,
-    expiresAt: Date.now() + Math.max(1, expiresInSeconds - 5) * 1000,
-    ...(workspace_id ? { workspace_id } : undefined),
-    ...(workspace_code ? { workspace_code } : undefined),
-    ...(workspace_name ? { workspace_name } : undefined),
-  });
+  exchangeCache.set(key, entry);
 };
 
+/** After switch_workspace: the connection, its API token and the cache now name the new workspace. */
 export const updateResolvedClientAuthWorkspace = ({
   auth,
-  mcpSessionId,
   workspace,
 }: {
   auth?: ResolvedClientAuth | undefined;
-  mcpSessionId?: string | undefined;
   workspace: ResolvedWorkspaceIdentity;
 }): void => {
-  const workspaceID = workspace.workspace_id?.trim();
-  const workspaceCode = workspace.workspace_code?.trim();
-  const workspaceName = workspace.workspace_name?.trim();
   const workspacePatch = {
-    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
-    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
+    ...(optionalTrimmed(workspace.workspace_id) ?
+      { workspace_id: optionalTrimmed(workspace.workspace_id) }
+    : undefined),
+    ...(optionalTrimmed(workspace.workspace_code) ?
+      { workspace_code: optionalTrimmed(workspace.workspace_code) }
+    : undefined),
+    ...(optionalTrimmed(workspace.workspace_name) ?
+      { workspace_name: optionalTrimmed(workspace.workspace_name) }
+    : undefined),
   };
-  if (Object.keys(workspacePatch).length === 0) {
+  if (!auth || Object.keys(workspacePatch).length === 0) {
     return;
   }
-
-  if (auth) {
-    Object.assign(auth.oauth, workspacePatch);
+  Object.assign(auth.oauth, workspacePatch);
+  const apiToken = typeof auth.clientOptions.apiKey === 'string' ? auth.clientOptions.apiKey : '';
+  if (!apiToken) {
+    return;
   }
-
-  const rawAccessToken = auth?.clientOptions.apiKey;
-  const accessToken = typeof rawAccessToken === 'string' ? rawAccessToken.trim() : '';
-
-  const normalizedSessionID = mcpSessionId?.trim();
-  for (const [cacheKey, cached] of mcpSessionTokenCache.entries()) {
-    const matchesSession = Boolean(normalizedSessionID && cacheKey.endsWith(`:${normalizedSessionID}`));
-    const matchesAccessToken = Boolean(
-      !normalizedSessionID && accessToken && cached.accessToken === accessToken,
-    );
-    if (!matchesAccessToken && !matchesSession) {
-      continue;
+  for (const [key, cached] of exchangeCache) {
+    if (cached.apiToken === apiToken) {
+      exchangeCache.set(key, { ...cached, ...workspacePatch });
     }
-    mcpSessionTokenCache.set(cacheKey, {
-      ...cached,
-      ...workspacePatch,
-    });
   }
 };
 
-const exchangeMcpSessionForAccessToken = async ({
-  authorizationServerUrl,
+/**
+ * Check a client's MCP OAuth access token with Sanka (the authorization server) and
+ * receive this server's own short-lived API token for the same user and workspace.
+ * The client's token is never sent to the business API (no token passthrough).
+ */
+const exchangeAccessToken = async ({
+  mcpOptions,
   resourceUrl,
-  sessionId,
-  sharedSecret,
+  token,
 }: {
-  authorizationServerUrl: string;
+  mcpOptions: McpOptions;
   resourceUrl: string;
-  sessionId: string | undefined;
-  sharedSecret: string | undefined;
-}): Promise<{
-  accessToken: string;
-  scopes: string[];
-  workspace_id?: string | undefined;
-  workspace_code?: string | undefined;
-  workspace_name?: string | undefined;
-} | null> => {
-  const normalizedSessionId = sessionId?.trim();
-  const normalizedSecret = sharedSecret?.trim();
-  if (!normalizedSessionId || !normalizedSecret) {
-    return null;
-  }
-
-  const cached = readCachedMcpSessionToken({
-    authorizationServerUrl,
-    resourceUrl,
-    sessionId: normalizedSessionId,
-  });
+  token: string;
+}): Promise<CachedExchange> => {
+  const key = exchangeCacheKey(resourceUrl, token);
+  const cached = readCachedExchange(key);
   if (cached) {
     return cached;
   }
-
+  const secret = mcpOptions.oauthResourceServerSecret?.trim();
+  if (!secret) {
+    getLogger().error('MCP OAuth resource server secret is not configured');
+    throw new AuthenticationError({
+      message: 'Sanka authorization is temporarily unavailable.',
+      statusCode: 503,
+    });
+  }
   let response: Response;
   try {
-    response = await fetch(resolveMcpSessionTokenUrl(authorizationServerUrl), {
+    response = await fetch(`${resolveInternalApiOrigin(mcpOptions)}/oauth/internal/mcp-oauth-token`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-Sanka-MCP-Token-Exchange-Secret': normalizedSecret,
+        'X-Sanka-MCP-Resource-Secret': secret,
       },
-      body: JSON.stringify({
-        resource: resourceUrl,
-        session_id: normalizedSessionId,
-      }),
+      body: JSON.stringify({ access_token: token, resource: resourceUrl }),
       signal: AbortSignal.timeout(UPSTREAM_AUTH_REQUEST_TIMEOUT_MS),
+      redirect: 'error',
     });
   } catch (error) {
     getLogger().warn(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
-      'MCP session token exchange request failed',
+      { error: error instanceof Error ? error.message : String(error) },
+      'MCP OAuth token exchange request failed',
     );
-    return null;
+    throw new AuthenticationError({
+      message: 'Sanka authorization is temporarily unavailable.',
+      statusCode: 503,
+    });
   }
-
-  const payload = (await response.json().catch(() => null)) as McpSessionTokenEnvelope | null;
+  const payload = (await response.json().catch(() => null)) as ResourceExchangeEnvelope | null;
+  if (response.status === 401) {
+    throw new AuthenticationError({
+      message: 'The access token is invalid or expired.',
+      oauthError: 'invalid_token',
+    });
+  }
   if (!response.ok) {
-    if (response.status !== 404) {
-      getLogger().warn(
-        {
-          status: response.status,
-          error: payload && 'error' in payload ? payload.error : undefined,
-        },
-        'MCP session token exchange failed',
-      );
-    }
-    return null;
+    getLogger().warn({ status: response.status, error: payload?.error }, 'MCP OAuth token exchange failed');
+    // A refused service secret or unknown resource is our configuration, not the client.
+    throw new AuthenticationError({
+      message: 'Sanka authorization is temporarily unavailable.',
+      statusCode: 503,
+    });
   }
-
-  const accessToken = String(payload?.access_token || '').trim();
-  if (!accessToken || !isSankaOAuthAccessToken(accessToken)) {
-    getLogger().warn('MCP session token exchange returned an invalid Sanka access token');
-    return null;
-  }
-
+  const apiToken = optionalTrimmed(payload?.access_token);
   const scopes = normalizeScopeClaim(payload?.scope);
-  const workspaceID = typeof payload?.workspace_id === 'string' ? payload.workspace_id.trim() : '';
-  const workspaceCode = typeof payload?.workspace_code === 'string' ? payload.workspace_code.trim() : '';
-  const workspaceName = typeof payload?.workspace_name === 'string' ? payload.workspace_name.trim() : '';
-  writeCachedMcpSessionToken({
-    accessToken,
-    authorizationServerUrl,
-    expiresInSeconds:
-      typeof payload?.expires_in === 'number' && Number.isFinite(payload.expires_in) ?
-        payload.expires_in
-      : 300,
-    resourceUrl,
+  const expiresIn = Number(payload?.expires_in);
+  if (!apiToken?.startsWith(API_ACCESS_TOKEN_PREFIX) || !(expiresIn > 0)) {
+    getLogger().warn('MCP OAuth token exchange returned an invalid Sanka API token');
+    throw new AuthenticationError({
+      message: 'Sanka returned an invalid authorization result.',
+      statusCode: 503,
+    });
+  }
+  const entry: CachedExchange = {
+    apiToken,
+    // Revocation still applies at once: Sanka checks the connection on every API call.
+    expiresAt: Date.now() + Math.min(EXCHANGE_CACHE_TTL_MS, Math.max(1, expiresIn - 5) * 1000),
     scopes,
-    sessionId: normalizedSessionId,
-    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
-    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
-  });
-
-  return {
-    accessToken,
-    scopes,
-    ...(workspaceID ? { workspace_id: workspaceID } : undefined),
-    ...(workspaceCode ? { workspace_code: workspaceCode } : undefined),
-    ...(workspaceName ? { workspace_name: workspaceName } : undefined),
+    ...(optionalTrimmed(payload?.client_id) ? { client_id: optionalTrimmed(payload?.client_id) } : undefined),
+    ...(optionalTrimmed(payload?.client_name) ?
+      { client_name: optionalTrimmed(payload?.client_name) }
+    : undefined),
+    ...(optionalTrimmed(payload?.workspace_id) ?
+      { workspace_id: optionalTrimmed(payload?.workspace_id) }
+    : undefined),
+    ...(optionalTrimmed(payload?.workspace_code) ?
+      { workspace_code: optionalTrimmed(payload?.workspace_code) }
+    : undefined),
+    ...(optionalTrimmed(payload?.workspace_name) ?
+      { workspace_name: optionalTrimmed(payload?.workspace_name) }
+    : undefined),
   };
+  writeCachedExchange(key, entry);
+  return entry;
 };
 
+/**
+ * Resolve the caller from its MCP OAuth bearer token (MCP authorization spec,
+ * 2026-07-28). Without a token the result is ``authMode: 'none'``; the HTTP layer
+ * answers it with a 401 challenge that points at the protected resource metadata.
+ */
 export const resolveClientAuth = async ({
-  mcpClientName,
-  mcpSessionId,
-  mcpSessionIdForExchange,
   mcpOptions,
   req,
   resourceMetadataUrl,
   resourceUrl,
 }: {
-  mcpClientName?: string | undefined;
-  mcpSessionId?: string | undefined;
-  mcpSessionIdForExchange?: string | undefined;
   mcpOptions: McpOptions;
   req: IncomingMessage;
   resourceMetadataUrl: string;
@@ -429,81 +292,42 @@ export const resolveClientAuth = async ({
   if (mcpOptions.nativeOAuth) {
     return resolveChatGPTClientAuth({ mcpOptions, req, resourceMetadataUrl, resourceUrl });
   }
-  const authorizationHeader = singleHeader(req.headers.authorization);
-  const apiKeyHeader = singleHeader(req.headers['x-sanka-api-key']);
-  const authorizationServerUrl = resolveAuthorizationServerUrl(mcpOptions);
-  const internalAuthorizationServerUrl = resolveInternalAuthorizationServerUrl(mcpOptions);
-
-  const connectUrlForScopes =
-    mcpSessionId && mcpOptions.tokenExchangeSharedSecret ?
-      (scopes?: string[] | undefined) =>
-        buildMcpConnectUrl({
-          clientName: mcpClientName,
-          authorizationServerUrl,
-          resourceUrl,
-          scopes,
-          sessionId: mcpSessionId,
-          sharedSecret: mcpOptions.tokenExchangeSharedSecret,
-        })
-    : undefined;
   const oauthContext = {
-    authorizationServerUrl,
-    ...(connectUrlForScopes ?
-      {
-        connectUrl: connectUrlForScopes(),
-        connectUrlForScopes,
-      }
-    : undefined),
+    authorizationServerUrl: resolveOAuthIssuer(mcpOptions),
     resourceMetadataUrl,
     resourceUrl,
   };
-
-  if (apiKeyHeader) {
+  if (req.headers['x-sanka-api-key']) {
     throw new AuthenticationError({
-      message:
-        'Direct API key authentication is not supported. Connect Sanka through this MCP session instead.',
+      message: 'API keys are not accepted here. Connect Sanka with OAuth from your AI client.',
+      oauthError: 'invalid_request',
     });
   }
-
-  if (!authorizationHeader) {
-    const mcpSessionAccess = await exchangeMcpSessionForAccessToken({
-      authorizationServerUrl: internalAuthorizationServerUrl,
-      resourceUrl,
-      sessionId: mcpSessionIdForExchange,
-      sharedSecret: mcpOptions.tokenExchangeSharedSecret,
-    });
-    if (mcpSessionAccess) {
-      return {
-        authMode: 'oauth_bearer',
-        clientOptions: { apiKey: mcpSessionAccess.accessToken },
-        oauth: {
-          ...oauthContext,
-          scopes: mcpSessionAccess.scopes,
-          ...(mcpSessionAccess.workspace_id ? { workspace_id: mcpSessionAccess.workspace_id } : undefined),
-          ...(mcpSessionAccess.workspace_code ?
-            { workspace_code: mcpSessionAccess.workspace_code }
-          : undefined),
-          ...(mcpSessionAccess.workspace_name ?
-            { workspace_name: mcpSessionAccess.workspace_name }
-          : undefined),
-        },
-      };
-    }
-
-    return {
-      authMode: 'none',
-      clientOptions: {},
-      oauth: {
-        ...oauthContext,
-        scopes: [],
-      },
-    };
+  const authorization = singleHeader(req.headers.authorization)?.trim();
+  if (!authorization) {
+    return { authMode: 'none', clientOptions: {}, oauth: { ...oauthContext, scopes: [] } };
   }
-
-  throw new AuthenticationError({
-    message:
-      'Direct Authorization header authentication is not supported. Connect Sanka through this MCP session instead.',
-  });
+  const token = MCP_OAUTH_ACCESS_TOKEN.exec(authorization)?.[1];
+  if (!token) {
+    throw new AuthenticationError({
+      message: 'The access token is invalid or expired.',
+      oauthError: 'invalid_token',
+    });
+  }
+  const access = await exchangeAccessToken({ mcpOptions, resourceUrl, token });
+  return {
+    authMode: 'oauth_bearer',
+    clientOptions: { apiKey: access.apiToken },
+    oauth: {
+      ...oauthContext,
+      scopes: access.scopes,
+      ...(access.client_id ? { client_id: access.client_id } : undefined),
+      ...(access.client_name ? { client_name: access.client_name } : undefined),
+      ...(access.workspace_id ? { workspace_id: access.workspace_id } : undefined),
+      ...(access.workspace_code ? { workspace_code: access.workspace_code } : undefined),
+      ...(access.workspace_name ? { workspace_name: access.workspace_name } : undefined),
+    },
+  };
 };
 
 const resolveChatGPTClientAuth = async ({
@@ -553,7 +377,7 @@ const resolveChatGPTClientAuth = async ({
       statusCode: response.status >= 500 ? 503 : 401,
     });
   }
-  const payload = (await response.json().catch(() => ({}))) as McpSessionTokenEnvelope;
+  const payload = (await response.json().catch(() => ({}))) as ResourceExchangeEnvelope;
   const scopes = normalizeScopeClaim(payload.scope);
   if (
     typeof payload.access_token !== 'string' ||

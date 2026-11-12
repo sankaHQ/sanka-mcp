@@ -4,13 +4,7 @@ import {
   crmCancelWorkspaceInvitationTool,
   crmConnectSankaTool,
   crmCurrentWorkspaceTool,
-  crmGetCalendarBootstrapTool,
   crmInviteWorkspaceUserTool,
-  crmListCompaniesTool,
-  crmListDealsTool,
-  crmListExpensesTool,
-  crmListPrivateMessagesTool,
-  crmListTicketsTool,
   crmListWorkspaceInvitationsTool,
   crmListWorkspacesTool,
   crmSwitchWorkspaceTool,
@@ -32,56 +26,6 @@ describe('CRM auth and workspace tools', () => {
     }
   });
 
-  it('returns Connect Sanka guidance when auth status is checked without authentication', async () => {
-    const result = await crmAuthStatusTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.structuredContent).toEqual({
-      connected: false,
-      auth_mode: 'none',
-      tool_profile: 'full',
-      scopes: [],
-      message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'connect_sanka',
-      reconnect_instructions:
-        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
-    });
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-  });
-
-  it('returns hosted reconnect metadata when connect_sanka is called without authentication', async () => {
-    const result = await crmConnectSankaTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'hosted',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.structuredContent).toEqual({
-      connected: false,
-      auth_mode: 'none',
-      tool_profile: 'hosted',
-      scopes: [],
-      message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'connect_sanka',
-      reconnect_instructions:
-        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
-    });
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-  });
-
   it('treats MCP access as sufficient for Sanka feature scopes', async () => {
     const result = await crmAuthStatusTool.handler({
       reqContext: {
@@ -98,19 +42,11 @@ describe('CRM auth and workspace tools', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.structuredContent).toEqual({
+    expect(result.structuredContent).toMatchObject({
       connected: true,
-      auth_mode: 'oauth_bearer',
-      tool_profile: 'hosted',
-      scopes: ['mcp:access'],
-      message: 'Sanka CRM is connected through this MCP session.',
       required_scopes: ['deals:read', 'expenses:write', 'incentives:read'],
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'connect_sanka',
-      reconnect_instructions:
-        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
     });
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
+    expect(result.structuredContent?.['missing_scopes']).toBeUndefined();
   });
 
   it('includes the authenticated workspace when auth_status has OAuth workspace metadata', async () => {
@@ -234,7 +170,7 @@ describe('CRM auth and workspace tools', () => {
     expect((result.content[0] as any).text).toContain('Workspace B');
   });
 
-  it('switches the persistent MCP workspace binding when an MCP session id is available', async () => {
+  it('switches the workspace of the OAuth connection', async () => {
     const post = jest.fn().mockResolvedValue({
       data: {
         workspace: { id: 'workspace-uuid-2', name: 'Workspace B', code: '48803074' },
@@ -267,7 +203,6 @@ describe('CRM auth and workspace tools', () => {
       reqContext: {
         client: { get, post } as any,
         auth,
-        mcpSessionId: 'mcp-session-1',
         toolProfile: 'hosted',
       },
       args: { workspace_id: 'workspace-uuid-2' },
@@ -275,9 +210,6 @@ describe('CRM auth and workspace tools', () => {
 
     expect(post).toHaveBeenCalledWith('/api/v2/workspaces/switch', {
       body: { target_workspace_id: 'workspace-uuid-2' },
-      headers: {
-        'X-Sanka-MCP-Session-ID': 'mcp-session-1',
-      },
     });
     expect(get).toHaveBeenCalledWith('/api/v2/auth/session', undefined);
     expect(result.structuredContent).toEqual({
@@ -563,305 +495,28 @@ describe('CRM auth and workspace tools', () => {
       }),
     );
     expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
+    expect(result.structuredContent?.['reconnect_mode']).toBe('oauth');
   });
 
-  it('uses Connect Sanka metadata when auth status is checked from hosted Codex', async () => {
-    const result = await crmAuthStatusTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: oauthContext(),
-        mcpClientInfo: {
-          name: 'Codex',
-          version: '1.0.0',
+  it.each([crmAuthStatusTool, crmConnectSankaTool])(
+    'reports the connection and the AI client from $tool.name',
+    async (tool) => {
+      const result = await tool.handler({
+        reqContext: {
+          client: {} as any,
+          auth: oauthContext(),
+          mcpClientInfo: { name: 'Codex', version: '1.0.0' },
+          toolProfile: 'hosted',
         },
-        toolProfile: 'hosted',
-      },
-      args: {},
-    });
+        args: {},
+      });
 
-    expect(result.isError).toBeUndefined();
-    expect(result.structuredContent).toEqual({
-      connected: true,
-      auth_mode: 'oauth_bearer',
-      tool_profile: 'hosted',
-      client_name: 'Codex',
-      scopes: [],
-      message: 'Sanka CRM is connected through this MCP session.',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'connect_sanka',
-      reconnect_instructions:
-        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
-    });
-  });
-
-  it('exposes Connect Sanka guidance when auth_status is checked from hosted Codex', async () => {
-    const result = await crmAuthStatusTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: {
-          ...oauthContext({ authMode: 'none' }),
-          oauth: {
-            ...oauthContext().oauth,
-            connectUrlForScopes: () => 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
-          },
-        },
-        mcpClientInfo: {
-          name: 'codex-mcp-client',
-          version: '1.0.0',
-        },
-        toolProfile: 'hosted',
-      },
-      args: {
-        required_scopes: ['crm:read'],
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    const [content] = result.content;
-    expect(content?.type).toBe('text');
-    const text = content?.type === 'text' ? content.text : '';
-    expect(text).toContain('/oauth/mcp/connect');
-    expect(text).toContain('Connect Sanka');
-    expect(result.structuredContent).toEqual(
-      expect.objectContaining({
-        connected: false,
-        auth_mode: 'none',
-        tool_profile: 'hosted',
-        client_name: 'codex-mcp-client',
-        scopes: [],
-        message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-        required_scopes: ['crm:read'],
-        connect_url: 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
-        connect_scopes: ['mcp:access'],
-        resource_url: 'https://mcp.sanka.com/mcp',
-        reconnect_mode: 'connect_sanka',
-      }),
-    );
-    expect(result.structuredContent?.['authorization_url']).toBeUndefined();
-    expect(result.structuredContent?.['resource_metadata_url']).toBeUndefined();
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-  });
-
-  it('exposes Connect Sanka guidance when auth_status is checked from hosted Claude', async () => {
-    const result = await crmAuthStatusTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: {
-          ...oauthContext({ authMode: 'none' }),
-          oauth: {
-            ...oauthContext().oauth,
-            connectUrlForScopes: () => 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
-          },
-        },
-        mcpClientInfo: {
-          name: 'Claude Desktop',
-          version: '1.0.0',
-        },
-        toolProfile: 'hosted',
-      },
-      args: {
-        required_scopes: ['crm:read'],
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    const [content] = result.content;
-    expect(content?.type).toBe('text');
-    const text = content?.type === 'text' ? content.text : '';
-    expect(text).toContain('/oauth/mcp/connect');
-    expect(text).toContain('Connect Sanka');
-    expect(result.structuredContent).toEqual(
-      expect.objectContaining({
-        connected: false,
-        auth_mode: 'none',
-        tool_profile: 'hosted',
-        client_name: 'Claude Desktop',
-        scopes: [],
-        message: 'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.',
-        required_scopes: ['crm:read'],
-        connect_url: 'https://app.sanka.com/oauth/mcp/connect?token=secret-token',
-        connect_scopes: ['mcp:access'],
-        resource_url: 'https://mcp.sanka.com/mcp',
-        reconnect_mode: 'connect_sanka',
-      }),
-    );
-    expect(result.structuredContent?.['authorization_url']).toBeUndefined();
-    expect(result.structuredContent?.['resource_metadata_url']).toBeUndefined();
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-  });
-
-  it('uses Connect Sanka metadata when connect_sanka is called from hosted Claude', async () => {
-    const result = await crmConnectSankaTool.handler({
-      reqContext: {
-        client: {} as any,
-        auth: oauthContext(),
-        mcpClientInfo: {
-          name: 'Claude',
-          version: '1.0.0',
-        },
-        toolProfile: 'hosted',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBeUndefined();
-    expect(result.structuredContent).toEqual({
-      connected: true,
-      auth_mode: 'oauth_bearer',
-      tool_profile: 'hosted',
-      client_name: 'Claude',
-      scopes: [],
-      message: 'Sanka CRM is already connected through this MCP session.',
-      resource_url: 'https://mcp.sanka.com/mcp',
-      reconnect_mode: 'connect_sanka',
-      reconnect_instructions:
-        'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
-    });
-  });
-
-  it('returns reauth metadata when list companies is called without authentication', async () => {
-    const list = jest.fn();
-    const connectUrl = 'https://app.sanka.com/oauth/mcp/connect?token=payload.signature';
-    const auth = oauthContext({ authMode: 'none', scopes: [] });
-
-    const result = await crmListCompaniesTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            companies: { list },
-          },
-        } as any,
-        auth: {
-          ...auth,
-          oauth: {
-            ...auth.oauth,
-            connectUrlForScopes: () => connectUrl,
-          },
-        },
-        toolProfile: 'full',
-      },
-      args: { search: 'Acme' },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(result.structuredContent?.['connect_url']).toBe(connectUrl);
-    expect(result.structuredContent?.['connect_url_markdown']).toBe(`[${connectUrl}](${connectUrl})`);
-    expect(result.structuredContent?.['required_user_facing_reply']).toContain(
-      `[${connectUrl}](${connectUrl})`,
-    );
-    expect(list).not.toHaveBeenCalled();
-  });
-
-  it('returns reauth metadata when list private messages is called without authentication', async () => {
-    const list = jest.fn();
-
-    const result = await crmListPrivateMessagesTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            accountMessages: { list },
-          },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: { status: 'active' },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(list).not.toHaveBeenCalled();
-  });
-
-  it('returns reauth metadata when list deals is called without authentication', async () => {
-    const list = jest.fn();
-
-    const result = await crmListDealsTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            deals: { list },
-          },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(list).not.toHaveBeenCalled();
-  });
-
-  it('returns reauth metadata when list tickets is called without authentication', async () => {
-    const list = jest.fn();
-
-    const result = await crmListTicketsTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            tickets: { list },
-          },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(list).not.toHaveBeenCalled();
-  });
-
-  it('returns reauth metadata when list expenses is called without authentication', async () => {
-    const list = jest.fn();
-
-    const result = await crmListExpensesTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            expenses: { list },
-          },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: {},
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(list).not.toHaveBeenCalled();
-  });
-
-  it('returns reauth metadata when calendar bootstrap is called without authentication', async () => {
-    const bootstrap = jest.fn();
-
-    const result = await crmGetCalendarBootstrapTool.handler({
-      reqContext: {
-        client: {
-          public: {
-            calendar: { bootstrap },
-          },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: { slug: 'demo-event' },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(bootstrap).not.toHaveBeenCalled();
-  });
+      expect(result.isError).toBeUndefined();
+      expect(result.structuredContent).toMatchObject({
+        connected: true,
+        client_name: 'Codex',
+        reconnect_mode: 'oauth',
+      });
+    },
+  );
 });

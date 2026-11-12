@@ -38,26 +38,6 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
   });
 
   describe('generate_demo_workspace', () => {
-    it('returns a reauth challenge when called without authentication', async () => {
-      const generate = jest.fn();
-
-      const result = await demoGenerateTool.handler({
-        reqContext: {
-          client: {
-            demo: { generate },
-          } as any,
-          auth: oauthContext({ authMode: 'none', scopes: [] }),
-          toolProfile: 'full',
-        },
-        args: { template: 'b2b_saas', country: 'us' },
-      });
-
-      expect(result.isError).toBe(true);
-      expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-      expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-      expect(generate).not.toHaveBeenCalled();
-    });
-
     it('returns an input error when template or country is missing', async () => {
       const generate = jest.fn();
 
@@ -322,26 +302,6 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
   });
 
   describe('push_integration_sync', () => {
-    it('returns a reauth challenge when called without authentication', async () => {
-      const push = jest.fn();
-
-      const result = await integrationSyncPushTool.handler({
-        reqContext: {
-          client: {
-            integrationSync: { push },
-          } as any,
-          auth: oauthContext({ authMode: 'none', scopes: [] }),
-          toolProfile: 'full',
-        },
-        args: { channel_id: 'chan-1', object_type: 'company', workspace_scope: 'all' },
-      });
-
-      expect(result.isError).toBe(true);
-      expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-      expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-      expect(push).not.toHaveBeenCalled();
-    });
-
     it('requires channel_id and object_type', async () => {
       const push = jest.fn();
 

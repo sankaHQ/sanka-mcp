@@ -90,7 +90,7 @@ describe('ChatGPT connector transport', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: params ? 'tools/call' : 'tools/list', params }),
     });
 
-  it('advertises OAuth only on the explicit connector path', async () => {
+  it('keeps ChatGPT credentials on the connector path', async () => {
     const metadata = await fetch(`${baseURL}/.well-known/oauth-protected-resource/chatgpt`);
     expect(await metadata.json()).toMatchObject({
       resource: 'https://mcp.example.test/chatgpt',
@@ -102,7 +102,7 @@ describe('ChatGPT connector transport', () => {
     expect(native.headers.get('www-authenticate')).toContain('/.well-known/oauth-protected-resource/chatgpt');
     const legacy = await call('/mcp', 'sccat_test-credential');
     expect(legacy.status).toBe(401);
-    expect(legacy.headers.get('www-authenticate')).toBeNull();
+    expect(legacy.headers.get('www-authenticate')).not.toContain('/chatgpt');
     expect(exchanges).toEqual([]);
   });
 

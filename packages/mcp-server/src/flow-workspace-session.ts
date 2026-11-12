@@ -31,11 +31,8 @@ export const flowWorkspaceSessionTool: McpTool = {
   },
   handler: async ({ reqContext, args }) => {
     const base = flowWorkspaceOrigin();
-    if (
-      !base ||
-      reqContext.auth?.authMode !== 'oauth_bearer' ||
-      (!reqContext.auth.oauth.nativeOAuth && !reqContext.mcpSessionId)
-    )
+    // Full workspace access exists only on the ChatGPT connector's own grant.
+    if (!base || reqContext.auth?.authMode !== 'oauth_bearer' || !reqContext.auth.oauth.nativeOAuth)
       return asErrorResult('Open Sanka Flow through the ChatGPT connection.');
     const expected = String(args?.['expected_workspace_id'] || '');
     const origin = String(args?.['browser_origin'] || '');
@@ -66,9 +63,6 @@ export const flowWorkspaceSessionTool: McpTool = {
       headers: {
         ...binding.headers,
         'X-Workspace-Code': expected,
-        ...(!reqContext.auth.oauth.nativeOAuth && reqContext.mcpSessionId ?
-          { 'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId }
-        : {}),
       },
       maxRetries: 0,
       body: { expected_workspace_id: expected, browser_origin: origin, browser_challenge: challenge },

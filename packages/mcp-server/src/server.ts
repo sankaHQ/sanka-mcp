@@ -590,7 +590,7 @@ export async function recordMcpToolCall({
   result: ToolCallResult;
   startedAt: number;
 }): Promise<void> {
-  if (!reqContext.mcpSessionId || reqContext.auth?.authMode !== 'oauth_bearer') {
+  if (reqContext.auth?.authMode !== 'oauth_bearer') {
     return;
   }
 
@@ -640,9 +640,8 @@ export async function recordMcpToolCall({
         ...(recordIds ? { record_ids: recordIds } : undefined),
         ...(error ? { error } : undefined),
       },
-      headers: {
-        'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId,
-      },
+      // Sanka attributes the call to the OAuth connection behind this API token.
+      headers: reqContext.mcpSessionId ? { 'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId } : {},
     });
   } catch (error) {
     logger.warn('Failed to record MCP tool call log', error);
@@ -714,20 +713,10 @@ export const clientForTool = (client: Sanka, mcpTool: Pick<McpTool, 'metadata'>)
 // Renamed tools that tools/call still accepts under their earlier names (not listed).
 const LEGACY_TOOL_NAMES: Readonly<Record<string, string>> = { ...LEGACY_CONVOY_TOOL_NAMES };
 
-const publicToolDescriptor = (mcpTool: McpTool, nativeOAuth = false): McpTool['tool'] => {
-  if (nativeOAuth) {
-    const securitySchemes = [{ type: 'oauth2' as const, scopes: ['mcp:access'] }];
-    return { ...mcpTool.tool, securitySchemes, _meta: { ...mcpTool.tool._meta, securitySchemes } };
-  }
-  const advertisedSecuritySchemes = mcpTool.tool.securitySchemes?.filter(
-    (scheme) => scheme.type !== 'oauth2',
-  );
-  if (advertisedSecuritySchemes?.length === mcpTool.tool.securitySchemes?.length) {
-    return mcpTool.tool;
-  }
-
-  const { securitySchemes: _internalSecuritySchemes, ...tool } = mcpTool.tool;
-  return advertisedSecuritySchemes?.length ? { ...tool, securitySchemes: advertisedSecuritySchemes } : tool;
+/** Every tool runs under the caller's Sanka OAuth token (scope mcp:access). */
+const publicToolDescriptor = (mcpTool: McpTool): McpTool['tool'] => {
+  const securitySchemes = [{ type: 'oauth2' as const, scopes: ['mcp:access'] }];
+  return { ...mcpTool.tool, securitySchemes, _meta: { ...mcpTool.tool._meta, securitySchemes } };
 };
 
 /**
@@ -826,11 +815,7 @@ export async function initMcpServer(params: {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      // oauth2 remains an internal marker for Sanka scope enforcement, but
-      // advertising it would trigger the native client flow that this hosted
-      // server intentionally does not implement. Clients connect via the
-      // Connect Sanka session exchange instead.
-      tools: providedTools.map((tool) => publicToolDescriptor(tool, params.mcpOptions?.nativeOAuth)),
+      tools: providedTools.map((tool) => publicToolDescriptor(tool)),
     };
   });
 

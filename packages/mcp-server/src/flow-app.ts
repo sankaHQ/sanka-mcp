@@ -82,45 +82,11 @@ export const flowWorkspaceTool: McpTool = {
     if (result.isError) return result;
     const { reqContext } = input;
     const oauth = reqContext.auth?.oauth;
-    let access = oauth?.workspace_access || 'invoice_pilot';
-    let available = Boolean(flowWorkspaceOrigin() && oauth?.nativeOAuth);
-    let consentUrl: string | undefined;
-    const expected = result.structuredContent?.['workspace_id'];
-    if (
-      flowWorkspaceOrigin() &&
-      !oauth?.nativeOAuth &&
-      reqContext.auth?.authMode === 'oauth_bearer' &&
-      reqContext.mcpSessionId &&
-      typeof expected === 'string'
-    ) {
-      const response = await reqContext.client.get<{
-        data: {
-          workspace_id: string;
-          workspace_access: 'invoice_pilot' | 'full_workspace';
-          full_workspace_available: boolean;
-        };
-      }>('/api/v2/auth/chatgpt-connector/mcp/status', {
-        query: { expected_workspace_id: expected },
-        headers: { 'X-Sanka-MCP-Session-ID': reqContext.mcpSessionId, 'X-Workspace-Code': expected },
-        maxRetries: 0,
-      });
-      if (response.data?.workspace_id !== expected) return asErrorResult('Workspace changed. Refresh Sanka.');
-      access = response.data.workspace_access;
-      available = response.data.full_workspace_available;
-      if (available && access !== 'full_workspace' && oauth?.connectUrl) {
-        const url = new URL(oauth.connectUrl);
-        const token = url.searchParams.get('token');
-        if (token) {
-          url.pathname = '/oauth/mcp/workspace';
-          url.search = new URLSearchParams({ token, expected_workspace_id: expected }).toString();
-          url.hash = '';
-          consentUrl = url.href;
-        }
-      }
-    }
+    // Full Flow workspace access exists only on the ChatGPT connector's own grant.
+    const access = oauth?.workspace_access || 'invoice_pilot';
+    const available = Boolean(flowWorkspaceOrigin() && oauth?.nativeOAuth);
     return {
       ...result,
-      ...(consentUrl ? { _meta: { ...result._meta, flow_workspace_consent_url: consentUrl } } : {}),
       structuredContent: {
         ...result.structuredContent,
         workspace_access: access,

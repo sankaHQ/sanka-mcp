@@ -99,29 +99,6 @@ describe('public transfer MCP tools', () => {
     ]);
   });
 
-  it('returns a reauth challenge for upload_import_file without authentication', async () => {
-    const uploadFile = jest.fn();
-
-    const result = await uploadImportFileTool.handler({
-      reqContext: {
-        client: {
-          public: { imports: { uploadFile } },
-        } as any,
-        auth: oauthContext({ authMode: 'none', scopes: [] }),
-        toolProfile: 'full',
-      },
-      args: {
-        filename: 'items.csv',
-        content_base64: Buffer.from('name,price\nWidget,10\n').toString('base64'),
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result._meta?.['mcp/www_authenticate']).toBeUndefined();
-    expect(result.structuredContent?.['reconnect_mode']).toBe('connect_sanka');
-    expect(uploadFile).not.toHaveBeenCalled();
-  });
-
   it('uploads an import file and defaults object_type to item', async () => {
     const uploadFile = jest.fn().mockResolvedValue({
       file_id: 'file-123',

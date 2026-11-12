@@ -1,9 +1,3 @@
-import {
-  buildMcpConnectMarkdownLink,
-  buildMcpConnectStructuredReply,
-  buildMcpConnectUserFacingReply,
-  normalizeMcpConnectScopes,
-} from './mcp-connect';
 import { oauthScopeSatisfied } from './tool-scope-requirements';
 import { McpRequestContext, ToolCallResult } from './types';
 
@@ -34,42 +28,21 @@ const authErrorResult = ({
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
-  const connectUrl = oauth?.connectUrlForScopes?.(requiredScopes);
-  const connectScopes = normalizeMcpConnectScopes(requiredScopes);
-  const reconnectMetadata =
-    oauth ?
-      {
-        ...(connectUrl ?
-          {
-            connect_url: connectUrl,
-            connect_scopes: connectScopes,
-            ...buildMcpConnectStructuredReply(connectUrl),
-          }
-        : undefined),
-        resource_url: oauth.resourceUrl,
-        reconnect_mode: 'connect_sanka',
-        reconnect_instructions:
-          'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
-      }
-    : undefined;
-  const visibleMessage =
-    reconnectMetadata ?
-      [
-        message,
-        connectUrl ? `Connect Sanka: ${buildMcpConnectMarkdownLink(connectUrl)}` : undefined,
-        connectUrl ? `Required user-facing reply: ${buildMcpConnectUserFacingReply(connectUrl)}` : undefined,
-      ]
-        .filter(Boolean)
-        .join('\n\n')
-    : message;
-
+  const reconnectInstructions =
+    "Reconnect the Sanka MCP server in the AI client's MCP settings (Sanka OAuth sign-in), then retry.";
   return {
-    content: [{ type: 'text', text: visibleMessage }],
+    content: [{ type: 'text', text: oauth ? `${message} ${reconnectInstructions}` : message }],
     isError: true,
     structuredContent: {
       error,
       ...(requiredScopes?.length ? { required_scopes: requiredScopes } : undefined),
-      ...reconnectMetadata,
+      ...(oauth ?
+        {
+          resource_url: oauth.resourceUrl,
+          reconnect_mode: 'oauth',
+          reconnect_instructions: reconnectInstructions,
+        }
+      : undefined),
     },
   };
 };

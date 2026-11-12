@@ -19,10 +19,14 @@ export type McpOptions = {
   chatgptConnectorResource?: string | undefined;
   /** Set only by the dedicated HTTP route, never by client query parameters. */
   nativeOAuth?: boolean | undefined;
-  authorizationServerUrl?: string | undefined;
+  /** Issuer of Sanka's MCP OAuth authorization server, advertised in resource metadata. */
+  oauthIssuer?: string | undefined;
+  /** Authenticates this server to Sanka's internal MCP OAuth token exchange. */
+  oauthResourceServerSecret?: string | undefined;
+  /** Internal base URL of sanka-api for the token exchanges (defaults to the issuer origin). */
   internalAuthorizationServerUrl?: string | undefined;
+  /** ChatGPT connector exchange secret. */
   tokenExchangeSharedSecret?: string | undefined;
-  streamableAuthFallback?: 'http_challenge' | 'tool_result' | undefined;
   includeCodeTool?: boolean | undefined;
   includeDocsTools?: boolean | undefined;
   docsDir?: string | undefined;
@@ -59,25 +63,22 @@ export function parseCLIOptions(): CLIOptions {
       default: 'https://mcp.sanka.com/chatgpt',
       description: 'Canonical resource identifier for the ChatGPT connector.',
     })
-    .option('authorization-server-url', {
+    .option('oauth-issuer', {
       type: 'string',
-      description: 'Base URL for the Sanka web app that serves Connect Sanka, such as https://app.sanka.com',
+      default: 'https://api-v2.sanka.com/oauth/mcp',
+      description: "Issuer of Sanka's MCP OAuth authorization server, advertised in resource metadata.",
+    })
+    .option('oauth-resource-server-secret', {
+      type: 'string',
+      description: "Secret this server sends to Sanka's internal MCP OAuth token exchange.",
     })
     .option('internal-authorization-server-url', {
       type: 'string',
-      description:
-        'Optional internal base URL for mcp-session token exchange. Defaults to authorization-server-url.',
+      description: 'Internal base URL of sanka-api for token exchanges. Defaults to the issuer origin.',
     })
     .option('token-exchange-shared-secret', {
       type: 'string',
-      description:
-        'Shared secret used to mint Sanka MCP connect URLs and exchange approved mcp-session-id values for short-lived Sanka access tokens.',
-    })
-    .option('streamable-auth-fallback', {
-      type: 'string',
-      choices: ['http_challenge', 'tool_result'],
-      description:
-        'How unauthenticated protected streamable tool calls are reported. Defaults to an HTTP 401 response unless set to tool_result.',
+      description: 'Secret for the ChatGPT connector token exchange with sanka-api.',
     })
     .option('code-allow-http-gets', {
       type: 'boolean',
@@ -124,7 +125,8 @@ export function parseCLIOptions(): CLIOptions {
     })
     .option('resource-url', {
       type: 'string',
-      description: 'MCP resource URL bound into Connect Sanka session tokens',
+      description:
+        'Canonical public URL of the /mcp endpoint, such as https://mcp.sanka.com/mcp. Its origin names every OAuth resource this server serves.',
     })
     .option('socket', { type: 'string', description: 'Unix socket to serve on if using http transport' })
     .option('tools', {
@@ -163,13 +165,10 @@ export function parseCLIOptions(): CLIOptions {
     chatgptConnectorEnabled: argv.chatgptConnectorEnabled === true,
     chatgptConnectorIssuer: optionalString(argv.chatgptConnectorIssuer),
     chatgptConnectorResource: optionalString(argv.chatgptConnectorResource),
-    authorizationServerUrl: optionalString(argv.authorizationServerUrl),
+    oauthIssuer: optionalString(argv.oauthIssuer),
+    oauthResourceServerSecret: optionalString(argv.oauthResourceServerSecret),
     internalAuthorizationServerUrl: optionalString(argv.internalAuthorizationServerUrl),
     tokenExchangeSharedSecret: optionalString(argv.tokenExchangeSharedSecret),
-    streamableAuthFallback:
-      argv.streamableAuthFallback === 'tool_result' || argv.streamableAuthFallback === 'http_challenge' ?
-        argv.streamableAuthFallback
-      : undefined,
     ...(includeCodeTool !== undefined && { includeCodeTool }),
     ...(includeDocsTools !== undefined && { includeDocsTools }),
     debug: !!argv.debug,
@@ -216,10 +215,10 @@ export function parseQueryOptions(defaultOptions: McpOptions, query: unknown): M
     : defaultOptions.includeDocsTools;
 
   return {
-    authorizationServerUrl: defaultOptions.authorizationServerUrl,
+    oauthIssuer: defaultOptions.oauthIssuer,
+    oauthResourceServerSecret: defaultOptions.oauthResourceServerSecret,
     internalAuthorizationServerUrl: defaultOptions.internalAuthorizationServerUrl,
     tokenExchangeSharedSecret: defaultOptions.tokenExchangeSharedSecret,
-    streamableAuthFallback: defaultOptions.streamableAuthFallback,
     ...(codeTool !== undefined && { includeCodeTool: codeTool }),
     ...(docsTools !== undefined && { includeDocsTools: docsTools }),
     docsDir: defaultOptions.docsDir,

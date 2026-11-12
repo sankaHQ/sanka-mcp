@@ -13,6 +13,10 @@ const API = 'http://localhost:5000/api/v2';
 const SEARCH_PREVIEW = `${API}/actions/ai-contact-search/selection-preview`;
 const EXECUTE = `${API}/workflows/form/action/execute`;
 const RUN_ID = '4c7d7eb2-b5b8-5b33-a6c6-1b74e7879830';
+// Every Action call first reads the workspace the connection's API token names, then binds to it.
+const session = () => envelope({ current_workspace: { id: 'ws-1', code: '10101010' } });
+const SESSION_READ = { method: 'GET', url: `${API}/public/auth/session` };
+const BOUND = { 'x-sanka-expected-workspace-id': 'ws-1', 'x-sanka-mcp': 'true' };
 const auth = oauthContext({ workspace: { code: '10101010' } });
 
 const preview = (overrides: Record<string, unknown> = {}) =>
@@ -49,10 +53,11 @@ describe('Flow Action tools', () => {
     const { requests, result } = await sendThroughSDK({
       tool: previewFlowActionTool,
       args: { ...searchArgs, max_people: 3 },
-      responses: [preview()],
+      responses: [session(), preview()],
     });
 
     expect(requests).toEqual([
+      SESSION_READ,
       {
         method: 'POST',
         url: SEARCH_PREVIEW,
@@ -61,6 +66,7 @@ describe('Flow Action tools', () => {
           record_ids: ['c-1', 'c-2'],
           inputs: { roles: ['finance'], max_people: 3 },
         },
+        headers: BOUND,
       },
     ]);
     expect(result.structuredContent).toMatchObject({ status: 'needs_confirmation', company_count: 2 });
@@ -72,12 +78,12 @@ describe('Flow Action tools', () => {
     const { requests, result } = await sendThroughSDK({
       tool: runFlowActionTool,
       args: { action: 'ai_contact_search', list_id: 'list-1', confirmed_company_count: 2 },
-      responses: [preview(), started()],
+      responses: [session(), preview(), started()],
       context: { auth },
     });
 
-    expect(requests[0]).toMatchObject({ url: SEARCH_PREVIEW, body: { list_id: 'list-1' } });
-    expect(requests[1]).toEqual({
+    expect(requests[1]).toMatchObject({ url: SEARCH_PREVIEW, body: { list_id: 'list-1' } });
+    expect(requests[2]).toEqual({
       method: 'POST',
       url: `${EXECUTE}?action_id=ai-contact-search&object_type=company&page_group_type=company`,
       body: {
@@ -87,6 +93,7 @@ describe('Flow Action tools', () => {
         idempotency_key: expect.stringMatching(/^mcp-/),
         selection: { mode: 'explicit', object_type: 'company', record_ids: ['c-1', 'c-2'] },
       },
+      headers: BOUND,
     });
     expect(result.structuredContent).toMatchObject({
       status: 'enqueued',
@@ -102,10 +109,11 @@ describe('Flow Action tools', () => {
     const { requests, result } = await sendThroughSDK({
       tool: runFlowActionTool,
       args: { ...searchArgs, confirmed_company_count: 2 },
-      responses: [preview(), new Response('', { status: 500 }), started()],
+      responses: [session(), preview(), new Response('', { status: 500 }), started()],
     });
 
     expect(requests.map((request) => request.url.split('?')[0])).toEqual([
+      SESSION_READ.url,
       SEARCH_PREVIEW,
       `${API}/auth/session`,
       EXECUTE,
@@ -114,31 +122,16 @@ describe('Flow Action tools', () => {
     expect(result.structuredContent).toMatchObject({ run_id: RUN_ID });
   });
 
-  // The bug: a session that switched workspace spends credit in the wrong one.
-  it('names the session workspace, and stops when it is not the expected one', async () => {
-    const session = envelope({ current_workspace: { id: 'ws-1', code: '10101010' } });
-    const { requests } = await sendThroughSDK({
-      tool: runFlowActionTool,
-      args: { ...searchArgs, confirmed_company_count: 2, expected_workspace_id: 'ws-1' },
-      responses: [session, preview(), started()],
-      context: { auth, mcpSessionId: 'mcp-1' },
-    });
-    const bound = {
-      'x-sanka-expected-workspace-id': 'ws-1',
-      'x-sanka-mcp': 'true',
-      'x-sanka-mcp-session-id': 'mcp-1',
-    };
-    expect(requests[1]?.headers).toEqual(bound);
-    expect(requests[2]?.headers).toEqual(bound);
-
-    const { requests: stopped, result } = await sendThroughSDK({
+  // The bug: a connection that switched workspace spends credit in the wrong one.
+  it('stops when the connection workspace is not the expected one', async () => {
+    const { requests, result } = await sendThroughSDK({
       tool: runFlowActionTool,
       args: { ...searchArgs, confirmed_company_count: 2, expected_workspace_id: 'ws-2' },
-      responses: [envelope({ current_workspace: { id: 'ws-1', code: '10101010' } })],
-      context: { auth, mcpSessionId: 'mcp-1' },
+      responses: [session()],
+      context: { auth },
     });
     expect(result.isError).toBe(true);
-    expect(stopped).toHaveLength(1);
+    expect(requests).toEqual([SESSION_READ]);
   });
 
   // The bug: a repeated tool call bills the same companies twice.
@@ -147,10 +140,10 @@ describe('Flow Action tools', () => {
       const { requests } = await sendThroughSDK({
         tool: runFlowActionTool,
         args: { ...args, confirmed_company_count: 2 },
-        responses: [preview(args['roles'] ? { inputs: { roles: args['roles'] } } : {}), started()],
+        responses: [session(), preview(args['roles'] ? { inputs: { roles: args['roles'] } } : {}), started()],
         context: { auth },
       });
-      return (requests[1]?.body as Record<string, unknown>)['idempotency_key'];
+      return (requests[2]?.body as Record<string, unknown>)['idempotency_key'];
     };
 
     const first = await keyOf(searchArgs);
@@ -164,8 +157,8 @@ describe('Flow Action tools', () => {
       name: 'the count changed since the person confirmed it',
       tool: runFlowActionTool,
       args: { ...searchArgs, confirmed_company_count: 3 },
-      responses: [preview()],
-      requestCount: 1,
+      responses: [session(), preview()],
+      requestCount: 2,
       text: 'not the 3 the person confirmed',
     },
     // The bug: a model runs without asking, when the schema is not enforced by its client.
@@ -220,7 +213,7 @@ describe('Flow Action tools', () => {
     const { requests, result } = await sendThroughSDK({
       tool: runFlowActionTool,
       args: { ...searchArgs, confirmed_company_count: 2 },
-      responses: [apiError(status, code, message)],
+      responses: [session(), apiError(status, code, message)],
     });
     const normalized = normalizeToolCallResult({
       mcpTool: runFlowActionTool,
@@ -228,7 +221,7 @@ describe('Flow Action tools', () => {
       result,
     });
 
-    expect(requests).toHaveLength(1);
+    expect(requests).toHaveLength(2);
     expect(normalized.isError).toBe(true);
     expect(normalized.structuredContent).toMatchObject({
       code,
@@ -245,6 +238,7 @@ describe('Flow Action tools', () => {
       tool: previewFlowActionTool,
       args: searchArgs,
       responses: [
+        session(),
         apiError(403, 'FEATURE_NOT_ENABLED', 'AI contact search is not available in this workspace.'),
       ],
     });
@@ -260,6 +254,7 @@ describe('Flow Action tools', () => {
       tool: getFlowActionRunTool,
       args: { run_id: RUN_ID },
       responses: [
+        session(),
         envelope({
           id: RUN_ID,
           action_slug: 'ai-contact-search',
@@ -283,7 +278,10 @@ describe('Flow Action tools', () => {
       context: { auth },
     });
 
-    expect(requests).toEqual([{ method: 'GET', url: `${API}/action-history/runs/${RUN_ID}` }]);
+    expect(requests).toEqual([
+      SESSION_READ,
+      { method: 'GET', url: `${API}/action-history/runs/${RUN_ID}`, headers: BOUND },
+    ]);
     expect(result.structuredContent).toMatchObject({
       done: true,
       company_count: 2,
@@ -342,7 +340,7 @@ describe('Flow Action tools', () => {
     const { result } = await sendThroughSDK({
       tool: getFlowActionRunTool,
       args: { run_id: RUN_ID },
-      responses: [envelope(run)],
+      responses: [session(), envelope(run)],
       context: { auth },
     });
 
@@ -355,7 +353,7 @@ describe('Flow Action tools', () => {
     const { result } = await sendThroughSDK({
       tool: getFlowActionRunTool,
       args: { run_id: RUN_ID },
-      responses: [envelope({ action_slug: 'send-email', status: 'success' })],
+      responses: [session(), envelope({ action_slug: 'send-email', status: 'success' })],
     });
 
     expect(result.isError).toBe(true);
@@ -367,12 +365,14 @@ describe('Flow Action tools', () => {
       tool: getFlowActionRunTool,
       args: { run_id: RUN_ID },
       responses: [
+        session(),
         envelope({ action_slug: 'ai-contact-search', status: 'success', output_data: {} }),
         envelope({ current_workspace: { id: 'ws-1', code: '55555555' } }),
       ],
     });
 
     expect(requests.map((request) => request.url)).toEqual([
+      SESSION_READ.url,
       `${API}/action-history/runs/${RUN_ID}`,
       `${API}/auth/session`,
     ]);

@@ -10,7 +10,7 @@ describe('MCP tool call logging', () => {
     ['send_invoice_email', 'Send invoice email', 'invoices', 'write'],
     ['switch_workspace', 'Switch workspace', 'workspace', 'write'],
   ])(
-    'records authenticated MCP tool calls for %s with the session header',
+    'records authenticated MCP tool calls for %s without a session header',
     async (toolName, toolTitle, resource, operation) => {
       const post = jest.fn().mockResolvedValue({});
       const logger = { warn: jest.fn() };
@@ -29,7 +29,6 @@ describe('MCP tool call logging', () => {
       } as unknown as McpTool;
       const reqContext = {
         client: { post },
-        mcpSessionId: 'codex-session-123',
         mcpClientInfo: { name: 'Codex', version: '0.1.0' },
         mcpProtocolVersion: '2025-03-26',
         mcpRequestEnvironment: {
@@ -82,9 +81,7 @@ describe('MCP tool call logging', () => {
           model_provider: 'openai',
           model_name: 'gpt-5.5',
         }),
-        headers: {
-          'X-Sanka-MCP-Session-ID': 'codex-session-123',
-        },
+        headers: {},
       });
     },
   );
@@ -112,7 +109,6 @@ describe('MCP tool call logging', () => {
       mcpTool: tool,
       reqContext: {
         client: { post },
-        mcpSessionId: 'codex-session-123',
         auth: {
           authMode: 'oauth_bearer',
           clientOptions: {},
@@ -159,53 +155,8 @@ describe('MCP tool call logging', () => {
           invoice_ids: ['invoice-1'],
         },
       }),
-      headers: {
-        'X-Sanka-MCP-Session-ID': 'codex-session-123',
-      },
+      headers: {},
     });
-  });
-
-  it('skips logging when the MCP session is missing', async () => {
-    const post = jest.fn().mockResolvedValue({});
-    const logger = { warn: jest.fn() };
-    const tool = {
-      metadata: {
-        resource: 'expenses',
-        operation: 'read',
-        tags: ['expenses'],
-      },
-      tool: {
-        name: 'list_expenses',
-        title: 'List expenses',
-        inputSchema: { type: 'object', properties: {} },
-      },
-      handler: jest.fn(),
-    } as unknown as McpTool;
-
-    await recordMcpToolCall({
-      client: { post } as unknown as McpRequestContext['client'],
-      logger,
-      mcpTool: tool,
-      reqContext: {
-        client: { post },
-        auth: {
-          authMode: 'oauth_bearer',
-          clientOptions: {},
-          oauth: {
-            authorizationServerUrl: 'https://app.example.com',
-            resourceMetadataUrl: 'https://app.example.com/.well-known/oauth-protected-resource',
-            resourceUrl: 'https://app.example.com/mcp',
-            scopes: ['api-access'],
-          },
-        },
-      } as unknown as McpRequestContext,
-      result: {
-        content: [{ type: 'text', text: 'Found 2288 expenses.' }],
-      },
-      startedAt: Date.now(),
-    });
-
-    expect(post).not.toHaveBeenCalled();
   });
 
   it('records failed tool calls with an error summary', async () => {
@@ -231,7 +182,6 @@ describe('MCP tool call logging', () => {
       mcpTool: tool,
       reqContext: {
         client: { post },
-        mcpSessionId: 'codex-session-123',
         auth: {
           authMode: 'oauth_bearer',
           clientOptions: {},
@@ -257,9 +207,7 @@ describe('MCP tool call logging', () => {
         result_summary: 'Permission denied.',
         error: 'Permission denied.',
       }),
-      headers: {
-        'X-Sanka-MCP-Session-ID': 'codex-session-123',
-      },
+      headers: {},
     });
   });
 });
@@ -316,7 +264,6 @@ describe('MCP tool call log dispatch', () => {
     await initMcpServer({
       server: fakeServer as never,
       clientOptions: { apiKey: 'soat_log_dispatch', fetch: fetchImpl as never },
-      mcpSessionId: 'session-log-dispatch',
       toolProfile: 'hosted',
       auth: {
         authMode: 'oauth_bearer',

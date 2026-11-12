@@ -6,12 +6,6 @@ import {
   storeBinaryDownload,
 } from './binary-download-store';
 import {
-  buildMcpConnectMarkdownLink,
-  buildMcpConnectStructuredReply,
-  buildMcpConnectUserFacingReply,
-  normalizeMcpConnectScopes,
-} from './mcp-connect';
-import {
   appendGovernanceAdvisorySummary,
   buildEntityDetailSummary,
   buildEntityMutationSummary,
@@ -4926,7 +4920,7 @@ const AUTH_STATUS_INPUT_SCHEMA = {
     required_scopes: {
       type: 'array',
       description:
-        'Optional Sanka feature scopes for diagnostics. Connect Sanka sessions use mcp:access; feature access is enforced by Sanka user permissions.',
+        'Optional Sanka feature scopes for diagnostics. Sanka MCP OAuth tokens carry mcp:access; feature access is enforced by Sanka user permissions.',
       items: { type: 'string' },
     },
   },
@@ -16299,36 +16293,25 @@ const buildCompanyPriceTableMutationSummary = (payload: Record<string, unknown>)
   return 'Updated company price-table settings.';
 };
 
+const RECONNECT_INSTRUCTIONS =
+  "Sanka uses standard MCP OAuth. To connect or switch accounts, reconnect the Sanka MCP server in the AI client's MCP settings; the client opens Sanka's sign-in page. Then retry the original request.";
+
 const buildReconnectMetadata = ({
-  connectScopes,
   reqContext,
-  requiredScopes,
 }: {
-  connectScopes?: string[] | undefined;
   reqContext: McpRequestContext;
-  requiredScopes?: string[] | undefined;
 }): Record<string, unknown> | undefined => {
   const oauth = reqContext.auth?.oauth;
   if (!oauth) {
     return undefined;
   }
 
-  const reconnectScopes = connectScopes ?? requiredScopes;
-  const connectUrl = oauth.connectUrlForScopes?.(reconnectScopes);
   const clientName = reqContext.mcpClientInfo?.name?.trim();
   return {
     ...(clientName ? { client_name: clientName } : {}),
-    ...(connectUrl ?
-      {
-        connect_url: connectUrl,
-        connect_scopes: normalizeMcpConnectScopes(reconnectScopes),
-        ...buildMcpConnectStructuredReply(connectUrl),
-      }
-    : undefined),
     resource_url: oauth.resourceUrl,
-    reconnect_mode: 'connect_sanka',
-    reconnect_instructions:
-      'The assistant must include required_user_facing_reply in the next visible response. Do not omit the Connect Sanka URL, hide it behind a short label, abbreviate the token, or only tell the user to reconnect. Then retry the original request.',
+    reconnect_mode: 'oauth',
+    reconnect_instructions: RECONNECT_INSTRUCTIONS,
   };
 };
 
@@ -16338,23 +16321,7 @@ const buildReconnectVisibleMessage = ({
 }: {
   message: string;
   reconnectMetadata?: Record<string, unknown> | undefined;
-}): string => {
-  if (!reconnectMetadata) {
-    return message;
-  }
-
-  return [
-    message,
-    typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Connect Sanka: ${buildMcpConnectMarkdownLink(reconnectMetadata['connect_url'])}`
-    : undefined,
-    typeof reconnectMetadata['connect_url'] === 'string' ?
-      `Required user-facing reply: ${buildMcpConnectUserFacingReply(reconnectMetadata['connect_url'])}`
-    : undefined,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-};
+}): string => (reconnectMetadata ? `${message}\n\n${RECONNECT_INSTRUCTIONS}` : message);
 
 const buildAuthStatusChallenge = ({
   connected = false,
@@ -16371,7 +16338,7 @@ const buildAuthStatusChallenge = ({
   reqContext: McpRequestContext;
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
-  const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
+  const reconnectMetadata = buildReconnectMetadata({ reqContext });
 
   return {
     content: [{ type: 'text', text: buildReconnectVisibleMessage({ message, reconnectMetadata }) }],
@@ -16403,7 +16370,7 @@ const buildConnectedAuthStatusResult = ({
   requiredScopes?: string[] | undefined;
 }): ToolCallResult => {
   const oauth = reqContext.auth?.oauth;
-  const reconnectMetadata = buildReconnectMetadata({ connectScopes, reqContext, requiredScopes });
+  const reconnectMetadata = buildReconnectMetadata({ reqContext });
   const workspace = workspaceIdentityFromOauth(reqContext);
 
   return {
@@ -16423,7 +16390,7 @@ const buildConnectedAuthStatusResult = ({
 };
 
 const CONNECT_SANKA_PROMPT_MESSAGE =
-  'Sanka CRM is not connected yet. Open the Connect Sanka URL, finish connecting, then retry.';
+  "Sanka is not connected yet. Connect the Sanka MCP server in the AI client's MCP settings (OAuth sign-in), then retry.";
 
 const requestedScopesFromArgs = (args: Record<string, unknown> | undefined): string[] =>
   [...new Set(readStringArray(args?.['required_scopes']))].sort();
@@ -16459,7 +16426,7 @@ export const crmConnectSankaTool: McpTool = {
     name: 'connect_sanka',
     title: 'Connect Sanka CRM',
     description:
-      'Start or resume the Connect Sanka session flow. Use this when the user explicitly asks to connect or reconnect Sanka.',
+      "Show how this AI client is connected to Sanka and how to reconnect. Sanka uses standard MCP OAuth: the AI client signs in through Sanka's own page, so this tool returns no link. Use it only when the user asks to connect, reconnect or switch accounts.",
     inputSchema: AUTH_STATUS_INPUT_SCHEMA,
     outputSchema: AUTH_STATUS_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'noauth' }],
@@ -16503,7 +16470,7 @@ export const crmConnectSankaTool: McpTool = {
     }
 
     return buildConnectedAuthStatusResult({
-      message: 'Sanka CRM is already connected through this MCP session.',
+      message: 'Sanka is already connected to this AI client through Sanka OAuth.',
       requiredScopes,
       reqContext,
     });
@@ -16562,7 +16529,7 @@ export const crmAuthStatusTool: McpTool = {
     }
 
     return buildConnectedAuthStatusResult({
-      message: 'Sanka CRM is connected through this MCP session.',
+      message: 'Sanka is connected to this AI client through Sanka OAuth.',
       requiredScopes,
       reqContext,
     });
@@ -16608,7 +16575,6 @@ export const crmCurrentWorkspaceTool: McpTool = {
     const workspace = workspaceIdentityFromSessionRecord(data);
     updateResolvedClientAuthWorkspace({
       auth: reqContext.auth,
-      mcpSessionId: reqContext.mcpSessionId,
       workspace,
     });
     const authMode = readString(data?.['auth_mode']) ?? reqContext.auth?.authMode ?? 'oauth_bearer';
@@ -16672,7 +16638,6 @@ export const crmListWorkspacesTool: McpTool = {
     const currentWorkspace = workspaceIdentityFromSessionRecord(data);
     updateResolvedClientAuthWorkspace({
       auth: reqContext.auth,
-      mcpSessionId: reqContext.mcpSessionId,
       workspace: currentWorkspace,
     });
     const message = `Returned ${availableWorkspaces.length} available Sanka workspaces.`;
@@ -16774,7 +16739,6 @@ export const crmSwitchWorkspaceTool: McpTool = {
     };
     updateResolvedClientAuthWorkspace({
       auth: reqContext.auth,
-      mcpSessionId: reqContext.mcpSessionId,
       workspace: currentWorkspace,
     });
     const message = `Switched Sanka workspace to ${currentWorkspaceLabel(currentWorkspace)}.`;
