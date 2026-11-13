@@ -63,6 +63,11 @@ describe('streamable HTTP transport', () => {
         }
         // The tool-call audit log is posted after the result and owned by server-tool-log.test.
         if (req.url === '/api/v2/mcp/tool-call-log') return send(200, {});
+        if (req.url === '/api/v2/manage-support/access') {
+          // The API's Support admin rule for this token's user.
+          const admin = String(req.headers.authorization).startsWith('Bearer soat_supportadmin');
+          return send(200, { success: true, data: { is_support_admin: admin } });
+        }
         apiRequests.push({
           url: String(req.url),
           authorization: req.headers.authorization,
@@ -401,6 +406,18 @@ describe('streamable HTTP transport', () => {
       error: 'not_found',
       error_description: expect.stringContaining('Download token was not found'),
     });
+  });
+
+  it.each([
+    ['a support admin', 'supportadmin', true],
+    ['anyone else', 'customer', false],
+  ])('lists the Support admin tools only for %s', async (_who, tokenName, listed) => {
+    const { message } = await rpc('/mcp', { headers: bearer(tokenName) });
+    const names = (message.result.tools as { name: string }[]).map((tool) => tool.name);
+
+    expect(names).toEqual(expect.arrayContaining(['support_list_my_tickets', 'support_get_my_ticket']));
+    expect(names.includes('support_admin_reply')).toBe(listed);
+    expect(names.includes('support_admin_list_tickets')).toBe(listed);
   });
 
   it('returns the unified toolset for stateless tools/list requests', async () => {

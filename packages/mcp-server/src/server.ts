@@ -27,6 +27,7 @@ import Sanka from 'sanka-sdk';
 import { browserUseTool } from './browser-use-tools';
 import { getCapabilityGuidanceTool } from './capability-guidance-tools';
 import { getCargoCatalogTool, importCargoCatalogTool } from './cargo-catalog-tools';
+import { isSupportAdminTool, readSupportAdminAccess, supportTools } from './support-tools';
 import { codeTool } from './code-tool';
 import {
   createFerryDiagramTool,
@@ -810,8 +811,19 @@ export async function initMcpServer(params: {
   }
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    // Support admin tools are listed only for users the API accepts as support admins.
+    let listedTools = providedTools;
+    if (providedTools.some(({ tool }) => isSupportAdminTool(tool.name))) {
+      let admin = false;
+      try {
+        admin = await readSupportAdminAccess(getClient(), params.clientOptions?.apiKey ?? undefined);
+      } catch {
+        admin = false;
+      }
+      if (!admin) listedTools = providedTools.filter(({ tool }) => !isSupportAdminTool(tool.name));
+    }
     return {
-      tools: providedTools.map((tool) => publicToolDescriptor(tool)),
+      tools: listedTools.map((tool) => publicToolDescriptor(tool)),
     };
   });
 
@@ -993,6 +1005,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     ...talentTools,
     getCargoCatalogTool,
     importCargoCatalogTool,
+    ...supportTools,
     crmConnectSankaTool,
     crmAuthStatusTool,
     crmCurrentWorkspaceTool,
