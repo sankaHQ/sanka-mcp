@@ -63,6 +63,7 @@ const adminDetail = {
   messages: [{ id: 'm1', role: 'user', author_email: 'aiko@acme.test', content: 'Export fails' }],
   events: [],
 };
+const boardCounts = { counts: { todo: 0, doing: 1, feature_pending: 0, done: 4 }, unread: 0, total: 5 };
 const agents = {
   support_users: [
     { id: 'su-1', user_id: 95, user_email: 'ops@sanka.test', user_name: 'Ops', is_active: true },
@@ -131,31 +132,57 @@ const cases: Array<{
     text: ['Only tickets you opened'],
   },
   {
-    name: 'an admin lists their own open tickets',
+    name: 'an admin lists their In progress tickets under the board column counts',
     tool: supportAdminListTicketsTool,
-    args: { assignee: 'me', status: 'doing' },
+    args: { assignee: 'me', status: 'In progress' },
     responses: [
       envelope({ user: { id: 95, email: 'ops@sanka.test' } }),
+      envelope(boardCounts),
       envelope({ threads: [{ ...adminDetail, assignee_email: 'ops@sanka.test' }], next_cursor: null }),
     ],
     requests: [
       { method: 'GET', url: `${API}/auth/session` },
       {
         method: 'GET',
+        url: `${API}/manage-support/threads/counts?ticket_state=open&product=all&support=all&assignee=95`,
+      },
+      {
+        method: 'GET',
         url: `${API}/manage-support/threads?ticket_state=open&product=all&support=all&limit=25&status=doing&assignee=95`,
       },
     ],
     structuredContent: {
+      board: { Open: 0, 'In progress': 1, 'Feature request or pending': 0, Done: 4 },
+      total: 5,
       tickets: [
         {
           id: THREAD_ID,
-          status: 'doing',
+          status: 'In progress',
           sender_email: 'aiko@acme.test',
-          workspace: { code: '10101010', name: 'Acme', plan: 'enterprise' },
-          assignee: { email: 'ops@sanka.test' },
+          workspace_code: '10101010',
+          assignee_email: 'ops@sanka.test',
         },
       ],
     },
+    text: [
+      'Open 0 · In progress 1 · Feature request or pending 0 · Done 4; 5 ticket(s).',
+      'In progress:\n- ',
+    ],
+    absent: ['"doing"', 'enterprise'],
+  },
+  {
+    name: 'limit 0 answers with the board column counts alone',
+    tool: supportAdminListTicketsTool,
+    args: { assignee: 'ops@sanka.test', ticket_state: 'all', limit: 0 },
+    responses: [envelope(boardCounts)],
+    requests: [
+      {
+        method: 'GET',
+        url: `${API}/manage-support/threads/counts?ticket_state=all&product=all&support=all&assignee=ops%40sanka.test`,
+      },
+    ],
+    structuredContent: { board: { Open: 0, Done: 4 }, total: 5 },
+    absent: ['"tickets"'],
   },
   {
     name: 'a non-admin is refused the admin list',
@@ -167,14 +194,20 @@ const cases: Array<{
     text: ['Support admin tools need'],
   },
   {
-    name: 'an admin closes and assigns a ticket found by its bug id',
+    name: 'an admin moves, closes and assigns a ticket found by its bug id',
     tool: supportAdminUpdateTicketTool,
-    args: { ticket_id: '1234', ticket_state: 'closed', assignee: 'OPS@sanka.test' },
+    args: {
+      ticket_id: '1234',
+      status: 'Feature request or pending',
+      ticket_state: 'closed',
+      assignee: 'OPS@sanka.test',
+    },
     responses: [
       envelope(agents),
       envelope(adminDetail),
       envelope({
         ...adminDetail,
+        status: 'feature_pending',
         ticket_state: 'closed',
         assigned_support_user_id: 95,
         assigned_support_user_email: 'ops@sanka.test',
@@ -186,10 +219,12 @@ const cases: Array<{
       {
         method: 'PATCH',
         url: `${API}/manage-support/threads/${THREAD_ID}`,
-        body: { ticket_state: 'closed', support_user_id: 'su-1' },
+        body: { status: 'feature_pending', ticket_state: 'closed', support_user_id: 'su-1' },
       },
     ],
-    text: ['closed the ticket; assignee unassigned → ops@sanka.test'],
+    text: [
+      'status In progress → Feature request or pending; closed the ticket; assignee unassigned → ops@sanka.test',
+    ],
   },
   {
     name: 'an admin reply without confirm is only a preview',

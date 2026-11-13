@@ -31,7 +31,20 @@ const TITLE_MAX_LENGTH = 200;
 
 const TICKET_STATES = ['open', 'closed'] as const;
 const STATE_FILTERS = ['open', 'closed', 'all'] as const;
-const INTERNAL_STATUSES = ['todo', 'doing', 'feature_pending', 'done', 'archived'] as const;
+// The Support board columns, named as the Support page names them (sanka-react support-options.ts).
+// The API stores the codes; tools read and write the names. A status the board does not know shows
+// under Open, as on the board.
+const STATUS_NAMES = {
+  todo: 'Open',
+  doing: 'In progress',
+  feature_pending: 'Feature request or pending',
+  done: 'Done',
+} as const;
+type StatusCode = keyof typeof STATUS_NAMES;
+const STATUS_CODES = Object.keys(STATUS_NAMES) as StatusCode[];
+const STATUS_LABELS = Object.values(STATUS_NAMES);
+const STATUS_HELP =
+  "The Support board column: Open, In progress, Feature request or pending or Done. It is separate from ticket_state, whether the customer's ticket is open or closed.";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const SUPPORT_CUSTOMER_TOOL_NAMES = ['support_list_my_tickets', 'support_get_my_ticket'];
@@ -71,6 +84,22 @@ const clampInt = (value: unknown, fallback: number, max: number): number =>
 
 const pickEnum = <T extends string>(value: unknown, allowed: readonly T[]): T | undefined =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
+
+const statusName = (code: unknown): string =>
+  STATUS_NAMES[readString(code)?.toLowerCase() as StatusCode] ?? STATUS_NAMES.todo;
+
+// A board column name, or the stored code, to the code the API takes.
+const statusCode = (value: unknown): StatusCode | undefined => {
+  const wanted = readString(value)?.trim().toLowerCase();
+  return STATUS_CODES.find((code) => code === wanted || STATUS_NAMES[code].toLowerCase() === wanted);
+};
+
+const clip = (text: unknown, max = 80): string => {
+  const value = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+};
 
 const attachmentNames = (message: JsonRecord): string[] =>
   records(message['attachments'])
@@ -346,32 +375,27 @@ const sessionUser = async (reqContext: McpRequestContext): Promise<SessionUser> 
   };
 };
 
+// One board card: only what the Support board shows, so long lists stay small.
 const adminListTicket = (row: JsonRecord): JsonRecord => ({
   id: readString(row['id']),
   title: readString(row['title']) ?? '',
-  customer_title: readString(row['customer_title']) ?? '',
-  status: readString(row['status']) ?? null,
+  status: statusName(row['status']),
   ticket_state: readString(row['ticket_state']) ?? 'open',
-  category: readString(row['category']) ?? null,
-  product: readString(row['thread_kind']) === 'ferry_message' ? 'ferry' : 'sanka',
-  channel: readString(row['channel_label']) ?? readString(row['primary_transport']) ?? null,
-  workspace: {
-    code: row['workspace_short_id'] ? String(row['workspace_short_id']) : null,
-    name: readString(row['workspace_name']) ?? null,
-    plan: readString(row['workspace_subscription']) ?? null,
-  },
-  sender_email: readString(row['owner_email']) ?? null,
-  assignee:
-    row['assignee_email'] ? { name: row['assignee_name'] ?? null, email: row['assignee_email'] } : null,
-  has_unread: row['has_unread'] === true,
+  workspace_code: row['workspace_short_id'] ? String(row['workspace_short_id']) : null,
+  workspace_name: readString(row['workspace_name']) || null,
+  sender_email: readString(row['owner_email']) || null,
+  assignee_email: readString(row['assignee_email']) ?? null,
   updated_at: row['updated_at'] ?? null,
+  ...(readString(row['category']) ? { category: readString(row['category']) } : undefined),
+  ...(readString(row['thread_kind']) === 'ferry_message' ? { product: 'ferry' } : undefined),
+  ...(row['has_unread'] === true ? { unread: true } : undefined),
 });
 
 const adminTicket = (detail: JsonRecord): JsonRecord => ({
   id: readString(detail['id']),
   title: readString(detail['title']) ?? '',
   customer_title: readString(detail['customer_title']) ?? '',
-  status: readString(detail['status']) ?? null,
+  status: statusName(detail['status']),
   ticket_state: readString(detail['ticket_state']) ?? 'open',
   closed_at: detail['ticket_closed_at'] ?? null,
   category: readString(detail['category']) ?? null,
@@ -421,7 +445,10 @@ const adminEvent = (event: JsonRecord): JsonRecord => {
   return {
     type,
     ...(type === 'status_changed' ?
-      { from: event['from_status'] ?? null, to: event['to_status'] ?? null }
+      {
+        from: event['from_status'] ? statusName(event['from_status']) : null,
+        to: event['to_status'] ? statusName(event['to_status']) : null,
+      }
     : undefined),
     ...(type === 'assignee_changed' ?
       { from: event['from_user_email'] ?? null, to: event['to_user_email'] ?? null }
@@ -467,11 +494,25 @@ const ADMIN_FAILURE_READ: FailureCopy = {
 };
 const ADMIN_FAILURE_WRITE: FailureCopy = { ...ADMIN_FAILURE_READ, write: true };
 
+// Column totals for the same filters, as the Support board heads its columns.
+const readBoard = async (
+  reqContext: McpRequestContext,
+  query: Record<string, string | number>,
+): Promise<{ board: Record<string, number>; total: number }> => {
+  const { status: _status, limit: _limit, cursor: _cursor, ...filters } = query;
+  const data = envelopeData(await reqContext.client.get(`${ADMIN_PATH}/threads/counts`, { query: filters }));
+  const counts = readRecord(data['counts']) ?? {};
+  const board = Object.fromEntries(
+    STATUS_CODES.map((code) => [STATUS_NAMES[code], Number(counts[code] ?? 0)]),
+  );
+  return { board, total: Number(data['total'] ?? 0) };
+};
+
 export const supportAdminListTicketsTool = defineSupportTool({
   name: 'support_admin_list_tickets',
   title: 'List Sanka Support tickets (admin)',
   description:
-    'Support admins only. List Sanka Support tickets across all workspaces, most recently updated first, with internal status, open or closed, workspace, sender and assignee. Filter by ticket_state, status, assignee ("me", "unassigned", an email or a user id), workspace (code or name), ticket_id, product, handled_by and query. Page with next_cursor.',
+    'Support admins only. The Support board: ticket counts per column (Open, In progress, Feature request or pending, Done) for the filters, then the tickets, newest first, grouped by column. status is the board column; ticket_state is separate, whether the customer\'s ticket is open or closed (a Done ticket can still be open). To check whether someone has work left, read the counts: limit 0 returns only them. Filter by ticket_state, status, assignee ("me", "unassigned", an email or a user id), workspace (code or name), ticket_id, product, handled_by and query. Page with next_cursor.',
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${ADMIN_PATH}/threads`,
@@ -485,7 +526,7 @@ export const supportAdminListTicketsTool = defineSupportTool({
         enum: [...STATE_FILTERS],
         description: 'open (the default), closed or all.',
       },
-      status: { type: 'string', enum: [...INTERNAL_STATUSES], description: 'Internal status.' },
+      status: { type: 'string', enum: [...STATUS_LABELS], description: STATUS_HELP },
       assignee: { type: 'string', maxLength: 200, description: '"me", "unassigned", an email or a user id.' },
       workspace: { type: 'string', maxLength: 200, description: 'Workspace code or part of its name.' },
       ticket_id: {
@@ -500,20 +541,29 @@ export const supportAdminListTicketsTool = defineSupportTool({
         description: 'human: needs a person; ai: Sanka AI is handling it; all (the default).',
       },
       query: { type: 'string', maxLength: 200, description: 'Title, sender email, workspace or id.' },
-      limit: { type: 'integer', minimum: 1, maximum: ADMIN_LIST_MAX, description: 'Default 25.' },
+      limit: {
+        type: 'integer',
+        minimum: 0,
+        maximum: ADMIN_LIST_MAX,
+        description: 'Tickets to list (default 25); 0 returns only the column counts.',
+      },
       cursor: { type: 'string', maxLength: 512, description: 'next_cursor from the previous page.' },
     },
   },
   failure: ADMIN_FAILURE_READ,
   run: async (reqContext, args) => {
+    const countsOnly = args?.['limit'] === 0;
     const query: Record<string, string | number> = {
       ticket_state: pickEnum(args?.['ticket_state'], STATE_FILTERS) ?? 'open',
       product: pickEnum(args?.['product'], ['all', 'sanka', 'ferry'] as const) ?? 'all',
       support: pickEnum(args?.['handled_by'], ['all', 'human', 'ai'] as const) ?? 'all',
       limit: clampInt(args?.['limit'], 25, ADMIN_LIST_MAX),
     };
-    const status = pickEnum(args?.['status'], INTERNAL_STATUSES);
-    if (status) query['status'] = status;
+    if (args?.['status'] !== undefined) {
+      const status = statusCode(args['status']);
+      if (!status) return asErrorResult(`\`status\` must be one of ${STATUS_LABELS.join(', ')}.`);
+      query['status'] = status;
+    }
     let assignee = readString(args?.['assignee'])?.trim();
     if (assignee?.toLowerCase() === 'me') {
       const me = await sessionUser(reqContext);
@@ -530,25 +580,52 @@ export const supportAdminListTicketsTool = defineSupportTool({
       const value = readString(args?.[arg])?.trim();
       if (value) query[param] = value;
     }
-    const data = envelopeData(await reqContext.client.get(`${ADMIN_PATH}/threads`, { query }));
-    const tickets = records(data['threads']).map(adminListTicket);
-    const nextCursor = readString(data['next_cursor']) ?? null;
-    const lines =
-      tickets.length ?
-        [
-          `${tickets.length} ticket(s)${nextCursor ? '; more with next_cursor' : ''}:`,
-          ...tickets.map((ticket) => {
-            const workspace = readRecord(ticket['workspace']);
-            const assigneeRecord = readRecord(ticket['assignee']);
-            return `- "${ticket['title']}" · ${ticket['ticket_state']} · ${ticket['status'] ?? '-'} · ws ${
-              workspace?.['code'] ?? '?'
-            } · from ${ticket['sender_email'] ?? '?'} · ${
-              assigneeRecord ? `assigned ${assigneeRecord['email']}` : 'unassigned'
-            } · id ${ticket['id']}`;
-          }),
-        ]
-      : ['No tickets match.'];
-    return result({ tickets, next_cursor: nextCursor }, lines);
+    // The counts head the first page only; later pages repeat nothing.
+    const counts = query['cursor'] ? undefined : await readBoard(reqContext, query);
+    const page =
+      countsOnly ? undefined : envelopeData(await reqContext.client.get(`${ADMIN_PATH}/threads`, { query }));
+    const tickets = records(page?.['threads']).map(adminListTicket);
+    const nextCursor = readString(page?.['next_cursor']) ?? null;
+
+    const scope = [
+      `ticket ${query['ticket_state']}`,
+      ...(query['status'] ? [`status ${statusName(query['status'])}`] : []),
+      ...(query['assignee'] ? [`assignee ${query['assignee']}`] : []),
+      ...(query['workspace'] ? [`workspace ${query['workspace']}`] : []),
+    ].join(', ');
+    const lines: string[] = [];
+    if (counts) {
+      lines.push(
+        `Board (${scope}): ${Object.entries(counts.board)
+          .map(([name, count]) => `${name} ${count}`)
+          .join(' · ')}; ${counts.total} ticket(s).`,
+      );
+    }
+    if (!countsOnly) {
+      if (!tickets.length) lines.push('No tickets match.');
+      for (const name of STATUS_LABELS) {
+        const column = tickets.filter((ticket) => ticket['status'] === name);
+        if (!column.length) continue;
+        lines.push(`${name}:`);
+        for (const ticket of column) {
+          lines.push(
+            `- "${clip(ticket['title'])}" · ticket ${ticket['ticket_state']} · ws ${
+              ticket['workspace_code'] ?? '?'
+            } ${clip(ticket['workspace_name'] ?? '', 30)} · ${ticket['sender_email'] ?? '?'} · ${
+              ticket['assignee_email'] ?? 'unassigned'
+            }${ticket['unread'] ? ' · unread' : ''} · ${ticket['updated_at'] ?? ''} · id ${ticket['id']}`,
+          );
+        }
+      }
+      if (nextCursor) lines.push(`Showing ${tickets.length}; more with next_cursor.`);
+    }
+    return result(
+      {
+        ...(counts ? { board: counts.board, total: counts.total } : undefined),
+        ...(countsOnly ? undefined : { tickets, next_cursor: nextCursor }),
+      },
+      lines,
+    );
   },
 });
 
@@ -556,7 +633,7 @@ export const supportAdminGetTicketTool = defineSupportTool({
   name: 'support_admin_get_ticket',
   title: 'Get a Sanka Support ticket (admin)',
   description:
-    'Support admins only. Read one Sanka Support ticket by id, external ticket id or bug id: internal status, open or closed, workspace code, name and plan, sender, assignee, the conversation with staff names, and the status and assignee history.',
+    'Support admins only. Read one Sanka Support ticket by id, external ticket id or bug id: its board status (Open, In progress, Feature request or pending, Done), whether the ticket is open or closed, workspace code, name and plan, sender, assignee, the conversation with staff names, and the status and assignee history.',
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${ADMIN_PATH}/threads/{thread_id}`,
@@ -591,7 +668,7 @@ export const supportAdminGetTicketTool = defineSupportTool({
     const sender = readRecord(ticket['sender']);
     const assignee = readRecord(ticket['assignee']);
     const lines = [
-      `"${ticket['title']}" · ${ticket['ticket_state']} · status ${ticket['status'] ?? '-'}.`,
+      `"${ticket['title']}" · status ${ticket['status']} · ticket ${ticket['ticket_state']}.`,
       `Workspace ${workspace?.['code'] ?? '?'} (${workspace?.['name'] ?? '?'}, ${
         workspace?.['plan'] || 'no plan'
       }); sender ${sender?.['email'] ?? '?'}; ${
@@ -665,7 +742,7 @@ export const supportAdminUpdateTicketTool = defineSupportTool({
   name: 'support_admin_update_ticket',
   title: 'Update a Sanka Support ticket (admin)',
   description:
-    'Support admins only. Change a ticket\'s internal status, open or close it, assign it ("me", an agent email or user id, or "unassigned") or rename its internal title. Closing does not change the status and done does not close, as on the Support page. Assigning notifies the new assignee. Changes are recorded in the ticket history as made through MCP.',
+    'Support admins only. Move a ticket to a board column (Open, In progress, Feature request or pending, Done), open or close it, assign it ("me", an agent email or user id, or "unassigned") or rename its internal title. Closing does not change the status and Done does not close, as on the Support page. Assigning notifies the new assignee. Changes are recorded in the ticket history as made through MCP.',
   operation: 'write',
   httpMethod: 'patch',
   httpPath: `${ADMIN_PATH}/threads/{thread_id}`,
@@ -677,7 +754,7 @@ export const supportAdminUpdateTicketTool = defineSupportTool({
     required: ['ticket_id'],
     properties: {
       ticket_id: TICKET_ID_SCHEMA,
-      status: { type: 'string', enum: [...INTERNAL_STATUSES], description: 'New internal status.' },
+      status: { type: 'string', enum: [...STATUS_LABELS], description: STATUS_HELP },
       ticket_state: { type: 'string', enum: [...TICKET_STATES], description: 'open or closed.' },
       assignee: {
         type: 'string',
@@ -693,8 +770,8 @@ export const supportAdminUpdateTicketTool = defineSupportTool({
     if (!ticketId) return asErrorResult('`ticket_id` is required.');
     const body: JsonRecord = {};
     if (args?.['status'] !== undefined) {
-      const status = pickEnum(args['status'], INTERNAL_STATUSES);
-      if (!status) return asErrorResult(`\`status\` must be one of ${INTERNAL_STATUSES.join(', ')}.`);
+      const status = statusCode(args['status']);
+      if (!status) return asErrorResult(`\`status\` must be one of ${STATUS_LABELS.join(', ')}.`);
       body['status'] = status;
     }
     if (args?.['ticket_state'] !== undefined) {
@@ -758,7 +835,7 @@ export const supportAdminReplyTool = defineSupportTool({
   name: 'support_admin_reply',
   title: 'Reply to a Sanka Support ticket (admin)',
   description:
-    "Support admins only. Reply to a customer as Sanka Support; the reply is e-mailed or sent to the ticket's channel and cannot be unsent. Without confirm: true this only returns a preview with the ticket, the recipient and the latest customer message: show it to the user and send only after they approve. A reply reopens a closed ticket and moves todo to doing. Retrying with the same client_message_id never sends twice.",
+    "Support admins only. Reply to a customer as Sanka Support; the reply is e-mailed or sent to the ticket's channel and cannot be unsent. Without confirm: true this only returns a preview with the ticket, the recipient and the latest customer message: show it to the user and send only after they approve. A reply reopens a closed ticket and moves it from Open to In progress. Retrying with the same client_message_id never sends twice.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: `${ADMIN_PATH}/threads/{thread_id}/reply`,
