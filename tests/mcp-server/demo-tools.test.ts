@@ -1,3 +1,5 @@
+import Sanka from 'sanka-sdk';
+
 import { demoGenerateTool, integrationSyncPushTool } from '../../packages/mcp-server/src/demo-tools';
 
 const oauthContext = (overrides?: { authMode?: 'none' | 'oauth_bearer'; scopes?: string[] }) => ({
@@ -18,10 +20,6 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
   });
 
   it('exposes operation ids that match the Sanka HTTP endpoints', () => {
-    expect(demoGenerateTool.metadata.operationId).toBe('manage_data.demo_data.trigger');
-    expect(demoGenerateTool.metadata.httpPath).toBe('/api/v2/manage-data/demo-data');
-    expect(demoGenerateTool.metadata.httpMethod).toBe('post');
-
     expect(integrationSyncPushTool.metadata.operationId).toBe('integration_sync.push.create');
     expect(integrationSyncPushTool.metadata.httpPath).toBe('/api/v2/integration-sync/push');
     expect(integrationSyncPushTool.metadata.httpMethod).toBe('post');
@@ -38,266 +36,111 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
   });
 
   describe('generate_demo_workspace', () => {
-    it('returns an input error when template or country is missing', async () => {
-      const generate = jest.fn();
-
-      const result = await demoGenerateTool.handler({
-        reqContext: {
-          client: {
-            demo: { generate },
-          } as any,
-          auth: oauthContext(),
-          toolProfile: 'full',
+    // Pins the published name, the route each action calls and what the person reads back. Route
+    // behaviour (limits, who may ask, the build) is owned by sanka-api and its e2e specs.
+    type Call = { method: string; url: string; body: unknown };
+    const demo = (overrides: Record<string, unknown> = {}) => ({
+      id: 'demo-1',
+      product: 'monitor',
+      case: 'bpo_windows10_shadow_ai',
+      status: 'ready',
+      workspace: { id: 'ws-1', code: '12345678', name: 'Demo – Northbay Contact Solutions' },
+      link: 'https://monitor.sanka.com/12345678/risk-report',
+      script: '**Sanka Monitor demo**',
+      expires_at: '2026-12-19T00:00:00Z',
+      ...overrides,
+    });
+    const clientFor = (calls: Call[], respond: (call: Call) => Response) =>
+      new Sanka({
+        apiKey: 'My API Key',
+        apiVersion: 'v2',
+        baseURL: 'http://localhost:5000/',
+        maxRetries: 0,
+        fetch: async (url, init) => {
+          const call = {
+            method: String(init?.method ?? 'GET').toUpperCase(),
+            url: String(url),
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+          };
+          calls.push(call);
+          return respond(call);
         },
-        args: { template: 'b2b_saas' },
+      });
+    const ok = (data: unknown) =>
+      new Response(JSON.stringify({ success: true, data }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const run = (client: Sanka, args: Record<string, unknown>) =>
+      demoGenerateTool.handler({
+        reqContext: { client, auth: oauthContext(), toolProfile: 'full' } as any,
+        args,
       });
 
+    it.each([
+      {
+        name: 'build',
+        args: { product: 'monitor', case: 'bpo_windows10_shadow_ai', size: 12, language: 'en' },
+        call: {
+          method: 'POST',
+          url: 'http://localhost:5000/api/v2/demo-workspaces',
+          body: { product: 'monitor', case: 'bpo_windows10_shadow_ai', language: 'en', size: 12 },
+        },
+        data: demo({ status: 'queued', link: null, script: null, workspace: null }),
+        text: 'action "status"',
+      },
+      {
+        name: 'status',
+        args: { action: 'status', demo_id: 'demo-1' },
+        call: { method: 'GET', url: 'http://localhost:5000/api/v2/demo-workspaces/demo-1', body: undefined },
+        data: demo(),
+        text: 'https://monitor.sanka.com/12345678/risk-report',
+      },
+      {
+        name: 'end',
+        args: { action: 'end', demo_id: 'demo-1' },
+        call: { method: 'POST', url: 'http://localhost:5000/api/v2/demo-workspaces/demo-1/end', body: {} },
+        data: demo({ status: 'ended' }),
+        text: 'ended',
+      },
+    ])('$name calls its route and says what to do next', async ({ args, call, data, text }) => {
+      const calls: Call[] = [];
+      const result = (await run(
+        clientFor(calls, () => ok(data)),
+        args,
+      )) as { content: Array<{ text: string }>; isError?: boolean };
+      expect(calls).toEqual([call]);
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0]?.text).toContain(text);
+    });
+
+    it('refuses to build without a product and a case, and calls nothing', async () => {
+      const calls: Call[] = [];
+      const result = (await run(
+        clientFor(calls, () => ok({})),
+        { case: 'manufacturing' },
+      )) as {
+        isError?: boolean;
+      };
       expect(result.isError).toBe(true);
-      expect(generate).not.toHaveBeenCalled();
-      expect(result.content[0]).toMatchObject({ type: 'text' });
+      expect(calls).toEqual([]);
     });
 
-    it('seeds the workspace and returns structured content on success', async () => {
-      const generate = jest.fn().mockResolvedValue({
-        workspace_id: 'workspace-1',
-        workspace_name: 'Acme Demo',
-        workspace_short_id: 42,
-        template: 'b2b_saas',
-        country: 'us',
-        seed: 7,
-        created: true,
-        counts: {
-          companies: 12,
-          contacts: 35,
-          deals: 9,
-          subscriptions: 3,
-          invoices: 8,
-          receipts: 6,
-        },
-        sample_record_ids: {
-          companies: ['company-1', 'company-2'],
-          contacts: ['contact-1'],
-        },
-        message: 'Created new demo workspace Acme Demo',
-      });
-
-      const result = await demoGenerateTool.handler({
-        reqContext: {
-          client: {
-            demo: { generate },
-          } as any,
-          auth: oauthContext(),
-          toolProfile: 'full',
-        },
-        args: {
-          template: 'b2b_saas',
-          country: 'us',
-          seed: 7,
-        },
-      });
-
-      expect(generate).toHaveBeenCalledWith({
-        template: 'b2b_saas',
-        country: 'us',
-        seed: 7,
-      });
-      expect(result.isError).toBeUndefined();
-      expect(result.structuredContent).toEqual({
-        workspace_id: 'workspace-1',
-        workspace_name: 'Acme Demo',
-        workspace_short_id: 42,
-        target: 'sanka',
-        provider: null,
-        channel_id: null,
-        channel_name: null,
-        dry_run: null,
-        template: 'b2b_saas',
-        country: 'us',
-        seed: 7,
-        created: true,
-        counts: {
-          companies: 12,
-          contacts: 35,
-          deals: 9,
-          subscriptions: 3,
-          invoices: 8,
-          receipts: 6,
-        },
-        sample_record_ids: {
-          companies: ['company-1', 'company-2'],
-          contacts: ['contact-1'],
-        },
-        remote: null,
-        warnings: null,
-        message: 'Created new demo workspace Acme Demo',
-      });
-      const firstBlock = result.content[0];
-      expect(firstBlock).toMatchObject({ type: 'text' });
-      if (firstBlock && firstBlock.type === 'text') {
-        expect(firstBlock.text).toContain('Created new demo workspace');
-        expect(firstBlock.text).toContain('12 companies');
-      }
-    });
-
-    it('uses the native V2 manage-data API for existing-workspace reseeding', async () => {
-      const generate = jest.fn();
-      const get = jest.fn().mockResolvedValue({
-        data: {
-          workspaces: [{ id: 'existing-ws', name: 'Existing', short_id: 42424242 }],
-        },
-      });
-      const post = jest.fn().mockResolvedValue({
-        data: {
-          ok: true,
-          message: 'Generated V2 demo data for workspace existing-ws: created 10 record set(s).',
-          imported_rows: 10,
-          imported_sections: [
-            'company',
-            'contact',
-            'contact_company_link',
-            'item',
-            'order',
-            'order_line_item',
-            'invoice',
-            'invoice_line_item',
-            'payment',
-            'payment_line_item',
-          ],
-          skipped_sections: [],
-        },
-      });
-
-      const result = await demoGenerateTool.handler({
-        reqContext: {
-          client: {
-            demo: { generate },
-            get,
-            post,
-          } as any,
-          auth: oauthContext(),
-          toolProfile: 'full',
-        },
-        args: {
-          template: 'dtc_subscription',
-          country: 'jp',
-          workspace_id: 'existing-ws',
-        },
-      });
-
-      expect(get).toHaveBeenCalledWith('/api/v2/manage-data', {
-        query: { q: 'existing-ws' },
-      });
-      expect(post).toHaveBeenCalledWith('/api/v2/manage-data/demo-data', {
-        body: {
-          workspace_id: 'existing-ws',
-          days: 0,
-        },
-      });
-      expect(generate).not.toHaveBeenCalled();
-      expect(result.isError).toBeUndefined();
-      expect(result.structuredContent?.['created']).toBe(false);
-      expect(result.structuredContent).toMatchObject({
-        workspace_id: 'existing-ws',
-        workspace_name: 'Existing',
-        workspace_short_id: 42424242,
-        target: 'sanka',
-        counts: {
-          companies: 1,
-          contacts: 1,
-          items: 1,
-          orders: 1,
-          invoices: 1,
-          receipts: 1,
-        },
-        warnings: ['v2_bounded_demo_seed'],
-      });
-    });
-
-    it('passes direct integration demo dry-run arguments through generate_demo_workspace', async () => {
-      const generate = jest.fn().mockResolvedValue({
-        workspace_id: 'workspace-1',
-        workspace_name: 'Integration Demo',
-        workspace_short_id: 75097015,
-        target: 'integration',
-        provider: 'hubspot',
-        channel_id: 'channel-1',
-        channel_name: 'HubSpot',
-        dry_run: true,
-        template: 'b2b_saas',
-        country: 'us',
-        seed: 7,
-        created: false,
-        counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
-        sample_record_ids: { companies: [], contacts: [], deals: [], custom_objects: [] },
-        remote: {
-          planned_counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
-          custom_object_plan: [{ external_object_type: '2-123', records: [{ name: 'Ticket Demo 1' }] }],
-        },
-        warnings: ['integration_channel_shadow_mode', 'custom_object_schema_must_exist_in_provider'],
-        message: 'Demo integration dry run prepared',
-      });
-
-      const result = await demoGenerateTool.handler({
-        reqContext: {
-          client: {
-            demo: { generate },
-          } as any,
-          auth: oauthContext(),
-          toolProfile: 'full',
-        },
-        args: {
-          target: 'integration',
-          provider: 'hubspot',
-          channel_id: 'channel-1',
-          template: 'b2b_saas',
-          country: 'us',
-          seed: 7,
-          dry_run: true,
-          custom_objects: [
-            {
-              external_object_type: '2-123',
-              label: 'Service Ticket',
-              name_property: 'name',
-              count: 2,
-            },
-          ],
-        },
-      });
-
-      expect(generate).toHaveBeenCalledWith({
-        target: 'integration',
-        provider: 'hubspot',
-        channel_id: 'channel-1',
-        template: 'b2b_saas',
-        country: 'us',
-        seed: 7,
-        dry_run: true,
-        custom_objects: [
-          {
-            external_object_type: '2-123',
-            label: 'Service Ticket',
-            name_property: 'name',
-            count: 2,
-          },
-        ],
-      });
-      expect(result.structuredContent).toMatchObject({
-        target: 'integration',
-        provider: 'hubspot',
-        channel_id: 'channel-1',
-        dry_run: true,
-        remote: {
-          planned_counts: { companies: 8, contacts: 20, deals: 10, custom_objects: 2 },
-          custom_object_plan: [{ external_object_type: '2-123', records: [{ name: 'Ticket Demo 1' }] }],
-        },
-        warnings: ['integration_channel_shadow_mode', 'custom_object_schema_must_exist_in_provider'],
-      });
-      const firstBlock = result.content[0];
-      expect(firstBlock).toMatchObject({ type: 'text' });
-      if (firstBlock && firstBlock.type === 'text') {
-        expect(firstBlock.text).toContain('Prepared direct hubspot demo dry run');
-        expect(firstBlock.text).toContain('2 custom object records');
-      }
+    it('returns the route refusal with its code, so the client can say why', async () => {
+      const calls: Call[] = [];
+      const refusal = () =>
+        new Response(
+          JSON.stringify({
+            success: false,
+            error: { code: 'DEMO_WORKSPACES_SANKA_MEMBERS_ONLY', message: 'Only Sanka members can ask.' },
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } },
+        );
+      const result = (await run(clientFor(calls, refusal), {
+        product: 'flow',
+        case: 'manufacturing',
+      })) as { isError?: boolean; structuredContent?: { code?: string } };
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent?.code).toBe('DEMO_WORKSPACES_SANKA_MEMBERS_ONLY');
     });
   });
 
