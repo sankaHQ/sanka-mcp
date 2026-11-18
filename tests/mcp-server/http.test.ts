@@ -417,7 +417,7 @@ describe('streamable HTTP transport', () => {
 
     expect(names).toEqual(expect.arrayContaining(['support_list_my_tickets', 'support_get_my_ticket']));
     expect(names.includes('support_admin_reply')).toBe(listed);
-    expect(names.includes('support_admin_list_tickets')).toBe(listed);
+    expect(names.includes('support_admin_read_attachment')).toBe(listed);
   });
 
   it('returns the unified toolset for stateless tools/list requests', async () => {

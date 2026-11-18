@@ -141,7 +141,7 @@ const decodeContentDispositionFilename = (value: string): string => {
   }
 };
 
-const readContentDispositionFilename = (contentDisposition: string | null): string | undefined => {
+export const readContentDispositionFilename = (contentDisposition: string | null): string | undefined => {
   if (!contentDisposition) {
     return undefined;
   }
@@ -172,18 +172,11 @@ export type BinaryDownloadOptions = {
   createDownloadUrl?: CreateBinaryDownloadUrl | undefined;
 };
 
-export async function asBinaryDownloadResult(
-  response: Response,
-  fallbackFilename = 'download',
-  options?: BinaryDownloadOptions,
-): Promise<ToolCallResult> {
-  // Enforce the actual stream length as well as Content-Length; the API may
-  // return a chunked file or an inaccurate length. Never retain an oversized body.
-  const limit = 32 * 1024 * 1024;
-  const declaredLength = Number(response.headers.get('content-length'));
-  if (declaredLength > limit) {
+export async function readBinaryResponse(response: Response, limit: number): Promise<Buffer | undefined> {
+  // Enforce the stream length even when Content-Length is missing or inaccurate.
+  if (Number(response.headers.get('content-length')) > limit) {
     await response.body?.cancel();
-    throw new Error('Binary download exceeds the 32 MiB transfer limit.');
+    return undefined;
   }
   const reader = response.body?.getReader();
   const chunks: Uint8Array[] = [];
@@ -196,7 +189,7 @@ export async function asBinaryDownloadResult(
         length += value.byteLength;
         if (length > limit) {
           await reader.cancel();
-          throw new Error('Binary download exceeds the 32 MiB transfer limit.');
+          return undefined;
         }
         chunks.push(value);
       }
@@ -204,7 +197,16 @@ export async function asBinaryDownloadResult(
       reader.releaseLock();
     }
   }
-  const buffer = Buffer.concat(chunks, length);
+  return Buffer.concat(chunks, length);
+}
+
+export async function asBinaryDownloadResult(
+  response: Response,
+  fallbackFilename = 'download',
+  options?: BinaryDownloadOptions,
+): Promise<ToolCallResult> {
+  const buffer = await readBinaryResponse(response, 32 * 1024 * 1024);
+  if (!buffer) throw new Error('Binary download exceeds the 32 MiB transfer limit.');
   const contentDisposition = response.headers.get('content-disposition');
   return binaryDownloadResult(
     {
@@ -212,7 +214,7 @@ export async function asBinaryDownloadResult(
       contentDisposition,
       filename: readContentDispositionFilename(contentDisposition) ?? fallbackFilename,
       mimeType: response.headers.get('content-type') || 'application/octet-stream',
-      byteLength: length,
+      byteLength: buffer.byteLength,
     },
     options,
   );
