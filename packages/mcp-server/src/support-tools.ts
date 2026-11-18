@@ -10,14 +10,22 @@
 import { createHash } from 'node:crypto';
 
 import { envelopeData, readApiFailure } from './desk-tools';
+import { readSupportAttachment, supportAttachmentMime } from './support-attachments';
 import { readRecord, readString } from './tool-factories';
 import { requireAuthentication } from './tool-auth';
-import { asErrorResult, McpRequestContext, McpTool, ToolCallResult } from './types';
+import {
+  asErrorResult,
+  McpRequestContext,
+  McpTool,
+  readContentDispositionFilename,
+  ToolCallResult,
+} from './types';
 
 type ToolArgs = Record<string, unknown> | undefined;
 type JsonRecord = Record<string, unknown>;
 
-const CUSTOMER_THREADS_PATH = '/api/v2/support/threads';
+const CUSTOMER_PATH = '/api/v2/support';
+const CUSTOMER_THREADS_PATH = `${CUSTOMER_PATH}/threads`;
 const ADMIN_PATH = '/api/v2/manage-support';
 const ADMIN_ACCESS_PATH = `${ADMIN_PATH}/access`;
 const SESSION_PATH = '/api/v2/auth/session';
@@ -27,6 +35,10 @@ const ADMIN_LIST_MAX = 100;
 const MESSAGES_DEFAULT = 30;
 const MESSAGES_MAX = 200;
 const REPLY_MAX_LENGTH = 20000;
+const REPLY_MAX_FILES = 5;
+// Base64 expands the files and must fit inside the HTTP MCP JSON body limit (16 MiB).
+const REPLY_MAX_FILE_BYTES = 8 * 1024 * 1024;
+const REPLY_MAX_BASE64_LENGTH = Math.ceil(REPLY_MAX_FILE_BYTES / 3) * 4;
 const TITLE_MAX_LENGTH = 200;
 
 const TICKET_STATES = ['open', 'closed'] as const;
@@ -47,10 +59,15 @@ const STATUS_HELP =
   "The Support board column: Open, In progress, Feature request or pending or Done. It is separate from ticket_state, whether the customer's ticket is open or closed.";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const SUPPORT_CUSTOMER_TOOL_NAMES = ['support_list_my_tickets', 'support_get_my_ticket'];
+export const SUPPORT_CUSTOMER_TOOL_NAMES = [
+  'support_list_my_tickets',
+  'support_get_my_ticket',
+  'support_read_my_attachment',
+];
 export const SUPPORT_ADMIN_TOOL_NAMES = [
   'support_admin_list_tickets',
   'support_admin_get_ticket',
+  'support_admin_read_attachment',
   'support_admin_list_agents',
   'support_admin_update_ticket',
   'support_admin_reply',
@@ -101,10 +118,28 @@ const clip = (text: unknown, max = 80): string => {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 };
 
-const attachmentNames = (message: JsonRecord): string[] =>
-  records(message['attachments'])
+const messageAttachments = (message: JsonRecord): JsonRecord => {
+  const attachments = records(message['attachments']);
+  const names = attachments
     .map((attachment) => readString(attachment['file_name']))
     .filter((name): name is string => !!name);
+  const files = attachments.flatMap((attachment) => {
+    const id = readString(attachment['id']);
+    if (!id) return [];
+    return [
+      {
+        id,
+        file_name: readString(attachment['file_name']) || id,
+        content_type: readString(attachment['content_type']) ?? '',
+        size: attachment['size'] ?? null,
+      },
+    ];
+  });
+  return {
+    ...(names.length ? { attachments: names } : undefined),
+    ...(files.length ? { attachment_files: files } : undefined),
+  };
+};
 
 // The latest messages, oldest first, and whether earlier ones were left out.
 const lastMessages = (messages: JsonRecord[], max: number) => ({
@@ -215,6 +250,93 @@ const defineSupportTool = (definition: SupportToolDefinition): McpTool => ({
   },
 });
 
+const attachmentReader = ({
+  name,
+  title,
+  scope,
+  detailTool,
+  failure,
+}: {
+  name: string;
+  title: string;
+  scope: 'support' | 'manage-support';
+  detailTool: string;
+  failure: FailureCopy;
+}): McpTool => {
+  const path = `/api/v2/${scope}/attachments`;
+  const routeScope = scope.replace('-', '_');
+  return defineSupportTool({
+    name,
+    title,
+    description: `Read one PDF or image attachment from a Sanka Support message. Pass attachment_files[].id from ${detailTool}. Images are shown directly (PNG, JPEG, GIF or WebP up to 4 MiB). PDFs up to 25 MiB are rendered one page at a time, including scans. Start with page 1.`,
+    operation: 'read',
+    httpMethod: 'get',
+    httpPath: `${path}/{attachment_id}/download`,
+    operationId: `download_${routeScope}_attachment_api_v2_${routeScope}_attachments__attachment_id__download_get`,
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['attachment_id'],
+      properties: {
+        attachment_id: { type: 'string', description: 'The attachment UUID from the ticket message.' },
+        page: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 2147483647,
+          description: 'PDF page, starting at 1 (default 1).',
+        },
+      },
+    },
+    failure,
+    run: async (reqContext, args) => {
+      const id = readString(args?.['attachment_id']);
+      if (!id || !UUID.test(id))
+        return asErrorResult('`attachment_id` must be a UUID from the ticket message.');
+      const page = args?.['page'] ?? 1;
+      if (typeof page !== 'number' || !Number.isInteger(page) || page < 1 || page > 2147483647) {
+        return asErrorResult('`page` must be a positive PDF page number.');
+      }
+      const response = await reqContext.client.get(`${path}/${id}/download`).asResponse();
+      const preview = await readSupportAttachment(response, page);
+      if ('error' in preview) return asErrorResult(preview.error);
+
+      const fileName =
+        readContentDispositionFilename(response.headers.get('content-disposition')) ?? 'attachment';
+      const output = result(
+        {
+          attachment_id: id,
+          file_name: fileName,
+          size: preview.size,
+          ...(preview.pdf ? { page } : undefined),
+        },
+        [preview.pdf ? `${fileName}, PDF page ${page}.` : fileName],
+      );
+      output.content.push({
+        type: 'image',
+        mimeType: preview.mimeType,
+        data: preview.bytes.toString('base64'),
+      });
+      return output;
+    },
+  });
+};
+
+export const supportReadMyAttachmentTool = attachmentReader({
+  name: 'support_read_my_attachment',
+  title: 'Read my Sanka Support attachment',
+  scope: 'support',
+  detailTool: 'support_get_my_ticket',
+  failure: { notFound: CUSTOMER_NOT_FOUND, forbidden: CUSTOMER_NOT_FOUND, write: false },
+});
+
+export const supportAdminReadAttachmentTool = attachmentReader({
+  name: 'support_admin_read_attachment',
+  title: 'Read a Sanka Support attachment (admin)',
+  scope: 'manage-support',
+  detailTool: 'support_admin_get_ticket',
+  failure: { notFound: 'The attachment is no longer available.', forbidden: ADMIN_FORBIDDEN, write: false },
+});
+
 // ---------------------------------------------------------------- customer tools
 
 // What a customer may see of a ticket: no internal status, assignee or AI triage fields.
@@ -244,7 +366,7 @@ const customerMessage = (message: JsonRecord): JsonRecord => {
     : undefined),
     content: readString(message['content']) ?? '',
     created_at: message['created_at'] ?? null,
-    ...(attachmentNames(message).length ? { attachments: attachmentNames(message) } : undefined),
+    ...messageAttachments(message),
   };
 };
 
@@ -303,7 +425,7 @@ export const supportGetMyTicketTool = defineSupportTool({
   name: 'support_get_my_ticket',
   title: 'Get my Sanka Support ticket',
   description:
-    'Read one Sanka Support ticket the connected user can see: open or closed, whether Sanka AI or Sanka Support has replied, who it now waits for, its closing and reopening history and the conversation (latest messages first trimmed to max_messages). Read only. Pass the ticket id from support_list_my_tickets.',
+    'Read one Sanka Support ticket the connected user can see: open or closed, whether Sanka AI or Sanka Support has replied, who it now waits for, its closing and reopening history and the conversation (latest messages first trimmed to max_messages). Read only. Pass the ticket id from support_list_my_tickets. Read files listed in message attachment_files with support_read_my_attachment.',
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${CUSTOMER_THREADS_PATH}/{thread_id}`,
@@ -436,7 +558,7 @@ const adminMessage = (message: JsonRecord): JsonRecord => {
     author_email: readString(message['author_email']) ?? null,
     content: readString(message['content']) ?? '',
     created_at: message['created_at'] ?? null,
-    ...(attachmentNames(message).length ? { attachments: attachmentNames(message) } : undefined),
+    ...messageAttachments(message),
   };
 };
 
@@ -462,9 +584,23 @@ const adminEvent = (event: JsonRecord): JsonRecord => {
 
 // Without a client_message_id, the same text to the same ticket is one reply, so a retried call
 // cannot send it twice.
-const derivedClientMessageId = (threadId: string, content: string): string => {
+const derivedClientMessageId = (
+  threadId: string,
+  content: string,
+  attachments: ReplyAttachment[],
+): string => {
   const hex = createHash('sha256')
-    .update(JSON.stringify(['mcp-support-reply', threadId, content]))
+    .update(
+      JSON.stringify([
+        'mcp-support-reply',
+        threadId,
+        content,
+        ...attachments.map(({ fileName, bytes }) => [
+          fileName,
+          createHash('sha256').update(bytes).digest('hex'),
+        ]),
+      ]),
+    )
     .digest('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(
     20,
@@ -633,7 +769,7 @@ export const supportAdminGetTicketTool = defineSupportTool({
   name: 'support_admin_get_ticket',
   title: 'Get a Sanka Support ticket (admin)',
   description:
-    'Support admins only. Read one Sanka Support ticket by id, external ticket id or bug id: its board status (Open, In progress, Feature request or pending, Done), whether the ticket is open or closed, workspace code, name and plan, sender, assignee, the conversation with staff names, and the status and assignee history.',
+    'Support admins only. Read one Sanka Support ticket by id, external ticket id or bug id: its board status (Open, In progress, Feature request or pending, Done), whether the ticket is open or closed, workspace code, name and plan, sender, assignee, the conversation with staff names, and the status and assignee history. Read files listed in message attachment_files with support_admin_read_attachment.',
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${ADMIN_PATH}/threads/{thread_id}`,
@@ -831,11 +967,46 @@ export const supportAdminUpdateTicketTool = defineSupportTool({
   },
 });
 
+type ReplyAttachment = { fileName: string; bytes: Buffer; mimeType: string };
+
+const readReplyAttachments = (value: unknown): ReplyAttachment[] | string => {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > REPLY_MAX_FILES) return 'Pass up to five attachments.';
+  const files: ReplyAttachment[] = [];
+  let size = 0;
+  for (const [index, input] of value.entries()) {
+    const attachment = readRecord(input);
+    const fileName = readString(attachment?.['file_name'])?.trim();
+    if (
+      !fileName ||
+      fileName.length > 255 ||
+      /[\p{Cc}/\\]/u.test(fileName) ||
+      fileName === '.' ||
+      fileName === '..'
+    ) {
+      return `Attachment ${index + 1} needs a file name without a path.`;
+    }
+    const encoded = readString(attachment?.['content_base64']);
+    if (!encoded) return `Pass the original base64 bytes for "${fileName}".`;
+    if (encoded.length > REPLY_MAX_BASE64_LENGTH) return 'Attachments must total at most 8 MiB.';
+    const bytes = Buffer.from(encoded, 'base64');
+    if (!bytes.length || bytes.toString('base64') !== encoded) {
+      return `"${fileName}" must contain valid base64 file data.`;
+    }
+    size += bytes.length;
+    if (size > REPLY_MAX_FILE_BYTES) return 'Attachments must total at most 8 MiB.';
+    const mimeType = supportAttachmentMime(bytes);
+    if (!mimeType) return `"${fileName}" must be a PDF, PNG, JPEG, GIF or WebP file.`;
+    files.push({ fileName, bytes, mimeType });
+  }
+  return files;
+};
+
 export const supportAdminReplyTool = defineSupportTool({
   name: 'support_admin_reply',
   title: 'Reply to a Sanka Support ticket (admin)',
   description:
-    "Support admins only. Reply to a customer as Sanka Support; the reply is e-mailed or sent to the ticket's channel and cannot be unsent. Without confirm: true this only returns a preview with the ticket, the recipient and the latest customer message: show it to the user and send only after they approve. A reply reopens a closed ticket and moves it from Open to In progress. Retrying with the same client_message_id never sends twice.",
+    "Support admins only. Reply to a customer as Sanka Support; the reply is e-mailed or sent to the ticket's channel and cannot be unsent. Without confirm: true this only returns a preview with the ticket, the recipient and the latest customer message and attachment names: show it to the user and send only after they approve. To include files, pass their original base64 bytes in attachments. Files are stored on the Support ticket. A reply reopens a closed ticket and moves it from Open to In progress. Retrying with the same client_message_id never sends twice.",
   operation: 'write',
   httpMethod: 'post',
   httpPath: `${ADMIN_PATH}/threads/{thread_id}/reply`,
@@ -844,10 +1015,36 @@ export const supportAdminReplyTool = defineSupportTool({
   inputSchema: {
     type: 'object',
     additionalProperties: false,
-    required: ['ticket_id', 'content'],
+    required: ['ticket_id'],
+    anyOf: [{ required: ['content'] }, { required: ['attachments'] }],
     properties: {
       ticket_id: TICKET_ID_SCHEMA,
-      content: { type: 'string', minLength: 1, maxLength: REPLY_MAX_LENGTH, description: 'The reply text.' },
+      content: {
+        type: 'string',
+        maxLength: REPLY_MAX_LENGTH,
+        description: 'The reply text. Optional when there are attachments.',
+      },
+      attachments: {
+        type: 'array',
+        minItems: 1,
+        maxItems: REPLY_MAX_FILES,
+        description: 'Optional PDF, PNG, JPEG, GIF or WebP files (8 MiB total before base64 encoding).',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['file_name', 'content_base64'],
+          properties: {
+            file_name: { type: 'string', minLength: 1, maxLength: 255 },
+            content_base64: {
+              type: 'string',
+              minLength: 1,
+              maxLength: REPLY_MAX_BASE64_LENGTH,
+              description:
+                'Original file bytes as base64 without a data URL prefix. A local path or chat attachment name alone cannot supply the bytes.',
+            },
+          },
+        },
+      },
       confirm: {
         type: 'boolean',
         description: 'true sends the reply; otherwise only a preview is returned.',
@@ -856,7 +1053,7 @@ export const supportAdminReplyTool = defineSupportTool({
         type: 'string',
         pattern: '^[0-9a-fA-F-]{36}$',
         description:
-          'A UUID you choose; a retry with the same value returns the first reply. Defaults to one derived from the ticket and text.',
+          'A UUID you choose; a retry with the same value returns the first reply. Defaults to one derived from the ticket, text and files.',
       },
     },
   },
@@ -864,8 +1061,10 @@ export const supportAdminReplyTool = defineSupportTool({
   run: async (reqContext, args) => {
     const ticketId = readTicketId(args);
     if (!ticketId) return asErrorResult('`ticket_id` is required.');
-    const content = readString(args?.['content'])?.trim();
-    if (!content) return asErrorResult('`content` is required.');
+    const content = readString(args?.['content'])?.trim() ?? '';
+    const attachments = readReplyAttachments(args?.['attachments']);
+    if (typeof attachments === 'string') return asErrorResult(attachments);
+    if (!content && !attachments.length) return asErrorResult('Pass reply text or at least one attachment.');
     if (content.length > REPLY_MAX_LENGTH) {
       return asErrorResult(`\`content\` must be at most ${REPLY_MAX_LENGTH} characters.`);
     }
@@ -879,6 +1078,11 @@ export const supportAdminReplyTool = defineSupportTool({
     if (!threadId) return asErrorResult('The ticket could not be resolved.');
     const sender = readRecord(ticket['sender']);
     const workspace = readRecord(ticket['workspace']);
+    const attachmentFiles = attachments.map(({ fileName, mimeType, bytes }) => ({
+      file_name: fileName,
+      content_type: mimeType,
+      size: bytes.length,
+    }));
     if (args?.['confirm'] !== true) {
       const lastCustomer = records(detail['messages'])
         .filter((message) => readString(message['role']) === 'user')
@@ -891,20 +1095,27 @@ export const supportAdminReplyTool = defineSupportTool({
           ticket,
           to: sender?.['email'] ?? null,
           content,
+          ...(attachmentFiles.length ? { attachments: attachmentFiles } : undefined),
           last_customer_message: lastCustomer ? adminMessage(lastCustomer) : null,
         },
         [
           `Preview only; nothing was sent. Reply to "${ticket['title']}" (${ticket['ticket_state']}) for ${
             sender?.['email'] ?? 'the customer'
           } in workspace ${workspace?.['code'] ?? '?'}:`,
-          content,
+          ...(content ? [content] : []),
+          ...(attachmentFiles.length ?
+            [`Attachments: ${attachmentFiles.map((file) => file.file_name).join(', ')}.`]
+          : []),
           'Show this to the user. Call again with confirm: true (and a client_message_id) to send it as Sanka Support.',
         ],
       );
     }
     const form = new FormData();
     form.append('content', content);
-    const messageId = clientMessageId ?? derivedClientMessageId(threadId, content);
+    for (const { fileName, bytes, mimeType } of attachments) {
+      form.append('files', new Blob([bytes], { type: mimeType }), fileName);
+    }
+    const messageId = clientMessageId ?? derivedClientMessageId(threadId, content, attachments);
     form.append('client_message_id', messageId);
     const after = envelopeData(
       await reqContext.client.post(`${ADMIN_PATH}/threads/${encodeURIComponent(threadId)}/reply`, {
@@ -912,9 +1123,22 @@ export const supportAdminReplyTool = defineSupportTool({
         maxRetries: 0,
       }),
     );
+    const failed = records(after['failed_attachments']);
     return result(
-      { ok: true, status: 'sent', sent: true, client_message_id: messageId, ticket: adminTicket(after) },
-      [`Sent the reply to "${ticket['title']}" as Sanka Support (${sender?.['email'] ?? 'the customer'}).`],
+      {
+        ok: true,
+        status: 'sent',
+        sent: true,
+        client_message_id: messageId,
+        ticket: adminTicket(after),
+        ...(failed.length ? { failed_attachments: failed } : undefined),
+      },
+      [
+        `Sent the reply to "${ticket['title']}" as Sanka Support (${sender?.['email'] ?? 'the customer'}).`,
+        ...(failed.length ?
+          [`These attachments could not be saved: ${failed.map((file) => file['file_name']).join(', ')}.`]
+        : []),
+      ],
     );
   },
 });
@@ -922,8 +1146,10 @@ export const supportAdminReplyTool = defineSupportTool({
 export const supportTools: McpTool[] = [
   supportListMyTicketsTool,
   supportGetMyTicketTool,
+  supportReadMyAttachmentTool,
   supportAdminListTicketsTool,
   supportAdminGetTicketTool,
+  supportAdminReadAttachmentTool,
   supportAdminListAgentsTool,
   supportAdminUpdateTicketTool,
   supportAdminReplyTool,

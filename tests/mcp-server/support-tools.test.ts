@@ -1,10 +1,12 @@
 import {
   supportAdminGetTicketTool,
   supportAdminListTicketsTool,
+  supportAdminReadAttachmentTool,
   supportAdminReplyTool,
   supportAdminUpdateTicketTool,
   supportGetMyTicketTool,
   supportListMyTicketsTool,
+  supportReadMyAttachmentTool,
 } from '../../packages/mcp-server/src/support-tools';
 import { validateToolArguments } from '../../packages/mcp-server/src/tool-argument-validator';
 import type { McpTool } from '../../packages/mcp-server/src/types';
@@ -12,6 +14,10 @@ import { envelope, firstTextContent, sendThroughSDK, type V2Request } from './cr
 
 const API = 'http://localhost:5000/api/v2';
 const THREAD_ID = '6f1d2c3b-4a59-4e8f-9d7c-1b2a3c4d5e6f';
+const ATTACHMENT_ID = 'aa05173c-7a87-4e41-b724-bc61ec765dac';
+const IMAGE = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+const attachment = { id: ATTACHMENT_ID, file_name: 'screen.png', content_type: 'image/png', size: 67 };
+const upload = { file_name: attachment.file_name, content_base64: IMAGE };
 const REPLY_ID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 
 // A customer's ticket as GET /support/threads returns it: internal status and AI triage included.
@@ -38,6 +44,7 @@ const customerMessages = [
     role: 'user',
     author: { id: '7', name: 'Aiko', email: 'aiko@acme.test' },
     content: 'Export fails',
+    attachments: [{ ...attachment, download_url: '/internal/download' }],
   },
   { id: 'm2', role: 'ai', author: null, content: 'Which format?' },
   { id: 'm3', role: 'human', author: null, content: 'We are fixing it.', attachments: [] },
@@ -114,13 +121,18 @@ const cases: Array<{
     structuredContent: {
       ticket: { replied_by_sanka_support: true, last_reply_from: 'Sanka Support', waiting_on: 'customer' },
       messages: [
-        { from: 'customer', author_name: 'Aiko' },
+        {
+          from: 'customer',
+          author_name: 'Aiko',
+          attachments: ['screen.png'],
+          attachment_files: [attachment],
+        },
         { from: 'Sanka AI' },
         { from: 'Sanka Support', content: 'We are fixing it.' },
       ],
     },
     text: ['Sanka Support has replied.'],
-    absent: ['feature_pending', 'author_email'],
+    absent: ['feature_pending', 'author_email', '/internal/download'],
   },
   {
     name: "a customer cannot read someone else's ticket",
@@ -229,11 +241,17 @@ const cases: Array<{
   {
     name: 'an admin reply without confirm is only a preview',
     tool: supportAdminReplyTool,
-    args: { ticket_id: THREAD_ID, content: 'Fixed, please retry.' },
+    args: { ticket_id: THREAD_ID, content: 'Fixed, please retry.', attachments: [upload] },
     responses: [envelope(adminDetail)],
     requests: [{ method: 'GET', url: `${API}/manage-support/threads/${THREAD_ID}` }],
-    structuredContent: { status: 'preview', sent: false, to: 'aiko@acme.test' },
-    text: ['Preview only; nothing was sent.'],
+    structuredContent: {
+      status: 'preview',
+      sent: false,
+      to: 'aiko@acme.test',
+      attachments: [{ file_name: 'screen.png' }],
+    },
+    text: ['Preview only; nothing was sent.', 'screen.png'],
+    absent: [IMAGE],
   },
   {
     name: 'a confirmed admin reply is sent once as a form',
@@ -250,9 +268,81 @@ const cases: Array<{
     ],
     structuredContent: { status: 'sent', sent: true, client_message_id: REPLY_ID },
   },
+  {
+    name: 'an admin sends an attachment-only reply and sees when storage failed',
+    tool: supportAdminReplyTool,
+    args: { ticket_id: THREAD_ID, attachments: [upload], confirm: true, client_message_id: REPLY_ID },
+    responses: [
+      envelope(adminDetail),
+      envelope({ ...adminDetail, failed_attachments: [{ file_name: 'screen.png' }] }),
+    ],
+    requests: [
+      { method: 'GET', url: `${API}/manage-support/threads/${THREAD_ID}` },
+      {
+        method: 'POST',
+        url: `${API}/manage-support/threads/${THREAD_ID}/reply`,
+        multipart: {
+          content: '',
+          client_message_id: REPLY_ID,
+          files: { filename: 'screen.png', type: 'image/png', base64: IMAGE },
+        },
+      },
+    ],
+    structuredContent: { sent: true, failed_attachments: [{ file_name: 'screen.png' }] },
+    text: ['could not be saved', 'screen.png'],
+  },
+  {
+    name: 'corrupt attachment bytes stop a confirmed reply before any request',
+    tool: supportAdminReplyTool,
+    args: {
+      ticket_id: THREAD_ID,
+      content: 'Fixed.',
+      attachments: [{ ...upload, content_base64: '????' }],
+      confirm: true,
+    },
+    responses: [],
+    requests: [],
+    isError: true,
+    text: ['base64'],
+  },
 ];
 
 describe('Sanka Support tools', () => {
+  it.each([
+    [() => supportReadMyAttachmentTool, 'support'],
+    [() => supportAdminReadAttachmentTool, 'manage-support'],
+  ] as const)('reads an image through the proper attachment route (%#)', async (getTool, scope) => {
+    const { requests, result } = await sendThroughSDK({
+      tool: getTool(),
+      args: { attachment_id: ATTACHMENT_ID },
+      responses: [
+        new Response(Buffer.from(IMAGE, 'base64'), {
+          headers: { 'Content-Type': 'image/png', 'Content-Disposition': 'inline; filename="screen.png"' },
+        }),
+      ],
+    });
+    expect(requests).toEqual([
+      { method: 'GET', url: `${API}/${scope}/attachments/${ATTACHMENT_ID}/download` },
+    ]);
+    expect(result.structuredContent).toMatchObject({ attachment_id: ATTACHMENT_ID, file_name: 'screen.png' });
+    expect(result.content).toContainEqual({ type: 'image', mimeType: 'image/png', data: IMAGE });
+  });
+
+  it('refuses an attachment outside the customer workspace without trying the admin route', async () => {
+    const { requests, result } = await sendThroughSDK({
+      tool: supportReadMyAttachmentTool,
+      args: { attachment_id: ATTACHMENT_ID },
+      responses: [apiError(403, 'PERMISSION_DENIED', 'Forbidden')],
+    });
+    expect(requests).toEqual([
+      { method: 'GET', url: `${API}/support/attachments/${ATTACHMENT_ID}/download` },
+    ]);
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([
+      { type: 'text', text: expect.stringContaining('Only tickets you opened') },
+    ]);
+  });
+
   it.each(cases)(
     '$name',
     async ({

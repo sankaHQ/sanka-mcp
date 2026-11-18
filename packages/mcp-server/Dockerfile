@@ -46,7 +46,7 @@ RUN pnpm install --frozen-lockfile && \
 FROM denoland/deno:alpine-2.7.1
 
 # Use the patched upstream Node binary, rather than Alpine's independent package.
-RUN apk add --no-cache libstdc++
+RUN apk add --no-cache libstdc++ poppler-utils font-noto-cjk
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
 
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
