@@ -1,185 +1,89 @@
-// Hand-written demo and integration-sync tools. Existing Sanka workspace
-// seeding uses the native V2 manage-data API; new-workspace provisioning and
-// direct CRM demo generation retain the legacy endpoint until their V2
-// replacements ship. Kept separate from the Stainless-generated code so these
-// tools survive the next regeneration pass.
+// Hand-written demo and integration-sync tools, kept apart from the Stainless-generated code so
+// they survive the next regeneration pass.
+//
+// generate_demo_workspace builds a NEW Free demo workspace with a case's fictional data for Sanka
+// Desk, Sanka Flow or Sanka Monitor, owned by the Sanka member who asks (sanka-api
+// docs/specs/demo-workspaces/README.md). It never writes into an existing workspace.
 
-import type Sanka from 'sanka-sdk';
+import { envelopeData, readApiFailure } from './desk-tools';
+import { readRecord } from './tool-factories';
 import { McpTool, ToolCallResult } from './types';
 import { requireAuthentication } from './tool-auth';
 
-// Re-export the generated types via the Sanka namespace so we don't need to
-// reach into subpath modules (which do not resolve under moduleResolution:node).
-type DemoGenerateParams = Sanka.DemoGenerateParams & {
-  target?: string;
-  provider?: string;
-  channel_id?: string;
-  dry_run?: boolean;
-  confirm?: boolean;
-  custom_objects?: Array<Record<string, unknown>>;
-};
-type DemoGenerateResponse = Sanka.DemoGenerateResponse & {
-  target?: string | null;
-  provider?: string | null;
-  channel_id?: string | null;
-  channel_name?: string | null;
-  dry_run?: boolean | null;
-  remote?: Record<string, unknown> | null;
-  warnings?: string[] | null;
-};
+import type Sanka from 'sanka-sdk';
+
 type IntegrationSyncPushParams = Sanka.IntegrationSyncPushParams;
 type IntegrationSyncPushResponse = Sanka.IntegrationSyncPushResponse;
+type JsonRecord = Record<string, unknown>;
 
-const V2_MANAGE_DATA_PATH = '/api/v2/manage-data';
-const V2_MANAGE_DEMO_PATH = `${V2_MANAGE_DATA_PATH}/demo-data`;
-const SUPPORTED_TEMPLATES = ['b2b_saas', 'dtc_subscription', 'agency_services'] as const;
-const SUPPORTED_COUNTRIES = ['us', 'jp'] as const;
+const DEMO_WORKSPACES_PATH = '/api/v2/demo-workspaces';
+const DEMO_ACTIONS = ['cases', 'build', 'status', 'list', 'extend', 'end'] as const;
+const DEMO_PRODUCTS = ['desk', 'flow', 'monitor'] as const;
 
-const DEMO_GENERATE_INPUT_SCHEMA = {
+const DEMO_INPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    template: {
+    action: {
       type: 'string',
       description:
-        'Demo template slug. Use "b2b_saas" for horizontal B2B SaaS, "dtc_subscription" for a direct-to-consumer subscription brand, or "agency_services" for a boutique creative/digital agency.',
-      enum: [...SUPPORTED_TEMPLATES],
+        'What to do: "cases" lists the cases a demo can be built from; "build" starts a new demo workspace; "status" reads one back (its link and demo script once ready); "list" shows the person\'s demos and limits; "extend" adds 30 days (up to 90); "end" ends one now (view-only at once, deleted after 7 days). Use "end" only when the person asks.',
+      enum: [...DEMO_ACTIONS],
+      default: 'build',
     },
-    target: {
+    product: {
+      type: 'string',
+      description: 'The product the demo shows (action "build").',
+      enum: [...DEMO_PRODUCTS],
+    },
+    case: {
       type: 'string',
       description:
-        'Demo destination. Use "sanka" to seed Sanka, "integration" to create directly in HubSpot/Salesforce, or "both" to do both.',
-      enum: ['sanka', 'integration', 'both'],
-      default: 'sanka',
+        'The case key from action "cases", for example "bpo_windows10_shadow_ai" (Monitor), "manufacturing" (Flow) or "it_helpdesk_google" (Desk).',
     },
-    provider: {
+    language: {
       type: 'string',
-      description: 'Connected CRM provider for target="integration" or target="both".',
-      enum: ['hubspot', 'salesforce'],
+      description: "The demo's language. Empty takes the case's.",
+      enum: ['en', 'ja'],
     },
-    channel_id: {
+    currency: {
       type: 'string',
-      description:
-        'Optional integration channel UUID. Pass this when a workspace has more than one HubSpot/Salesforce connection.',
+      description: 'ISO 4217 code such as USD, JPY or PHP. Empty is USD in English and JPY in Japanese.',
+      pattern: '^[A-Z]{3}$',
     },
-    dry_run: {
-      type: 'boolean',
-      description:
-        'Preview direct integration demo creation without writing provider records. Use this first for HubSpot/Salesforce demos.',
-      default: false,
-    },
-    confirm: {
-      type: 'boolean',
-      description:
-        'Required when target includes integration and dry_run=false because this creates records directly in the provider.',
-      default: false,
-    },
-    custom_objects: {
-      type: 'array',
-      description:
-        'Optional custom object record plans for direct HubSpot/Salesforce demos. The provider custom object schema must already exist. Use external_object_type plus records or count/name_property.',
-      items: {
-        type: 'object',
-        properties: {
-          external_object_type: {
-            type: 'string',
-            description:
-              'Provider custom object API name or object type id, for example a HubSpot custom object type id or Salesforce Demo_Object__c.',
-          },
-          label: {
-            type: 'string',
-            description: 'Optional display label used for generated sample record names.',
-          },
-          name_property: {
-            type: 'string',
-            description:
-              'Provider property used for generated names. Defaults to name for HubSpot and Name for Salesforce.',
-          },
-          count: {
-            type: 'integer',
-            description: 'Number of generated records when records is omitted.',
-            minimum: 0,
-            maximum: 50,
-            default: 3,
-          },
-          properties: {
-            type: 'object',
-            description: 'Default provider properties applied to every generated custom object record.',
-            additionalProperties: true,
-          },
-          records: {
-            type: 'array',
-            description:
-              'Explicit provider property dictionaries. When set, these records are used instead of generated sample records.',
-            items: {
-              type: 'object',
-              additionalProperties: true,
-            },
-          },
-        },
-        required: ['external_object_type'],
-      },
-    },
-    country: {
+    timezone: {
       type: 'string',
-      description:
-        'ISO country code (lowercase). Drives localized company/contact/item copy and the billing currency. Supported: "us" (USD) and "jp" (JPY).',
-      enum: [...SUPPORTED_COUNTRIES],
+      description: "An IANA time zone such as Asia/Manila. Empty takes the case's.",
     },
-    workspace_id: {
-      type: 'string',
-      description:
-        'Optional existing workspace UUID to seed into. When omitted, a brand new free-tier workspace owned by the caller is provisioned.',
-    },
-    seed: {
+    size: {
       type: 'integer',
-      description: 'Optional seed for the deterministic random selections. Useful for replayable demos.',
-      minimum: 0,
+      description: "How many PCs a Monitor demo has, within the case's bounds.",
+      minimum: 1,
+      maximum: 1000,
+    },
+    demo_id: {
+      type: 'string',
+      description: 'The demo to read, extend or end (actions "status", "extend", "end").',
+    },
+    client_key: {
+      type: 'string',
+      description: 'Optional key that makes a retried "build" return the first one instead of a second demo.',
+      minLength: 8,
+      maxLength: 100,
     },
   },
-  required: ['template', 'country'],
 };
 
-const DEMO_GENERATE_OUTPUT_SCHEMA = {
+const DEMO_OUTPUT_SCHEMA = {
   type: 'object' as const,
   properties: {
-    workspace_id: { type: 'string' },
-    workspace_name: { type: 'string' },
-    workspace_short_id: { type: ['integer', 'null'] as any },
-    target: { type: 'string' },
-    provider: { type: ['string', 'null'] as any },
-    channel_id: { type: ['string', 'null'] as any },
-    channel_name: { type: ['string', 'null'] as any },
-    dry_run: { type: ['boolean', 'null'] as any },
-    template: { type: 'string' },
-    country: { type: 'string' },
-    seed: { type: 'integer' },
-    created: { type: 'boolean' },
-    counts: {
-      type: 'object',
-      additionalProperties: { type: 'integer' },
-    },
-    sample_record_ids: {
-      type: 'object',
-      additionalProperties: { type: 'array', items: { type: 'string' } },
-    },
-    remote: { type: ['object', 'null'] as any },
-    warnings: {
-      type: ['array', 'null'] as any,
-      items: { type: 'string' },
-    },
+    action: { type: 'string' },
+    demo: { type: ['object', 'null'] as any },
+    demos: { type: 'array', items: { type: 'object' } },
+    limits: { type: ['object', 'null'] as any },
+    cases: { type: 'array', items: { type: 'object' } },
     message: { type: 'string' },
   },
-  required: [
-    'workspace_id',
-    'workspace_name',
-    'template',
-    'country',
-    'seed',
-    'created',
-    'counts',
-    'sample_record_ids',
-    'message',
-  ],
+  required: ['action', 'message'],
 };
 
 const INTEGRATION_SYNC_PUSH_INPUT_SCHEMA = {
@@ -265,179 +169,102 @@ const readStringArray = (value: unknown): string[] | undefined => {
   return result.length > 0 ? result : undefined;
 };
 
-const readPlainObject = (value: unknown): Record<string, unknown> | undefined => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-  return value as Record<string, unknown>;
+const DEMO_HINTS: Record<string, string> = {
+  DEMO_WORKSPACES_SANKA_MEMBERS_ONLY:
+    "Only members of Sanka's own workspace can build demo workspaces. A prospect signs up for Sanka themselves.",
+  DEMO_WORKSPACES_OFF: 'Demo workspaces are switched off. Ask Sanka to turn them on.',
+  DEMO_WORKSPACES_LIVE_LIMIT: 'End one of the person\'s demos (action "end") before building another.',
+  DEMO_WORKSPACES_MONTH_LIMIT: 'The person has built as many demos as a month allows.',
+  DEMO_CASE_UNKNOWN: 'Call this tool with action "cases" and pick one of them.',
 };
 
-const readCustomObjectPlans = (value: unknown): Array<Record<string, unknown>> | undefined => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  const plans = value
-    .map((entry) => readPlainObject(entry))
-    .filter((entry): entry is Record<string, unknown> => {
-      const externalObjectType = readString(entry?.['external_object_type'] ?? entry?.['externalObjectType']);
-      return Boolean(externalObjectType);
-    })
-    .map((entry) => {
-      const plan: Record<string, unknown> = {
-        external_object_type: readString(entry['external_object_type'] ?? entry['externalObjectType']),
-      };
-      const label = readString(entry['label']);
-      if (label) {
-        plan['label'] = label;
-      }
-      const nameProperty = readString(entry['name_property'] ?? entry['nameProperty']);
-      if (nameProperty) {
-        plan['name_property'] = nameProperty;
-      }
-      const count = readNumber(entry['count']);
-      if (count !== undefined) {
-        plan['count'] = Math.trunc(count);
-      }
-      const properties = readPlainObject(entry['properties']);
-      if (properties) {
-        plan['properties'] = properties;
-      }
-      if (Array.isArray(entry['records'])) {
-        plan['records'] = entry['records']
-          .map((record) => readPlainObject(record))
-          .filter((record): record is Record<string, unknown> => Boolean(record));
-      }
-      return plan;
-    });
-  return plans.length > 0 ? plans : undefined;
-};
-
-const demoCountsFromSections = (sections: string[]): Record<string, number> => {
-  const present = new Set(sections);
+// A 4xx answer with a code changed nothing; anything else is left to the server's error handling.
+const demoErrorResult = (error: unknown, lead: string): ToolCallResult | undefined => {
+  const failure = readApiFailure(error);
+  if (!failure || (failure.status !== undefined && failure.status >= 500)) return undefined;
+  const hint = DEMO_HINTS[failure.code];
   return {
-    companies: present.has('company') ? 1 : 0,
-    contacts: present.has('contact') ? 1 : 0,
-    items: present.has('item') ? 1 : 0,
-    orders: present.has('order') ? 1 : 0,
-    deals: 0,
-    subscriptions: 0,
-    invoices: present.has('invoice') ? 1 : 0,
-    receipts: present.has('payment') ? 1 : 0,
+    content: [
+      { type: 'text', text: `${lead} (${failure.code}): ${failure.message}${hint ? ` ${hint}` : ''}` },
+    ],
+    isError: true,
+    structuredContent: {
+      action: 'error',
+      code: failure.code,
+      message: failure.message,
+      details: failure.details,
+    },
   };
 };
 
-const generateExistingWorkspaceDemoV2 = async ({
-  client,
-  workspaceId,
-  template,
-  country,
-  seed,
-}: {
-  client: Sanka;
-  workspaceId: string;
-  template: string;
-  country: string;
-  seed?: number;
-}): Promise<DemoGenerateResponse> => {
-  const workspaceEnvelope = readPlainObject(
-    await client.get(V2_MANAGE_DATA_PATH, {
-      query: { q: workspaceId },
-    }),
-  );
-  const workspaceData = readPlainObject(workspaceEnvelope?.['data']);
-  const workspaces = Array.isArray(workspaceData?.['workspaces']) ? workspaceData['workspaces'] : [];
-  const workspace =
-    workspaces
-      .map((entry) => readPlainObject(entry))
-      .find((entry) => readString(entry?.['id']) === workspaceId) ?? undefined;
+const inputError = (text: string): ToolCallResult => ({
+  content: [{ type: 'text', text }],
+  isError: true,
+});
 
-  const seedEnvelope = readPlainObject(
-    await client.post(V2_MANAGE_DEMO_PATH, {
-      body: {
-        workspace_id: workspaceId,
-        days: 0,
-      },
-    }),
-  );
-  const seedData = readPlainObject(seedEnvelope?.['data']) ?? seedEnvelope;
-  if (!seedData) {
-    throw new Error('The V2 demo-data endpoint returned an invalid response.');
-  }
-
-  const importedSections = readStringArray(seedData['imported_sections']) ?? [];
-  const workspaceName = readString(workspace?.['name']) ?? workspaceId;
-  const workspaceShortId = readNumber(workspace?.['short_id']);
-  const message =
-    readString(seedData['message']) ?? `Generated bounded V2 demo data for workspace ${workspaceName}.`;
-
-  return {
-    workspace_id: workspaceId,
-    workspace_name: workspaceName,
-    workspace_short_id: workspaceShortId ?? null,
-    target: 'sanka',
-    provider: null,
-    channel_id: null,
-    channel_name: null,
-    dry_run: null,
-    template,
-    country,
-    seed: seed ?? 0,
-    created: false,
-    counts: demoCountsFromSections(importedSections),
-    sample_record_ids: {},
-    remote: null,
-    warnings: ['v2_bounded_demo_seed'],
-    message,
-  } as DemoGenerateResponse;
+const demoLine = (demo: JsonRecord): string => {
+  const workspace = readRecord(demo['workspace']);
+  const name = readString(workspace?.['name']) ?? '(not created yet)';
+  return `- ${readString(demo['id'])} ${readString(demo['product'])}/${readString(
+    demo['case'],
+  )}: ${readString(demo['status'])}, ${name}`;
 };
 
-const buildDemoSummary = (response: DemoGenerateResponse): string => {
-  const parts: string[] = [];
-  parts.push(
-    response.target === 'integration' ?
-      response.dry_run ?
-        `Prepared direct ${response.provider ?? 'integration'} demo dry run for "${response.workspace_name}"`
-      : `Created direct ${response.provider ?? 'integration'} demo records for "${response.workspace_name}"`
-    : response.created ? `Created new demo workspace "${response.workspace_name}"`
-    : `Seeded existing workspace "${response.workspace_name}"`,
-  );
-  parts.push(
-    `with ${response.counts?.['companies'] ?? 0} companies, ${response.counts?.['contacts'] ?? 0} contacts, ${
-      response.counts?.['deals'] ?? 0
-    } deals, ${response.counts?.['subscriptions'] ?? 0} subscriptions, ${
-      response.counts?.['invoices'] ?? 0
-    } invoices, ${response.counts?.['receipts'] ?? 0} receipts.`,
-  );
-  const customObjectCount = response.counts?.['custom_objects'];
-  if (typeof customObjectCount === 'number' && customObjectCount > 0) {
-    parts.push(`${customObjectCount} custom object records are included.`);
+const demoText = (demo: JsonRecord): string => {
+  const status = readString(demo['status']) ?? '';
+  const id = readString(demo['id']) ?? '';
+  if (status === 'ready') {
+    const script = readString(demo['script']);
+    const ends = readString(demo['expires_at']);
+    return [
+      `The demo workspace is ready: ${readString(demo['link']) ?? ''}`,
+      script ?? '',
+      ends ? `It turns view-only on ${ends.slice(0, 10)} (UTC). demo_id: ${id}` : `demo_id: ${id}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
   }
-  return parts.join(' ');
+  if (status === 'queued' || status === 'building') {
+    return `The demo workspace is being built (demo_id: ${id}). It takes a minute or two: call generate_demo_workspace with action "status" and this demo_id for its link and demo script.`;
+  }
+  if (status === 'failed') {
+    return `The demo build failed at ${readString(demo['error_step']) ?? 'an unknown step'} (${
+      readString(demo['error_code']) ?? 'no code'
+    }). Its workspace is being deleted; build again.`;
+  }
+  return `The demo is ${status} (demo_id: ${id}).`;
 };
 
-const buildPushSummary = (response: IntegrationSyncPushResponse): string => {
-  const emitted = response.emitted_event_ids?.length ?? 0;
-  return `Queued ${emitted} outbound ${response.object_type} event${emitted === 1 ? '' : 's'} (requested ${
-    response.requested_count
-  }, skipped ${response.skipped_count}).`;
+const demoBody = (args: JsonRecord | undefined): JsonRecord => {
+  const body: JsonRecord = {
+    product: readString(args?.['product']),
+    case: readString(args?.['case']),
+  };
+  for (const key of ['language', 'currency', 'timezone', 'client_key']) {
+    const value = readString(args?.[key]);
+    if (value) body[key] = value;
+  }
+  const size = readNumber(args?.['size']);
+  if (size !== undefined) body['size'] = Math.trunc(size);
+  return body;
 };
 
 export const demoGenerateTool: McpTool = {
   metadata: {
-    resource: 'demo',
+    resource: 'demo_workspaces',
     operation: 'write',
-    tags: ['demo', 'onboarding'],
+    tags: ['demo', 'sales-enablement'],
     httpMethod: 'post',
-    httpPath: V2_MANAGE_DEMO_PATH,
-    operationId: 'manage_data.demo_data.trigger',
+    httpPath: DEMO_WORKSPACES_PATH,
+    operationId: 'demo_workspaces.create',
   },
   tool: {
     name: 'generate_demo_workspace',
     title: 'Generate demo workspace',
     description:
-      'Seed a Sanka workspace or create records directly in HubSpot/Salesforce with a curated lead-to-cash demo. For direct provider creation, set target="integration", provider, dry_run=true first, then rerun with confirm=true only after explicit approval. For provider custom object records, pass custom_objects with external_object_type; the custom object schema must already exist.',
-    inputSchema: DEMO_GENERATE_INPUT_SCHEMA,
-    outputSchema: DEMO_GENERATE_OUTPUT_SCHEMA,
+      'Build a NEW demo workspace on the Free plan, filled with a case\'s fictional data, for a Sanka Desk, Sanka Flow or Sanka Monitor demo. Only members of Sanka\'s own workspace can use it; the person who asks owns the workspace. It never writes into an existing workspace, connects no real account and pays for nothing. List the cases first (action "cases"), build (action "build"), then read it back (action "status") for its link and demo script. A demo lives 30 days; "extend" adds 30, "end" ends it now.',
+    inputSchema: DEMO_INPUT_SCHEMA,
+    outputSchema: DEMO_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
     annotations: {
       title: 'Generate demo workspace',
@@ -447,106 +274,79 @@ export const demoGenerateTool: McpTool = {
     },
   },
   handler: async ({ reqContext, args }): Promise<ToolCallResult> => {
-    const authError = requireAuthentication({
-      reqContext,
-      toolTitle: 'Generate demo workspace',
-    });
+    const authError = requireAuthentication({ reqContext, toolTitle: 'Generate demo workspace' });
     if (authError) {
       return authError;
     }
-
-    const template = readString(args?.['template']);
-    const country = readString(args?.['country']);
-    if (!template || !country) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Both "template" and "country" are required to generate a demo workspace.',
-          },
-        ],
-        isError: true,
-      };
+    const client = reqContext.client;
+    const action = readString(args?.['action']) ?? 'build';
+    const demoId = readString(args?.['demo_id']);
+    try {
+      if (action === 'cases') {
+        const language = readString(args?.['language']);
+        const data = envelopeData(
+          await client.get(`${DEMO_WORKSPACES_PATH}/cases`, language ? { query: { language } } : {}),
+        );
+        const cases = Array.isArray(data['cases']) ? (data['cases'] as JsonRecord[]) : [];
+        const lines = cases.map(
+          (entry) =>
+            `- ${readString(entry['product'])} / ${readString(entry['key'])}: ${readString(entry['title'])}`,
+        );
+        return {
+          content: [{ type: 'text', text: ['Demo cases:', ...lines].join('\n') }],
+          structuredContent: { action, cases, message: `${cases.length} cases` },
+        };
+      }
+      if (action === 'list') {
+        const data = envelopeData(await client.get(DEMO_WORKSPACES_PATH));
+        const demos = Array.isArray(data['demos']) ? (data['demos'] as JsonRecord[]) : [];
+        const limits = readRecord(data['limits']) ?? null;
+        const text = demos.length ? demos.map(demoLine).join('\n') : 'No demo workspaces yet.';
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: { action, demos, limits, message: `${demos.length} demos` },
+        };
+      }
+      if (action === 'build') {
+        const body = demoBody(args);
+        if (!body['product'] || !body['case']) {
+          return inputError(
+            'Both "product" and "case" are needed to build a demo. List the cases with action "cases".',
+          );
+        }
+        const demo = envelopeData(await client.post(DEMO_WORKSPACES_PATH, { body }));
+        return {
+          content: [{ type: 'text', text: demoText(demo) }],
+          structuredContent: { action, demo, message: readString(demo['status']) ?? '' },
+        };
+      }
+      if (action === 'status' || action === 'extend' || action === 'end') {
+        if (!demoId) {
+          return inputError(`"demo_id" is needed to ${action} a demo. List them with action "list".`);
+        }
+        const path = `${DEMO_WORKSPACES_PATH}/${encodeURIComponent(demoId)}`;
+        const demo = envelopeData(
+          action === 'status' ? await client.get(path) : await client.post(`${path}/${action}`, { body: {} }),
+        );
+        return {
+          content: [{ type: 'text', text: demoText(demo) }],
+          structuredContent: { action, demo, message: readString(demo['status']) ?? '' },
+        };
+      }
+      return inputError(`Unknown action "${action}". Use one of: ${DEMO_ACTIONS.join(', ')}.`);
+    } catch (error) {
+      const result = demoErrorResult(error, 'The demo workspace request was refused');
+      if (result) return result;
+      throw error;
     }
-
-    const body: DemoGenerateParams = {
-      template,
-      country,
-    };
-    const target = readString(args?.['target']);
-    if (target) {
-      body.target = target;
-    }
-    const provider = readString(args?.['provider']);
-    if (provider) {
-      body.provider = provider;
-    }
-    const channelID = readString(args?.['channel_id'] ?? args?.['channelId']);
-    if (channelID) {
-      body.channel_id = channelID;
-    }
-    const dryRun = typeof args?.['dry_run'] === 'boolean' ? args['dry_run'] : undefined;
-    if (dryRun !== undefined) {
-      body.dry_run = dryRun;
-    }
-    const confirm = typeof args?.['confirm'] === 'boolean' ? args['confirm'] : undefined;
-    if (confirm !== undefined) {
-      body.confirm = confirm;
-    }
-    const customObjects = readCustomObjectPlans(args?.['custom_objects'] ?? args?.['customObjects']);
-    if (customObjects) {
-      body.custom_objects = customObjects;
-    }
-    const workspaceId = readString(args?.['workspace_id']);
-    if (workspaceId) {
-      body.workspace_id = workspaceId;
-    }
-    const seed = readNumber(args?.['seed']);
-    const normalizedSeed = seed !== undefined ? Math.trunc(seed) : undefined;
-    if (seed !== undefined) {
-      body.seed = Math.trunc(seed);
-    }
-
-    const useV2ExistingWorkspaceSeed = Boolean(workspaceId) && (target === undefined || target === 'sanka');
-    const response =
-      useV2ExistingWorkspaceSeed && workspaceId ?
-        await generateExistingWorkspaceDemoV2({
-          client: reqContext.client,
-          workspaceId,
-          template,
-          country,
-          ...(normalizedSeed !== undefined ? { seed: normalizedSeed } : {}),
-        })
-      : ((await reqContext.client.demo.generate(body)) as DemoGenerateResponse);
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: buildDemoSummary(response),
-        },
-      ],
-      structuredContent: {
-        workspace_id: response.workspace_id,
-        workspace_name: response.workspace_name,
-        workspace_short_id: response.workspace_short_id ?? null,
-        target: response.target ?? 'sanka',
-        provider: response.provider ?? null,
-        channel_id: response.channel_id ?? null,
-        channel_name: response.channel_name ?? null,
-        dry_run: response.dry_run ?? null,
-        template: response.template,
-        country: response.country,
-        seed: response.seed,
-        created: response.created,
-        counts: response.counts ?? {},
-        sample_record_ids: response.sample_record_ids ?? {},
-        remote: response.remote ?? null,
-        warnings: response.warnings ?? null,
-        message: response.message,
-      },
-    };
   },
+};
+
+const buildPushSummary = (response: IntegrationSyncPushResponse): string => {
+  const emitted = response.emitted_event_ids?.length ?? 0;
+  return `Queued ${emitted} outbound ${response.object_type} event${emitted === 1 ? '' : 's'} (requested ${
+    response.requested_count
+  }, skipped ${response.skipped_count}).`;
 };
 
 export const integrationSyncPushTool: McpTool = {
