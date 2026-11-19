@@ -2,8 +2,9 @@
 // they survive the next regeneration pass.
 //
 // generate_demo_workspace builds a NEW Free demo workspace with a case's fictional data for Sanka
-// Desk, Sanka Flow or Sanka Monitor, owned by the Sanka member who asks (sanka-api
-// docs/specs/demo-workspaces/README.md). It never writes into an existing workspace.
+// Desk, Sanka Flow, Sanka Monitor or Sanka Migrate, owned by the Sanka member who asks, with the
+// Sanka colleagues they name as its admins too (sanka-api docs/specs/demo-workspaces/README.md). It
+// never writes into an existing workspace.
 
 import { envelopeData, readApiFailure } from './desk-tools';
 import { readRecord } from './tool-factories';
@@ -18,7 +19,8 @@ type JsonRecord = Record<string, unknown>;
 
 const DEMO_WORKSPACES_PATH = '/api/v2/demo-workspaces';
 const DEMO_ACTIONS = ['cases', 'build', 'status', 'list', 'extend', 'end'] as const;
-const DEMO_PRODUCTS = ['desk', 'flow', 'monitor'] as const;
+const DEMO_PRODUCTS = ['desk', 'flow', 'monitor', 'migrate'] as const;
+const MAX_DEMO_COLLEAGUES = 5;
 
 const DEMO_INPUT_SCHEMA = {
   type: 'object' as const,
@@ -38,7 +40,7 @@ const DEMO_INPUT_SCHEMA = {
     case: {
       type: 'string',
       description:
-        'The case key from action "cases", for example "bpo_windows10_shadow_ai" (Monitor), "manufacturing" (Flow) or "it_helpdesk_google" (Desk).',
+        'The case key from action "cases", for example "bpo_windows10_shadow_ai" (Monitor), "manufacturing" (Flow), "it_helpdesk_google" (Desk) or "salesforce_to_hubspot" (Migrate, a pair of systems in one direction).',
     },
     language: {
       type: 'string',
@@ -59,6 +61,13 @@ const DEMO_INPUT_SCHEMA = {
       description: "How many PCs a Monitor demo has, within the case's bounds.",
       minimum: 1,
       maximum: 1000,
+    },
+    colleagues: {
+      type: 'array',
+      description:
+        'E-mail addresses of Sanka colleagues to add to the demo as its admins (action "build"), only when the person names them. Each must be a member of Sanka\'s own workspace; they are added directly and get no e-mail.',
+      items: { type: 'string' },
+      maxItems: MAX_DEMO_COLLEAGUES,
     },
     demo_id: {
       type: 'string',
@@ -176,6 +185,8 @@ const DEMO_HINTS: Record<string, string> = {
   DEMO_WORKSPACES_LIVE_LIMIT: 'End one of the person\'s demos (action "end") before building another.',
   DEMO_WORKSPACES_MONTH_LIMIT: 'The person has built as many demos as a month allows.',
   DEMO_CASE_UNKNOWN: 'Call this tool with action "cases" and pick one of them.',
+  DEMO_COLLEAGUES_SANKA_MEMBERS_ONLY:
+    "Only members of Sanka's own workspace can be added to a demo. Check the addresses in details.emails with the person, or build without them.",
 };
 
 // A 4xx answer with a code changed nothing; anything else is left to the server's error handling.
@@ -216,8 +227,10 @@ const demoText = (demo: JsonRecord): string => {
   if (status === 'ready') {
     const script = readString(demo['script']);
     const ends = readString(demo['expires_at']);
+    const admins = readStringArray(demo['colleagues_added']);
     return [
       `The demo workspace is ready: ${readString(demo['link']) ?? ''}`,
+      admins ? `Also its admins: ${admins.join(', ')} (no e-mail was sent).` : '',
       script ?? '',
       ends ? `It turns view-only on ${ends.slice(0, 10)} (UTC). demo_id: ${id}` : `demo_id: ${id}`,
     ]
@@ -246,6 +259,8 @@ const demoBody = (args: JsonRecord | undefined): JsonRecord => {
   }
   const size = readNumber(args?.['size']);
   if (size !== undefined) body['size'] = Math.trunc(size);
+  const colleagues = readStringArray(args?.['colleagues']);
+  if (colleagues) body['colleagues'] = colleagues.map((email) => email.trim());
   return body;
 };
 
@@ -262,7 +277,7 @@ export const demoGenerateTool: McpTool = {
     name: 'generate_demo_workspace',
     title: 'Generate demo workspace',
     description:
-      'Build a NEW demo workspace on the Free plan, filled with a case\'s fictional data, for a Sanka Desk, Sanka Flow or Sanka Monitor demo. Only members of Sanka\'s own workspace can use it; the person who asks owns the workspace. It never writes into an existing workspace, connects no real account and pays for nothing. List the cases first (action "cases"), build (action "build"), then read it back (action "status") for its link and demo script. A demo lives 30 days; "extend" adds 30, "end" ends it now.',
+      'Build a NEW demo workspace on the Free plan, filled with a case\'s fictional data, for a Sanka Desk, Sanka Flow, Sanka Monitor or Sanka Migrate demo. Only members of Sanka\'s own workspace can use it; the person who asks owns the workspace, and Sanka colleagues they name become its admins too. It never writes into an existing workspace, connects no real account and pays for nothing: a Migrate demo runs between Sanka\'s own demo systems and stops at the free dry run. List the cases first (action "cases"), build (action "build"), then read it back (action "status") for its link and demo script. A demo lives 30 days; "extend" adds 30, "end" ends it now.',
     inputSchema: DEMO_INPUT_SCHEMA,
     outputSchema: DEMO_OUTPUT_SCHEMA,
     securitySchemes: [{ type: 'oauth2' }],
