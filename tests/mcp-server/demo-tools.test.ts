@@ -89,6 +89,25 @@ describe('Phase 5 demo + integration-sync MCP tools', () => {
         text: 'action "status"',
       },
       {
+        name: 'build with colleagues',
+        args: {
+          product: 'migrate',
+          case: 'salesforce_to_hubspot',
+          colleagues: [' colleague@sanka.example ', ''],
+        },
+        call: {
+          method: 'POST',
+          url: 'http://localhost:5000/api/v2/demo-workspaces',
+          body: {
+            product: 'migrate',
+            case: 'salesforce_to_hubspot',
+            colleagues: ['colleague@sanka.example'],
+          },
+        },
+        data: demo({ product: 'migrate', status: 'queued', link: null, script: null, workspace: null }),
+        text: 'action "status"',
+      },
+      {
         name: 'status',
         args: { action: 'status', demo_id: 'demo-1' },
         call: { method: 'GET', url: 'http://localhost:5000/api/v2/demo-workspaces/demo-1', body: undefined },
