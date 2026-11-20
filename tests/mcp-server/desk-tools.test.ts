@@ -1,13 +1,17 @@
 import { getCapabilityGuidanceTool } from '../../packages/mcp-server/src/capability-guidance-tools';
 import {
   DESK_ACTION_TOOL_NAMES,
+  DESK_WORKFLOW_TOOL_NAMES,
   deskCreateTicketTool,
   deskGetTicketStatusTool,
   deskListActionsTool,
   deskListMyApprovalsTool,
   deskListMyTicketsTool,
+  deskListWorkflowsTool,
   deskPreviewActionTool,
+  deskPreviewWorkflowTool,
   deskRunActionTool,
+  deskRunWorkflowTool,
 } from '../../packages/mcp-server/src/desk-tools';
 import { validateToolArguments } from '../../packages/mcp-server/src/tool-argument-validator';
 import type { McpTool } from '../../packages/mcp-server/src/types';
@@ -126,6 +130,34 @@ const running = (body: Record<string, unknown>): V2Request[] => [
     method: 'POST',
     url: `${MY_ACTIONS}/run`,
     body,
+    headers: { 'x-sanka-mcp': 'true', 'x-sanka-expected-workspace-id': 'ws-1' },
+  },
+];
+const MY_WORKFLOWS = `${API}/desk/my/workflows`;
+const WORKFLOW_ID = '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
+const workflow = {
+  id: WORKFLOW_ID,
+  name: 'Sales HubSpot setup',
+  has_conditions: false,
+  ticket_steps: [],
+  action: { ...action, inputs: actionArgs.inputs },
+  last_run: { status: 'succeeded' },
+};
+const workflowPreview = {
+  workflow_id: WORKFLOW_ID,
+  name: workflow.name,
+  decision: 'needs_approval',
+  skip_reason: null,
+  action: preview,
+  plan_hash: PLAN_HASH,
+};
+const workflowRunArgs = { workflow_id: WORKFLOW_ID, plan_hash: PLAN_HASH, confirmed: true };
+const startingWorkflow = (clientKey: unknown): V2Request[] => [
+  { method: 'GET', url: SESSION },
+  {
+    method: 'POST',
+    url: `${MY_WORKFLOWS}/${WORKFLOW_ID}/run`,
+    body: { plan_hash: PLAN_HASH, confirmed: true, client_key: clientKey },
     headers: { 'x-sanka-mcp': 'true', 'x-sanka-expected-workspace-id': 'ws-1' },
   },
 ];
@@ -458,6 +490,105 @@ const cases: Array<{
     },
   },
   {
+    name: 'desk_list_workflows lists each workflow with its Action and the mode for the caller',
+    tool: deskListWorkflowsTool,
+    args: {},
+    responses: [envelope({ items: [workflow], stopped: false })],
+    requests: [{ method: 'GET', url: MY_WORKFLOWS }],
+    text: [
+      `- "Sales HubSpot setup" (id ${WORKFLOW_ID}) · runs hubspot_account_setup with {"subject_email":"rina@acme.test"} · you may: run · last run succeeded`,
+    ],
+  },
+  {
+    name: 'desk_preview_workflow starts nothing and says what to ask before running',
+    tool: deskPreviewWorkflowTool,
+    args: { workflow_id: WORKFLOW_ID },
+    responses: [envelope(workflowPreview)],
+    requests: [{ method: 'POST', url: `${MY_WORKFLOWS}/${WORKFLOW_ID}/preview` }],
+    structuredContent: { decision: 'needs_approval', plan_hash: PLAN_HASH },
+    text: [
+      'it waits for approval by manager (Mio Tanaka)',
+      `ask "Run this workflow?". Only after their yes, call desk_run_workflow with workflow_id "${WORKFLOW_ID}", plan_hash "${PLAN_HASH}" and confirmed: true.`,
+    ],
+  },
+  {
+    name: 'desk_preview_workflow says why a run would open nothing',
+    tool: deskPreviewWorkflowTool,
+    args: { workflow_id: WORKFLOW_ID },
+    responses: [
+      envelope({
+        ...workflowPreview,
+        decision: 'nothing_to_run',
+        skip_reason: 'earlier_ticket_open',
+        action: null,
+        plan_hash: null,
+      }),
+    ],
+    requests: [{ method: 'POST', url: `${MY_WORKFLOWS}/${WORKFLOW_ID}/preview` }],
+    text: ['the Action ticket of an earlier run is still open', 'do not run it'],
+  },
+  {
+    name: 'desk_run_workflow starts the confirmed run in the session workspace without a client retry',
+    tool: deskRunWorkflowTool,
+    args: workflowRunArgs,
+    responses: [
+      session(),
+      envelope({ run: { id: 'run-1', status: 'running' }, preview: workflowPreview, replayed: false }),
+    ],
+    requests: startingWorkflow(expect.stringMatching(/^mcp-[0-9a-f]{40}$/)),
+    structuredContent: { ok: true, status: 'started', workspace_id: 'ws-1', run: { id: 'run-1' } },
+    text: ['Started "Sales HubSpot setup" in Acme (run run-1, running).', 'desk_list_my_tickets'],
+  },
+  {
+    name: 'desk_run_workflow says when the key returned a run an earlier call started',
+    tool: deskRunWorkflowTool,
+    args: { ...workflowRunArgs, client_key: 'retry-key-0001' },
+    responses: [
+      session(),
+      envelope({ run: { id: 'run-1', status: 'succeeded' }, preview: null, replayed: true }),
+    ],
+    requests: startingWorkflow('retry-key-0001'),
+    text: ['An earlier call already started this run (run-1, succeeded); nothing new was started.'],
+  },
+  {
+    name: 'desk_run_workflow starts nothing without the person confirming',
+    tool: deskRunWorkflowTool,
+    args: { ...workflowRunArgs, confirmed: false },
+    responses: [],
+    requests: [],
+    schemaValid: false,
+    isError: true,
+    text: ['Nothing was started: `confirmed` must be true'],
+  },
+  ...[
+    [
+      409,
+      'DESK_PLAN_CHANGED',
+      'Call desk_preview_workflow again, show the new preview, ask "Run this workflow?" again',
+    ],
+    [403, 'DESK_ADMIN_REQUIRED', 'Only a workspace admin can start a Desk Workflow'],
+    [409, 'DESK_WORKFLOW_NOTHING_TO_RUN', 'would open no Action ticket'],
+  ].map(([status = 0, code = '', hint = '']) => ({
+    name: `desk_run_workflow reports ${code} and starts nothing`,
+    tool: deskRunWorkflowTool,
+    args: { ...workflowRunArgs, client_key: 'retry-key-0001' },
+    responses: [session(), deskError(Number(status), String(code), 'Refused.')],
+    requests: startingWorkflow('retry-key-0001'),
+    isError: true,
+    structuredContent: { ok: false, status_code: status, code },
+    text: [`Nothing was started (${code}): Refused.`, String(hint)],
+  })),
+  {
+    name: 'get_capability_guidance sends starting a Desk Workflow to the workflow tools where Desk is on',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'Run the Desk workflow "Sales HubSpot setup"' },
+    responses: [envelope({ items: [], state: 'open', limit: 1, total: 0 })],
+    requests: [probe],
+    structuredContent: {
+      guidance: { intent_family: 'sanka_desk_workflows', recommended_tools: DESK_WORKFLOW_TOOL_NAMES },
+    },
+  },
+  {
     name: 'get_capability_guidance keeps the guidance of a workspace without Desk',
     tool: getCapabilityGuidanceTool,
     args: { intent: 'Create a Google Workspace account for the new hire' },
@@ -533,6 +664,7 @@ describe('Sanka Desk tools', () => {
   it('publishes the Desk tool names and input schemas', () => {
     const actionKey = { type: 'string', minLength: 1, maxLength: 64 };
     const actionInputs = { type: 'object', additionalProperties: true };
+    const workflowId = { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' };
     const contract = (tool: McpTool) => [
       tool.tool.name,
       JSON.parse(
@@ -549,6 +681,9 @@ describe('Sanka Desk tools', () => {
         deskPreviewActionTool,
         deskRunActionTool,
         deskListMyApprovalsTool,
+        deskListWorkflowsTool,
+        deskPreviewWorkflowTool,
+        deskRunWorkflowTool,
       ].map(contract),
     ).toEqual([
       [
@@ -622,6 +757,30 @@ describe('Sanka Desk tools', () => {
           type: 'object',
           additionalProperties: false,
           properties: { limit: { type: 'integer', minimum: 1, maximum: 100 } },
+        },
+      ],
+      ['desk_list_workflows', { type: 'object', additionalProperties: false, properties: {} }],
+      [
+        'desk_preview_workflow',
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['workflow_id'],
+          properties: { workflow_id: workflowId },
+        },
+      ],
+      [
+        'desk_run_workflow',
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['workflow_id', 'plan_hash', 'confirmed'],
+          properties: {
+            workflow_id: workflowId,
+            plan_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+            confirmed: { type: 'boolean', const: true },
+            client_key: { type: 'string', minLength: 8, maxLength: 100 },
+          },
         },
       ],
     ]);

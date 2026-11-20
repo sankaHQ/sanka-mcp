@@ -2,7 +2,8 @@
 // (sanka-api docs/specs/desk/console-and-mcp.md §4). An employee files and follows their own IT
 // requests from their AI client, and asks for Desk Actions (the changes Sanka Bot and Desk
 // Workflows make, such as hubspot_account_setup) with the rules of each integration and Desk's
-// approvals. The routes sit outside the public developer OpenAPI contract, so the handlers call raw
+// approvals. A workspace admin also starts published Desk Workflows that run an Action (run only,
+// never saved here), as the requester of the Action ticket the run opens. The routes sit outside the public developer OpenAPI contract, so the handlers call raw
 // client paths. There is no approve tool: an approval is decided by a person signed in to Sanka,
 // and these tools write nothing but the caller's own request.
 import { createHash } from 'node:crypto';
@@ -16,6 +17,7 @@ type JsonRecord = Record<string, unknown>;
 
 const MY_TICKETS_PATH = '/api/v2/desk/my/tickets';
 const MY_ACTIONS_PATH = '/api/v2/desk/my/actions';
+const MY_WORKFLOWS_PATH = '/api/v2/desk/my/workflows';
 const APPROVALS_PATH = '/api/v2/desk/approvals';
 const SESSION_PATH = '/api/v2/auth/session';
 
@@ -30,6 +32,7 @@ const PLAN_HASH_PATTERN = '^[0-9a-f]{64}$';
 const OPERATION_KEY_MAX_LENGTH = 64;
 const CLIENT_NAME_MAX_LENGTH = 80;
 const APPROVALS_MAX_LIMIT = 100;
+const WORKFLOW_ID_PATTERN = '^[0-9a-fA-F-]{36}$';
 
 // A create without client_key sends one derived from the request: the same text about the same
 // subject within one clock hour is one request, so a retried call returns the first ticket. The API
@@ -48,8 +51,18 @@ export const DESK_ACTION_TOOL_NAMES = [
   'desk_list_my_approvals',
   'desk_create_ticket',
 ];
+// Starting a published Desk Workflow, then following the Action ticket it opens.
+export const DESK_WORKFLOW_TOOL_NAMES = [
+  'desk_list_workflows',
+  'desk_preview_workflow',
+  'desk_run_workflow',
+  'desk_list_my_tickets',
+  'desk_get_ticket_status',
+  'desk_list_my_approvals',
+];
 
 const ASK_TO_FILE = 'Create this ticket?';
+const ASK_TO_RUN = 'Run this workflow?';
 const OFFER_TICKET =
   'Tell the person why, do not retry, and offer to file an ordinary IT request with desk_create_ticket so their IT team can decide.';
 
@@ -188,11 +201,31 @@ const DESK_ERROR_HINTS: Record<string, string> = {
   DESK_PROVIDER_NOT_READY: `The integration this Action runs on is not connected or not ready in this workspace. ${OFFER_TICKET}`,
 };
 
+// Where starting a Desk Workflow reads them differently.
+const WORKFLOW_ERROR_HINTS: Record<string, string> = {
+  DESK_ADMIN_REQUIRED:
+    'Only a workspace admin can start a Desk Workflow. Tell the person and do not retry; for a change they need, offer desk_list_actions or desk_create_ticket.',
+  DESK_WORKFLOW_NOT_STARTABLE:
+    'Only a workflow that is on and runs a Desk Action on a schedule can be started here (desk_list_workflows lists them); others run from the Desk console.',
+  DESK_WORKFLOW_NOTHING_TO_RUN:
+    'A run started now would open no Action ticket (details.skip_reason). Tell the person; do not retry.',
+  DESK_SCHEDULED_RUN_ACTIVE:
+    'This workflow is already running. Do not start it again; its Action ticket appears in desk_list_my_tickets.',
+  DESK_SCHEDULED_WORKFLOW_NOT_FOUND:
+    'There is no such workflow here; desk_list_workflows lists the ones the person can start.',
+  DESK_ACTION_SURFACE_OFF: `This workspace does not let AI clients or Desk Workflows start Actions on this integration. ${OFFER_TICKET}`,
+  DESK_PLAN_CHANGED: `The workflow or its plan changed since the preview. Call desk_preview_workflow again, show the new preview, ask "${ASK_TO_RUN}" again, and run only with the new plan_hash after their yes.`,
+};
+
 // A 4xx answer with a code changes nothing; anything else is left to the server's error handling.
-const deskErrorResult = (error: unknown, lead: string): ToolCallResult | undefined => {
+const deskErrorResult = (
+  error: unknown,
+  lead: string,
+  hints?: Record<string, string>,
+): ToolCallResult | undefined => {
   const failure = readApiFailure(error);
   if (!failure || (failure.status !== undefined && failure.status >= 500)) return undefined;
-  const hint = DESK_ERROR_HINTS[failure.code];
+  const hint = hints?.[failure.code] ?? DESK_ERROR_HINTS[failure.code];
   return {
     content: [
       {
@@ -330,6 +363,8 @@ type DeskToolDefinition = {
   destructive?: boolean;
   // How a refused call starts; by default "Nothing was filed" for writes.
   failureLead?: string;
+  // Error hints that replace DESK_ERROR_HINTS for this tool.
+  errorHints?: Record<string, string>;
   httpMethod: 'get' | 'post';
   httpPath: string;
   operationId: string;
@@ -372,6 +407,7 @@ const defineDeskTool = (definition: DeskToolDefinition): McpTool => ({
         error,
         definition.failureLead ??
           (definition.operation === 'write' ? 'Nothing was filed' : 'Could not read Desk requests'),
+        definition.errorHints,
       );
       if (result) return result;
       throw error;
@@ -698,12 +734,12 @@ const actionLine = (action: JsonRecord): string => {
   ].join(' · ');
 };
 
-const creditsLine = (preview: JsonRecord): string | undefined => {
+const creditsLine = (preview: JsonRecord, billing = 'billed like Sanka Bot'): string | undefined => {
   const credits = readRecord(preview['credits']);
   if (!credits) return undefined;
-  const line = `Sanka Credits: ${String(
-    credits['total'] ?? '?',
-  )}, billed like Sanka Bot (the workspace has ${String(credits['available'] ?? '?')}).`;
+  const line = `Sanka Credits: ${String(credits['total'] ?? '?')}, ${billing} (the workspace has ${String(
+    credits['available'] ?? '?',
+  )}).`;
   if (preview['credits_short'] !== true) return line;
   return `${line} That is not enough: tell the person the Sanka Credits ran out and that a workspace admin can add them at ${
     readString(preview['credits_url']) ?? 'the credits page'
@@ -733,10 +769,10 @@ const decisionLine = (preview: JsonRecord): string => {
   }
 };
 
-const previewLines = (preview: JsonRecord): string[] => {
+const previewLines = (preview: JsonRecord, billing?: string): string[] => {
   const plan = readRecord(preview['preview']);
   const reasons = strings(plan?.['risk_reasons']);
-  const credits = creditsLine(preview);
+  const credits = creditsLine(preview, billing);
   return [
     `${readString(preview['operation_key']) ?? '?'}: ${readString(plan?.['summary']) ?? ''}`,
     ...records(plan?.['items']).map(
@@ -988,6 +1024,286 @@ export const deskListMyApprovalsTool = defineDeskTool({
   },
 });
 
+// --- Desk Workflows --------------------------------------------------------------------------------
+
+const WORKFLOW_BILLING = "billed as the workflow's Action";
+const SKIP_REASONS: Record<string, string> = {
+  kill_switch: 'a kill switch stops every Desk Workflow in this workspace',
+  no_matches: 'no ticket meets its conditions now',
+  earlier_ticket_open: 'the Action ticket of an earlier run is still open',
+};
+
+const WORKFLOW_ID_SCHEMA = {
+  type: 'string',
+  pattern: WORKFLOW_ID_PATTERN,
+  description: 'The workflow id, from desk_list_workflows.',
+};
+
+const WORKFLOW_PREVIEW_PROPERTIES = {
+  workflow_id: { type: 'string' },
+  name: { type: 'string' },
+  decision: { type: 'string', enum: [...DECISIONS, 'nothing_to_run'] },
+  skip_reason: {
+    ...NULLABLE_STRING,
+    description: 'Why a run would open nothing: kill_switch, no_matches, earlier_ticket_open.',
+  },
+  open_ticket_id: NULLABLE_STRING,
+  matched: { type: 'integer' },
+  action: {
+    type: ['object', 'null'],
+    properties: PREVIEW_PROPERTIES,
+    additionalProperties: true,
+    description: "The Action ticket's plan with the person as requester.",
+  },
+  plan_hash: { ...NULLABLE_STRING, description: 'Send it to desk_run_workflow after the person said yes.' },
+};
+
+const WORKFLOW_LIST_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          has_conditions: { type: 'boolean' },
+          ticket_steps: { type: 'array', items: { type: 'string' } },
+          action: { type: 'object', additionalProperties: true, properties: { access: ACCESS_SCHEMA } },
+          last_run: { type: ['object', 'null'], additionalProperties: true },
+        },
+      },
+    },
+    stopped: { type: 'boolean', description: 'A kill switch stops every workflow.' },
+    message: { type: 'string' },
+  },
+};
+
+const WORKFLOW_PREVIEW_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: { ...WORKFLOW_PREVIEW_PROPERTIES, message: { type: 'string' } },
+};
+
+const WORKFLOW_RUN_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    run: { type: 'object', additionalProperties: true, description: 'The run: id, status, trigger.' },
+    preview: {
+      type: ['object', 'null'],
+      properties: WORKFLOW_PREVIEW_PROPERTIES,
+      additionalProperties: true,
+    },
+    replayed: { type: 'boolean', description: 'client_key returned a run an earlier call started.' },
+    client_key: { type: 'string', description: 'The idempotency key sent; reuse it to retry this run.' },
+    workspace_id: { type: 'string' },
+    message: { type: 'string' },
+  },
+};
+
+const workflowLine = (workflow: JsonRecord): string => {
+  const action = readRecord(workflow['action']);
+  const access = readRecord(action?.['access']);
+  const lastRun = readRecord(workflow['last_run']);
+  const steps = strings(workflow['ticket_steps']);
+  return [
+    `- "${readString(workflow['name']) ?? '?'}" (id ${readString(workflow['id']) ?? '?'})`,
+    `runs ${readString(action?.['operation_key']) ?? '?'} with ${JSON.stringify(action?.['inputs'] ?? {})}`,
+    `you may: ${readString(access?.['mode']) ?? '?'}${
+      access?.['approval_required'] === true ? ' (always waits for an approver)' : ''
+    }`,
+    ...(workflow['has_conditions'] === true ? ['only when a ticket meets its conditions'] : []),
+    ...(steps.length > 0 ? [`also ${steps.join(', ')} on those tickets`] : []),
+    ...(lastRun ? [`last run ${readString(lastRun['status']) ?? '?'}`] : []),
+  ].join(' · ');
+};
+
+const readWorkflowId = (args: ToolArgs): string | undefined => {
+  const workflowId = readString(args?.['workflow_id']);
+  return workflowId && new RegExp(WORKFLOW_ID_PATTERN).test(workflowId) ? workflowId : undefined;
+};
+
+export const deskListWorkflowsTool = defineDeskTool({
+  name: 'desk_list_workflows',
+  title: 'List the Sanka Desk Workflows I can start',
+  description:
+    "List the published Sanka Desk Workflows the connected person can start (a workspace admin): each runs a Desk Action on a schedule, such as setting up a HubSpot account. Each has the Action with its saved inputs and what the integration's rule lets this person do (access.mode). Starting one makes the person the requester of the Action ticket it opens. Preview it with desk_preview_workflow before running anything. Workflows are built and changed only on the Desk console; members get DESK_ADMIN_REQUIRED.",
+  operation: 'read',
+  resource: 'desk_actions',
+  failureLead: 'Could not read Desk Workflows',
+  errorHints: WORKFLOW_ERROR_HINTS,
+  httpMethod: 'get',
+  httpPath: MY_WORKFLOWS_PATH,
+  operationId: 'list_my_desk_workflows_api_v2_desk_my_workflows_get',
+  inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  outputSchema: WORKFLOW_LIST_OUTPUT_SCHEMA,
+  run: async (reqContext) => {
+    const data = envelopeData(await reqContext.client.get(MY_WORKFLOWS_PATH));
+    const items = records(data['items']);
+    const lines =
+      items.length > 0 ?
+        [
+          `${items.length} Desk Workflows the person can start here:`,
+          ...items.map(workflowLine),
+          ...(data['stopped'] === true ?
+            ['A kill switch stops every workflow: a run now does nothing.']
+          : []),
+          'Preview the one they want with desk_preview_workflow before running it.',
+        ]
+      : ['No published Desk Workflow runs a Desk Action here. desk_list_actions lists the Actions instead.'];
+    return ticketResult(data, lines);
+  },
+});
+
+export const deskPreviewWorkflowTool = defineDeskTool({
+  name: 'desk_preview_workflow',
+  title: 'Preview a Sanka Desk Workflow run',
+  description: `Preview what starting a Sanka Desk Workflow from desk_list_workflows would do now, with nothing started and nothing changed: whether it opens its Action ticket (decision nothing_to_run with skip_reason if not), and that ticket's plan with the connected person as requester: the integration's rule (not_allowed when it refuses), the changes, risk, approvers, Sanka Credits and the plan_hash. Show it to the person and ask "${ASK_TO_RUN}"; call desk_run_workflow only after their yes. On not_allowed, give the reason and offer desk_create_ticket. When credits_short is true, say the workspace's Sanka Credits ran out and a workspace admin can add them at credits_url.`,
+  operation: 'read',
+  resource: 'desk_actions',
+  failureLead: 'Could not preview the Desk Workflow',
+  errorHints: WORKFLOW_ERROR_HINTS,
+  httpMethod: 'post',
+  httpPath: `${MY_WORKFLOWS_PATH}/{workflow_id}/preview`,
+  operationId: 'preview_my_desk_workflow_api_v2_desk_my_workflows__workflow_id__preview_post',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['workflow_id'],
+    properties: { workflow_id: WORKFLOW_ID_SCHEMA },
+  },
+  outputSchema: WORKFLOW_PREVIEW_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const workflowId = readWorkflowId(args);
+    if (!workflowId)
+      return asErrorResult('`workflow_id` is required: pick the workflow from desk_list_workflows.');
+    const preview = envelopeData(
+      await reqContext.client.post(`${MY_WORKFLOWS_PATH}/${encodeURIComponent(workflowId)}/preview`),
+    );
+    const name = `"${readString(preview['name']) ?? workflowId}"`;
+    const action = readRecord(preview['action']) ?? {};
+    if (preview['decision'] === 'nothing_to_run') {
+      const reason = readString(preview['skip_reason']) ?? '';
+      return ticketResult(preview, [
+        `Starting ${name} now would open no Action ticket: ${SKIP_REASONS[reason] ?? reason}.`,
+        'Nothing was started. Tell the person; do not run it.',
+      ]);
+    }
+    if (preview['decision'] === 'not_allowed') {
+      const refusal = readRecord(action['refusal']);
+      return ticketResult(preview, [
+        `${name} may not be started by this person here (${readString(refusal?.['code']) ?? '?'}): ${
+          readString(refusal?.['message']) ?? ''
+        }`,
+        `Nothing was started. ${OFFER_TICKET}`,
+      ]);
+    }
+    return ticketResult(preview, [
+      `Workflow ${name} would open this Action ticket, with the person as requester:`,
+      ...previewLines(action, WORKFLOW_BILLING),
+      `Nothing was started. Show this to the person and ask "${ASK_TO_RUN}". Only after their yes, call desk_run_workflow with workflow_id "${workflowId}", plan_hash "${
+        readString(preview['plan_hash']) ?? ''
+      }" and confirmed: true.`,
+    ]);
+  },
+});
+
+export const deskRunWorkflowTool = defineDeskTool({
+  name: 'desk_run_workflow',
+  title: 'Start a Sanka Desk Workflow the person confirmed',
+  description: `Start a published Sanka Desk Workflow for the connected person (a workspace admin), after desk_preview_workflow and only after they answered yes to "${ASK_TO_RUN}" with the preview in front of them. Pass the workflow_id, the preview's plan_hash and confirmed: true. The run opens its Action ticket with the person as requester; the Action keeps the integration's rule and Desk's approvals and uses Sanka Credits. Nothing starts when the rule refuses it (say why and offer desk_create_ticket), when the preview changed (DESK_PLAN_CHANGED: preview again and ask again) or when it would open nothing. Find the ticket with desk_list_my_tickets and follow it with desk_get_ticket_status, which gives the approval page; never try to approve. Retrying with the same client_key returns the first run. This never changes the workflow.`,
+  operation: 'write',
+  resource: 'desk_actions',
+  destructive: true,
+  failureLead: 'Nothing was started',
+  errorHints: WORKFLOW_ERROR_HINTS,
+  httpMethod: 'post',
+  httpPath: `${MY_WORKFLOWS_PATH}/{workflow_id}/run`,
+  operationId: 'run_my_desk_workflow_api_v2_desk_my_workflows__workflow_id__run_post',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['workflow_id', 'plan_hash', 'confirmed'],
+    properties: {
+      workflow_id: WORKFLOW_ID_SCHEMA,
+      plan_hash: {
+        type: 'string',
+        pattern: PLAN_HASH_PATTERN,
+        description: 'The plan_hash of the preview the person confirmed.',
+      },
+      confirmed: {
+        type: 'boolean',
+        const: true,
+        description: `true only after the person answered yes to "${ASK_TO_RUN}" with the preview shown.`,
+      },
+      client_key: {
+        type: 'string',
+        minLength: 8,
+        maxLength: 100,
+        description: 'Idempotency key. A retry with the same key returns the first run.',
+      },
+    },
+  },
+  outputSchema: WORKFLOW_RUN_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    if (args?.['confirmed'] !== true) {
+      return asErrorResult(
+        `Nothing was started: \`confirmed\` must be true, and only after the person answered yes to "${ASK_TO_RUN}" with the preview from desk_preview_workflow.`,
+      );
+    }
+    const workflowId = readWorkflowId(args);
+    const planHash = readString(args?.['plan_hash']);
+    if (!workflowId || !planHash || !new RegExp(PLAN_HASH_PATTERN).test(planHash)) {
+      return asErrorResult(
+        'Nothing was started: pass the workflow_id and plan_hash of the preview the person confirmed (desk_preview_workflow).',
+      );
+    }
+    const clientKey =
+      readString(args?.['client_key']) ??
+      hourlyClientKey(['desk-workflow', workflowId, planHash], Date.now());
+
+    // MCP writes name their workspace: the API refuses a mismatch with 409 and starts nothing.
+    const workspace = await sessionWorkspace(reqContext);
+    if (!workspace.id) {
+      return asErrorResult(
+        'No Sanka workspace is selected for this connection, so nothing was started. Pick one with list_workspaces and switch_workspace, then retry.',
+      );
+    }
+    const data = envelopeData(
+      await reqContext.client.post(`${MY_WORKFLOWS_PATH}/${encodeURIComponent(workflowId)}/run`, {
+        body: { plan_hash: planHash, confirmed: true, client_key: clientKey },
+        headers: { 'X-Sanka-MCP': 'true', 'X-Sanka-Expected-Workspace-ID': workspace.id },
+        maxRetries: 0,
+      }),
+    );
+    const run = readRecord(data['run']) ?? {};
+    const preview = readRecord(data['preview']);
+    const action = readRecord(preview?.['action']);
+    const name = readString(preview?.['name']) ?? workflowId;
+    const credits = action?.['credits_short'] === true ? creditsLine(action, WORKFLOW_BILLING) : undefined;
+    return ticketResult(
+      data,
+      [
+        data['replayed'] === true ?
+          `An earlier call already started this run (${readString(run['id']) ?? '?'}, ${
+            readString(run['status']) ?? '?'
+          }); nothing new was started.`
+        : `Started "${name}" in ${workspace.name ?? workspace.code ?? workspace.id} (run ${
+            readString(run['id']) ?? '?'
+          }, ${readString(run['status']) ?? '?'}).`,
+        ...(action ? [decisionLine(action)] : []),
+        ...(credits ? [credits] : []),
+        'Its Action ticket names the person as requester and appears in desk_list_my_tickets once the run opens it; follow it with desk_get_ticket_status, which gives the approval page while it waits.',
+      ].filter(Boolean),
+      { ok: true, status: 'started', client_key: clientKey, workspace_id: workspace.id },
+    );
+  },
+});
+
 export type DeskAvailability = 'enabled' | 'not_enabled' | 'unknown';
 
 /**
@@ -1016,4 +1332,7 @@ export const deskTools: McpTool[] = [
   deskPreviewActionTool,
   deskRunActionTool,
   deskListMyApprovalsTool,
+  deskListWorkflowsTool,
+  deskPreviewWorkflowTool,
+  deskRunWorkflowTool,
 ];
