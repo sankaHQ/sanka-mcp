@@ -1,13 +1,14 @@
 import {
   DESK_ACTION_TOOL_NAMES,
   DESK_TOOL_NAMES,
+  DESK_WORKFLOW_TOOL_NAMES,
   DeskAvailability,
   readDeskAvailability,
 } from './desk-tools';
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-11-20.desk-actions.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-11-20.desk-workflows.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -166,6 +167,18 @@ const DESK_ACTION_EXCLUDED_TERMS = [
   '商談',
   'レコード',
 ];
+
+// Starting one of the company's Desk Workflows: a Desk word, a workflow and a start word. Building
+// or changing one stays on the Desk console; other workflows keep their own tools.
+const DESK_WORD = /\bdesk\b/;
+const WORKFLOW_TERMS = ['workflow', 'ワークフロー'];
+const WORKFLOW_RUN_INTENT = /\b(?:run|start|trigger|kick ?off|launch)\b/;
+const WORKFLOW_RUN_TERMS_JA = ['実行', '起動', '走らせ', '開始'];
+
+const isDeskWorkflowRunIntent = (raw: string, combined: string): boolean =>
+  includesAny(combined, WORKFLOW_TERMS) &&
+  (DESK_WORD.test(combined) || includesAny(combined, DESK_SERVICE_TERMS) || IT_SERVICE_INTENT.test(raw)) &&
+  (WORKFLOW_RUN_INTENT.test(combined) || includesAny(combined, WORKFLOW_RUN_TERMS_JA));
 
 // Building with the app builder: a product term plus a build term.
 const APP_BUILDER_PRODUCT_TERMS = [
@@ -387,6 +400,7 @@ const requestHints = (args: Record<string, unknown> | undefined): { raw: string;
 // record, and Flow ticket CRUD keeps its own tools.
 const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean => {
   const { raw, combined } = requestHints(args);
+  if (isDeskWorkflowRunIntent(raw, combined)) return true;
   if (
     isPresentationIntent(combined) ||
     MIGRATION_INTENT.test(combined) ||
@@ -453,6 +467,21 @@ const deskActionGuidance = (): Record<string, unknown> => ({
     'If the desk_* tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
 });
 
+// Starting a published Desk Workflow: run only, with the person as its Action ticket's requester.
+const deskWorkflowGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'sanka_desk_workflows',
+  supported: true,
+  sanka_desk: 'enabled',
+  recommended_tools: [...DESK_WORKFLOW_TOOL_NAMES],
+  route:
+    'A workspace admin starts a published Sanka Desk Workflow that runs a Desk Action. Find it with desk_list_workflows, call desk_preview_workflow, show the person the preview (whether it opens its Action ticket, the changes, risk, approvers, Sanka Credits) and ask "Run this workflow?"; call desk_run_workflow with the plan_hash and confirmed: true only after their yes. The person becomes the requester of the Action ticket: find it with desk_list_my_tickets and follow it with desk_get_ticket_status.',
+  mutation_policy:
+    "Never start a run without the person's yes to the preview, and never change a workflow: building or editing one stays on the Desk console. No tool decides an approval: give the approval page (approval_url). On not_allowed or DESK_ACTION_SURFACE_OFF say why, do not retry, and offer desk_create_ticket; on DESK_PLAN_CHANGED preview again and ask again; on nothing_to_run or DESK_WORKFLOW_NOTHING_TO_RUN tell the person why nothing would open. Members get DESK_ADMIN_REQUIRED: offer desk_list_actions or desk_create_ticket.",
+  fallback_when_missing:
+    'If the desk_* tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
 // Added to the guidance of an IT request where Desk is off or could not be checked, which is
 // otherwise unchanged.
 const DESK_NOTES: Record<Exclude<DeskAvailability, 'enabled'>, Record<string, string>> = {
@@ -507,7 +536,7 @@ const buildGuidance = (
   args: Record<string, unknown> | undefined,
   desk?: DeskAvailability,
 ): Record<string, unknown> => {
-  const { combined } = requestHints(args);
+  const { raw, combined } = requestHints(args);
   // Before the migration branch: a deck about a migration is still a deck.
   if (isPresentationIntent(combined)) {
     return {
@@ -593,6 +622,7 @@ const buildGuidance = (
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.
   if (desk === 'enabled') {
+    if (isDeskWorkflowRunIntent(raw, combined)) return deskWorkflowGuidance();
     return isDeskActionIntent(combined) ? deskActionGuidance() : deskGuidance();
   }
   // After the migration branch: moving accounts between tenants is a migration.
