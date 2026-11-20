@@ -3,6 +3,7 @@
   "name": "sanka-mcp",
   "version": "0.0.1",
   "description": "The official MCP Server for the Sanka API",
+  "icon": "sanka-bot.png",
   "author": {
     "name": "Sanka"
   },

@@ -407,6 +407,7 @@ import { enrichRecordUrlsForToolResult } from './record-url-enrichment';
 import { flowInvoiceTools } from './flow-invoice-tools';
 import { flowOrderSearchTool } from './flow-order-search';
 import { flowWorkspaceOrigin } from './flow-workspace-config';
+import { sankaBotIcons } from './bot-icon';
 import { flowWorkspaceSessionTool } from './flow-workspace-session';
 import {
   flowWorkspaceTool,
@@ -433,6 +434,7 @@ export const newMcpServer = async ({
     {
       name: SANKA_MCP_SERVER_NAME,
       version: SANKA_MCP_SERVER_VERSION,
+      icons: sankaBotIcons,
     },
     {
       instructions: await getInstructions({ customInstructionsPath, toolProfile }),
