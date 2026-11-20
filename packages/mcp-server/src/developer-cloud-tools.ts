@@ -318,7 +318,7 @@ const definitions: Definition[] = [
     idempotent: true,
     schema: 'CloudRunRequest',
     description:
-      'Reserve the entire approved cap, then execute the pinned source. Compute is 100 credits/minute; successful Repair adds 1,000 and independent certificate issuance adds 2,000, all within max_credits. Supply repair or certification in request for those workflows; failed gates earn no premium. Preserve the exact key after uncertainty.',
+      'Reserve the entire approved cap, then execute the pinned source. Compute is 25 credits/minute; successful Repair adds 250 and independent certificate issuance adds 500, all within max_credits (1 credit = ¥1 or 1 cent since 2026-11-20). Supply repair or certification in request for those workflows; failed gates earn no premium. Preserve the exact key after uncertainty.',
   },
   {
     name: 'list_developer_cloud_runs',

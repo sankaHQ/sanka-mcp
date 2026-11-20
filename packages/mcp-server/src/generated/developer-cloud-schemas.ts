@@ -56,7 +56,7 @@ export const developerCloudSchemas = {
       },
       max_credits: {
         type: 'integer',
-        maximum: 8000.0,
+        maximum: 2000.0,
         exclusiveMinimum: 0.0,
         title: 'Max Credits',
       },
@@ -171,7 +171,7 @@ export const developerCloudSchemas = {
       },
       max_credits: {
         type: 'integer',
-        maximum: 160000.0,
+        maximum: 40000.0,
         minimum: 1.0,
         title: 'Max Credits',
       },
@@ -201,7 +201,7 @@ export const developerCloudSchemas = {
       },
       max_credits: {
         type: 'integer',
-        maximum: 160000.0,
+        maximum: 40000.0,
         minimum: 1.0,
         title: 'Max Credits',
       },
