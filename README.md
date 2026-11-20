@@ -205,9 +205,9 @@ No tool purchases credits, creates repository PRs, merges, or deploys.
   `retry_developer_cloud_fleet`.
 
 Repair and certificate issuance use `create_developer_cloud_run.request.repair`
-and `.certification`, respectively. Compute is 100 credits per worker-minute,
-rounded once per run. Successful Repair adds 1,000 credits; independent certificate
-issuance adds 2,000. All compute and premiums remain within the approved cap.
+and `.certification`, respectively. Compute is 25 credits per worker-minute,
+rounded once per run. Successful Repair adds 250 credits; independent certificate
+issuance adds 500 (1 credit = ¥1 or 1 cent since 2026-11-20). All compute and premiums remain within the approved cap.
 Failed gates have no premium. Fleet adds no surcharge: its cap is the sum of
 explicit child caps, reserved atomically, with at most five active workers per
 workspace. Retry selects only failed children after the original Fleet settles;

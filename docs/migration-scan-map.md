@@ -9,8 +9,8 @@ reviewed API before the MCP tools; no deployment is part of these PRs.
 | Programs | Existing templates, connection discovery, create/update and create_program_migration; full non-secret endpoint options | Omitted PATCH fields preserved; endpoint arrays replace; options_redacted requires owner input; no Program revision guard added |
 | Scan | inspect_migration, list_migration_source_objects, scan_migration | Server-derived run channels; exact reviewed binding hash and authorized object scope; reads/polls do not scan |
 | Map | get_migration_mapping, save_migration_mapping, validate_migration_mapping | Full typed field schema generated from PublicMappingField; atomic hash-check/save; invalidated old validation; sampled dry-run is write-free |
-| Transfers | Existing plan/apply/pause/resume/cancel; repair_migration | Repair retries failed journal records under the same reviewed plan, not structural edits; completed repair currently costs 300 credits |
-| Verification | Existing verify/read; get_migration_report; review_migration/get_migration_review/get_migration_attestation_key | Signed service review currently costs 250 credits; attestation/key retrieval is not signature verification or independent human approval |
+| Transfers | Existing plan/apply/pause/resume/cancel; repair_migration | Repair retries failed journal records under the same reviewed plan, not structural edits; a repair has no fee of its own |
+| Verification | Existing verify/read; get_migration_report; review_migration/get_migration_review/get_migration_attestation_key | A signed service review has no fee of its own; attestation/key retrieval is not signature verification or independent human approval |
 | Code migration | Existing client artifact lifecycle | No hosted code/repository/test execution |
 | Broader platform | Existing collaboration/docs/todos/diagrams retained | Research/assessment, AI mapping proposals, destination schema reconciliation, mapping templates and platform-portability orchestration are not claimed complete |
 

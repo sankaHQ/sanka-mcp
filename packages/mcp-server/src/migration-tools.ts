@@ -480,7 +480,7 @@ export const migrationReviewTools = [
     },
     required: ['plan_hash', 'idempotency_key', 'confirm'],
     description:
-      'Retry failed records/relationships through the existing execution journal without changing the reviewed plan. Requires explicit authorization for destination writes and the server-metered repair charge (currently 300 Sanka Credits on completed repair), exact reviewed plan hash and stable idempotency key. Failed verification must identify repairable records. This is not a structural mapping edit or automatic recovery.',
+      'Retry failed records/relationships through the existing execution journal without changing the reviewed plan. Requires explicit authorization for destination writes (a repair has no fee of its own; re-applied records follow the normal per-route rate), exact reviewed plan hash and stable idempotency key. Failed verification must identify repairable records. This is not a structural mapping edit or automatic recovery.',
   }),
   migrationTool({
     name: 'review_migration',
@@ -491,7 +491,7 @@ export const migrationReviewTools = [
     parameters: { migration_id: resourceId, idempotency_key: idempotencyKey, confirm: confirmation },
     required: ['idempotency_key', 'confirm'],
     description:
-      'Read destination evidence and request the server signed attestation after explicit authorization for the review charge (currently 250 Sanka Credits). This records an evidence-bound service review, not independent human approval, and does not repair destination records. Preserve failed/not_run checks and the full signature payload; do not claim cryptographic validation merely from receipt.',
+      'Read destination evidence and request the server signed attestation after explicit authorization (a review has no fee of its own). This records an evidence-bound service review, not independent human approval, and does not repair destination records. Preserve failed/not_run checks and the full signature payload; do not claim cryptographic validation merely from receipt.',
   }),
   migrationTool({
     name: 'get_migration_review',
