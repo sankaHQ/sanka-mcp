@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ClientOptions } from 'sanka-sdk';
 import express from 'express';
+import { SANKA_BOT_ICON_FILE, SANKA_BOT_ICON_PATH } from './bot-icon';
 import {
   AuthenticationError,
   MCP_OAUTH_SCOPE,
@@ -622,6 +623,9 @@ export const streamableHTTPApp = ({
 
   app.get('/health', async (req: express.Request, res: express.Response) => {
     res.status(200).send('OK');
+  });
+  app.get(SANKA_BOT_ICON_PATH, (_req, res) => {
+    res.sendFile(SANKA_BOT_ICON_FILE, { root: __dirname });
   });
   const sendBinaryDownload = async (req: express.Request, res: express.Response) => {
     const downloadToken = req.params['downloadToken'];

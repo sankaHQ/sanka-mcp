@@ -6,32 +6,7 @@ import { McpTool, asErrorResult } from './types';
 import { requireAuthentication } from './tool-auth';
 import { workflowWorkspaceHeaders } from './workflow-run-tools';
 import { flowWorkspaceOrigin, flowWidgetOrigin } from './flow-workspace-config';
-
-// Canonical Sanka mark from the maintained web app; theme variants keep it legible.
-const sankaMark = `<svg width="780" height="751" viewBox="0 0 780 751" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_10270_54135)">
-<path d="M0 0L86.6667 375.5H390L0 0Z" fill="url(#paint0_linear_10270_54135)"/>
-<path d="M780 751L390 375.5H693.333L780 751Z" fill="url(#paint1_linear_10270_54135)"/>
-<path d="M548.889 115.538H231.111C86.6667 115.538 0 0 0 0H780C780 0 693.333 115.538 548.889 115.538Z" fill="#1B0F0B"/>
-<path d="M548.889 635.462H231.111C86.6667 635.462 0 751 0 751H780C780 751 693.333 635.462 548.889 635.462Z" fill="#1B0F0B"/>
-<path d="M548.888 433.269H231.11C199.212 433.269 86.666 375.5 86.666 375.5C86.666 375.5 199.212 317.731 231.11 317.731H548.888C580.786 317.731 693.333 375.5 693.333 375.5C693.333 375.5 580.786 433.269 548.888 433.269Z" fill="#1B0F0B"/>
-</g>
-<defs>
-<linearGradient id="paint0_linear_10270_54135" x1="195" y1="0" x2="195" y2="375.5" gradientUnits="userSpaceOnUse">
-<stop offset="0.25" stop-color="#1B0F0B" stop-opacity="0"/>
-<stop offset="0.78" stop-color="#1B0F0B" stop-opacity="0.2"/>
-<stop offset="1" stop-color="#1B0F0B" stop-opacity="0.36"/>
-</linearGradient>
-<linearGradient id="paint1_linear_10270_54135" x1="585" y1="751" x2="585" y2="0" gradientUnits="userSpaceOnUse">
-<stop offset="0.25" stop-color="#1B0F0B" stop-opacity="0"/>
-<stop offset="0.78" stop-color="#1B0F0B" stop-opacity="0.2"/>
-<stop offset="1" stop-color="#1B0F0B" stop-opacity="0.36"/>
-</linearGradient>
-<clipPath id="clip0_10270_54135">
-<rect width="780" height="751" fill="white"/>
-</clipPath>
-</defs>
-</svg>`;
+import { sankaBotIcons } from './bot-icon';
 
 export const FLOW_APP_URI = 'ui://sanka/flow-workspace-v6';
 const LEGACY_FLOW_APP_URIS = [
@@ -57,14 +32,7 @@ export const flowWorkspaceTool: McpTool = {
       properties: { page: { type: 'string', maxLength: 2048 } },
       additionalProperties: false,
     },
-    icons: (['light', 'dark'] as const).map((theme) => ({
-      src:
-        'data:image/svg+xml,' +
-        encodeURIComponent(theme === 'dark' ? sankaMark.replace(/#1B0F0B/g, '#FFFFFF') : sankaMark),
-      mimeType: 'image/svg+xml',
-      sizes: ['any'],
-      theme,
-    })),
+    icons: sankaBotIcons,
     annotations: {
       title: 'Flow workspace',
       readOnlyHint: true,

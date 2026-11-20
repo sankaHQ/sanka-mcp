@@ -26,7 +26,7 @@ node scripts/postprocess-dist-package-json.cjs
 
 # build to .js/.mjs/.d.ts files
 ./node_modules/.bin/tsc-multi
-cp src/flow-app.html dist/flow-app.html
+cp src/flow-app.html src/sanka-bot.png dist/
 
 cp tsconfig.dist-src.json dist/src/tsconfig.json
 
