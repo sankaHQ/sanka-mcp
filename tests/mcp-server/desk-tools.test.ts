@@ -1,8 +1,13 @@
 import { getCapabilityGuidanceTool } from '../../packages/mcp-server/src/capability-guidance-tools';
 import {
+  DESK_ACTION_TOOL_NAMES,
   deskCreateTicketTool,
   deskGetTicketStatusTool,
+  deskListActionsTool,
+  deskListMyApprovalsTool,
   deskListMyTicketsTool,
+  deskPreviewActionTool,
+  deskRunActionTool,
 } from '../../packages/mcp-server/src/desk-tools';
 import { validateToolArguments } from '../../packages/mcp-server/src/tool-argument-validator';
 import type { McpTool } from '../../packages/mcp-server/src/types';
@@ -11,6 +16,10 @@ import { envelope, firstTextContent, sendThroughSDK, type V2Request } from './cr
 const API = 'http://localhost:5000/api/v2';
 const MY_TICKETS = `${API}/desk/my/tickets`;
 const SESSION = `${API}/auth/session`;
+const MY_ACTIONS = `${API}/desk/my/actions`;
+const PLAN_HASH = 'a'.repeat(64);
+const APPROVAL_URL = 'https://desk.sanka.com/10101010/approvals/ap-1';
+const CREDITS_URL = 'https://desk.sanka.com/10101010/workspace/billing';
 const TICKET_ID = '0b6f9c2e-3d4a-4f5b-8c6d-7e8f9a0b1c2d';
 // The tools run at this time; tickets in the rows were received 30 seconds earlier.
 const NOW = Date.parse('2026-10-31T09:00:30Z');
@@ -76,6 +85,60 @@ const probe: V2Request = {
   method: 'GET',
   url: `${MY_TICKETS}?state=open&limit=1`,
   headers: { 'x-stainless-timeout': '5' },
+};
+
+const access = { mode: 'run', reason: 'no_rule', system: null, approval_required: false, surface: 'mcp' };
+const action = {
+  operation_key: 'hubspot_account_setup',
+  purpose: 'Set up a HubSpot user',
+  systems: ['hubspot'],
+  executable: true,
+  access,
+  inputs_schema: { type: 'object', required: ['subject_email'], properties: { subject_email: {}, role: {} } },
+};
+const actionArgs = { operation_key: 'hubspot_account_setup', inputs: { subject_email: 'rina@acme.test' } };
+const preview = {
+  ...actionArgs,
+  decision: 'needs_approval',
+  access,
+  preview: {
+    summary: 'Create a HubSpot user for rina@acme.test',
+    risk_tier: 'R2',
+    risk_reasons: ['provisioning'],
+    items: [{ system: 'hubspot', action: 'create_user', execution_mode: 'automatic' }],
+    approvals: [{ slot: 'manager', eligible_labels: ['Mio Tanaka'] }],
+  },
+  credits: { currency: 'credits', total: 30, available: 100, sufficient: true, lines: [] },
+  credits_short: false,
+  credits_url: CREDITS_URL,
+  plan_hash: PLAN_HASH,
+  refusal: null,
+};
+const shortPreview = {
+  ...preview,
+  credits: { ...preview.credits, available: 10, sufficient: false },
+  credits_short: true,
+};
+const runArgs = { ...actionArgs, plan_hash: PLAN_HASH, confirmed: true, client_name: 'Claude' };
+const running = (body: Record<string, unknown>): V2Request[] => [
+  { method: 'GET', url: SESSION },
+  {
+    method: 'POST',
+    url: `${MY_ACTIONS}/run`,
+    body,
+    headers: { 'x-sanka-mcp': 'true', 'x-sanka-expected-workspace-id': 'ws-1' },
+  },
+];
+const awaitingApproval = {
+  ...filed,
+  state: 'awaiting_approval',
+  waiting_on: 'approval',
+  available_actions: [],
+  pending_approval: {
+    approvers: 'their manager',
+    expires_at: '2026-11-03T09:00:00Z',
+    approval_url: APPROVAL_URL,
+  },
 };
 
 const session = () => envelope({ current_workspace: { id: 'ws-1', code: '10101010', name: 'Acme' } });
@@ -247,6 +310,154 @@ const cases: Array<{
     },
   },
   {
+    name: 'desk_list_actions lists each Action with its mode and inputs',
+    tool: deskListActionsTool,
+    args: {},
+    responses: [envelope({ items: [action] })],
+    requests: [{ method: 'GET', url: MY_ACTIONS }],
+    structuredContent: { items: [action] },
+    text: [
+      '- hubspot_account_setup: Set up a HubSpot user · on hubspot · you may: run · automatic · inputs: subject_email*, role',
+    ],
+  },
+  {
+    name: 'desk_preview_action files nothing and says the approvers, the credits shortfall and what to ask',
+    tool: deskPreviewActionTool,
+    args: actionArgs,
+    responses: [envelope(shortPreview)],
+    requests: [{ method: 'POST', url: `${MY_ACTIONS}/preview`, body: actionArgs }],
+    structuredContent: { decision: 'needs_approval', credits_short: true, plan_hash: PLAN_HASH },
+    text: [
+      '- hubspot create_user (automatic)\nRisk R2 (provisioning).',
+      'it waits for approval by manager (Mio Tanaka)',
+      `Sanka Credits: 30, billed like Sanka Bot (the workspace has 10). That is not enough`,
+      CREDITS_URL,
+      `ask "Create this ticket?". Only after their yes, call desk_run_action with the same operation_key and inputs, plan_hash "${PLAN_HASH}" and confirmed: true.`,
+    ],
+  },
+  {
+    name: 'desk_preview_action gives the refusal and offers an ordinary IT request',
+    tool: deskPreviewActionTool,
+    args: actionArgs,
+    responses: [
+      envelope({
+        ...preview,
+        decision: 'not_allowed',
+        preview: null,
+        credits: null,
+        plan_hash: null,
+        refusal: { code: 'DESK_ACTION_NOT_ALLOWED', message: 'HubSpot is for admins.' },
+      }),
+    ],
+    requests: [{ method: 'POST', url: `${MY_ACTIONS}/preview`, body: actionArgs }],
+    text: [
+      'hubspot_account_setup is not allowed for this person here (DESK_ACTION_NOT_ALLOWED): HubSpot is for admins.',
+      'offer to file an ordinary IT request with desk_create_ticket',
+    ],
+  },
+  {
+    name: 'desk_run_action files the confirmed plan in the session workspace without a client retry',
+    tool: deskRunActionTool,
+    args: runArgs,
+    responses: [session(), envelope({ ticket: filed, preview })],
+    requests: running({ ...runArgs, client_key: expect.stringMatching(/^mcp-[0-9a-f]{40}$/) }),
+    structuredContent: { ok: true, status: 'filed', workspace_id: 'ws-1', ticket: { id: TICKET_ID } },
+    text: [
+      'Filed hubspot_account_setup with the IT service desk of Acme as #12.',
+      'it waits for approval by manager (Mio Tanaka)',
+    ],
+  },
+  {
+    name: 'desk_run_action says when the Sanka Credits do not cover the run',
+    tool: deskRunActionTool,
+    args: { ...runArgs, client_key: 'retry-key-0001' },
+    responses: [session(), envelope({ ticket: filed, preview: shortPreview })],
+    requests: running({ ...runArgs, client_key: 'retry-key-0001' }),
+    text: ['That is not enough: tell the person the Sanka Credits ran out', CREDITS_URL],
+  },
+  {
+    name: 'desk_run_action files nothing without the person confirming',
+    tool: deskRunActionTool,
+    args: { ...runArgs, confirmed: false },
+    responses: [],
+    requests: [],
+    schemaValid: false,
+    isError: true,
+    text: ['Nothing was filed: `confirmed` must be true'],
+  },
+  ...[
+    [
+      409,
+      'DESK_PLAN_CHANGED',
+      'Call desk_preview_action again, show the new preview, ask "Create this ticket?" again',
+    ],
+    [403, 'DESK_ACTION_NOT_ALLOWED', 'offer to file an ordinary IT request with desk_create_ticket'],
+    [403, 'DESK_ACTION_SURFACE_OFF', 'does not let AI clients start Actions on this integration'],
+  ].map(([status = 0, code = '', hint = '']) => ({
+    name: `desk_run_action reports ${code} and files nothing`,
+    tool: deskRunActionTool,
+    args: { ...runArgs, client_key: 'retry-key-0001' },
+    responses: [session(), deskError(Number(status), String(code), 'Refused.')],
+    requests: running({ ...runArgs, client_key: 'retry-key-0001' }),
+    isError: true,
+    structuredContent: { ok: false, status_code: status, code },
+    text: [`Nothing was filed (${code}): Refused.`, String(hint)],
+  })),
+  {
+    name: 'desk_get_ticket_status gives the approval page of a change waiting for approval',
+    tool: deskGetTicketStatusTool,
+    args: { ticket: '#12' },
+    responses: [envelope(awaitingApproval)],
+    requests: [{ method: 'GET', url: `${MY_TICKETS}/%2312` }],
+    text: [
+      'It waits for approval by their manager until 2026-11-03T09:00:00Z; these tools cannot approve anything.',
+      `Approval page: ${APPROVAL_URL}`,
+    ],
+  },
+  {
+    name: 'desk_get_ticket_status says a change was cancelled because the Sanka Credits ran out',
+    tool: deskGetTicketStatusTool,
+    args: { ticket: '#12' },
+    responses: [envelope({ ...filed, state: 'with_specialist', state_reason: 'credits_required' })],
+    requests: [{ method: 'GET', url: `${MY_TICKETS}/%2312` }],
+    text: ["cancelled because the workspace's Sanka Credits ran out (DESK_CREDITS_REQUIRED)"],
+  },
+  {
+    name: 'desk_list_my_approvals reads only the approvals waiting for the caller, with their pages',
+    tool: deskListMyApprovalsTool,
+    args: { limit: 10 },
+    responses: [
+      envelope({
+        items: [
+          {
+            id: 'ap-1',
+            operation_key: 'hubspot_account_setup',
+            risk_tier: 'R2',
+            expires_at: '2026-11-03T09:00:00Z',
+            ticket: { number: 12, title: 'Set up HubSpot', requester_email: 'rina@acme.test' },
+            approval_url: APPROVAL_URL,
+          },
+        ],
+        total: 1,
+      }),
+    ],
+    requests: [{ method: 'GET', url: `${API}/desk/approvals?status=pending&approver=me&page_size=10` }],
+    text: [
+      `- #12 "Set up HubSpot" · hubspot_account_setup · risk R2 · for rina@acme.test · expires 2026-11-03T09:00:00Z · approval page ${APPROVAL_URL}`,
+      'these tools cannot approve or reject',
+    ],
+  },
+  {
+    name: 'get_capability_guidance sends an account change to the Desk Actions where Desk is on',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'Set up a HubSpot account for our new hire rina@acme.test' },
+    responses: [envelope({ items: [], state: 'open', limit: 1, total: 0 })],
+    requests: [probe],
+    structuredContent: {
+      guidance: { intent_family: 'sanka_desk_actions', recommended_tools: DESK_ACTION_TOOL_NAMES },
+    },
+  },
+  {
     name: 'get_capability_guidance keeps the guidance of a workspace without Desk',
     tool: getCapabilityGuidanceTool,
     args: { intent: 'Create a Google Workspace account for the new hire' },
@@ -320,6 +531,8 @@ describe('Sanka Desk tools', () => {
   });
 
   it('publishes the Desk tool names and input schemas', () => {
+    const actionKey = { type: 'string', minLength: 1, maxLength: 64 };
+    const actionInputs = { type: 'object', additionalProperties: true };
     const contract = (tool: McpTool) => [
       tool.tool.name,
       JSON.parse(
@@ -327,7 +540,17 @@ describe('Sanka Desk tools', () => {
       ),
     ];
 
-    expect([deskCreateTicketTool, deskGetTicketStatusTool, deskListMyTicketsTool].map(contract)).toEqual([
+    expect(
+      [
+        deskCreateTicketTool,
+        deskGetTicketStatusTool,
+        deskListMyTicketsTool,
+        deskListActionsTool,
+        deskPreviewActionTool,
+        deskRunActionTool,
+        deskListMyApprovalsTool,
+      ].map(contract),
+    ).toEqual([
       [
         'desk_create_ticket',
         {
@@ -365,6 +588,40 @@ describe('Sanka Desk tools', () => {
             state: { type: 'string', enum: ['open', 'closed', 'all'] },
             limit: { type: 'integer', minimum: 1, maximum: 50 },
           },
+        },
+      ],
+      ['desk_list_actions', { type: 'object', additionalProperties: false, properties: {} }],
+      [
+        'desk_preview_action',
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['operation_key', 'inputs'],
+          properties: { operation_key: actionKey, inputs: actionInputs },
+        },
+      ],
+      [
+        'desk_run_action',
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['operation_key', 'inputs', 'plan_hash', 'confirmed'],
+          properties: {
+            operation_key: actionKey,
+            inputs: actionInputs,
+            plan_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+            confirmed: { type: 'boolean', const: true },
+            client_key: { type: 'string', minLength: 8, maxLength: 100 },
+            client_name: { type: 'string', maxLength: 80 },
+          },
+        },
+      ],
+      [
+        'desk_list_my_approvals',
+        {
+          type: 'object',
+          additionalProperties: false,
+          properties: { limit: { type: 'integer', minimum: 1, maximum: 100 } },
         },
       ],
     ]);

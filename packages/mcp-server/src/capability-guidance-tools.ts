@@ -1,8 +1,13 @@
-import { DESK_TOOL_NAMES, DeskAvailability, readDeskAvailability } from './desk-tools';
+import {
+  DESK_ACTION_TOOL_NAMES,
+  DESK_TOOL_NAMES,
+  DeskAvailability,
+  readDeskAvailability,
+} from './desk-tools';
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-11-06.flow-actions.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-11-20.desk-actions.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -81,6 +86,86 @@ const DESK_EXCLUDED_TERMS = [
   '資産',
 ];
 const TICKET_TERMS = ['ticket', 'チケット'];
+
+// A change to a person's account or access in a company system: a Desk Action, such as
+// hubspot_account_setup. A system, a change and an account word; CRM records stay with their tools.
+const DESK_ACTION_SYSTEM_TERMS = [
+  'hubspot',
+  'salesforce',
+  'google',
+  'okta',
+  'microsoft',
+  'office 365',
+  'm365',
+  'entra',
+  'azure ad',
+  'slack',
+  'zoom',
+  'sanka flow',
+];
+const DESK_ACTION_CHANGE_TERMS = [
+  'set up',
+  'setup',
+  'create',
+  'add',
+  'invite',
+  'provision',
+  'give',
+  'grant',
+  'assign',
+  'remove',
+  'revoke',
+  'deactivate',
+  'disable',
+  'suspend',
+  'offboard',
+  'onboard',
+  '作成',
+  '追加',
+  '発行',
+  '付与',
+  '招待',
+  '削除',
+  '停止',
+  '無効',
+  '割り当て',
+  'セットアップ',
+];
+const DESK_ACTION_ACCOUNT_TERMS = [
+  'account',
+  'user',
+  'access',
+  'licen',
+  'seat',
+  'member',
+  'new hire',
+  'joiner',
+  'leaver',
+  'アカウント',
+  'ユーザー',
+  'アクセス',
+  'ライセンス',
+  'メンバー',
+  '入社',
+  '退職',
+];
+const DESK_ACTION_EXCLUDED_TERMS = [
+  'contact',
+  'deal',
+  'opportunit',
+  'lead',
+  'record',
+  'pipeline',
+  'propert',
+  'invoice',
+  'order',
+  'sync',
+  'import',
+  'export',
+  '取引先',
+  '商談',
+  'レコード',
+];
 
 // Building with the app builder: a product term plus a build term.
 const APP_BUILDER_PRODUCT_TERMS = [
@@ -270,6 +355,12 @@ const isDirectoryAccountIntent = (value: string): boolean =>
   (includesAny(value, DIRECTORY_PROVIDER_TERMS) && includesAny(value, DIRECTORY_ACCOUNT_TERMS)) ||
   (includesAny(value, EMPLOYEE_LIFECYCLE_TERMS) && includesAny(value, EMPLOYEE_ACCOUNT_TERMS));
 
+const isDeskActionIntent = (value: string): boolean =>
+  includesAny(value, DESK_ACTION_SYSTEM_TERMS) &&
+  includesAny(value, DESK_ACTION_CHANGE_TERMS) &&
+  includesAny(value, DESK_ACTION_ACCOUNT_TERMS) &&
+  !includesAny(value, DESK_ACTION_EXCLUDED_TERMS);
+
 const isPresentationIntent = (value: string): boolean =>
   PRESENTATION_INTENT.test(value) || includesAny(value, PRESENTATION_INTENT_JA);
 
@@ -308,7 +399,9 @@ const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean
   if (includesAny(combined, DESK_SERVICE_TERMS) || IT_SERVICE_INTENT.test(raw)) return true;
   return (
     !includesAny(combined, TICKET_TERMS) &&
-    (includesAny(combined, DESK_REQUEST_TERMS) || isDirectoryAccountIntent(combined))
+    (includesAny(combined, DESK_REQUEST_TERMS) ||
+      isDirectoryAccountIntent(combined) ||
+      isDeskActionIntent(combined))
   );
 };
 
@@ -338,9 +431,24 @@ const deskGuidance = (): Record<string, unknown> => ({
   sanka_desk: 'enabled',
   recommended_tools: [...DESK_TOOL_NAMES],
   route:
-    "This workspace takes IT requests through Sanka Desk, the company's IT service desk. When the user wants their IT team to handle something (access, an account, a login problem, a joiner or leaver, an app setting or an IT question), file it in the user's words with desk_create_ticket, with subject_email when it is about someone else, such as a new hire. Desk may answer, ask questions or need approvals. Read progress with desk_get_ticket_status and the user's requests with desk_list_my_tickets; the user answers, confirms or reopens on the Desk page (console_url) or where the request came from.",
+    "This workspace takes IT requests through Sanka Desk, the company's IT service desk. When the user wants their IT team to handle something (access, an account, a login problem, a joiner or leaver, an app setting or an IT question), file it in the user's words with desk_create_ticket, with subject_email when it is about someone else, such as a new hire. Desk may answer, ask questions or need approvals. Read progress with desk_get_ticket_status and the user's requests with desk_list_my_tickets; the user answers, confirms or reopens on the Desk page (console_url) or where the request came from. A change to an account or access in a company system may be a Desk Action: check desk_list_actions first, preview it with desk_preview_action and file it with desk_run_action only after the person says yes.",
   mutation_policy:
     "desk_create_ticket files only the connected user's own request in the current workspace; retry it with the same client_key. No tool approves, rejects, answers or closes a Desk request. Never use create_ticket, update_ticket or update_ticket_status for Desk requests: those stay for Flow ticket records.",
+  fallback_when_missing:
+    'If the desk_* tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
+// A change an Action can make goes through the Actions first; an ordinary request is the fallback.
+const deskActionGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'sanka_desk_actions',
+  supported: true,
+  sanka_desk: 'enabled',
+  recommended_tools: [...DESK_ACTION_TOOL_NAMES],
+  route:
+    'This workspace runs IT changes through Sanka Desk Actions, the same Actions Sanka Bot and Desk Workflows run (such as hubspot_account_setup). Find the Action with desk_list_actions, then call desk_preview_action with its inputs. Show the person the preview (changes, risk, approvers, Sanka Credits) and ask "Create this ticket?"; call desk_run_action with the plan_hash and confirmed: true only after their yes. Follow it with desk_get_ticket_status. When no Action fits, or the person may not use it, file an ordinary IT request with desk_create_ticket instead.',
+  mutation_policy:
+    "Never file without the person's yes to the preview. No tool decides an approval: when the Action needs one, give the approval page (approval_url) so an approver decides in Sanka. Actions are billed in Sanka Credits like Sanka Bot: when the preview says credits_short, or a run is cancelled with DESK_CREDITS_REQUIRED, tell the person the credits ran out and that a workspace admin can add them (credits_url). On not_allowed, DESK_ACTION_NOT_ALLOWED or DESK_ACTION_SURFACE_OFF, say why, do not retry, and offer desk_create_ticket. On DESK_PLAN_CHANGED, preview again and ask again.",
   fallback_when_missing:
     'If the desk_* tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
 });
@@ -485,7 +593,7 @@ const buildGuidance = (
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.
   if (desk === 'enabled') {
-    return deskGuidance();
+    return isDeskActionIntent(combined) ? deskActionGuidance() : deskGuidance();
   }
   // After the migration branch: moving accounts between tenants is a migration.
   if (isDirectoryAccountIntent(combined)) {

@@ -35,6 +35,8 @@ export const SANKA_MCP_DELEGATED_SCOPES = [
   'deals:create',
   'deals:read',
   'deals:write',
+  'desk_actions:read',
+  'desk_actions:write',
   'disbursements:read',
   'disbursements:write',
   'documents:read',

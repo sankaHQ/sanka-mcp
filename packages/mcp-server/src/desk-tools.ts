@@ -1,8 +1,10 @@
 // Hand-written tools for the requester routes of Sanka Desk, the managed IT service desk
 // (sanka-api docs/specs/desk/console-and-mcp.md §4). An employee files and follows their own IT
-// requests from their AI client. The routes sit outside the public developer OpenAPI contract, so
-// the handlers call raw client paths. There is no approve tool: the API has no requester approval
-// route, and these tools write nothing but the caller's own request.
+// requests from their AI client, and asks for Desk Actions (the changes Sanka Bot and Desk
+// Workflows make, such as hubspot_account_setup) with the rules of each integration and Desk's
+// approvals. The routes sit outside the public developer OpenAPI contract, so the handlers call raw
+// client paths. There is no approve tool: an approval is decided by a person signed in to Sanka,
+// and these tools write nothing but the caller's own request.
 import { createHash } from 'node:crypto';
 
 import { readRecord, readString } from './tool-factories';
@@ -13,6 +15,8 @@ type ToolArgs = Record<string, unknown> | undefined;
 type JsonRecord = Record<string, unknown>;
 
 const MY_TICKETS_PATH = '/api/v2/desk/my/tickets';
+const MY_ACTIONS_PATH = '/api/v2/desk/my/actions';
+const APPROVALS_PATH = '/api/v2/desk/approvals';
 const SESSION_PATH = '/api/v2/auth/session';
 
 const TEXT_MAX_LENGTH = 4000;
@@ -22,6 +26,10 @@ const STATE_FILTERS = ['open', 'closed', 'all'] as const;
 const TICKET_REF_PATTERN =
   '^(#?[0-9]{1,18}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$';
 const TICKET_REF = new RegExp(TICKET_REF_PATTERN);
+const PLAN_HASH_PATTERN = '^[0-9a-f]{64}$';
+const OPERATION_KEY_MAX_LENGTH = 64;
+const CLIENT_NAME_MAX_LENGTH = 80;
+const APPROVALS_MAX_LIMIT = 100;
 
 // A create without client_key sends one derived from the request: the same text about the same
 // subject within one clock hour is one request, so a retried call returns the first ticket. The API
@@ -31,6 +39,19 @@ const DERIVED_KEY_WINDOW_MS = 60 * 60 * 1000;
 const EARLIER_FILING_MS = 60 * 1000;
 
 export const DESK_TOOL_NAMES = ['desk_create_ticket', 'desk_get_ticket_status', 'desk_list_my_tickets'];
+// In the order an Action request uses them; an ordinary IT request is the fallback.
+export const DESK_ACTION_TOOL_NAMES = [
+  'desk_list_actions',
+  'desk_preview_action',
+  'desk_run_action',
+  'desk_get_ticket_status',
+  'desk_list_my_approvals',
+  'desk_create_ticket',
+];
+
+const ASK_TO_FILE = 'Create this ticket?';
+const OFFER_TICKET =
+  'Tell the person why, do not retry, and offer to file an ordinary IT request with desk_create_ticket so their IT team can decide.';
 
 const STATE_LABELS: Record<string, string> = {
   received: 'received, waiting for Desk to pick it up',
@@ -155,10 +176,20 @@ const DESK_ERROR_HINTS: Record<string, string> = {
     'Only requests the connected user filed can be read here; desk_list_my_tickets lists them.',
   WORKSPACE_CONTEXT_MISMATCH:
     'The connection changed workspace while filing. Check current_workspace, then retry once in the intended workspace.',
+  DESK_ACTION_NOT_ALLOWED: `The rule of the integration this Action runs on does not let this person start it. ${OFFER_TICKET}`,
+  DESK_ACTION_SURFACE_OFF: `This workspace does not let AI clients start Actions on this integration. ${OFFER_TICKET}`,
+  DESK_PLAN_CHANGED: `The plan is no longer the one the person confirmed. Call desk_preview_action again, show the new preview, ask "${ASK_TO_FILE}" again, and run only with the new plan_hash after their yes.`,
+  DESK_CREDITS_REQUIRED:
+    "The workspace's Sanka Credits ran out. Tell the person how many it needs and that a workspace admin can add Sanka Credits (desk_preview_action gives the credits page as credits_url); the Action can be run again after that.",
+  DESK_OPERATION_NOT_IN_CATALOG:
+    'This Action is not offered in this workspace; desk_list_actions lists the ones that are. Otherwise offer desk_create_ticket.',
+  DESK_INPUT_INVALID:
+    "The inputs do not match the Action's inputs_schema from desk_list_actions. Fix them with the person, then preview again.",
+  DESK_PROVIDER_NOT_READY: `The integration this Action runs on is not connected or not ready in this workspace. ${OFFER_TICKET}`,
 };
 
 // A 4xx answer with a code changes nothing; anything else is left to the server's error handling.
-const deskErrorResult = (error: unknown, write: boolean): ToolCallResult | undefined => {
+const deskErrorResult = (error: unknown, lead: string): ToolCallResult | undefined => {
   const failure = readApiFailure(error);
   if (!failure || (failure.status !== undefined && failure.status >= 500)) return undefined;
   const hint = DESK_ERROR_HINTS[failure.code];
@@ -166,9 +197,7 @@ const deskErrorResult = (error: unknown, write: boolean): ToolCallResult | undef
     content: [
       {
         type: 'text',
-        text: `${write ? 'Nothing was filed' : 'Could not read Desk requests'} (${failure.code}): ${
-          failure.message
-        }${hint ? ` ${hint}` : ''}`,
+        text: `${lead} (${failure.code}): ${failure.message}${hint ? ` ${hint}` : ''}`,
       },
     ],
     isError: true,
@@ -207,6 +236,23 @@ const latestDeskMessage = (ticket: JsonRecord): JsonRecord | undefined =>
     .filter((message): message is JsonRecord => message?.['direction'] === 'outbound')
     .pop();
 
+// Who a change waits for and where they decide it. Nothing here decides an approval.
+const approvalLines = (pending: JsonRecord | undefined): string[] => {
+  const approvers = readString(pending?.['approvers']);
+  const expiresAt = readString(pending?.['expires_at']);
+  const approvalUrl = readString(pending?.['approval_url']);
+  return [
+    `It waits for approval${approvers ? ` by ${approvers}` : ''}${
+      expiresAt ? ` until ${expiresAt}` : ''
+    }; these tools cannot approve anything.`,
+    ...(approvalUrl ?
+      [
+        `Approval page: ${approvalUrl} (give it to the person to pass on, or to open if they are an approver; an approver decides there or in Slack).`,
+      ]
+    : []),
+  ];
+};
+
 // The status of one request in a few lines: state, what Desk asks, its latest message and the page.
 const describeTicket = (ticket: JsonRecord): string[] => {
   const question = readString(ticket['pending_question']);
@@ -227,8 +273,11 @@ const describeTicket = (ticket: JsonRecord): string[] => {
     ...(latestBody && latestBody !== question ?
       [`Latest from Desk (${readString(latest?.['created_at']) ?? '?'}): ${latestBody}`]
     : []),
-    ...(ticket['waiting_on'] === 'approval' ?
-      ['It waits for an approver; these tools cannot approve anything.']
+    ...(ticket['waiting_on'] === 'approval' ? approvalLines(readRecord(ticket['pending_approval'])) : []),
+    ...(ticket['state_reason'] === 'credits_required' ?
+      [
+        "The change was cancelled because the workspace's Sanka Credits ran out (DESK_CREDITS_REQUIRED), and the request went to the company's IT. Tell the person; a workspace admin can add Sanka Credits, then the Action can be run again.",
+      ]
     : []),
     ...(actionList ?
       [`The requester can ${actionList} on the Desk page or where the request came from; these tools cannot.`]
@@ -245,13 +294,18 @@ const ticketResult = (data: JsonRecord, lines: string[], extra?: JsonRecord): To
   };
 };
 
-const derivedClientKey = (text: string, subjectEmail: string | undefined, now: number): string => {
-  const normalized = text.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+// The same parts within one clock hour give the same key.
+const hourlyClientKey = (parts: unknown[], now: number): string => {
   const window = Math.floor(now / DERIVED_KEY_WINDOW_MS);
   const digest = createHash('sha256')
-    .update(JSON.stringify([normalized, subjectEmail?.toLowerCase() ?? '', window]))
+    .update(JSON.stringify([...parts, window]))
     .digest('hex');
   return `mcp-${digest.slice(0, 40)}`;
+};
+
+const derivedClientKey = (text: string, subjectEmail: string | undefined, now: number): string => {
+  const normalized = text.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  return hourlyClientKey([normalized, subjectEmail?.toLowerCase() ?? ''], now);
 };
 
 type SessionWorkspace = { id?: string; code?: string; name?: string };
@@ -271,6 +325,11 @@ type DeskToolDefinition = {
   title: string;
   description: string;
   operation: 'read' | 'write';
+  // Desk Actions get their own scopes, so an organisation can connect an AI client read-only.
+  resource?: 'desk_tickets' | 'desk_actions';
+  destructive?: boolean;
+  // How a refused call starts; by default "Nothing was filed" for writes.
+  failureLead?: string;
   httpMethod: 'get' | 'post';
   httpPath: string;
   operationId: string;
@@ -282,9 +341,9 @@ type DeskToolDefinition = {
 const defineDeskTool = (definition: DeskToolDefinition): McpTool => ({
   metadata: {
     // Not `tickets`: Desk requests are not Flow ticket records and get no Flow record links.
-    resource: 'desk_tickets',
+    resource: definition.resource ?? 'desk_tickets',
     operation: definition.operation,
-    tags: ['desk', 'it_requests'],
+    tags: ['desk', definition.resource === 'desk_actions' ? 'it_actions' : 'it_requests'],
     httpMethod: definition.httpMethod,
     httpPath: definition.httpPath,
     operationId: definition.operationId,
@@ -299,7 +358,7 @@ const defineDeskTool = (definition: DeskToolDefinition): McpTool => ({
     annotations: {
       title: definition.title,
       readOnlyHint: definition.operation === 'read',
-      destructiveHint: false,
+      destructiveHint: definition.destructive ?? false,
       openWorldHint: false,
     },
   },
@@ -309,7 +368,11 @@ const defineDeskTool = (definition: DeskToolDefinition): McpTool => ({
     try {
       return await definition.run(reqContext, args);
     } catch (error) {
-      const result = deskErrorResult(error, definition.operation === 'write');
+      const result = deskErrorResult(
+        error,
+        definition.failureLead ??
+          (definition.operation === 'write' ? 'Nothing was filed' : 'Could not read Desk requests'),
+      );
       if (result) return result;
       throw error;
     }
@@ -413,7 +476,7 @@ export const deskGetTicketStatusTool = defineDeskTool({
   name: 'desk_get_ticket_status',
   title: 'Get the status of a Sanka Desk request',
   description:
-    "Read one of the connected user's own IT requests with Sanka Desk, their company's IT service desk: its state, who it waits for, the question Desk asks, the latest messages and the Desk page link. Pass the ticket as its UUID or number (#123). Answering, confirming, reopening and approving happen on the Desk page or where the request came from; these tools cannot do them. Requests filed by other people are not found.",
+    "Read one of the connected user's own IT requests with Sanka Desk, their company's IT service desk, including those desk_run_action filed: its state, who it waits for, the question Desk asks, the latest messages and the Desk page link. While it waits for approval it gives the approval page (pending_approval.approval_url): give it to the person; never try to approve. state_reason credits_required means the Sanka Credits ran out and the change was cancelled: say so, and that a workspace admin can add credits. Pass the ticket as its UUID or number (#123). Answering, confirming, reopening and approving happen on the Desk page or where the request came from; these tools cannot do them. Requests filed by other people are not found.",
   operation: 'read',
   httpMethod: 'get',
   httpPath: `${MY_TICKETS_PATH}/{ticket}`,
@@ -493,6 +556,438 @@ export const deskListMyTicketsTool = defineDeskTool({
   },
 });
 
+// --- Desk Actions --------------------------------------------------------------------------------
+
+const ACCESS_SCHEMA = {
+  type: 'object',
+  additionalProperties: true,
+  description:
+    "What the integration's rule lets this person do: run, request (always waits for an approver) or none (refused).",
+  properties: {
+    mode: { type: 'string', enum: ['run', 'request', 'none'] },
+    reason: { type: 'string' },
+    system: NULLABLE_STRING,
+    approval_required: { type: 'boolean' },
+    surface: { type: 'string' },
+  },
+};
+
+const ACTION_LIST_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          operation_key: { type: 'string' },
+          purpose: { type: 'string' },
+          not_for: { type: 'string' },
+          done_by_hand: { type: 'string' },
+          systems: { type: 'array', items: { type: 'string' } },
+          executable: { type: 'boolean' },
+          access: ACCESS_SCHEMA,
+          inputs_schema: { type: 'object', additionalProperties: true },
+        },
+      },
+    },
+    message: { type: 'string' },
+  },
+};
+
+const DECISIONS = ['will_run', 'needs_approval', 'proposal', 'no_approver', 'not_allowed'];
+
+const PREVIEW_PROPERTIES = {
+  operation_key: { type: 'string' },
+  decision: { type: 'string', enum: DECISIONS },
+  access: ACCESS_SCHEMA,
+  preview: {
+    type: ['object', 'null'],
+    additionalProperties: true,
+    description: 'The plan: summary, risk_tier, items, approvals with eligible_labels, no_approver.',
+  },
+  credits: {
+    type: ['object', 'null'],
+    additionalProperties: true,
+    description: 'Sanka Credits it is quoted at (total) and what the workspace has (available).',
+  },
+  credits_short: { type: 'boolean' },
+  credits_url: { type: 'string', description: 'Where a workspace admin adds Sanka Credits.' },
+  plan_hash: { ...NULLABLE_STRING, description: 'Send it to desk_run_action after the person said yes.' },
+  refusal: { type: ['object', 'null'], additionalProperties: true },
+};
+
+const PREVIEW_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: { ...PREVIEW_PROPERTIES, message: { type: 'string' } },
+};
+
+const RUN_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    ticket: { type: 'object', properties: DETAIL_PROPERTIES, additionalProperties: true },
+    preview: { type: 'object', properties: PREVIEW_PROPERTIES, additionalProperties: true },
+    client_key: { type: 'string', description: 'The idempotency key sent; reuse it to retry this run.' },
+    workspace_id: { type: 'string' },
+    message: { type: 'string' },
+  },
+};
+
+const APPROVALS_OUTPUT_SCHEMA = {
+  type: 'object' as const,
+  additionalProperties: true,
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          id: { type: 'string' },
+          operation_key: { type: 'string' },
+          risk_tier: { type: 'string' },
+          summary: { type: 'string' },
+          expires_at: { type: 'string' },
+          ticket: { type: 'object', additionalProperties: true },
+          approval_url: { ...NULLABLE_STRING, description: 'Where the approver decides it.' },
+        },
+      },
+    },
+    total: { type: 'integer' },
+    message: { type: 'string' },
+  },
+};
+
+const OPERATION_KEY_SCHEMA = {
+  type: 'string',
+  minLength: 1,
+  maxLength: OPERATION_KEY_MAX_LENGTH,
+  description: 'The Action, from desk_list_actions, such as hubspot_account_setup.',
+};
+
+const INPUTS_SCHEMA = {
+  type: 'object',
+  additionalProperties: true,
+  description: "The Action's inputs, matching its inputs_schema from desk_list_actions.",
+};
+
+const records = (value: unknown): JsonRecord[] =>
+  (Array.isArray(value) ? value : []).map(readRecord).filter((item): item is JsonRecord => Boolean(item));
+
+const strings = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : []).filter((item): item is string => typeof item === 'string');
+
+const actionLine = (action: JsonRecord): string => {
+  const access = readRecord(action['access']);
+  const schema = readRecord(action['inputs_schema']);
+  const required = new Set(strings(schema?.['required']));
+  const inputs = Object.keys(readRecord(schema?.['properties']) ?? {}).map((name) =>
+    required.has(name) ? `${name}*` : name,
+  );
+  const systems = strings(action['systems']);
+  return [
+    `- ${readString(action['operation_key']) ?? '?'}: ${readString(action['purpose']) ?? ''}`,
+    ...(systems.length > 0 ? [`on ${systems.join(', ')}`] : []),
+    `you may: ${readString(access?.['mode']) ?? '?'}`,
+    action['executable'] === false ? 'Desk prepares it and IT carries it out' : 'automatic',
+    ...(inputs.length > 0 ? [`inputs: ${inputs.join(', ')}`] : []),
+  ].join(' · ');
+};
+
+const creditsLine = (preview: JsonRecord): string | undefined => {
+  const credits = readRecord(preview['credits']);
+  if (!credits) return undefined;
+  const line = `Sanka Credits: ${String(
+    credits['total'] ?? '?',
+  )}, billed like Sanka Bot (the workspace has ${String(credits['available'] ?? '?')}).`;
+  if (preview['credits_short'] !== true) return line;
+  return `${line} That is not enough: tell the person the Sanka Credits ran out and that a workspace admin can add them at ${
+    readString(preview['credits_url']) ?? 'the credits page'
+  }. Filed now, the change is cancelled when Desk takes the credits before the first change.`;
+};
+
+// What would happen if the person files the Action now.
+const decisionLine = (preview: JsonRecord): string => {
+  const plan = readRecord(preview['preview']);
+  const approvals = records(plan?.['approvals']).map((approval) => {
+    const labels = strings(approval['eligible_labels']);
+    return `${readString(approval['slot']) ?? '?'}${labels.length > 0 ? ` (${labels.join(', ')})` : ''}`;
+  });
+  switch (preview['decision']) {
+    case 'will_run':
+      return 'Once filed, Desk makes this change without waiting for anyone.';
+    case 'needs_approval':
+      return `Once filed, it waits for approval by ${approvals.join(
+        ' and ',
+      )}; an approver decides it in Sanka, never these tools.`;
+    case 'proposal':
+      return "Once filed, Desk prepares it and the company's IT carries it out.";
+    case 'no_approver':
+      return "Nobody could approve it, so once filed it goes to the company's IT.";
+    default:
+      return '';
+  }
+};
+
+const previewLines = (preview: JsonRecord): string[] => {
+  const plan = readRecord(preview['preview']);
+  const reasons = strings(plan?.['risk_reasons']);
+  const credits = creditsLine(preview);
+  return [
+    `${readString(preview['operation_key']) ?? '?'}: ${readString(plan?.['summary']) ?? ''}`,
+    ...records(plan?.['items']).map(
+      (item) =>
+        `- ${readString(item['system']) ?? '?'} ${readString(item['action']) ?? '?'} (${
+          readString(item['execution_mode']) ?? 'automatic'
+        })`,
+    ),
+    `Risk ${readString(plan?.['risk_tier']) ?? '?'}${reasons.length > 0 ? ` (${reasons.join(', ')})` : ''}.`,
+    decisionLine(preview),
+    ...(credits ? [credits] : []),
+  ];
+};
+
+export const deskListActionsTool = defineDeskTool({
+  name: 'desk_list_actions',
+  title: 'List the Sanka Desk Actions I can ask for',
+  description:
+    "List the Sanka Desk Actions the connected person can ask for in this workspace: the changes Sanka Bot and Desk Workflows make in the company's systems, such as setting up or removing a HubSpot, Salesforce, Google, Okta, Microsoft 365, Slack or Sanka Flow account, giving access or assigning a license. Each has its purpose, what it is not for, the systems it touches, whether Desk makes the change or IT carries it out, what the integration's rule lets this person do (access.mode run, request = always waits for an approver, none = refused) and the JSON Schema of its inputs. Pick the Action that fits, then call desk_preview_action; when none fits or the mode is none, offer to file an ordinary IT request with desk_create_ticket.",
+  operation: 'read',
+  resource: 'desk_actions',
+  failureLead: 'Could not read Desk Actions',
+  httpMethod: 'get',
+  httpPath: MY_ACTIONS_PATH,
+  operationId: 'list_my_desk_actions_api_v2_desk_my_actions_get',
+  inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  outputSchema: ACTION_LIST_OUTPUT_SCHEMA,
+  run: async (reqContext) => {
+    const data = envelopeData(await reqContext.client.get(MY_ACTIONS_PATH));
+    const items = records(data['items']);
+    const lines =
+      items.length > 0 ?
+        [
+          `${items.length} Desk Actions the person can ask for here (* = required input):`,
+          ...items.map(actionLine),
+          'Preview the one that fits with desk_preview_action before filing anything.',
+        ]
+      : [
+          'No Desk Actions are offered to this person here. Offer to file an IT request with desk_create_ticket.',
+        ];
+    return ticketResult(data, lines);
+  },
+});
+
+export const deskPreviewActionTool = defineDeskTool({
+  name: 'desk_preview_action',
+  title: 'Preview a Sanka Desk Action',
+  description: `Preview a Sanka Desk Action from desk_list_actions with its inputs, as the connected person, with nothing filed and nothing changed: the integration's rule (decision will_run, needs_approval, proposal, no_approver or not_allowed), the planned changes, the risk, who would approve it, the Sanka Credits it costs (billed like Sanka Bot) against what the workspace has, and the plan_hash. Show the preview to the person and ask "${ASK_TO_FILE}"; call desk_run_action only after their yes. When credits_short is true, tell them first that the workspace's Sanka Credits ran out and that a workspace admin can add them at credits_url. When the decision is not_allowed, give the refusal's reason and offer to file an ordinary IT request with desk_create_ticket instead.`,
+  operation: 'read',
+  resource: 'desk_actions',
+  failureLead: 'Could not preview the Desk Action',
+  httpMethod: 'post',
+  httpPath: `${MY_ACTIONS_PATH}/preview`,
+  operationId: 'preview_my_desk_action_api_v2_desk_my_actions_preview_post',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['operation_key', 'inputs'],
+    properties: { operation_key: OPERATION_KEY_SCHEMA, inputs: INPUTS_SCHEMA },
+  },
+  outputSchema: PREVIEW_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const operationKey = readString(args?.['operation_key']);
+    const inputs = readRecord(args?.['inputs']);
+    if (!operationKey || !inputs) {
+      return asErrorResult(
+        '`operation_key` and `inputs` are required: pick the Action from desk_list_actions.',
+      );
+    }
+    const preview = envelopeData(
+      await reqContext.client.post(`${MY_ACTIONS_PATH}/preview`, {
+        body: { operation_key: operationKey, inputs },
+      }),
+    );
+    if (preview['decision'] === 'not_allowed') {
+      const refusal = readRecord(preview['refusal']);
+      return ticketResult(preview, [
+        `${operationKey} is not allowed for this person here (${readString(refusal?.['code']) ?? '?'}): ${
+          readString(refusal?.['message']) ?? ''
+        }`,
+        `Nothing was filed. ${OFFER_TICKET}`,
+      ]);
+    }
+    return ticketResult(preview, [
+      ...previewLines(preview),
+      `Nothing was filed. Show this to the person and ask "${ASK_TO_FILE}". Only after their yes, call desk_run_action with the same operation_key and inputs, plan_hash "${
+        readString(preview['plan_hash']) ?? ''
+      }" and confirmed: true.`,
+    ]);
+  },
+});
+
+export const deskRunActionTool = defineDeskTool({
+  name: 'desk_run_action',
+  title: 'File a Sanka Desk Action the person confirmed',
+  description: `File a Sanka Desk Action as a Desk ticket for the connected person, after desk_preview_action and only after the person answered yes to "${ASK_TO_FILE}" with the preview in front of them. Pass the same operation_key and inputs, the preview's plan_hash and confirmed: true. Sanka Bot then plans it with Desk's approvals, and it is billed like Sanka Bot in Sanka Credits. Nothing is filed when the rule refuses it (DESK_ACTION_NOT_ALLOWED, DESK_ACTION_SURFACE_OFF: say why and offer desk_create_ticket) or when the plan changed (DESK_PLAN_CHANGED: preview again and ask again). When it needs approval, give the person the approval page from desk_get_ticket_status; never try to approve. Follow it with desk_get_ticket_status; a run later cancelled for DESK_CREDITS_REQUIRED means the Sanka Credits ran out: tell the person a workspace admin can add them. Retrying with the same client_key returns the first ticket.`,
+  operation: 'write',
+  resource: 'desk_actions',
+  destructive: true,
+  httpMethod: 'post',
+  httpPath: `${MY_ACTIONS_PATH}/run`,
+  operationId: 'run_my_desk_action_api_v2_desk_my_actions_run_post',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['operation_key', 'inputs', 'plan_hash', 'confirmed'],
+    properties: {
+      operation_key: OPERATION_KEY_SCHEMA,
+      inputs: INPUTS_SCHEMA,
+      plan_hash: {
+        type: 'string',
+        pattern: PLAN_HASH_PATTERN,
+        description: 'The plan_hash of the preview the person confirmed.',
+      },
+      confirmed: {
+        type: 'boolean',
+        const: true,
+        description: `true only after the person answered yes to "${ASK_TO_FILE}" with the preview shown.`,
+      },
+      client_key: {
+        type: 'string',
+        minLength: 8,
+        maxLength: 100,
+        description: 'Idempotency key. A retry with the same key returns the first ticket.',
+      },
+      client_name: {
+        type: 'string',
+        maxLength: CLIENT_NAME_MAX_LENGTH,
+        description: 'The AI client asking, such as Claude or Codex, for the ticket note.',
+      },
+    },
+  },
+  outputSchema: RUN_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const startedAt = Date.now();
+    if (args?.['confirmed'] !== true) {
+      return asErrorResult(
+        `Nothing was filed: \`confirmed\` must be true, and only after the person answered yes to "${ASK_TO_FILE}" with the preview from desk_preview_action.`,
+      );
+    }
+    const operationKey = readString(args?.['operation_key']);
+    const inputs = readRecord(args?.['inputs']);
+    const planHash = readString(args?.['plan_hash']);
+    if (!operationKey || !inputs || !planHash || !new RegExp(PLAN_HASH_PATTERN).test(planHash)) {
+      return asErrorResult(
+        'Nothing was filed: pass the operation_key, inputs and plan_hash of the preview the person confirmed (desk_preview_action).',
+      );
+    }
+    const clientName = readString(args?.['client_name']);
+    const clientKey =
+      readString(args?.['client_key']) ?? hourlyClientKey(['desk-action', operationKey, planHash], startedAt);
+
+    // MCP writes name their workspace: the API refuses a mismatch with 409 and files nothing.
+    const workspace = await sessionWorkspace(reqContext);
+    if (!workspace.id) {
+      return asErrorResult(
+        'No Sanka workspace is selected for this connection, so nothing was filed. Pick one with list_workspaces and switch_workspace, then retry.',
+      );
+    }
+    const data = envelopeData(
+      await reqContext.client.post(`${MY_ACTIONS_PATH}/run`, {
+        body: {
+          operation_key: operationKey,
+          inputs,
+          plan_hash: planHash,
+          confirmed: true,
+          client_key: clientKey,
+          ...(clientName ? { client_name: clientName } : undefined),
+        },
+        headers: { 'X-Sanka-MCP': 'true', 'X-Sanka-Expected-Workspace-ID': workspace.id },
+        maxRetries: 0,
+      }),
+    );
+    const ticket = readRecord(data['ticket']) ?? {};
+    const preview = readRecord(data['preview']) ?? {};
+    const reference = readString(ticket['reference']) ?? readString(ticket['id']) ?? '?';
+    const receivedAt = Date.parse(readString(ticket['received_at']) ?? '');
+    const desk = `the IT service desk of ${workspace.name ?? workspace.code ?? workspace.id}`;
+    const credits = preview['credits_short'] === true ? creditsLine(preview) : undefined;
+    return ticketResult(
+      data,
+      [
+        receivedAt < startedAt - EARLIER_FILING_MS ?
+          `${operationKey} was already filed with ${desk} as ${reference}; Desk returned it instead of filing a duplicate.`
+        : `Filed ${operationKey} with ${desk} as ${reference}.`,
+        decisionLine(preview),
+        ...(credits ? [credits] : []),
+        ...describeTicket(ticket),
+        `Follow it with desk_get_ticket_status (ticket "${reference}"); it gives the approval page while the change waits for approval.`,
+      ].filter(Boolean),
+      { ok: true, status: 'filed', client_key: clientKey, workspace_id: workspace.id },
+    );
+  },
+});
+
+export const deskListMyApprovalsTool = defineDeskTool({
+  name: 'desk_list_my_approvals',
+  title: 'List the Sanka Desk approvals waiting for me',
+  description:
+    "List the Sanka Desk approvals waiting for the connected person's decision, newest first: the request, the Action, its risk, when the approval expires and its approval page (approval_url). This tool cannot approve or reject anything, and no tool can: the person decides on the approval page in Sanka or with the Slack buttons, so give them the link.",
+  operation: 'read',
+  resource: 'desk_actions',
+  failureLead: 'Could not read Desk approvals',
+  httpMethod: 'get',
+  httpPath: APPROVALS_PATH,
+  operationId: 'list_desk_approvals_api_v2_desk_approvals_get',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      limit: {
+        type: 'integer',
+        minimum: 1,
+        maximum: APPROVALS_MAX_LIMIT,
+        description: `Approvals to return, up to ${APPROVALS_MAX_LIMIT} (default 25).`,
+      },
+    },
+  },
+  outputSchema: APPROVALS_OUTPUT_SCHEMA,
+  run: async (reqContext, args) => {
+    const query: Record<string, string | number> = { status: 'pending', approver: 'me' };
+    const limit = args?.['limit'];
+    if (typeof limit === 'number' && Number.isInteger(limit)) query['page_size'] = limit;
+    const data = envelopeData(await reqContext.client.get(APPROVALS_PATH, { query }));
+    const items = records(data['items']);
+    const total = typeof data['total'] === 'number' ? data['total'] : items.length;
+    const lines =
+      items.length > 0 ?
+        [
+          `${items.length} of ${total} Desk approvals wait for this person:`,
+          ...items.map((item) => {
+            const ticket = readRecord(item['ticket']);
+            const number = ticket?.['number'];
+            return [
+              `- ${typeof number === 'number' ? `#${number}` : '?'} "${readString(ticket?.['title']) ?? ''}"`,
+              readString(item['operation_key']) ?? '?',
+              `risk ${readString(item['risk_tier']) ?? '?'}`,
+              ...(readString(ticket?.['requester_email']) ?
+                [`for ${readString(ticket?.['requester_email'])}`]
+              : []),
+              `expires ${readString(item['expires_at']) ?? '?'}`,
+              `approval page ${readString(item['approval_url']) ?? '?'}`,
+            ].join(' · ');
+          }),
+          'The person decides on the approval page or in Slack; these tools cannot approve or reject.',
+        ]
+      : ['No Desk approvals wait for this person.'];
+    return ticketResult(data, lines);
+  },
+});
+
 export type DeskAvailability = 'enabled' | 'not_enabled' | 'unknown';
 
 /**
@@ -513,4 +1008,12 @@ export const readDeskAvailability = async (reqContext: McpRequestContext): Promi
   }
 };
 
-export const deskTools: McpTool[] = [deskCreateTicketTool, deskGetTicketStatusTool, deskListMyTicketsTool];
+export const deskTools: McpTool[] = [
+  deskCreateTicketTool,
+  deskGetTicketStatusTool,
+  deskListMyTicketsTool,
+  deskListActionsTool,
+  deskPreviewActionTool,
+  deskRunActionTool,
+  deskListMyApprovalsTool,
+];
