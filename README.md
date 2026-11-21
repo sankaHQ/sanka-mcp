@@ -153,35 +153,26 @@ export SANKA_BROWSER_USE_WORKER_URL="http://127.0.0.1:8787/run"
 export SANKA_BROWSER_USE_WORKER_TOKEN="local-worker-token"
 ```
 
-For production, deploy the worker as a separate service, for example on Fly, with a persistent volume mounted at `SANKA_BROWSER_USE_PROFILE_ROOT` so HubSpot login cookies survive restarts. Keep the worker private or token-protected and only expose `/run` to the MCP service.
+For production, run the worker as a separate service with a persistent volume mounted at `SANKA_BROWSER_USE_PROFILE_ROOT`, so HubSpot login cookies survive restarts. Keep the worker private or token-protected and only expose `/run` to the MCP service.
 
-See [docs/browser-use-worker-fly.md](docs/browser-use-worker-fly.md) for the Fly worker app, persistent volume, secret wiring, and profile seeding runbook.
+See [docs/browser-use-worker-fly.md](docs/browser-use-worker-fly.md) for the worker's deploy configuration, persistent volume, secret wiring, and profile seeding runbook.
 
 ## Deployment
 
-This repo deploys to Fly from `packages/mcp-server/Dockerfile`.
+Production and staging run the image built from `packages/mcp-server/Dockerfile`, with the deploy configuration in `fly.toml` and `fly.staging.toml`.
 
-- Manual production deploy: `fly deploy -c fly.toml`
-- Manual staging deploy: `fly deploy -c fly.staging.toml`
-- Automatic staging deploy: push to `staging`
-- Automatic production deploy: publish a GitHub release that targets `main`
+- Production: `.github/workflows/deploy.yml` runs when it is dispatched with the expected `main` SHA after a merge, or when a GitHub release that targets `main` is published. A dispatched run stops if the checked-out commit is not that SHA, and a release tag must be on `main` history. Its build goes through `scripts/ci/remote_build.py`.
+- Staging: `.github/workflows/staging.yml` deploys every push to the `staging` branch.
 
-## Release Flow
+Deploy through these workflows, not from a workstation.
 
-Use the same promotion shape as the main Sanka app:
+## Release flow
 
-1. Open feature PRs into `staging`.
-2. Merge `staging` after CI passes to deploy `sanka-mcp-staging`.
-3. Validate the staging MCP endpoint.
-4. Open `staging -> main`.
-5. After `main` is ready, run `Create new Sanka MCP Tag and Release`.
-6. The published release deploys production.
+1. Open pull requests against `main`. A maintainer approves a pull request before it merges.
+2. After the merge, `deploy.yml` deploys the merged `main` commit to production. To cut a versioned release instead, run the `Create new Sanka MCP Tag and Release` workflow; the published release deploys production.
+3. Check `https://mcp.sanka.com/health` after the deploy.
 
-Required Fly apps and secrets:
-
-- Production app: `sanka-mcp`
-- Staging app: `sanka-mcp-staging`
-- Set the same `MCP_SERVER_*` secrets on both apps unless staging intentionally uses a different auth stack.
+Production and staging each need the `MCP_SERVER_*` secrets. Keep them the same unless staging intentionally uses a different auth stack.
 
 ## Retry policy
 
