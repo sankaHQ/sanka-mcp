@@ -1,33 +1,60 @@
 # Sanka MCP Server
 
-This repository contains the hosted Sanka MCP service and the TypeScript client it uses to call Sanka's externally callable API surface. It is now maintained as a normal TypeScript workspace, not as a Stainless-managed repository.
+The official hosted remote MCP server for Sanka. It lets AI agents handle Sanka Desk tickets, Sanka Flow records, approvals and workflows, and app migrations, with OAuth sign-in.
 
-The production service is a remote Streamable HTTP MCP endpoint:
+The server runs at `https://mcp.sanka.com/mcp` over Streamable HTTP. With it, an agent can:
 
-- `POST /mcp` as the primary endpoint
-- `POST /sse` as a compatibility alias for clients that still expect an SSE-style path
-- `POST /` as a compatibility alias
-- `GET /health` for health checks
+- file and follow tickets in Sanka Desk, Sanka's AI help desk
+- read and update companies, contacts, deals, orders and invoices in Sanka Flow
+- review approvals and workflow runs
+- plan and verify app migrations with Sanka Migrate
 
-The `/mcp` endpoint exposes both the general SDK tools and the read-only CRM tools from a single MCP surface.
+Each user signs in with OAuth and acts only within their own Sanka permissions. Clients register through dynamic client registration or a Client ID Metadata Document and always use PKCE (S256). No API key goes into the client configuration. The authorization metadata is at `https://mcp.sanka.com/.well-known/oauth-authorization-server`.
+
+- Docs: https://sanka.com/docs/developers/mcp/
+- Official MCP Registry: `io.github.sankaHQ/sanka-mcp`
+
+## Connect
+
+Claude Code:
+
+```sh
+claude mcp add --transport http sanka https://mcp.sanka.com/mcp
+```
+
+Then run `/mcp`, select Sanka and complete sign-in in the browser.
+
+Codex:
+
+```sh
+codex mcp add sanka --url https://mcp.sanka.com/mcp
+codex mcp login sanka
+```
+
+Any other client that supports remote HTTP MCP servers with OAuth discovery can use the same URL. Do not add an API key, bearer token or query parameter to it; the server starts sign-in when the client connects.
+
+## Endpoints
+
+- `POST /mcp`: the primary endpoint
+- `POST /sse`: a compatibility alias for clients that still expect an SSE-style path
+- `POST /`: a compatibility alias
+- `GET /health`: health checks
 
 Live endpoints:
 
 - `https://mcp.sanka.com/mcp`
 - `https://mcp.sanka.com/sse`
 
-Staging endpoint:
-
-- `https://sanka-mcp-staging.fly.dev/mcp`
-
 ## Repository layout
+
+This repository holds the hosted server and the TypeScript client it uses to call Sanka's externally callable API surface. It is maintained as a normal TypeScript workspace, not as a Stainless-managed repository.
 
 - `src/`: TypeScript client for Sanka's externally callable API surface, used by the MCP service
 - `src/internal/`: package-private SDK runtime helpers, not Sanka private backend code
 - `packages/mcp-server/`: the MCP server application and Docker entrypoint
-- `.github/workflows/`: CI plus staging and production Fly deployment workflows
-- `fly.toml`: production Fly app configuration
-- `fly.staging.toml`: staging Fly app configuration
+- `.github/workflows/`: CI plus the staging and production deploy workflows
+- `fly.toml`: production deploy configuration
+- `fly.staging.toml`: staging deploy configuration
 - `docs/openapi-maintenance.md`: guidance for keeping API coverage current without Stainless
 
 ## Auth
