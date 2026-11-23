@@ -372,6 +372,7 @@ import { getMeetingTool } from './meeting-tools';
 import { getSignalBookingTool, listSignalBookingsTool } from './signal-booking-tools';
 import { deskTools } from './desk-tools';
 import { flowActionTools } from './flow-action-tools';
+import { accountCalendarTools } from './account-calendar-tools';
 import { readActionTools } from './read-action-tools';
 import { recordListTools } from './record-list-tools';
 import {
@@ -1089,6 +1090,7 @@ export function selectTools(options?: McpOptions, _profile: ToolProfile = 'full'
     ...deskTools,
     ...flowActionTools,
     ...readActionTools,
+    ...accountCalendarTools,
     ...recordListTools,
     previewBuyRequestTool,
     listBuyRequestsTool,

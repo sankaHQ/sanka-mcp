@@ -6,6 +6,7 @@ import {
   readDeskAvailability,
 } from './desk-tools';
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
+import { ACCOUNT_CALENDAR_TOOL_NAMES } from './account-calendar-tools';
 import { READ_ACTION_TOOL_NAMES } from './read-action-tools';
 import { McpTool, ToolCallResult } from './types';
 
@@ -718,6 +719,78 @@ const readActionGuidance = (): Record<string, unknown> => ({
     'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
 });
 
+const ACCOUNT_CALENDAR_WRITE_TERMS = [
+  'create',
+  'add ',
+  'block',
+  'hold ',
+  'update',
+  'move ',
+  'delete',
+  'remove',
+  '作成',
+  '追加',
+  '登録',
+  '確保',
+  '変更',
+  '削除',
+];
+const ZOOM_MEETING_TERMS = ['zoom', 'ズーム'];
+const ZOOM_MEETING_CREATE_TERMS = [
+  'create',
+  'generate',
+  'make',
+  'new ',
+  'link',
+  'url',
+  'meeting',
+  '発行',
+  '作成',
+  'リンク',
+  '会議',
+];
+const ACCOUNT_CALENDAR_EXCLUDED_TERMS = [
+  ...OTHER_PROVIDER_TERMS,
+  'book',
+  'booking page',
+  'attendance',
+  'signal',
+  'recording',
+  'transcript',
+  'migrat',
+  'workflow',
+  'license',
+  'role',
+  'phone',
+  'account',
+  '録画',
+  '議事録',
+  '移行',
+  'ライセンス',
+  'アカウント',
+];
+const isAccountCalendarSchedulingIntent = (value: string): boolean => {
+  if (includesAny(value, ACCOUNT_CALENDAR_EXCLUDED_TERMS)) return false;
+  const isZoomCreate =
+    includesAny(value, ZOOM_MEETING_TERMS) && includesAny(value, ZOOM_MEETING_CREATE_TERMS);
+  const isCalendarWrite =
+    includesAny(value, OWN_CALENDAR_TERMS) && includesAny(value, ACCOUNT_CALENDAR_WRITE_TERMS);
+  return isZoomCreate || isCalendarWrite;
+};
+
+const accountCalendarSchedulingGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'account_calendar_scheduling',
+  supported: true,
+  recommended_tools: [...ACCOUNT_CALENDAR_TOOL_NAMES],
+  route:
+    "For creating, updating, or deleting events on the person's own connected Google Calendar, or generating a unique Zoom meeting link (non-PMI), call get_my_calendar_context first to get the channel_id, calendar_id, timezone, and zoom_meetings_available flag. Check conflicts with list_my_calendar_events, then call create_my_calendar_event (with conference_provider='zoom' or 'google_meet' when a video link is needed), update_my_calendar_event, or delete_my_calendar_event. For a standalone Zoom meeting link without a calendar event, call create_zoom_meeting.",
+  mutation_policy:
+    'Calendar and Zoom writes pin the active workspace and never auto-retry. create_my_calendar_event blocks Busy time without sending guest invites; if Zoom creation fails with ZOOM_NOT_CONNECTED or ZOOM_MEETING_SCOPE_REQUIRED, report that error rather than reusing a Personal Meeting ID or substituting Google Meet.',
+  fallback_when_missing:
+    'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
 const googleReadActionGuidance = (): Record<string, unknown> => ({
   capability_version: CAPABILITY_GUIDANCE_VERSION,
   intent_family: 'google_read_actions',
@@ -919,6 +992,9 @@ const buildGuidance = (
   }
   if (isGoogleReadActionIntent(combined)) {
     return googleReadActionGuidance();
+  }
+  if (isAccountCalendarSchedulingIntent(combined)) {
+    return accountCalendarSchedulingGuidance();
   }
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.
