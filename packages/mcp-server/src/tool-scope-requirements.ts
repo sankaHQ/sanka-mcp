@@ -93,6 +93,8 @@ export const SANKA_MCP_DELEGATED_SCOPES = [
   'prospect:read',
   'purchase_orders:read',
   'purchase_orders:write',
+  'read_actions:read',
+  'read_actions:write',
   'records:read',
   'records:write',
   'reports:read',
