@@ -29,7 +29,7 @@ const NO_RETRY = 'Do not repeat the call or split the question to get around it.
 // What the model should do next. Every code here is final for this call: a retry changes nothing.
 const ERROR_HINTS: Record<string, string> = {
   READ_ACTION_CONNECT_REQUIRED:
-    "This reads the person's own HubSpot or Salesforce, never the workspace's connection, and they have not connected theirs. Tell them to connect it under Personal integrations in their Sanka account settings (connect_url), then ask again.",
+    "This reads the person's own HubSpot, Salesforce or Google login, never the workspace's connection, and they have not connected theirs (or, for Gmail, not given read access). Tell them to connect it under Personal integrations in their Sanka account settings (connect_url), then ask again.",
   READ_ACTION_CREDITS_REQUIRED:
     "The workspace's Sanka Credits ran out (details give the credits required and available). Tell the person a workspace admin can add Sanka Credits; run it again after that.",
   READ_ACTION_TOO_BROAD: `More records match than can be counted completely. Ask the person to narrow the filter (a date range, stage, owner or pipeline) and run again; never estimate the total. ${NO_RETRY}`,
@@ -43,7 +43,7 @@ const ERROR_HINTS: Record<string, string> = {
   READ_ACTION_PROVIDER_ERROR:
     'The CRM refused or failed the request with the message above. Tell the person; if it names a field, fix the filter, otherwise try later.',
   FEATURE_DISABLED:
-    "Read Actions are not available in this workspace yet: a workspace admin can ask Sanka to turn them on. Do not answer the question from another tool's HubSpot or Salesforce data instead, since that would not be limited to what the person's own login can see.",
+    "Read Actions are not available in this workspace yet: a workspace admin can ask Sanka to turn them on. Do not answer the question from another tool's HubSpot, Salesforce, calendar or mail data instead, since that would not be limited to what the person's own login can see.",
   WORKSPACE_CONTEXT_MISMATCH:
     'The connection changed workspace. Check current_workspace, then ask again in the intended workspace.',
 };
@@ -218,7 +218,7 @@ const runResult = (
     : []),
     methodLine(method),
     `Sanka Credits charged${earlier ? ' when it first ran' : ''}: ${String(run['credits_charged'] ?? 0)}.`,
-    "Give the method (filters, records scanned) with any number, and say these are the rows the person's own CRM login can see.",
+    "Give the method (filters, records scanned) with any number, and say these are the rows the person's own login can see.",
     `Result: ${JSON.stringify(result)}`,
   ].join('\n');
   return {
@@ -327,9 +327,9 @@ const defineReadActionTool = (definition: {
 
 export const listReadActionsTool = defineReadActionTool({
   name: 'list_read_actions',
-  title: "List read Actions for the person's own CRM",
+  title: "List read Actions for the person's own CRM, calendar and mail",
   description:
-    "List the read Actions the connected person can run on their own HubSpot or Salesforce: searches and totals (count, sum, average, min, max, grouped by stage, owner or month) on deals, opportunities, contacts, companies, accounts and leads. Each has its key, what it does, its price in Sanka Credits a run, the JSON Schema of its inputs and whether the person's own CRM login is connected (with the connect link when it is not). Free. Use it before run_read_action. Sanka's own records keep query_records and aggregate_records.",
+    "List the read Actions the connected person can run on their own HubSpot, Salesforce, Google Calendar and Gmail: CRM searches, lookups, totals (grouped by stage, owner or month), pipeline and win rate; their calendar's events and hours in meetings; Gmail searches (headers only). Each has its key, what it does, its price in Sanka Credits a run, the JSON Schema of its inputs and whether the person's own login is connected (with the connect link when it is not). Free. Use it before run_read_action. Sanka's own records keep query_records and aggregate_records.",
   operation: 'read',
   failureLead: 'Could not list read Actions',
   httpMethod: 'get',
@@ -353,7 +353,7 @@ export const listReadActionsTool = defineReadActionTool({
             credits: { type: 'number', description: 'Sanka Credits a completed run costs.' },
             input_schema: { type: 'object', additionalProperties: true },
             connection: { type: 'object', additionalProperties: true },
-            connect_url: { type: 'string', description: 'Where the person connects their own CRM login.' },
+            connect_url: { type: 'string', description: 'Where the person connects their own login.' },
           },
         },
       },
@@ -369,7 +369,7 @@ export const listReadActionsTool = defineReadActionTool({
     const message =
       actions.length > 0 ?
         [
-          `${actions.length} read Actions on the person's own CRM (* = required input):`,
+          `${actions.length} read Actions on the person's own CRM, calendar and mail (* = required input):`,
           ...actions.map(actionLine),
           'Each completed run costs the credits shown: tell the person the price the first time in a conversation. Run one with run_read_action; for one that is not connected, give the person its connect link.',
         ].join('\n')
@@ -383,9 +383,9 @@ export const listReadActionsTool = defineReadActionTool({
 
 export const runReadActionTool = defineReadActionTool({
   name: 'run_read_action',
-  title: "Search or total the person's own CRM",
+  title: "Run a read Action on the person's own CRM, calendar or mail",
   description:
-    "Run a read Action from list_read_actions on the connected person's own HubSpot or Salesforce, as their own login, so the CRM's permissions decide which rows they see. Pass its action_key and inputs matching its input_schema. Each completed run costs the Action's Sanka Credits, an empty result too; refusals and failures cost nothing. Tell the person the price the first time in a conversation. The result carries method (filters, the query sent, records scanned, complete, as_of): give it with any number, and never present a total as complete when method.complete is false. READ_ACTION_CONNECT_REQUIRED: give the connect link. READ_ACTION_CREDITS_REQUIRED: the Sanka Credits ran out and a workspace admin can add them. READ_ACTION_TOO_BROAD: ask the person to narrow the filter, never estimate. Leave client_key out for a new question; pass the same client_key only to retry a call whose answer you did not get. A refused or failed run can be run again once the person fixes the cause (connects, credits added). Never loop or split a question to get around a limit.",
+    "Run a read Action from list_read_actions on the connected person's own HubSpot, Salesforce, Google Calendar or Gmail, as their own login, so that system's permissions decide what they see. Pass its action_key and inputs matching its input_schema. Each completed run costs the Action's Sanka Credits, an empty result too; refusals and failures cost nothing. Tell the person the price the first time in a conversation. The result carries method (filters, the query sent, records scanned, complete, as_of): give it with any number, and never present a total as complete when method.complete is false. READ_ACTION_CONNECT_REQUIRED: give the connect link. READ_ACTION_CREDITS_REQUIRED: the Sanka Credits ran out and a workspace admin can add them. READ_ACTION_TOO_BROAD: ask the person to narrow the filter, never estimate. Leave client_key out for a new question; pass the same client_key only to retry a call whose answer you did not get. A refused or failed run can be run again once the person fixes the cause (connects, credits added). Never loop or split a question to get around a limit.",
   operation: 'write',
   failureLead: NOTHING_CHARGED,
   httpMethod: 'post',
