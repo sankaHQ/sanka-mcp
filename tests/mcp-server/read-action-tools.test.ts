@@ -116,7 +116,7 @@ describe('read Action tools', () => {
       {
         method: 'POST',
         url: `${API}/read-actions/run`,
-        body: { ...runArgs, client_key: expect.stringMatching(/^mcp-[0-9a-f]{40}$/) },
+        body: runArgs,
         headers: BOUND,
       },
     ]);
@@ -130,22 +130,10 @@ describe('read Action tools', () => {
     expect(JSON.stringify(result.content)).toContain('records scanned 412');
   });
 
-  // The bug: an accidental repeat of the same question is charged twice, or the key changes with
-  // the clock so a later repeat is charged again.
-  it('derives one key per question, whatever the key order or time, and keeps a given key', async () => {
-    const now = Date.now();
-    const first = await keyOf(runArgs);
-    jest.spyOn(Date, 'now').mockReturnValue(now + 3 * 60 * 60 * 1000);
-    const reordered = {
-      inputs: {
-        ...Object.fromEntries(Object.entries(inputs).reverse()),
-        filters: [{ value: ['2026-10-01', '2026-12-31'], operator: 'between', field: 'closedate' }],
-      },
-      action_key: runArgs.action_key,
-    };
-
-    expect(await keyOf(reordered)).toBe(first);
-    expect(await keyOf({ ...runArgs, inputs: { ...inputs, group_by: 'hubspot_owner_id' } })).not.toBe(first);
+  // The bug: a question asked again later is answered from an old run (a key that never changes),
+  // or a retry with the person's own key is charged twice.
+  it('sends no key for a new question and passes a given key through', async () => {
+    expect(await keyOf(runArgs)).toBeUndefined();
     expect(await keyOf({ ...runArgs, client_key: 'person-asked-again-1' })).toBe('person-asked-again-1');
   });
 
@@ -155,7 +143,7 @@ describe('read Action tools', () => {
       'an earlier identical run',
       run({ created_at: '2026-11-20T00:00:00Z' }),
       { reused: true },
-      'pass a new client_key',
+      'call run_read_action again',
     ],
     [
       'an incomplete result',
@@ -189,7 +177,7 @@ describe('read Action tools', () => {
     [429, 'READ_ACTION_DAILY_LIMIT', {}, 'lifts the next day', {}],
     [502, 'READ_ACTION_PROVIDER_ERROR', {}, 'The CRM refused or failed', {}],
     [409, 'READ_ACTION_KEY_REUSED', {}, 'new client_key', {}],
-    [403, 'FEATURE_DISABLED', {}, 'scope=integration', {}],
+    [403, 'FEATURE_DISABLED', {}, 'not available in this workspace', {}],
   ])('%i %s reaches the caller as final', async (status, code, details, text, structured) => {
     const { requests, result } = await sendThroughSDK({
       tool: runReadActionTool,

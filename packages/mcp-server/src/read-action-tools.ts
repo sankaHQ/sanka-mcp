@@ -3,7 +3,6 @@
 // permissions decide which rows they see (sanka-api docs/specs/read-actions/README.md §7). Each
 // completed run costs Sanka Credits; listing Actions and reading a run are free. The routes sit
 // outside the public developer OpenAPI contract, so the handlers call raw client paths.
-import { createHash } from 'node:crypto';
 
 import { envelopeData, readApiFailure, sessionWorkspace } from './desk-tools';
 import { appPathUrl } from './record-url-enrichment';
@@ -44,7 +43,7 @@ const ERROR_HINTS: Record<string, string> = {
   READ_ACTION_PROVIDER_ERROR:
     'The CRM refused or failed the request with the message above. Tell the person; if it names a field, fix the filter, otherwise try later.',
   FEATURE_DISABLED:
-    "Read Actions are not available in this workspace. HubSpot or Salesforce data the workspace syncs can still be read with query_records or aggregate_records (scope=integration): say that it comes from the workspace's connection, not the person's own login.",
+    "Read Actions are not available in this workspace yet: a workspace admin can ask Sanka to turn them on. Do not answer the question from another tool's HubSpot or Salesforce data instead, since that would not be limited to what the person's own login can see.",
   WORKSPACE_CONTEXT_MISMATCH:
     'The connection changed workspace. Check current_workspace, then ask again in the intended workspace.',
 };
@@ -122,23 +121,6 @@ const withApiErrors =
       throw error;
     }
   };
-
-// JSON with every object's keys sorted, so the same question gives the same text.
-const canonicalJson = (value: unknown): string =>
-  JSON.stringify(value, (_key, item: unknown) =>
-    readRecord(item) ?
-      Object.fromEntries(Object.entries(item as JsonRecord).sort(([a], [b]) => a.localeCompare(b)))
-    : item,
-  );
-
-// The same Action with the same inputs is one run, at any time: a repeated call returns the first
-// run and is not charged again. Values are not rewritten, so the key never joins two questions the
-// API tells apart (it answers READ_ACTION_KEY_REUSED for one key with different inputs).
-const derivedClientKey = (actionKey: string, inputs: JsonRecord): string =>
-  `mcp-${createHash('sha256')
-    .update(canonicalJson(['read-action', actionKey, inputs]))
-    .digest('hex')
-    .slice(0, 40)}`;
 
 const identityLabel = (identity: JsonRecord | undefined): string | undefined => {
   const parts = [readString(identity?.['provider']), readString(identity?.['account'])].filter(Boolean);
@@ -224,7 +206,7 @@ const runResult = (
     options.startedAt !== undefined && createdAt < options.startedAt - EARLIER_RUN_MS ?
       `This is the earlier run of the same question, from ${readString(
         run['created_at'],
-      )}; nothing was charged for this call. To read the CRM again now, pass a new client_key.`
+      )}; nothing was charged for this call. To read the CRM again now, call run_read_action again without that client_key.`
     : undefined;
   const message = [
     `${actionKey}: ${resultLine(result)}`,
@@ -403,7 +385,7 @@ export const runReadActionTool = defineReadActionTool({
   name: 'run_read_action',
   title: "Search or total the person's own CRM",
   description:
-    "Run a read Action from list_read_actions on the connected person's own HubSpot or Salesforce, as their own login, so the CRM's permissions decide which rows they see. Pass its action_key and inputs matching its input_schema. Each completed run costs the Action's Sanka Credits, an empty result too; refusals and failures cost nothing. Tell the person the price the first time in a conversation. The result carries method (filters, the query sent, records scanned, complete, as_of): give it with any number, and never present a total as complete when method.complete is false. READ_ACTION_CONNECT_REQUIRED: give the connect link. READ_ACTION_CREDITS_REQUIRED: the Sanka Credits ran out and a workspace admin can add them. READ_ACTION_TOO_BROAD: ask the person to narrow the filter, never estimate. Without client_key, the same Action with the same inputs returns its first run and is not charged again: pass a new client_key only to read the CRM again, such as after the person connects or asks for fresh numbers. Never loop or split a question to get around a limit.",
+    "Run a read Action from list_read_actions on the connected person's own HubSpot or Salesforce, as their own login, so the CRM's permissions decide which rows they see. Pass its action_key and inputs matching its input_schema. Each completed run costs the Action's Sanka Credits, an empty result too; refusals and failures cost nothing. Tell the person the price the first time in a conversation. The result carries method (filters, the query sent, records scanned, complete, as_of): give it with any number, and never present a total as complete when method.complete is false. READ_ACTION_CONNECT_REQUIRED: give the connect link. READ_ACTION_CREDITS_REQUIRED: the Sanka Credits ran out and a workspace admin can add them. READ_ACTION_TOO_BROAD: ask the person to narrow the filter, never estimate. Leave client_key out for a new question; pass the same client_key only to retry a call whose answer you did not get. A refused or failed run can be run again once the person fixes the cause (connects, credits added). Never loop or split a question to get around a limit.",
   operation: 'write',
   failureLead: NOTHING_CHARGED,
   httpMethod: 'post',
@@ -425,7 +407,7 @@ export const runReadActionTool = defineReadActionTool({
         minLength: 8,
         maxLength: 100,
         description:
-          'Idempotency key. A retry with the same key and inputs returns the first run without charging again. Left out, one is derived from the action_key and inputs.',
+          'Idempotency key. A retry with the same key and inputs returns the first run without charging again. Leave it out for a new question: Sanka then treats only identical requests within the same minute as one run, so asking again later reads the CRM again.',
       },
     },
   },
@@ -439,7 +421,7 @@ export const runReadActionTool = defineReadActionTool({
         `\`action_key\` and \`inputs\` are required: pick the Action from list_read_actions. ${NOTHING_CHARGED}.`,
       );
     }
-    const clientKey = readString(args?.['client_key']) ?? derivedClientKey(actionKey, inputs);
+    const clientKey = readString(args?.['client_key']);
     // A run spends Sanka Credits, so it names its workspace: the API refuses a mismatch.
     const workspace = await sessionWorkspace(reqContext);
     if (!workspace.id) {
@@ -449,7 +431,7 @@ export const runReadActionTool = defineReadActionTool({
     }
     const run = envelopeData(
       await reqContext.client.post(RUN_PATH, {
-        body: { action_key: actionKey, inputs, client_key: clientKey },
+        body: { action_key: actionKey, inputs, ...(clientKey ? { client_key: clientKey } : {}) },
         headers: { 'X-Sanka-MCP': 'true', 'X-Sanka-Expected-Workspace-ID': workspace.id },
         maxRetries: 0,
       }),
@@ -457,7 +439,10 @@ export const runReadActionTool = defineReadActionTool({
     const result = runResult(run, { failedIsError: true, startedAt });
     return {
       ...result,
-      structuredContent: { ...readRecord(result.structuredContent), client_key: clientKey },
+      structuredContent: {
+        ...readRecord(result.structuredContent),
+        ...(clientKey ? { client_key: clientKey } : {}),
+      },
     };
   },
 });
@@ -466,7 +451,7 @@ export const getReadActionRunTool = defineReadActionTool({
   name: 'get_read_action_run',
   title: 'Get a read Action run',
   description:
-    'Read a run started with run_read_action by its run_id: its status, result and method. Free. Only the person who ran it can read it, for 30 days. The result is what the CRM showed at method.as_of; to read the CRM again, call run_read_action with a new client_key. Never present a total as complete when method.complete is false.',
+    'Read a run started with run_read_action by its run_id: its status, result and method. Free. Only the person who ran it can read it, for 30 days. The result is what the CRM showed at method.as_of; to read the CRM again, call run_read_action again. Never present a total as complete when method.complete is false.',
   operation: 'read',
   failureLead: 'Could not read this run',
   httpMethod: 'get',
