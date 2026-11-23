@@ -1117,7 +1117,14 @@ const workflowLine = (workflow: JsonRecord): string => {
       access?.['approval_required'] === true ? ' (always waits for an approver)' : ''
     }`,
     ...(workflow['has_conditions'] === true ? ['only when a ticket meets its conditions'] : []),
-    ...(steps.length > 0 ? [`also ${steps.join(', ')} on those tickets`] : []),
+    ...(steps.length > 0 ?
+      [
+        `also ${steps.join(', ')} on those tickets${
+          // A workflow with paths: some steps reach only the tickets that take their path.
+          workflow['has_paths'] === true ? ' (some only on the tickets that take their path)' : ''
+        }`,
+      ]
+    : []),
     ...(lastRun ? [`last run ${readString(lastRun['status']) ?? '?'}`] : []),
   ].join(' · ');
 };

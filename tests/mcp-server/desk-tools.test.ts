@@ -500,6 +500,19 @@ const cases: Array<{
     ],
   },
   {
+    name: 'desk_list_workflows says when some steps reach only the tickets on their path',
+    tool: deskListWorkflowsTool,
+    args: {},
+    responses: [
+      envelope({
+        items: [{ ...workflow, ticket_steps: ['add_note', 'notify'], has_paths: true }],
+        stopped: false,
+      }),
+    ],
+    requests: [{ method: 'GET', url: MY_WORKFLOWS }],
+    text: ['also add_note, notify on those tickets (some only on the tickets that take their path)'],
+  },
+  {
     name: 'desk_preview_workflow starts nothing and says what to ask before running',
     tool: deskPreviewWorkflowTool,
     args: { workflow_id: WORKFLOW_ID },
