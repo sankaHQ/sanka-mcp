@@ -234,12 +234,18 @@ describe("get_capability_guidance for the person's own CRM", () => {
   };
 
   it.each([
-    'Total my HubSpot deals by stage for this quarter',
-    'How many Salesforce opportunities do I have closing this month?',
-    'search my hubspot contacts at Acme',
-    'Salesforceの商談をオーナー別に合計して',
-  ])('routes "%s" to read Actions without asking Desk', async (intent) => {
-    expect(await familyFor(intent)).toEqual({ family: 'crm_read_actions', requests: [] });
+    ['Total my HubSpot deals by stage for this quarter', 'crm_read_actions'],
+    ['How many Salesforce opportunities do I have closing this month?', 'crm_read_actions'],
+    ['search my hubspot contacts at Acme', 'crm_read_actions'],
+    ['Salesforceの商談をオーナー別に合計して', 'crm_read_actions'],
+    ['How many hours of meetings do I have this week?', 'google_read_actions'],
+    ['Find my meetings with Acme', 'google_read_actions'],
+    ['How much focus time did I get last month?', 'google_read_actions'],
+    ['今週の会議は何時間？', 'google_read_actions'],
+    ['Search my Gmail for emails from acme.com this week', 'google_read_actions'],
+    ['Gmailで請求書のメールを検索して', 'google_read_actions'],
+  ])('routes "%s" to read Actions without asking Desk', async (intent, family) => {
+    expect(await familyFor(intent)).toEqual({ family, requests: [] });
   });
 
   it.each([
@@ -247,7 +253,14 @@ describe("get_capability_guidance for the person's own CRM", () => {
     'Create a HubSpot deal for Acme',
     "Summarize this month's HubSpot revenue",
     "I can't log in to my Salesforce account",
+    'Check calendar availability to book a demo next week',
+    'Reschedule my calendar booking with Acme',
+    'Show my Signal booking meetings this week',
+    'Search the Sanka-connected Gmail inbox for Acme',
+    'Reply to the latest email in my Gmail from Acme',
+    'Show my private inbox messages from Acme',
+    "I can't access my Google Calendar",
   ])('leaves "%s" to its own tools', async (intent) => {
-    expect((await familyFor(intent)).family).not.toBe('crm_read_actions');
+    expect((await familyFor(intent)).family).not.toMatch(/read_actions$/);
   });
 });

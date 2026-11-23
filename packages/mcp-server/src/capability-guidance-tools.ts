@@ -410,6 +410,151 @@ const READ_ACTION_EXCLUDED_TERMS = [
   '受注',
 ];
 
+// The shared inbox of the workspace's Gmail connection: workspace message tools, not read Actions.
+const WORKSPACE_MESSAGE_TERMS = [
+  'sanka-connected gmail',
+  'connected gmail',
+  'gmail integration',
+  'integration inbox',
+  'public message',
+  'workspace message',
+  'shared inbox',
+  'group inbox',
+  'workspace inbox',
+  'contact conversation',
+  '/conversation',
+  '連携されてるgmail',
+  '連携 gmail',
+  '共有受信箱',
+  'ワークスペース受信箱',
+];
+
+// The person's own Google Calendar and Gmail, read live as their own Google login, are read
+// Actions too: a question about their meetings or a search of their mail. Sanka's public booking
+// calendar (bookings, availability, attendance), Signal bookings, recorded meetings, the private
+// and workspace inboxes, and anything that changes the calendar or mail keep their own tools.
+const OWN_CALENDAR_TERMS = [
+  'my calendar',
+  'my meetings',
+  'my schedule',
+  'google calendar',
+  'meeting load',
+  'focus time',
+  'focus block',
+  'hours of meetings',
+  'hours in meetings',
+  'meetings this week',
+  'meetings last week',
+  'meetings next week',
+  'meetings with',
+  'カレンダー',
+  '会議',
+  'ミーティング',
+  '打ち合わせ',
+  '予定',
+];
+const OWN_CALENDAR_READ_TERMS = [
+  'how many',
+  'how much',
+  'hours',
+  'search',
+  'find',
+  'list',
+  'show',
+  'when',
+  'which',
+  'what',
+  'focus',
+  'load',
+  'busy',
+  '何時間',
+  '時間',
+  '何件',
+  '検索',
+  '探',
+  '一覧',
+  '集中',
+  'いつ',
+];
+// Another provider named: its own routes (and its own read Actions, when it has them).
+const OTHER_PROVIDER_TERMS = ['hubspot', 'salesforce', 'outlook', 'microsoft', 'office 365', 'm365'];
+const OWN_CALENDAR_EXCLUDED_TERMS = [
+  ...OTHER_PROVIDER_TERMS,
+  'book',
+  'reschedul',
+  'cancel',
+  'availab',
+  'available slot',
+  'attendance',
+  'signal',
+  'tldv',
+  'tl;dv',
+  'recording',
+  'transcript',
+  'create',
+  'add ',
+  'invite',
+  'schedule a',
+  'set up',
+  'access',
+  'share',
+  'sync',
+  'migrat',
+  'workflow',
+  '予約',
+  '作成',
+  '追加',
+  '議事録',
+  '録画',
+  '移行',
+];
+const OWN_GMAIL_TERMS = ['gmail', 'my email', 'my mail', 'my inbox', 'g メール', 'gメール', '自分のメール'];
+const OWN_GMAIL_READ_TERMS = [
+  'search',
+  'find',
+  'look for',
+  'look up',
+  'list',
+  'show',
+  'how many',
+  'from:',
+  'subject:',
+  'newer_than',
+  'emails from',
+  'mails from',
+  '検索',
+  '探',
+  '一覧',
+  '何件',
+];
+const OWN_GMAIL_EXCLUDED_TERMS = [
+  ...WORKSPACE_MESSAGE_TERMS,
+  ...OTHER_PROVIDER_TERMS,
+  'private',
+  'personal inbox',
+  'account-level',
+  'reply',
+  'send',
+  'draft',
+  'forward',
+  'archive',
+  'delete',
+  'label it',
+  'sync',
+  'migrat',
+  'workflow',
+  'access',
+  'log in',
+  'login',
+  'password',
+  '返信',
+  '送信',
+  '下書き',
+  '同期',
+  '移行',
+  '個人受信箱',
+];
+
 const WORKFLOW_HINT_MIN_LENGTH = 4;
 
 const WORKFLOW_HINT_STOPWORDS = new Set([
@@ -493,6 +638,19 @@ const isReadActionIntent = (value: string): boolean =>
   includesAny(value, READ_ACTION_READ_TERMS) &&
   !includesAny(value, READ_ACTION_EXCLUDED_TERMS);
 
+const isOwnCalendarReadIntent = (value: string): boolean =>
+  includesAny(value, OWN_CALENDAR_TERMS) &&
+  includesAny(value, OWN_CALENDAR_READ_TERMS) &&
+  !includesAny(value, OWN_CALENDAR_EXCLUDED_TERMS);
+
+const isOwnGmailReadIntent = (value: string): boolean =>
+  includesAny(value, OWN_GMAIL_TERMS) &&
+  includesAny(value, OWN_GMAIL_READ_TERMS) &&
+  !includesAny(value, OWN_GMAIL_EXCLUDED_TERMS);
+
+const isGoogleReadActionIntent = (value: string): boolean =>
+  isOwnCalendarReadIntent(value) || isOwnGmailReadIntent(value);
+
 // The request text: `raw` keeps the user's casing, `combined` is every hint lowercased.
 const requestHints = (args: Record<string, unknown> | undefined): { raw: string; combined: string } => {
   const raw = ['intent', 'provider', 'object_type', 'operation']
@@ -512,6 +670,7 @@ const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean
     isAppBuilderIntent(combined) ||
     isFlowActionIntent(combined) ||
     isReadActionIntent(combined) ||
+    isGoogleReadActionIntent(combined) ||
     includesAny(combined, DESK_EXCLUDED_TERMS)
   ) {
     return false;
@@ -555,6 +714,21 @@ const readActionGuidance = (): Record<string, unknown> => ({
     "Each completed run costs the Action's listed Sanka Credits, an empty result too; listing Actions and reading runs are free, and refusals and failures cost nothing. Tell the person the price the first time in a conversation. A repeated identical call returns the first run without charging again; pass a new client_key only to read fresh numbers.",
   mutation_policy:
     "These tools change nothing in the CRM. On READ_ACTION_CONNECT_REQUIRED tell the person to connect their own HubSpot or Salesforce under Personal integrations and give connect_url. On READ_ACTION_CREDITS_REQUIRED say the Sanka Credits ran out and a workspace admin can add them. On READ_ACTION_TOO_BROAD ask the person to narrow the filter; never estimate. On READ_ACTION_DAILY_LIMIT say it lifts the next day. Never loop or split a question to get around a limit. On FEATURE_DISABLED read Actions are off in this workspace: use query_records or aggregate_records with scope=integration and say the data comes from the workspace's connection, not the person's own login.",
+  fallback_when_missing:
+    'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
+const googleReadActionGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'google_read_actions',
+  supported: true,
+  recommended_tools: [...READ_ACTION_TOOL_NAMES],
+  route:
+    "Questions about the person's own Google Calendar and searches of their own Gmail are read Actions, read live as their own Google login from Personal integrations. Call list_read_actions, then run_read_action: google_calendar:events.search for their events between two dates (at most 31 days; text such as a company name or e-mail domain matches titles, attendees and organizers), google_calendar:events.meeting_load for hours in meetings per day and week and free focus blocks (at most 92 days; pass their time zone and working hours when known, and give the result's formula with the numbers), and gmail:messages.search with a Gmail search such as `from:acme.com newer_than:7d` for up to 25 messages' sender, recipients, subject, date and snippet, never bodies or attachments. Dates are in the calendar's time zone unless timezone is given. Sanka's public booking calendar keeps the calendar booking tools, and Sanka's synced inboxes keep the private and workspace message tools.",
+  billing_policy:
+    "Each completed run costs the Action's listed Sanka Credits, an empty result too; listing Actions and reading runs are free, and refusals and failures cost nothing. Tell the person the price the first time in a conversation.",
+  mutation_policy:
+    'These tools change nothing in Google. On READ_ACTION_CONNECT_REQUIRED tell the person to connect their own Google Calendar or Gmail under Personal integrations and give connect_url; for Gmail with details.reason read_access_required, they must give Sanka read access to Gmail there (a Gmail connection only sends by default). On READ_ACTION_TOO_BROAD ask for a shorter range. Never loop or split a question to get around a limit.',
   fallback_when_missing:
     'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
 });
@@ -743,6 +917,9 @@ const buildGuidance = (
   if (isReadActionIntent(combined)) {
     return readActionGuidance();
   }
+  if (isGoogleReadActionIntent(combined)) {
+    return googleReadActionGuidance();
+  }
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.
   if (desk === 'enabled') {
@@ -779,25 +956,7 @@ const buildGuidance = (
     };
   }
 
-  if (
-    includesAny(combined, [
-      'sanka-connected gmail',
-      'connected gmail',
-      'gmail integration',
-      'integration inbox',
-      'public message',
-      'workspace message',
-      'shared inbox',
-      'group inbox',
-      'workspace inbox',
-      'contact conversation',
-      '/conversation',
-      '連携されてるgmail',
-      '連携 gmail',
-      '共有受信箱',
-      'ワークスペース受信箱',
-    ])
-  ) {
+  if (includesAny(combined, WORKSPACE_MESSAGE_TERMS)) {
     return {
       capability_version: CAPABILITY_GUIDANCE_VERSION,
       intent_family: 'workspace_integration_inbox_messages',
