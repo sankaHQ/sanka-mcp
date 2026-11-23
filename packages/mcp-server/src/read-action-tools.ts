@@ -43,7 +43,7 @@ const ERROR_HINTS: Record<string, string> = {
   READ_ACTION_PROVIDER_ERROR:
     'The CRM refused or failed the request with the message above. Tell the person; if it names a field, fix the filter, otherwise try later.',
   FEATURE_DISABLED:
-    "Read Actions are not available in this workspace yet: a workspace admin can ask Sanka to turn them on. Do not answer the question from another tool's HubSpot, Salesforce, calendar or mail data instead, since that would not be limited to what the person's own login can see.",
+    "Read Actions are not available in this workspace yet: a workspace admin can ask Sanka to turn them on. For a HubSpot or Salesforce question, answer as before with query_records or aggregate_records (scope=integration) and say the data comes from the workspace's connection, not the person's own login. There is no other way to read the person's own calendar or Gmail.",
   WORKSPACE_CONTEXT_MISMATCH:
     'The connection changed workspace. Check current_workspace, then ask again in the intended workspace.',
 };
