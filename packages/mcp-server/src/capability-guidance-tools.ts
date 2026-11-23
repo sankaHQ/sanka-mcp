@@ -6,9 +6,10 @@ import {
   readDeskAvailability,
 } from './desk-tools';
 import { SHARED_WORKFLOW_GUIDANCE } from './instructions';
+import { READ_ACTION_TOOL_NAMES } from './read-action-tools';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-11-20.desk-workflows.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-11-23.read-actions.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -311,6 +312,104 @@ const FLOW_ACTION_EXCLUDED_TERMS = [
   '自動化',
 ];
 
+// A search or total in the person's own HubSpot or Salesforce is a read Action: a provider, a CRM
+// object and a search or total word. Changes, automations, syncs, billing and pipeline-snapshot
+// questions keep their own tools, and Sanka's own records keep query_records and aggregate_records.
+const READ_ACTION_PROVIDER_TERMS = ['hubspot', 'salesforce', 'ハブスポット', 'セールスフォース'];
+const READ_ACTION_OBJECT_TERMS = [
+  'deal',
+  'opportunit',
+  'pipeline',
+  'contact',
+  'compan',
+  'account',
+  'lead',
+  '商談',
+  '取引',
+  'コンタクト',
+  '会社',
+  'リード',
+  'パイプライン',
+];
+const READ_ACTION_READ_TERMS = [
+  'search',
+  'find',
+  'list',
+  'show',
+  'how many',
+  'how much',
+  'count',
+  'total',
+  'sum',
+  'average',
+  'by stage',
+  'by owner',
+  'by month',
+  'per stage',
+  'per owner',
+  'per month',
+  'breakdown',
+  '検索',
+  '一覧',
+  '件数',
+  '何件',
+  '合計',
+  '平均',
+  '集計',
+  'いくら',
+];
+const READ_ACTION_EXCLUDED_TERMS = [
+  'workflow',
+  'automation',
+  'automate',
+  'create',
+  'update',
+  'delete',
+  'remove',
+  'merge',
+  'dedupe',
+  'duplicate',
+  'sync',
+  'import',
+  'export',
+  'migrat',
+  'propert',
+  'schema',
+  'line item',
+  'snapshot',
+  'movement',
+  'shrink',
+  'estimate',
+  'quote',
+  'invoice',
+  'billed',
+  'unpaid',
+  'revenue',
+  'order',
+  'subscription',
+  'set up',
+  'setup',
+  'invite',
+  'licen',
+  'login',
+  'log in',
+  'sign in',
+  'password',
+  'access',
+  'ワークフロー',
+  '自動化',
+  '作成',
+  '更新',
+  '削除',
+  '同期',
+  'インポート',
+  'エクスポート',
+  '移行',
+  '見積',
+  '請求',
+  '受注',
+];
+
 const WORKFLOW_HINT_MIN_LENGTH = 4;
 
 const WORKFLOW_HINT_STOPWORDS = new Set([
@@ -388,6 +487,12 @@ const isFlowActionIntent = (value: string): boolean =>
     (includesAny(value, [...FLOW_ACTION_SEARCH_TERMS, 'fill', '埋め']) &&
       includesAny(value, FLOW_ACTION_DETAIL_TERMS)));
 
+const isReadActionIntent = (value: string): boolean =>
+  includesAny(value, READ_ACTION_PROVIDER_TERMS) &&
+  includesAny(value, READ_ACTION_OBJECT_TERMS) &&
+  includesAny(value, READ_ACTION_READ_TERMS) &&
+  !includesAny(value, READ_ACTION_EXCLUDED_TERMS);
+
 // The request text: `raw` keeps the user's casing, `combined` is every hint lowercased.
 const requestHints = (args: Record<string, unknown> | undefined): { raw: string; combined: string } => {
   const raw = ['intent', 'provider', 'object_type', 'operation']
@@ -406,6 +511,7 @@ const isDeskRequestIntent = (args: Record<string, unknown> | undefined): boolean
     MIGRATION_INTENT.test(combined) ||
     isAppBuilderIntent(combined) ||
     isFlowActionIntent(combined) ||
+    isReadActionIntent(combined) ||
     includesAny(combined, DESK_EXCLUDED_TERMS)
   ) {
     return false;
@@ -434,6 +540,21 @@ const flowActionGuidance = (): Record<string, unknown> => ({
     'Finding or enriching people, contacts or work e-mails for companies on the person\'s list, or filling company phone numbers and addresses, is a Flow Action. A rep\'s "leads" usually means companies on their list. Find the list with list_company_lists, or the companies with query_records, then call preview_flow_action (ai_contact_search for people, find_company_details for phone and address). Tell the person the company count and that each company uses Sanka credit, and call run_flow_action only after they say yes. Read it with get_flow_action_run. Do not use deals or HubSpot tools unless the person named HubSpot, and do not file a Desk ticket: Desk ticket routing is not the path for this. To read contacts already in Sanka, use list_contacts.',
   mutation_policy:
     'ai_contact_search creates no contacts: the person picks people in Action history, so give them action_history_url. It looks up no phone numbers. find_company_details writes empty fields only, without review. Refusals for the ceiling, the daily limit or a workspace without the Action are final for now: tell the person, and never split a selection or repeat calls to get around them.',
+  fallback_when_missing:
+    'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
+});
+
+const readActionGuidance = (): Record<string, unknown> => ({
+  capability_version: CAPABILITY_GUIDANCE_VERSION,
+  intent_family: 'crm_read_actions',
+  supported: true,
+  recommended_tools: [...READ_ACTION_TOOL_NAMES],
+  route:
+    "Searches, counts and totals in the person's own HubSpot or Salesforce (deals, opportunities, contacts, companies, accounts, leads; totals by stage, owner or month) are read Actions. Call list_read_actions, pick the Action for that CRM and kind (search or aggregate), then call run_read_action with inputs matching its input_schema. Results are what the person's own CRM login can see, so a rep, a manager and an executive get different rows: say so when it matters. Give the method (filters, records scanned) with any number, and never present a total as complete when the result marks it incomplete (method.complete false). Sanka's own records keep query_records and aggregate_records.",
+  billing_policy:
+    "Each completed run costs the Action's listed Sanka Credits, an empty result too; listing Actions and reading runs are free, and refusals and failures cost nothing. Tell the person the price the first time in a conversation. A repeated identical call returns the first run without charging again; pass a new client_key only to read fresh numbers.",
+  mutation_policy:
+    "These tools change nothing in the CRM. On READ_ACTION_CONNECT_REQUIRED tell the person to connect their own HubSpot or Salesforce under Personal integrations and give connect_url. On READ_ACTION_CREDITS_REQUIRED say the Sanka Credits ran out and a workspace admin can add them. On READ_ACTION_TOO_BROAD ask the person to narrow the filter; never estimate. On READ_ACTION_DAILY_LIMIT say it lifts the next day. Never loop or split a question to get around a limit. On FEATURE_DISABLED read Actions are off in this workspace: use query_records or aggregate_records with scope=integration and say the data comes from the workspace's connection, not the person's own login.",
   fallback_when_missing:
     'If these tools are not visible in this client session, say the Sanka MCP tool catalog or plugin may be stale and ask the user to reconnect the Sanka plugin or start a fresh session.',
 });
@@ -618,6 +739,9 @@ const buildGuidance = (
   }
   if (isFlowActionIntent(combined)) {
     return flowActionGuidance();
+  }
+  if (isReadActionIntent(combined)) {
+    return readActionGuidance();
   }
   // `desk` is read only for IT requests. Where Desk is on, they go to the IT desk, joiners and
   // leavers included; elsewhere the guidance stays as it was.

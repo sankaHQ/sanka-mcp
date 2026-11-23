@@ -328,6 +328,11 @@ export function actionHistoryAppUrl(resource: string, workspaceCode: string): st
   return `${[readAppBaseUrl(), ...path].join('/')}?action_tab=history`;
 }
 
+/** A link to an app path such as `/10101010/account/integrations`. */
+export function appPathUrl(path: string): string {
+  return `${readAppBaseUrl()}${path}`;
+}
+
 /** The Sanka app origin configured for links (`SANKA_V2_APP_BASE_URL`), if any. */
 export function configuredAppBaseUrl(): string | undefined {
   return readString(readString(process.env['SANKA_V2_APP_BASE_URL'])?.replace(/\/+$/, ''));
