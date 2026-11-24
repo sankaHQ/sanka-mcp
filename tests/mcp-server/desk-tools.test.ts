@@ -490,6 +490,17 @@ const cases: Array<{
     },
   },
   {
+    // Worded like a change to the person's own calendar, which the calendar tools would take.
+    name: 'get_capability_guidance sends a Google Calendar handover to the Desk Actions where Desk is on',
+    tool: getCapabilityGuidanceTool,
+    args: { intent: 'Hand over my meetings to my successor carol@acme.test' },
+    responses: [envelope({ items: [], state: 'open', limit: 1, total: 0 })],
+    requests: [probe],
+    structuredContent: {
+      guidance: { intent_family: 'sanka_desk_actions', recommended_tools: DESK_ACTION_TOOL_NAMES },
+    },
+  },
+  {
     name: 'desk_list_workflows lists each workflow with its Action and the mode for the caller',
     tool: deskListWorkflowsTool,
     args: {},

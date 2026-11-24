@@ -10,7 +10,7 @@ import { ACCOUNT_CALENDAR_TOOL_NAMES } from './account-calendar-tools';
 import { READ_ACTION_TOOL_NAMES } from './read-action-tools';
 import { McpTool, ToolCallResult } from './types';
 
-const CAPABILITY_GUIDANCE_VERSION = '2026-11-23.read-actions.v1';
+const CAPABILITY_GUIDANCE_VERSION = '2026-11-24.desk-google-actions.v1';
 
 // "presentation scheduled" is a HubSpot deal stage, not a deck.
 const PRESENTATION_INTENT = /\b(?:presentations?(?! ?scheduled)|slides?|decks?|power ?points?|pptx)\b/;
@@ -89,6 +89,71 @@ const DESK_EXCLUDED_TERMS = [
   '資産',
 ];
 const TICKET_TERMS = ['ticket', 'チケット'];
+
+// Gmail settings and Google Calendar changes Desk makes as the company's Google admin (Actions an
+// admin opts in to): an auto-reply, a signature, mailbox delegation or forwarding; sharing someone's
+// calendar, a meeting room, handing meetings to a successor, an interview at the first time every
+// interviewer is free. Creating or moving the person's own events keeps the calendar tools, and
+// reading their calendar or mail stays a read Action.
+const DESK_GOOGLE_ACTION_TERMS = [
+  'auto-reply',
+  'auto reply',
+  'autoreply',
+  'out of office',
+  'out-of-office',
+  'vacation responder',
+  'email signature',
+  'e-mail signature',
+  'mail signature',
+  'gmail signature',
+  'mailbox delegation',
+  'mail delegation',
+  'delegate my mailbox',
+  'delegate access to my mailbox',
+  'email forwarding',
+  'mail forwarding',
+  'stop forwarding',
+  'share my calendar',
+  'share his calendar',
+  'share her calendar',
+  'share their calendar',
+  'share the calendar',
+  'sharing my calendar',
+  'calendar sharing',
+  'access to my calendar',
+  'access to the calendar',
+  'access to their calendar',
+  'meeting room',
+  'conference room',
+  'calendar resource',
+  'hand over my meetings',
+  'hand over meetings',
+  'hand over their meetings',
+  'handover of meetings',
+  'meeting handover',
+  'transfer my meetings',
+  'transfer meetings',
+  'meetings to my successor',
+  'meetings to their successor',
+  'interviewers',
+  '自動返信',
+  '不在通知',
+  'メール署名',
+  'メールの署名',
+  'メール転送',
+  '転送を止',
+  'メールボックスの委任',
+  'メールの委任',
+  'カレンダーを共有',
+  'カレンダーの共有',
+  'カレンダー共有',
+  '会議室',
+  '予定を引き継',
+  '会議を引き継',
+  '面接官',
+  '面接の日程を調整',
+  '面接の日程調整',
+];
 
 // A change to a person's account or access in a company system: a Desk Action, such as
 // hubspot_account_setup. A system, a change and an account word; CRM records stay with their tools.
@@ -614,10 +679,16 @@ const isDirectoryAccountIntent = (value: string): boolean =>
   (includesAny(value, EMPLOYEE_LIFECYCLE_TERMS) && includesAny(value, EMPLOYEE_ACCOUNT_TERMS));
 
 const isDeskActionIntent = (value: string): boolean =>
-  includesAny(value, DESK_ACTION_SYSTEM_TERMS) &&
-  includesAny(value, DESK_ACTION_CHANGE_TERMS) &&
-  includesAny(value, DESK_ACTION_ACCOUNT_TERMS) &&
-  !includesAny(value, DESK_ACTION_EXCLUDED_TERMS);
+  (includesAny(value, DESK_ACTION_SYSTEM_TERMS) &&
+    includesAny(value, DESK_ACTION_CHANGE_TERMS) &&
+    includesAny(value, DESK_ACTION_ACCOUNT_TERMS) &&
+    !includesAny(value, DESK_ACTION_EXCLUDED_TERMS)) ||
+  isDeskGoogleActionIntent(value);
+
+const isDeskGoogleActionIntent = (value: string): boolean =>
+  includesAny(value, DESK_GOOGLE_ACTION_TERMS) ||
+  (includesAny(value, ['share ', 'sharing', 'unshare']) && value.includes('calendar')) ||
+  (value.includes('カレンダー') && value.includes('共有'));
 
 const isPresentationIntent = (value: string): boolean =>
   PRESENTATION_INTENT.test(value) || includesAny(value, PRESENTATION_INTENT_JA);
@@ -827,8 +898,7 @@ const deskActionGuidance = (): Record<string, unknown> => ({
   supported: true,
   sanka_desk: 'enabled',
   recommended_tools: [...DESK_ACTION_TOOL_NAMES],
-  route:
-    'This workspace runs IT changes through Sanka Desk Actions, the same Actions Sanka Bot and Desk Workflows run (such as hubspot_account_setup). Find the Action with desk_list_actions, then call desk_preview_action with its inputs. Show the person the preview (changes, risk, approvers, Sanka Credits) and ask "Create this ticket?"; call desk_run_action with the plan_hash and confirmed: true only after their yes. Follow it with desk_get_ticket_status. When no Action fits, or the person may not use it, file an ordinary IT request with desk_create_ticket instead.',
+  route: `This workspace runs IT changes through Sanka Desk Actions, the same Actions Sanka Bot and Desk Workflows run (such as hubspot_account_setup, and where the company's admin turned them on, Gmail settings and Google Calendar changes: calendar_sharing, calendar_resource, meeting_handover, interview_schedule). Find the Action with desk_list_actions, then call desk_preview_action with its inputs. Show the person the preview (changes, risk, approvers, Sanka Credits) and ask "Create this ticket?"; call desk_run_action with the plan_hash and confirmed: true only after their yes. Follow it with desk_get_ticket_status. When no Action fits, or the person may not use it, file an ordinary IT request with desk_create_ticket instead.`,
   mutation_policy:
     "Never file without the person's yes to the preview. No tool decides an approval: when the Action needs one, give the approval page (approval_url) so an approver decides in Sanka. Actions are billed in Sanka Credits like Sanka Bot: when the preview says credits_short, or a run is cancelled with DESK_CREDITS_REQUIRED, tell the person the credits ran out and that a workspace admin can add them (credits_url). On not_allowed, DESK_ACTION_NOT_ALLOWED or DESK_ACTION_SURFACE_OFF, say why, do not retry, and offer desk_create_ticket. On DESK_PLAN_CHANGED, preview again and ask again.",
   fallback_when_missing:
@@ -992,6 +1062,11 @@ const buildGuidance = (
   }
   if (isGoogleReadActionIntent(combined)) {
     return googleReadActionGuidance();
+  }
+  // Where Desk is on, sharing a calendar, a meeting room, a meeting handover, an interview or a
+  // Gmail setting is a Desk Action, even worded like a change to the person's own calendar.
+  if (desk === 'enabled' && isDeskGoogleActionIntent(combined)) {
+    return deskActionGuidance();
   }
   if (isAccountCalendarSchedulingIntent(combined)) {
     return accountCalendarSchedulingGuidance();
