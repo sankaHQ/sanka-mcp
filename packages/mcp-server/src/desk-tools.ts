@@ -972,7 +972,7 @@ export const deskListMyApprovalsTool = defineDeskTool({
   name: 'desk_list_my_approvals',
   title: 'List the Sanka Desk approvals waiting for me',
   description:
-    "List the Sanka Desk approvals waiting for the connected person's decision, newest first: the request, the Action, its risk, when the approval expires and its approval page (approval_url). This tool cannot approve or reject anything, and no tool can: the person decides on the approval page in Sanka or with the Slack buttons, so give them the link.",
+    "List the Sanka Desk approvals waiting for the connected person's decision, the one expiring soonest first (then higher risk, then older): the request, the Action, its risk, when the approval expires and its approval page (approval_url). This tool cannot approve or reject anything, and no tool can: the person decides on the approval page in Sanka or with the Slack buttons, so give them the link.",
   operation: 'read',
   resource: 'desk_actions',
   failureLead: 'Could not read Desk approvals',
