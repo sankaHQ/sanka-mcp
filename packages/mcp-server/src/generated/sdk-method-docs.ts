@@ -943,6 +943,231 @@ export const sdkMethodDocs: SdkMethodDoc[] = [
       '{ ok: boolean; status: string; contact_id?: string | null; ctx_id?: string | null; external_id?: string | null; target?: string | null; provider?: string | null; channel_id?: string | null; channel_name?: string | null; external_object_type?: string | null; operation?: string | null; dry_run?: boolean | null; remote?: Record<string, unknown> | null; sync_state?: Record<string, unknown> | null; warnings?: Array<string> | null; message?: string | null; }',
   },
   {
+    qualified: 'client.public.contracts.archive',
+    name: 'archive',
+    httpMethod: 'delete',
+    endpoint: '/api/v2/public/contracts/{contractID}',
+    summary: 'Archive a contract.',
+    description: 'Archive a contract.',
+    signature:
+      'client.public.contracts.archive(contractID: string, params?: ContractWorkspaceParams | null | undefined, options?: RequestOptions): APIPromise<ContractArchiveData>',
+    params: ['contractID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ contract_id: string; usage_status: string; updated_count: number; meta?: Record<string, unknown>; }',
+  },
+  {
+    qualified: 'client.public.contracts.createFromTemplate',
+    name: 'create_from_template',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/create-from-template',
+    summary: 'Create a draft contract from a workspace contract template.',
+    description: 'Create a draft contract from a workspace contract template.',
+    signature:
+      'client.public.contracts.createFromTemplate(params: ContractCreateFromTemplateParams, options?: RequestOptions): APIPromise<ContractCreateData>',
+    params: [
+      'language?: string | null;',
+      'template_id?: string | null;',
+      'template_name?: string | null;',
+      'title?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ contract_id: string; record_id?: number | null; name: string; description?: string | null; status: string; free_text_status: string; usage_status: string; file_name?: string | null; page_count?: number | null; meta?: Record<string, unknown>; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.list',
+    name: 'list',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/contracts',
+    summary: 'List contracts in the workspace.',
+    description: 'List contracts in the workspace.',
+    signature:
+      'client.public.contracts.list(params?: ContractListParams | null | undefined, options?: RequestOptions): APIPromise<ContractListData>',
+    params: [
+      'q?: string | null;',
+      'status?: string | null;',
+      'usage_status?: ContractUsageStatus | null;',
+      'signer_email?: string | null;',
+      'owner_id?: string | null;',
+      'sort_field_id?: string | null;',
+      'sort_direction?: ContractSortDirection | null;',
+      'page?: number;',
+      'limit?: number;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ items: Array<ContractRecordData>; page: number; page_size: number; total: number; meta?: Record<string, unknown>; }',
+  },
+  {
+    qualified: 'client.public.contracts.listTemplates',
+    name: 'list_templates',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/contracts/templates',
+    summary: 'List contract templates uploaded to the workspace.',
+    description: 'List contract templates uploaded to the workspace.',
+    signature:
+      'client.public.contracts.listTemplates(params?: ContractWorkspaceParams | null | undefined, options?: RequestOptions): APIPromise<ContractTemplateListData>',
+    params: ['workspace_id?: string | null;'],
+    response:
+      '{ templates: Array<ContractTemplateSummaryData>; meta?: Record<string, unknown>; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.placeFields',
+    name: 'place_fields',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/{contractID}/place-fields',
+    summary: 'Save explicit signature field placements or auto-place fields on the last page.',
+    description: 'Save explicit signature field placements or auto-place fields on the last page.',
+    signature:
+      'client.public.contracts.placeFields(contractID: string, params: ContractPlaceFieldsParams, options?: RequestOptions): APIPromise<ContractSavePlaceFieldsData>',
+    params: [
+      'contractID: string;',
+      'fields?: Array<ContractPlaceFieldInput>;',
+      'auto_place_last_page?: boolean;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ done_placing_fields: boolean; error_message?: string | null; trigger?: string | null; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.replaceRecipients',
+    name: 'replace_recipients',
+    httpMethod: 'put',
+    endpoint: '/api/v2/public/contracts/{contractID}/recipients',
+    summary: 'Replace the complete signer and CC recipient lists for a draft contract.',
+    description: 'Replace the complete signer and CC recipient lists for a draft contract.',
+    signature:
+      'client.public.contracts.replaceRecipients(contractID: string, params: ContractReplaceRecipientsParams, options?: RequestOptions): APIPromise<ContractReplaceRecipientsData>',
+    params: [
+      'contractID: string;',
+      'signers: Array<ContractSignerInput>;',
+      'cc_recipients?: Array<ContractCopyRecipientInput>;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ ok: boolean; signers: Array<ContractSignerData>; cc_recipients: Array<ContractCopyRecipientData>; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.retrieve',
+    name: 'retrieve',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/contracts/{contractID}',
+    summary: 'Get a contract and its signers.',
+    description: 'Get a contract and its signers.',
+    signature:
+      'client.public.contracts.retrieve(contractID: string, params?: ContractWorkspaceParams | null | undefined, options?: RequestOptions): APIPromise<ContractRecordData>',
+    params: ['contractID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ id?: string | null; record_id?: number | null; contract_id: string; formatted_contract_id?: number | null; name?: string | null; description?: string | null; status?: string | null; free_text_status?: string | null; usage_status?: string | null; email_body?: string | null; email_sent_at?: string | null; scheduled_send_at?: string | null; scheduled_send_status?: string | null; scheduled_task_id?: string | null; original_file_name?: string | null; page_count?: number | null; signed_file_name?: string | null; signer_label?: string | null; owner_id?: string | null; owner_label?: string | null; created_by_id?: string | null; created_by_label?: string | null; last_updated_by_id?: string | null; last_updated_by_label?: string | null; signer_count: number; signers: Array<ContractSignerData>; created_at?: string | null; updated_at?: string | null; meta?: Record<string, unknown>; }',
+  },
+  {
+    qualified: 'client.public.contracts.saveSigners',
+    name: 'save_signers',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/{contractID}/signers',
+    summary: 'Add signers to a contract draft.',
+    description: 'Add signers to a contract draft.',
+    signature:
+      'client.public.contracts.saveSigners(contractID: string, params: ContractSaveSignersParams, options?: RequestOptions): APIPromise<ContractSaveSignersData>',
+    params: [
+      'contractID: string;',
+      'signers?: Array<ContractSignerInput>;',
+      'signature_id?: string | null;',
+      'add_me_as_signer?: boolean;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ ok: boolean; created_signers: number; signers: Array<ContractSignerData>; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.scheduleSend',
+    name: 'schedule_send',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/{contractID}/schedule-send',
+    summary: 'Schedule a contract signature request for future delivery.',
+    description: 'Schedule a contract signature request for future delivery.',
+    signature:
+      'client.public.contracts.scheduleSend(contractID: string, params: ContractScheduleSendParams, options?: RequestOptions): APIPromise<ContractScheduleSendData>',
+    params: [
+      'contractID: string;',
+      'content?: string | null;',
+      'scheduled_at: string;',
+      'language?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ ok: boolean; contract_id: string; status: string; scheduled_send_at: string; scheduled_send_status: string; scheduled_task_id?: string | null; signer_count: number; cc_recipient_count: number; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.sendRequest',
+    name: 'send_request',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/{contractID}/send-request',
+    summary: 'Send or resend a contract signature request to configured signers.',
+    description: 'Send or resend a contract signature request to configured signers.',
+    signature:
+      'client.public.contracts.sendRequest(contractID: string, params: ContractSendRequestParams, options?: RequestOptions): APIPromise<ContractSendRequestData>',
+    params: [
+      'contractID: string;',
+      'content?: string | null;',
+      'language?: string | null;',
+      'resend?: boolean;',
+      'no_send_request?: boolean;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ ok: boolean; contract_id: string; status: string; email_sent_at?: string | null; signer_count: number; sent_count: number; cc_recipient_count: number; cc_sent_count: number; message?: string; }',
+  },
+  {
+    qualified: 'client.public.contracts.updateMetadata',
+    name: 'update_metadata',
+    httpMethod: 'patch',
+    endpoint: '/api/v2/public/contracts/{contractID}/metadata',
+    summary: "Update a contract's metadata such as name or description.",
+    description: "Update a contract's metadata such as name or description.",
+    signature:
+      'client.public.contracts.updateMetadata(contractID: string, params: ContractUpdateMetadataParams, options?: RequestOptions): APIPromise<ContractRecordData>',
+    params: [
+      'contractID: string;',
+      'name?: string | null;',
+      'description?: string | null;',
+      'status?: string | null;',
+      'free_text_status?: string | null;',
+      'usage_status?: ContractUsageStatus | null;',
+      'owner_id?: string | null;',
+      'workspace_id?: string | null;',
+    ],
+    response:
+      '{ id?: string | null; record_id?: number | null; contract_id: string; formatted_contract_id?: number | null; name?: string | null; description?: string | null; status?: string | null; free_text_status?: string | null; usage_status?: string | null; email_body?: string | null; email_sent_at?: string | null; scheduled_send_at?: string | null; scheduled_send_status?: string | null; scheduled_task_id?: string | null; original_file_name?: string | null; page_count?: number | null; signed_file_name?: string | null; signer_label?: string | null; owner_id?: string | null; owner_label?: string | null; created_by_id?: string | null; created_by_label?: string | null; last_updated_by_id?: string | null; last_updated_by_label?: string | null; signer_count: number; signers: Array<ContractSignerData>; created_at?: string | null; updated_at?: string | null; meta?: Record<string, unknown>; }',
+  },
+  {
+    qualified: 'client.public.contracts.void',
+    name: 'void',
+    httpMethod: 'post',
+    endpoint: '/api/v2/public/contracts/{contractID}/void',
+    summary: 'Void a sent or scheduled contract signature request.',
+    description: 'Void a sent or scheduled contract signature request.',
+    signature:
+      'client.public.contracts.void(contractID: string, params?: ContractWorkspaceParams | null | undefined, options?: RequestOptions): APIPromise<ContractVoidData>',
+    params: ['contractID: string;', 'workspace_id?: string | null;'],
+    response:
+      "{ contract_id: string; status: 'voided'; usage_status: 'archived'; updated_count: number; message?: string; meta?: Record<string, unknown>; }",
+  },
+  {
+    qualified: 'client.public.contracts.workflowState',
+    name: 'workflow_state',
+    httpMethod: 'get',
+    endpoint: '/api/v2/public/contracts/{contractID}/workflow-state',
+    summary: "Get a contract's full workflow state: signers, CC recipients, signature fields, and timeline.",
+    description:
+      "Get a contract's full workflow state: signers, CC recipients, signature fields, and timeline.",
+    signature:
+      'client.public.contracts.workflowState(contractID: string, params?: ContractWorkspaceParams | null | undefined, options?: RequestOptions): APIPromise<ContractWorkflowStateData>',
+    params: ['contractID: string;', 'workspace_id?: string | null;'],
+    response:
+      '{ contract: ContractRecordData; signers: Array<ContractSignerData>; cc_recipients: Array<ContractCopyRecipientData>; signature_fields: Array<ContractSignatureFieldData>; timeline: Array<ContractTimelineEventData>; editable: boolean; meta?: Record<string, unknown>; }',
+  },
+  {
     qualified: 'client.public.deals.create',
     name: 'create',
     httpMethod: 'post',

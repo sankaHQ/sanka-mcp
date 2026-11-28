@@ -117,6 +117,42 @@ import {
   PublicContactRequest,
   PublicContactResponse,
 } from './contacts';
+import * as ContractsAPI from './contracts';
+import {
+  ContractArchiveData,
+  ContractCopyRecipientData,
+  ContractCopyRecipientInput,
+  ContractCreateData,
+  ContractCreateFromTemplateParams,
+  ContractFieldType,
+  ContractListData,
+  ContractListParams,
+  ContractPlaceFieldInput,
+  ContractPlaceFieldsParams,
+  ContractRecordData,
+  ContractReplaceRecipientsData,
+  ContractReplaceRecipientsParams,
+  ContractSavePlaceFieldsData,
+  ContractSaveSignersData,
+  ContractSaveSignersParams,
+  ContractScheduleSendData,
+  ContractScheduleSendParams,
+  ContractSendRequestData,
+  ContractSendRequestParams,
+  ContractSignatureFieldData,
+  ContractSignerData,
+  ContractSignerInput,
+  ContractSortDirection,
+  ContractTemplateListData,
+  ContractTemplateSummaryData,
+  ContractTimelineEventData,
+  ContractUpdateMetadataParams,
+  ContractUsageStatus,
+  ContractVoidData,
+  ContractWorkflowStateData,
+  ContractWorkspaceParams,
+  Contracts,
+} from './contracts';
 import * as DealsAPI from './deals';
 import {
   Case,
@@ -643,6 +679,7 @@ export class Public extends APIResource {
   disbursements: DisbursementsAPI.Disbursements = new DisbursementsAPI.Disbursements(this._client);
   reports: ReportsAPI.Reports = new ReportsAPI.Reports(this._client);
   goals: GoalsAPI.Goals = new GoalsAPI.Goals(this._client);
+  contracts: ContractsAPI.Contracts = new ContractsAPI.Contracts(this._client);
   presentations: PresentationsAPI.Presentations = new PresentationsAPI.Presentations(this._client);
   programPresentations: PresentationsAPI.ProgramPresentations = new PresentationsAPI.ProgramPresentations(
     this._client,
@@ -686,6 +723,7 @@ Public.Bills = Bills;
 Public.Disbursements = Disbursements;
 Public.Reports = Reports;
 Public.Goals = Goals;
+Public.Contracts = Contracts;
 Public.Presentations = Presentations;
 Public.ProgramPresentations = ProgramPresentations;
 Public.Workflows = Workflows;
@@ -1242,6 +1280,42 @@ export declare namespace Public {
     type GoalTargetCell as GoalTargetCell,
     type GoalSetTargetsParams as GoalSetTargetsParams,
     type GoalRetrieveProgressParams as GoalRetrieveProgressParams,
+  };
+
+  export {
+    Contracts as Contracts,
+    type ContractUsageStatus as ContractUsageStatus,
+    type ContractSortDirection as ContractSortDirection,
+    type ContractFieldType as ContractFieldType,
+    type ContractSignerData as ContractSignerData,
+    type ContractCopyRecipientData as ContractCopyRecipientData,
+    type ContractRecordData as ContractRecordData,
+    type ContractListData as ContractListData,
+    type ContractTemplateSummaryData as ContractTemplateSummaryData,
+    type ContractTemplateListData as ContractTemplateListData,
+    type ContractSignatureFieldData as ContractSignatureFieldData,
+    type ContractTimelineEventData as ContractTimelineEventData,
+    type ContractWorkflowStateData as ContractWorkflowStateData,
+    type ContractCreateData as ContractCreateData,
+    type ContractSaveSignersData as ContractSaveSignersData,
+    type ContractReplaceRecipientsData as ContractReplaceRecipientsData,
+    type ContractSavePlaceFieldsData as ContractSavePlaceFieldsData,
+    type ContractSendRequestData as ContractSendRequestData,
+    type ContractScheduleSendData as ContractScheduleSendData,
+    type ContractVoidData as ContractVoidData,
+    type ContractArchiveData as ContractArchiveData,
+    type ContractWorkspaceParams as ContractWorkspaceParams,
+    type ContractListParams as ContractListParams,
+    type ContractCreateFromTemplateParams as ContractCreateFromTemplateParams,
+    type ContractUpdateMetadataParams as ContractUpdateMetadataParams,
+    type ContractSignerInput as ContractSignerInput,
+    type ContractCopyRecipientInput as ContractCopyRecipientInput,
+    type ContractSaveSignersParams as ContractSaveSignersParams,
+    type ContractReplaceRecipientsParams as ContractReplaceRecipientsParams,
+    type ContractPlaceFieldInput as ContractPlaceFieldInput,
+    type ContractPlaceFieldsParams as ContractPlaceFieldsParams,
+    type ContractSendRequestParams as ContractSendRequestParams,
+    type ContractScheduleSendParams as ContractScheduleSendParams,
   };
 
   export {

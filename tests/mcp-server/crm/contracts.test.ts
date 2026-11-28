@@ -2,7 +2,9 @@ import { File } from 'node:buffer';
 import {
   crmCreateContractFromTemplateTool,
   crmDownloadContractTemplateTool,
+  crmGetContractTool,
   crmGetContractWorkflowStateTool,
+  crmListContractsTool,
   crmListContractTemplatesTool,
   crmReplaceContractPDFTool,
   crmSaveContractPlaceFieldsTool,
@@ -13,12 +15,103 @@ import {
   crmUpdateContractMetadataTool,
   crmUploadContractPDFTool,
   crmUploadContractTemplateTool,
+  crmVoidContractTool,
 } from '../../../packages/mcp-server/src/crm-tools';
 import { resetBinaryDownloadStoreForTests } from '../../../packages/mcp-server/src/binary-download-store';
 import { resetBinaryUploadStoreForTests } from '../../../packages/mcp-server/src/binary-upload-store';
-import { describeV2Requests, firstTextContent, oauthContext, type V2RequestCase } from './helpers';
+import {
+  describeV2Requests,
+  firstTextContent,
+  oauthContext,
+  sendThroughSDK,
+  type V2RequestCase,
+} from './helpers';
+
+const PUBLIC_CONTRACTS = 'http://localhost:5000/api/v2/public/contracts';
 
 const v2Requests: V2RequestCase[] = [
+  {
+    name: 'lists contract templates through the public contracts API',
+    tool: crmListContractTemplatesTool,
+    args: { workspace_id: 'workspace-1' },
+    responses: [
+      {
+        templates: [
+          {
+            id: 'template-1',
+            name: 'Sanka Mutual NDA (English)',
+            file_name: 'contract-documents/nda.pdf',
+            source_file_name: 'nda.docx',
+          },
+        ],
+        message: 'OK',
+      },
+    ],
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: `${PUBLIC_CONTRACTS}/templates?workspace_id=workspace-1`,
+      },
+    ],
+    expectedResult: {
+      count: 1,
+      results: [
+        {
+          id: 'template-1',
+          name: 'Sanka Mutual NDA (English)',
+          source_file_name: 'nda.docx',
+        },
+      ],
+    },
+  },
+  {
+    name: 'lists contracts with search, status, signer_email, and pagination',
+    tool: crmListContractsTool,
+    args: {
+      search: 'NDA',
+      status: 'signing',
+      signer_email: 'signer@example.com',
+      page: 2,
+      limit: 25,
+      workspace_id: 'workspace-1',
+    },
+    responses: [
+      {
+        items: [{ contract_id: 'contract-1', name: 'Mutual NDA', status: 'signing', signer_count: 1 }],
+        page: 2,
+        page_size: 25,
+        total: 26,
+      },
+    ],
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: `${PUBLIC_CONTRACTS}?workspace_id=workspace-1&q=NDA&status=signing&signer_email=signer%40example.com&page=2&limit=25`,
+      },
+    ],
+    expectedResult: { count: 1, page: 2, total: 26 },
+  },
+  {
+    name: 'retrieves a single contract summary and its signers',
+    tool: crmGetContractTool,
+    args: { contract_id: 'contract-1', workspace_id: 'workspace-1' },
+    responses: [
+      {
+        contract_id: 'contract-1',
+        name: 'Mutual NDA',
+        status: 'draft',
+        signer_count: 0,
+        signers: [],
+      },
+    ],
+    expectedRequests: [
+      {
+        method: 'GET',
+        url: `${PUBLIC_CONTRACTS}/contract-1?workspace_id=workspace-1`,
+      },
+    ],
+    expectedResult: { contract_id: 'contract-1', status: 'draft' },
+  },
   {
     name: 'creates a contract from a template',
     tool: crmCreateContractFromTemplateTool,
@@ -26,10 +119,50 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/contracts/create-from-template?workspace_id=workspace-1&language=ja',
+        url: `${PUBLIC_CONTRACTS}/create-from-template?workspace_id=workspace-1&language=ja`,
         body: { template_id: 'template-1', title: 'NDA' },
       },
     ],
+  },
+  {
+    name: 'creates a draft from template_name, saves signers, and auto-places last-page fields without sending',
+    tool: crmCreateContractFromTemplateTool,
+    args: {
+      template_name: 'Sanka Mutual NDA (English)',
+      title: 'Acme Mutual NDA',
+      signers: [{ name: 'Signer One', email: 'signer@example.com' }],
+      workspace_id: 'workspace-1',
+    },
+    responses: [
+      { contract_id: 'contract-9', name: 'Acme Mutual NDA', status: 'draft' },
+      {
+        ok: true,
+        created_signers: 1,
+        signers: [{ signer_id: 'signer-1', name: 'Signer One', email: 'signer@example.com' }],
+      },
+      { done_placing_fields: true, trigger: 'loadSendRequestForm' },
+    ],
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: `${PUBLIC_CONTRACTS}/create-from-template?workspace_id=workspace-1`,
+        body: { template_name: 'Sanka Mutual NDA (English)', title: 'Acme Mutual NDA' },
+      },
+      {
+        method: 'POST',
+        url: `${PUBLIC_CONTRACTS}/contract-9/signers?workspace_id=workspace-1`,
+        body: { signers: [{ name: 'Signer One', email: 'signer@example.com' }] },
+      },
+      {
+        method: 'POST',
+        url: `${PUBLIC_CONTRACTS}/contract-9/place-fields?workspace_id=workspace-1`,
+        body: { auto_place_last_page: true },
+      },
+    ],
+    expectedResult: {
+      contract_id: 'contract-9',
+      done_placing_fields: true,
+    },
   },
   {
     name: 'updates contract metadata',
@@ -38,7 +171,7 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'PATCH',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/metadata?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/metadata?workspace_id=workspace-1`,
         body: { name: 'Updated NDA' },
       },
     ],
@@ -54,8 +187,40 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/signers?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/signers?workspace_id=workspace-1`,
         body: { signers: [{ name: 'Signer One', email: 'signer@example.com' }] },
+      },
+    ],
+  },
+  {
+    name: 'replaces draft signers and CC recipients',
+    tool: crmSaveContractRecipientsTool,
+    args: {
+      contract_id: 'contract-1',
+      signers: [
+        {
+          signer_id: 'signer-1',
+          name: 'Yudai Abe',
+          email: 'yudai.abe@capitaltokyo.com',
+        },
+      ],
+      cc_recipients: [{ name: 'Observer', email: 'observer@example.com' }],
+      workspace_id: 'workspace-1',
+    },
+    expectedRequests: [
+      {
+        method: 'PUT',
+        url: `${PUBLIC_CONTRACTS}/contract-1/recipients?workspace_id=workspace-1`,
+        body: {
+          signers: [
+            {
+              signer_id: 'signer-1',
+              name: 'Yudai Abe',
+              email: 'yudai.abe@capitaltokyo.com',
+            },
+          ],
+          cc_recipients: [{ name: 'Observer', email: 'observer@example.com' }],
+        },
       },
     ],
   },
@@ -81,7 +246,7 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/place-fields?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/place-fields?workspace_id=workspace-1`,
         body: {
           fields: [
             {
@@ -100,13 +265,29 @@ const v2Requests: V2RequestCase[] = [
     ],
   },
   {
+    name: 'auto-places signature fields on the last page',
+    tool: crmSaveContractPlaceFieldsTool,
+    args: {
+      contract_id: 'contract-1',
+      auto_place_last_page: true,
+      workspace_id: 'workspace-1',
+    },
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: `${PUBLIC_CONTRACTS}/contract-1/place-fields?workspace_id=workspace-1`,
+        body: { auto_place_last_page: true },
+      },
+    ],
+  },
+  {
     name: 'loads the contract workflow state',
     tool: crmGetContractWorkflowStateTool,
     args: { contract_id: 'contract-1', workspace_id: 'workspace-1' },
     expectedRequests: [
       {
         method: 'GET',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/workflow-state?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/workflow-state?workspace_id=workspace-1`,
       },
     ],
   },
@@ -123,7 +304,7 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/send-request?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/send-request?workspace_id=workspace-1`,
         body: { content: 'Please sign.', language: 'ja' },
       },
     ],
@@ -141,10 +322,27 @@ const v2Requests: V2RequestCase[] = [
     expectedRequests: [
       {
         method: 'POST',
-        url: 'http://localhost:5000/api/v2/contracts/contract-1/schedule-send?workspace_id=workspace-1',
+        url: `${PUBLIC_CONTRACTS}/contract-1/schedule-send?workspace_id=workspace-1`,
         body: { content: 'Please sign.', scheduled_at: '2026-07-01T09:00:00+09:00' },
       },
     ],
+  },
+  {
+    name: 'voids a confirmed sent contract',
+    tool: crmVoidContractTool,
+    args: {
+      contract_id: 'contract-1',
+      confirm: true,
+      workspace_id: 'workspace-1',
+    },
+    responses: [{ contract_id: 'contract-1', status: 'voided', usage_status: 'archived' }],
+    expectedRequests: [
+      {
+        method: 'POST',
+        url: `${PUBLIC_CONTRACTS}/contract-1/void?workspace_id=workspace-1`,
+      },
+    ],
+    expectedResult: { contract_id: 'contract-1', status: 'voided' },
   },
 ];
 
@@ -152,51 +350,6 @@ describe('CRM contract tools', () => {
   beforeEach(() => {
     resetBinaryDownloadStoreForTests();
     resetBinaryUploadStoreForTests();
-  });
-
-  it('lists contract templates through the V2 contract route', async () => {
-    const withResponse = jest.fn().mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          templates: [
-            {
-              id: 'template-1',
-              name: 'NDA',
-              file_name: 'contract-documents/nda.pdf',
-              source_file_name: 'nda.docx',
-            },
-          ],
-          message: 'OK',
-        },
-        meta: {},
-      },
-      response: new Response('{}'),
-    });
-    const v2Get = jest.fn().mockReturnValue({ withResponse });
-
-    const result = await crmListContractTemplatesTool.handler({
-      reqContext: {
-        client: { v2Get } as any,
-        auth: oauthContext(),
-        toolProfile: 'full',
-      },
-      args: { workspace_id: 'workspace-1' },
-    });
-
-    expect(v2Get).toHaveBeenCalledWith('/contracts/templates', {
-      query: { workspace_id: 'workspace-1' },
-    });
-    expect(result.structuredContent).toMatchObject({
-      count: 1,
-      results: [
-        {
-          id: 'template-1',
-          name: 'NDA',
-          source_file_name: 'nda.docx',
-        },
-      ],
-    });
   });
 
   it('downloads contract templates as stored binary results', async () => {
@@ -335,24 +488,15 @@ describe('CRM contract tools', () => {
     expect(firstTextContent(result)).toContain('must be valid base64 data');
   });
 
-  it('replaces draft PDFs and authoritative signer and CC recipient lists', async () => {
-    const v2Put = jest
-      .fn()
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
-          contract_id: 'contract-1',
-          file_name: 'contract-documents/corrected.pdf',
-          signature_fields_reset_count: 2,
-        },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
-          signers: [{ signer_id: 'signer-1', name: 'Yudai Abe' }],
-          cc_recipients: [{ recipient_id: 'recipient-1', email: 'observer@example.com' }],
-        },
-      });
+  it('replaces draft PDFs via multipart upload', async () => {
+    const v2Put = jest.fn().mockResolvedValueOnce({
+      success: true,
+      data: {
+        contract_id: 'contract-1',
+        file_name: 'contract-documents/corrected.pdf',
+        signature_fields_reset_count: 2,
+      },
+    });
     const reqContext = {
       client: { v2Put } as any,
       auth: oauthContext(),
@@ -369,69 +513,40 @@ describe('CRM contract tools', () => {
         workspace_id: 'workspace-1',
       },
     });
-    await crmSaveContractRecipientsTool.handler({
-      reqContext,
-      args: {
-        contract_id: 'contract-1',
-        signers: [
-          {
-            signer_id: 'signer-1',
-            name: 'Yudai Abe',
-            email: 'yudai.abe@capitaltokyo.com',
-            ignored: 'value',
-          },
-        ],
-        cc_recipients: [{ name: 'Observer', email: 'observer@example.com', ignored: 'value' }],
-        workspace_id: 'workspace-1',
-      },
-    });
 
-    expect(v2Put).toHaveBeenNthCalledWith(1, '/contracts/contract-1/pdf', {
+    expect(v2Put).toHaveBeenCalledWith('/contracts/contract-1/pdf', {
       body: expect.any(FormData),
-      query: { workspace_id: 'workspace-1' },
-    });
-    expect(v2Put).toHaveBeenNthCalledWith(2, '/contracts/contract-1/recipients', {
-      body: {
-        signers: [
-          {
-            signer_id: 'signer-1',
-            name: 'Yudai Abe',
-            email: 'yudai.abe@capitaltokyo.com',
-          },
-        ],
-        cc_recipients: [{ name: 'Observer', email: 'observer@example.com' }],
-      },
       query: { workspace_id: 'workspace-1' },
     });
   });
 
-  it('requires explicit confirmation before sending contract requests', async () => {
-    const v2Post = jest.fn();
-    const reqContext = {
-      client: { v2Post } as any,
-      auth: oauthContext(),
-      toolProfile: 'full' as const,
-    };
-
-    const sendResult = await crmSendContractRequestTool.handler({
-      reqContext,
-      args: {
-        contract_id: 'contract-1',
-        content: 'Please sign.',
-      },
+  it('requires explicit confirmation before sending, scheduling, or voiding contracts', async () => {
+    const sendOut = await sendThroughSDK({
+      tool: crmSendContractRequestTool,
+      args: { contract_id: 'contract-1', content: 'Please sign.' },
+      responses: [],
     });
-    const scheduleResult = await crmScheduleContractRequestTool.handler({
-      reqContext,
+    const scheduleOut = await sendThroughSDK({
+      tool: crmScheduleContractRequestTool,
       args: {
         contract_id: 'contract-1',
         content: 'Please sign.',
         scheduled_at: '2026-07-01T09:00:00+09:00',
       },
+      responses: [],
+    });
+    const voidOut = await sendThroughSDK({
+      tool: crmVoidContractTool,
+      args: { contract_id: 'contract-1' },
+      responses: [],
     });
 
-    expect(v2Post).not.toHaveBeenCalled();
-    expect(firstTextContent(sendResult)).toContain('`confirm=true` is required');
-    expect(firstTextContent(scheduleResult)).toContain('`confirm=true` is required');
+    expect(sendOut.requests).toEqual([]);
+    expect(scheduleOut.requests).toEqual([]);
+    expect(voidOut.requests).toEqual([]);
+    expect(firstTextContent(sendOut.result)).toContain('`confirm=true` is required');
+    expect(firstTextContent(scheduleOut.result)).toContain('`confirm=true` is required');
+    expect(firstTextContent(voidOut.result)).toContain('`confirm=true` is required');
   });
 
   describeV2Requests(v2Requests);
